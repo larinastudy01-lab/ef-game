@@ -71,4 +71,4 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/t
 
 ## Supabase Website
 
-larinastudy01-lab's Project: [https://krgvfzjwqijjdwphsyto.supabase.co]
+larinastudy01-lab's Project: [[https://krgvfzjwqijjdwphsyto.supabase.co](https://supabase.com/dashboard/project/krgvfzjwqijjdwphsyto)]
