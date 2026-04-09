@@ -9,7 +9,7 @@ import ResultPage_SRT from "./ResultPage_SRT";
 import { useNavigate } from "react-router-dom";
 
 // ===== 訓練模式固定總時長 =====
-const TOTAL_TIME = 60000; // 60秒
+const TOTAL_TIME = 10000; // 60秒
 
 // ===== 難度設定 =====
 const difficultySettings = {
