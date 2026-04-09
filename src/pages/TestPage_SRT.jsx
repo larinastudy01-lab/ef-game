@@ -10,7 +10,7 @@ import { calculateSRTStar } from "../utils/srtScoring";
 const TOTAL_TIME = 10000; // 10秒(測試)
 const SPAWN_INTERVAL = 1000; // 每1秒出現一次
 const ITEM_VISIBLE_TIME = 1000; // 每個橡實停留1秒
-const ITEM_SIZE = 80;
+const ITEM_SIZE = 90;
 
 const TestPage_SRT = () => {
   const navigate = useNavigate();

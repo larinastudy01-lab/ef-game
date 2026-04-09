@@ -9,7 +9,7 @@ import ResultPage_SRT from "./ResultPage_SRT";
 import { useNavigate } from "react-router-dom";
 
 // ===== 訓練模式固定總時長 =====
-const TOTAL_TIME = 10000; // 60秒
+const TOTAL_TIME = 10000; // 10秒
 
 // ===== 難度設定 =====
 const difficultySettings = {
@@ -23,13 +23,13 @@ const difficultySettings = {
     label: "普通",
     spawnInterval: 1600, // 跟簡單一致
     visibleTime: 1200,
-    itemSize: 85,
+    itemSize: 90,
   },
   hard: {
     label: "困難",
     spawnInterval: 1100, // 更快
     visibleTime: 850,
-    itemSize: 78,
+    itemSize: 90,
   },
 };
 

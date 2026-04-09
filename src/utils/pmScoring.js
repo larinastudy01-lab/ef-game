@@ -1,8 +1,5 @@
 // utils/pmScoring.js
 
-// ============================================
-// 小工具
-// ============================================
 
 function clamp(value, min = 0, max = 100) {
   return Math.max(min, Math.min(max, value));
@@ -101,8 +98,6 @@ export function getPMBasicStats(records = []) {
 // ============================================
 // 1) 星級（幼兒端）
 // ============================================
-// 核心：記憶遊戲以「通關 / 正確」為主，不以速度為主
-// ============================================
 
 export function calculatePMStars(records = []) {
   if (!records || records.length === 0) return 0;
@@ -128,8 +123,6 @@ export function calculatePMStars(records = []) {
 
 // ============================================
 // 2) 雷達圖（家長端）
-// 指標：記憶力 / 反應速度 / 專注力 / 作答穩定度
-// 每個輸出 0~100
 // ============================================
 
 export function calculatePMRadar(records = []) {
