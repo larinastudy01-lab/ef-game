@@ -1,53 +1,69 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-// ====== 小工具 ======
-const generateSequence = (count, blockCount) => {
+import stone from "../asset/stone.png";
+import person from "../asset/CBT_person.png";
+import clickSfx from "../asset/Click_SRT.mp3";
+import bgImage from "../asset/SRT_background.jpg";
+import introVideo from "../asset/SRT_start.mp4";
+
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+const generateSequence = (count, max) => {
   const seq = [];
   for (let i = 0; i < count; i++) {
-    let next = Math.floor(Math.random() * blockCount);
+    let n = Math.floor(Math.random() * max);
     if (i > 0) {
-      while (next === seq[i - 1]) {
-        next = Math.floor(Math.random() * blockCount);
+      while (n === seq[i - 1]) {
+        n = Math.floor(Math.random() * max);
       }
     }
-    seq.push(next);
+    seq.push(n);
   }
   return seq;
 };
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export default function TestPage_CBT() {
   const navigate = useNavigate();
 
-  // ====== 流程 ======
-  const [stage, setStage] = useState("rules");
-  // rules -> countdown -> game -> end
+  // ===== phase =====
+  const [phase, setPhase] = useState("rules");
+  // rules → video → ready → memorize → answer → end
 
   const [countdown, setCountdown] = useState(5);
 
-  // ====== 測驗設定（固定）======
-  const TOTAL_TRIALS = 8;
+  // ===== core =====
   const BLOCK_COUNT = 6;
-
-  const [trialIndex, setTrialIndex] = useState(0);
   const [sequenceLength, setSequenceLength] = useState(2);
-
   const [sequence, setSequence] = useState([]);
-  const [isShowingSequence, setIsShowingSequence] = useState(false);
-  const [currentFlashIndex, setCurrentFlashIndex] = useState(null);
-
   const [userInput, setUserInput] = useState([]);
-  const [trialStartTime, setTrialStartTime] = useState(null);
-  const [waitingForInput, setWaitingForInput] = useState(false);
 
-  // ====== trial-based 紀錄 ======
-  const [trialLogs, setTrialLogs] = useState([]);
-  const [mistakeCount, setMistakeCount] = useState(0);
+  const [flashIndex, setFlashIndex] = useState(null);
+  const [waitingInput, setWaitingInput] = useState(false);
 
-  // ====== 區塊位置 ======
-  const blockPositions = useMemo(
+  // ===== timer =====
+  const [answerTime, setAnswerTime] = useState(10);
+
+  // ===== walking =====
+  const [walkIndex, setWalkIndex] = useState(-1);
+  const [showWalk, setShowWalk] = useState(false);
+
+  // ===== log =====
+  const [logs, setLogs] = useState([]);
+  const startTimeRef = useRef(0);
+
+  // ===== audio =====
+  const audioRef = useRef(null);
+  useEffect(() => {
+    audioRef.current = new Audio(clickSfx);
+  }, []);
+  const playClick = () => {
+    audioRef.current.currentTime = 0;
+    audioRef.current.play().catch(() => {});
+  };
+
+  // ===== positions =====
+  const positions = useMemo(
     () => [
       { top: "15%", left: "18%" },
       { top: "18%", left: "62%" },
@@ -59,381 +75,264 @@ export default function TestPage_CBT() {
     []
   );
 
-  // ====== 倒數 ======
+  // ===== ready countdown =====
   useEffect(() => {
-    if (stage !== "countdown") return;
+    if (phase !== "ready") return;
 
     if (countdown <= 0) {
-      setStage("game");
+      startMemorize();
       return;
     }
 
-    const timer = setTimeout(() => {
-      setCountdown((prev) => prev - 1);
-    }, 1000);
+    const t = setTimeout(() => setCountdown((p) => p - 1), 1000);
+    return () => clearTimeout(t);
+  }, [phase, countdown]);
 
-    return () => clearTimeout(timer);
-  }, [stage, countdown]);
+  // ===== memorize =====
+  const startMemorize = async () => {
+    const seq = generateSequence(sequenceLength, BLOCK_COUNT);
 
-  // ====== 開始每一 trial ======
-  useEffect(() => {
-    if (stage === "game") {
-      startTrial();
-    }
-    // eslint-disable-next-line
-  }, [stage, trialIndex]);
-
-  const startTrial = async () => {
-    const newSeq = generateSequence(sequenceLength, BLOCK_COUNT);
-
-    setSequence(newSeq);
+    setSequence(seq);
     setUserInput([]);
-    setWaitingForInput(false);
-    setIsShowingSequence(true);
-    setCurrentFlashIndex(null);
+    setWaitingInput(false);
+    setPhase("memorize");
 
-    await sleep(700);
+    await sleep(600);
 
-    for (let i = 0; i < newSeq.length; i++) {
-      setCurrentFlashIndex(newSeq[i]);
-      await sleep(700); // 亮起時間
-      setCurrentFlashIndex(null);
-      await sleep(350); // 間隔
+    for (let i = 0; i < seq.length; i++) {
+      setFlashIndex(seq[i]);
+      await sleep(700);
+      setFlashIndex(null);
+      await sleep(300);
     }
 
-    setIsShowingSequence(false);
-    setWaitingForInput(true);
-    setTrialStartTime(Date.now());
+    // ⭐ 進入答題
+    setPhase("answer");
+    setWaitingInput(true);
+    setAnswerTime(10);
+    startTimeRef.current = Date.now();
   };
 
-  // ====== 點擊方塊 ======
-  const handleBlockClick = (index) => {
-    if (!waitingForInput || isShowingSequence) return;
+  // ===== answer timer =====
+  useEffect(() => {
+    if (phase !== "answer") return;
 
-    const newInput = [...userInput, index];
+    if (answerTime <= 0) {
+      endGame(false, true);
+      return;
+    }
+
+    const t = setTimeout(() => setAnswerTime((p) => p - 1), 1000);
+    return () => clearTimeout(t);
+  }, [phase, answerTime]);
+
+  // ===== click =====
+  const handleClick = (i) => {
+    if (!waitingInput) return;
+
+    playClick();
+
+    const newInput = [...userInput, i];
     setUserInput(newInput);
 
-    const currentStep = newInput.length - 1;
-    const isCorrectSoFar = sequence[currentStep] === index;
+    const step = newInput.length - 1;
 
-    if (!isCorrectSoFar) {
-      finishTrial(false, newInput);
+    if (sequence[step] !== i) {
+      endGame(false, false);
       return;
     }
 
     if (newInput.length === sequence.length) {
-      finishTrial(true, newInput);
+      finishCorrect(newInput);
     }
   };
 
-  // ====== 結束單一 trial ======
-  const finishTrial = (isCorrect, finalInput) => {
-    setWaitingForInput(false);
-
-    const reactionTime = trialStartTime ? Date.now() - trialStartTime : 0;
-
-    const log = {
-      trial: trialIndex + 1,
-      sequenceLength,
-      shownSequence: sequence,
-      userSequence: finalInput,
-      correct: isCorrect,
-      reactionTime,
-      errorCount: isCorrect ? 0 : 1,
-      timestamp: new Date().toISOString(),
-    };
-
-    const updatedLogs = [...trialLogs, log];
-    setTrialLogs(updatedLogs);
-
-    let nextLength = sequenceLength;
-    let nextMistakes = mistakeCount;
-
-    if (isCorrect) {
-      nextLength = Math.min(sequenceLength + 1, 7);
-    } else {
-      nextMistakes += 1;
-      nextLength = Math.max(2, sequenceLength - 1);
-      setMistakeCount(nextMistakes);
-    }
-
-    setTimeout(() => {
-      if (trialIndex + 1 >= TOTAL_TRIALS) {
-        endTest(updatedLogs);
-      } else {
-        setSequenceLength(nextLength);
-        setTrialIndex((prev) => prev + 1);
-      }
-    }, 900);
+  // ===== correct =====
+  const finishCorrect = (path) => {
+    setWaitingInput(false);
+    playWalk(path);
   };
 
-  // ====== 測驗結束 ======
-  const endTest = (finalLogs) => {
-    setStage("end");
+  // ===== walking（修正版）=====
+  const playWalk = async (path) => {
+    setShowWalk(true);
 
-    const totalCorrect = finalLogs.filter((t) => t.correct).length;
-    const avgReactionTime =
-      finalLogs.length > 0
-        ? Math.round(
-            finalLogs.reduce((sum, t) => sum + t.reactionTime, 0) / finalLogs.length
-          )
-        : 0;
+    for (let i = 0; i < path.length; i++) {
+      setWalkIndex(path[i]);
+      await sleep(500);
+    }
 
-    const maxSpan = Math.max(...finalLogs.map((t) => t.sequenceLength), 2);
+    await sleep(400);
 
-    const resultPayload = {
-      gameType: "CBT",
-      totalTrials: TOTAL_TRIALS,
-      totalCorrect,
-      accuracy: Math.round((totalCorrect / TOTAL_TRIALS) * 100),
-      avgReactionTime,
+    setShowWalk(false);
+    setWalkIndex(-1);
+
+    nextTrial();
+  };
+
+  // ===== next =====
+  const nextTrial = () => {
+    const rt = Date.now() - startTimeRef.current;
+
+    const newLogs = [
+      ...logs,
+      { length: sequenceLength, correct: true, rt },
+    ];
+    setLogs(newLogs);
+
+    setSequenceLength((p) => p + 1);
+
+    setTimeout(startMemorize, 600);
+  };
+
+  // ===== end =====
+  const endGame = (correct, timeout) => {
+    const rt = Date.now() - startTimeRef.current;
+
+    const finalLogs = [
+      ...logs,
+      { length: sequenceLength, correct, rt, timeout },
+    ];
+
+    const maxSpan = Math.max(...finalLogs.map((l) => l.length));
+    const accuracy =
+      finalLogs.filter((l) => l.correct).length / finalLogs.length;
+
+    const result = {
       maxSpan,
-      mistakeCount,
-      trialLogs: finalLogs,
-      completedAt: new Date().toISOString(),
+      accuracy,
+      avgRT:
+        finalLogs.reduce((s, l) => s + l.rt, 0) / finalLogs.length,
+      logs: finalLogs,
     };
 
-    localStorage.setItem("cbt_test_result", JSON.stringify(resultPayload));
+    localStorage.setItem("cbt_result", JSON.stringify(result));
 
-    setTimeout(() => {
-      navigate("/result-cbt");
-    }, 1200);
+    setPhase("end");
+
+    setTimeout(() => navigate("/result-cbt"), 1200);
   };
 
   return (
-    <div style={styles.page}>
-      {/* ===== 規則頁 ===== */}
-      {stage === "rules" && (
-        <div style={styles.centerWrap}>
-          <div style={styles.card}>
-            <h1 style={styles.title}>工作記憶測驗</h1>
-            <h2 style={styles.subTitle}>Corsi Block Tapping</h2>
+    <div style={styles.page(bgImage)}>
+      <div style={styles.overlay}>
+        <div style={styles.container}>
+          <h1 style={styles.title}>CBT 記憶測驗</h1>
 
-            <p style={styles.ruleText}>
-              方塊會<strong>一個一個亮起來</strong>，
-              你要<strong>記住亮燈的順序</strong>。
-            </p>
+          {/* rules */}
+          {phase === "rules" && (
+            <div style={styles.smallCard}>
+              <p style={styles.text}>
+                石頭會依序發光<br />
+                記住順序再點回去
+              </p>
+              <button style={styles.mainButton} onClick={() => setPhase("video")}>
+                開始
+              </button>
+            </div>
+          )}
 
-            <p style={styles.ruleText}>
-              等它們亮完之後，
-              請你<strong>照剛剛的順序點回去</strong>！
-            </p>
+          {/* video */}
+          {phase === "video" && (
+            <div style={styles.mediumCard}>
+              <video
+                src={introVideo}
+                autoPlay
+                onEnded={() => {
+                  setCountdown(5);
+                  setPhase("ready");
+                }}
+                style={styles.video}
+              />
+              <button onClick={() => setPhase("ready")}>跳過</button>
+            </div>
+          )}
 
-            <p style={styles.ruleHint}>看清楚、記住，再慢慢點就可以了 🌟</p>
+          {/* ready */}
+          {phase === "ready" && (
+            <div style={styles.smallCard}>
+              <h1 style={styles.bigCountdown}>{countdown}</h1>
+            </div>
+          )}
 
-            <button
-              style={styles.mainButton}
-              onClick={() => setStage("countdown")}
-            >
-              知道了！
-            </button>
-          </div>
+          {/* game */}
+          {(phase === "memorize" || phase === "answer") && (
+            <div style={styles.card}>
+              <h2 style={styles.subtitle}>
+                {phase === "memorize"
+                  ? "記住順序 👀"
+                  : "換你點石頭！"}
+              </h2>
+
+              {phase === "answer" && (
+                <p style={styles.timer}>剩下 {answerTime} 秒</p>
+              )}
+
+              <div style={styles.board}>
+                {positions.map((p, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleClick(i)}
+                    disabled={phase === "memorize"}
+                    style={{
+                      ...styles.block,
+                      top: p.top,
+                      left: p.left,
+                      ...(flashIndex === i ? styles.active : {}),
+                    }}
+                  >
+                    <img src={stone} style={styles.img} />
+
+                    {showWalk && walkIndex === i && (
+                      <img src={person} style={styles.person} />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {phase === "end" && <h1>完成！</h1>}
         </div>
-      )}
-
-      {/* ===== 倒數 ===== */}
-      {stage === "countdown" && (
-        <div style={styles.centerWrap}>
-          <div style={styles.card}>
-            <h1 style={styles.title}>準備開始！</h1>
-            <div style={styles.countdown}>{countdown}</div>
-          </div>
-        </div>
-      )}
-
-      {/* ===== 遊戲頁 ===== */}
-      {stage === "game" && (
-        <div style={styles.gameWrap}>
-          <div style={styles.topBar}>
-            <div style={styles.badge}>第 {trialIndex + 1} / {TOTAL_TRIALS} 回</div>
-            <div style={styles.badge}>記憶長度：{sequenceLength}</div>
-          </div>
-
-          <div style={styles.board}>
-            {blockPositions.map((pos, index) => {
-              const isActive = currentFlashIndex === index;
-              const isPressed = userInput.includes(index) && waitingForInput;
-
-              return (
-                <button
-                  key={index}
-                  onClick={() => handleBlockClick(index)}
-                  style={{
-                    ...styles.block,
-                    top: pos.top,
-                    left: pos.left,
-                    ...(isActive ? styles.blockActive : {}),
-                    ...(isPressed ? styles.blockPressed : {}),
-                  }}
-                >
-                  {index + 1}
-                </button>
-              );
-            })}
-          </div>
-
-          <div style={styles.bottomHint}>
-            {isShowingSequence
-              ? "請先看清楚亮燈順序 👀"
-              : waitingForInput
-              ? "現在換你點回去！"
-              : "準備下一回合中..."}
-          </div>
-        </div>
-      )}
-
-      {/* ===== 結束中 ===== */}
-      {stage === "end" && (
-        <div style={styles.centerWrap}>
-          <div style={styles.card}>
-            <h1 style={styles.title}>測驗完成！</h1>
-            <p style={styles.ruleText}>正在整理你的結果...</p>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
 
+// ===== style（PM統一風格）=====
 const styles = {
-  page: {
-    width: "100vw",
-    height: "100vh",
-    background: "linear-gradient(180deg, #DFF4E4 0%, #BFE3C7 100%)",
-    overflow: "hidden",
-    fontFamily: "'Arial Rounded MT Bold', 'Microsoft JhengHei', sans-serif",
-  },
-
-  centerWrap: {
-    width: "100%",
-    height: "100%",
+  page: (bg) => ({
+    minHeight: "100vh",
+    backgroundImage: `url(${bg})`,
+    backgroundSize: "cover",
+  }),
+  overlay: {
+    background: "rgba(255,255,255,0.2)",
+    minHeight: "100vh",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    padding: "24px",
   },
-
-  card: {
-    width: "min(90vw, 720px)",
-    background: "rgba(255,255,255,0.95)",
-    borderRadius: "28px",
-    padding: "40px 36px",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
-    textAlign: "center",
-  },
-
-  title: {
-    fontSize: "2.2rem",
-    color: "#4E5E4E",
-    marginBottom: "10px",
-  },
-
-  subTitle: {
-    fontSize: "1.4rem",
-    color: "#6B7C6B",
-    marginBottom: "24px",
-  },
-
-  ruleText: {
-    fontSize: "1.2rem",
-    color: "#4B4B4B",
-    lineHeight: 1.9,
-    marginBottom: "12px",
-  },
-
-  ruleHint: {
-    fontSize: "1.1rem",
-    color: "#6B6B6B",
-    marginTop: "20px",
-    marginBottom: "26px",
-  },
-
-  mainButton: {
-    marginTop: "10px",
-    background: "#7BC47F",
-    color: "#fff",
-    border: "none",
-    borderRadius: "999px",
-    padding: "14px 34px",
-    fontSize: "1.2rem",
-    cursor: "pointer",
-    boxShadow: "0 6px 16px rgba(123,196,127,0.35)",
-  },
-
-  countdown: {
-    fontSize: "5rem",
-    fontWeight: "bold",
-    color: "#4CAF50",
-    marginTop: "16px",
-  },
-
-  gameWrap: {
-    width: "100%",
-    height: "100%",
-    padding: "24px 32px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-  },
-
-  topBar: {
-    width: "100%",
-    display: "flex",
-    justifyContent: "space-between",
-    maxWidth: "1100px",
-    marginBottom: "16px",
-  },
-
-  badge: {
-    background: "rgba(255,255,255,0.95)",
-    padding: "12px 20px",
-    borderRadius: "999px",
-    fontSize: "1.05rem",
-    color: "#4E5E4E",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-  },
-
-  board: {
-    position: "relative",
-    width: "min(90vw, 1100px)",
-    height: "72vh",
-    background: "rgba(255,255,255,0.28)",
-    borderRadius: "28px",
-    backdropFilter: "blur(3px)",
-    border: "2px solid rgba(255,255,255,0.35)",
-  },
-
+  container: { width: "100%", maxWidth: 1100, textAlign: "center" },
+  card: { background: "rgba(255,248,235,0.96)", padding: 30, borderRadius: 30 },
+  smallCard: { background: "rgba(255,248,235,0.96)", padding: 40, borderRadius: 30 },
+  mediumCard: { background: "rgba(255,248,235,0.96)", padding: 30, borderRadius: 30 },
+  title: { fontSize: 42, fontWeight: 800 },
+  subtitle: { fontSize: 32, fontWeight: 800 },
+  text: { fontSize: 24 },
+  timer: { fontSize: 26, fontWeight: 800, color: "#D97706" },
+  bigCountdown: { fontSize: 100 },
+  mainButton: { background: "#F4A261", padding: "16px 36px", borderRadius: 999, color: "#fff", fontSize: 22 },
+  video: { width: 600 },
+  board: { position: "relative", height: "60vh" },
   block: {
     position: "absolute",
-    width: "110px",
-    height: "110px",
-    borderRadius: "24px",
+    width: 130,
+    height: 130,
     border: "none",
-    background: "linear-gradient(180deg, #8D6E63, #6D4C41)",
-    color: "#fff",
-    fontSize: "1.8rem",
-    fontWeight: "bold",
-    cursor: "pointer",
-    boxShadow: "0 8px 18px rgba(0,0,0,0.18)",
-    transition: "all 0.2s ease",
+    background: "transparent",
   },
-
-  blockActive: {
-    transform: "scale(1.12)",
-    background: "linear-gradient(180deg, #FFD54F, #FFB300)",
-    boxShadow: "0 0 25px rgba(255, 213, 79, 0.9)",
-  },
-
-  blockPressed: {
-    background: "linear-gradient(180deg, #A5D6A7, #66BB6A)",
-  },
-
-  bottomHint: {
-    marginTop: "18px",
-    background: "rgba(255,255,255,0.95)",
-    padding: "14px 28px",
-    borderRadius: "999px",
-    fontSize: "1.1rem",
-    color: "#4E5E4E",
-  },
+  img: { width: "100%", height: "100%" },
+  person: { position: "absolute", top: "-30px", width: 60 },
+  active: { transform: "scale(1.15)", boxShadow: "0 0 40px gold" },
 };

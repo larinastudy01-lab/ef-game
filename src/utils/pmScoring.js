@@ -106,14 +106,18 @@ export function calculatePMStars(records = []) {
 
   const { highestPassedLevel, accuracy, timeoutCount, totalLevels } = stats;
 
-  // 基礎分：看最高通關與正確率
   let star = 0;
 
   if (highestPassedLevel >= 1 || accuracy > 0) star = 1;
   if (highestPassedLevel >= 3 && accuracy >= 0.5) star = 2;
   if (highestPassedLevel >= 5 && accuracy >= 0.7) star = 3;
 
-  // 如果超時太多，稍微壓一下（但不要太重）
+  // ⭐ 提前完成加成（只新增這段）
+  const fastCount = records.filter((r) => r.isFast && r.isCorrect).length;
+  const fastRate = records.length > 0 ? fastCount / records.length : 0;
+  if (star === 2 && fastRate >= 0.5) star = 3;
+
+  // timeout 懲罰（原本保留）
   if (totalLevels > 0 && timeoutCount / totalLevels >= 0.5) {
     star = Math.max(1, star - 1);
   }
@@ -149,22 +153,12 @@ export function calculatePMRadar(records = []) {
     totalLevels,
   } = stats;
 
-  // --------------------------------------------
-  // 1. 記憶力（最重要）
-  // 看：通關關卡 + memory span + 正確率
-  // --------------------------------------------
   const memoryScore = clamp(
     highestPassedLevel * 10 + memorySpan * 6 + accuracy * 40,
     0,
     100
   );
 
-  // --------------------------------------------
-  // 2. 反應速度
-  // PM 是記憶遊戲，所以速度只做輔助
-  // 平均作答時間越短越高
-  // 2秒內很快，10秒很慢
-  // --------------------------------------------
   let speedScore = 0;
   if (averageReactionTime <= 2000) speedScore = 100;
   else if (averageReactionTime >= 10000) speedScore = 20;
@@ -173,10 +167,6 @@ export function calculatePMRadar(records = []) {
   }
   speedScore = clamp(Math.round(speedScore), 0, 100);
 
-  // --------------------------------------------
-  // 3. 專注力
-  // 看：超時少、亂點少、正確率高
-  // --------------------------------------------
   const timeoutPenalty =
     totalLevels > 0 ? (timeoutCount / totalLevels) * 35 : 0;
 
@@ -189,10 +179,6 @@ export function calculatePMRadar(records = []) {
     100
   );
 
-  // --------------------------------------------
-  // 4. 作答穩定度
-  // 看：RT 波動小、取消少、錯誤點擊少
-  // --------------------------------------------
   const rtStabilityPenalty = Math.min(reactionTimeStd / 40, 40);
   const deselectPenalty = Math.min(deselectCount * 5, 25);
   const wrongPenalty = Math.min(wrongTapCount * 4, 25);
@@ -223,7 +209,6 @@ export function calculatePMDetails(records = []) {
 
     accuracyPercent: Math.round(stats.accuracy * 100),
 
-    // 每關摘要
     levelSummaries: records.map((r) => {
       const wrongTapCount = (r.tapLogs || []).filter(
         (t) => t.action === "select" && !t.isCorrectItem
@@ -253,7 +238,6 @@ export function calculatePMDetails(records = []) {
     }),
   };
 }
-
 
 export function getPMPerformanceLabel(records = []) {
   const stars = calculatePMStars(records);

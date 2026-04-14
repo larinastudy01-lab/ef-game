@@ -23,7 +23,7 @@ const difficultySettings = {
     label: "普通",
     spawnInterval: 1600, // 跟簡單一致
     visibleTime: 1200,
-    itemSize: 90,
+    itemSize: 120,
   },
   hard: {
     label: "困難",

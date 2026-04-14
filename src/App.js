@@ -12,6 +12,7 @@ import LoginPage from "./pages/LoginPage";
 import ClinicianLoginPage from "./pages/ClinicianLoginPage";
 import ClinicianDashboard from "./pages/ClinicianDashboard";
 import ResultPage_PM from "./pages/ResultPage_PM";
+import TrainingPage_PM from "./pages/TrainingPage_PM";
 import TestPage_CBT from "./pages/TestPage_CBT";
 import BGM from "./asset/BGM.mp3";
 
@@ -87,7 +88,8 @@ function App() {
         {/* 醫療人員後台 */}
         <Route path="/clinician-dashboard" element={<ClinicianDashboard />} />
         <Route path="/result-picture-memory" element={<ResultPage_PM />} />
-        <Route path="/test-working-memory" element={<TestPage_CBT />} />
+        <Route path="/training-picture-memory" element={<TrainingPage_PM />} />
+        <Route path="/test-cbt" element={<TestPage_CBT />} />
       </Routes>
     </Router>
   );

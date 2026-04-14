@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-// ===== 圖片 =====
 import PM01 from "../asset/PM/PM_01.png";
 import PM02 from "../asset/PM/PM_02.png";
 import PM03 from "../asset/PM/PM_03.png";
@@ -14,7 +13,6 @@ import PM09 from "../asset/PM/PM_09.png";
 import PM10 from "../asset/PM/PM_10.png";
 import PM11 from "../asset/PM/PM_11.png";
 
-// ===== 音效 / 背景 / 前導影片 =====
 import clickSfx from "../asset/Click_SRT.mp3";
 import bgImage from "../asset/SRT_background.jpg";
 import introVideo from "../asset/SRT_start.mp4";
@@ -33,19 +31,6 @@ const ALL_ITEMS = [
   { id: "PM11", image: PM11 },
 ];
 
-// ===== 難度設定 =====
-const LEVELS = [
-  { level: 1, memoryCount: 2, showTime: 5 },
-  { level: 2, memoryCount: 3, showTime: 4 },
-  { level: 3, memoryCount: 4, showTime: 3 },
-  { level: 4, memoryCount: 5, showTime: 3 },
-  { level: 5, memoryCount: 6, showTime: 2.5 },
-  { level: 6, memoryCount: 7, showTime: 2.5 },
-  { level: 7, memoryCount: 8, showTime: 2 },
-  { level: 8, memoryCount: 9, showTime: 2 },
-  { level: 9, memoryCount: 10, showTime: 2 },
-];
-
 function shuffleArray(arr) {
   const copy = [...arr];
   for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -60,129 +45,110 @@ function arraysEqualAsSet(arr1, arr2) {
   return [...arr1].sort().join(",") === [...arr2].sort().join(",");
 }
 
-export default function TestPage_PM() {
+export default function TrainingPage_PM() {
   const navigate = useNavigate();
-
   const audioRef = useRef(null);
   const answerStartRef = useRef(null);
-  const lastResultRef = useRef(null);
-  const recordsRef = useRef([]);
-  const hasSubmittedRef = useRef(false);
 
-  const [phase, setPhase] = useState("rules");
-  // rules -> introVideo -> readyCountdown -> memorize -> answer -> feedback
+  const [phase, setPhase] = useState("difficulty");
+  // difficulty -> rules -> introVideo -> readyCountdown -> memorize -> answer -> feedback
 
-  const [currentLevelIndex, setCurrentLevelIndex] = useState(0);
+  const [difficulty, setDifficulty] = useState(1);
+  const [round, setRound] = useState(1);
+
   const [currentMemorizeItems, setCurrentMemorizeItems] = useState([]);
   const [currentOptions, setCurrentOptions] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
 
   const [readyCountdown, setReadyCountdown] = useState(5);
-  const [memorizeCountdown, setMemorizeCountdown] = useState(0); // 不顯示
-  const [answerCountdown, setAnswerCountdown] = useState(10); // 顯示
-
+  const [memorizeCountdown, setMemorizeCountdown] = useState(0);
   const [feedbackText, setFeedbackText] = useState("");
-  const [records, setRecords] = useState([]);
-  const [tapLogs, setTapLogs] = useState([]);
-
-  const currentLevel = LEVELS[currentLevelIndex];
-
-  useEffect(() => {
-    recordsRef.current = records;
-  }, [records]);
 
   useEffect(() => {
     audioRef.current = new Audio(clickSfx);
   }, []);
 
-  const debugLog = (label, payload = {}) => {
-    console.log(`[TestPage_PM] ${label}`, payload);
-  };
-
   const playClick = () => {
     if (!audioRef.current) return;
-    try {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => {});
-    } catch (error) {
-      console.warn("[TestPage_PM] audio play failed:", error);
+    audioRef.current.currentTime = 0;
+    audioRef.current.play().catch(() => {});
+  };
+
+    const getDifficultyConfig = () => {
+    if (difficulty === 1) {
+        return {
+        label: "Lv1 簡單",
+        memoryCount: Math.min(2 + Math.floor((round - 1) / 3), 3),
+        showTime: Math.max(6 - Math.floor((round - 1) / 5) * 0.5, 5),
+        };
     }
-  };
 
-  const pushRecord = (record) => {
-    lastResultRef.current = record;
-    setRecords((prev) => {
-      const next = [...prev, record];
-      return next;
-    });
-    debugLog("record_saved", record);
-  };
+    if (difficulty === 2) {
+        return {
+        label: "Lv2 普通",
+        memoryCount: Math.min(4 + Math.floor((round - 1) / 3), 5),
+        showTime: Math.max(4 - Math.floor((round - 1) / 5) * 0.4, 3),
+        };
+    }
 
-  // ===== 建立關卡 =====
-  const setupLevel = (levelConfig) => {
-    if (!levelConfig) return;
+    return {
+        label: "Lv3 困難",
+        memoryCount: Math.min(5 + Math.floor((round - 1) / 3), 6),
+        showTime: Math.max(4 - Math.floor((round - 1) / 5) * 0.4, 3),
+    };
+    };
 
-    const memorizeItems = shuffleArray(ALL_ITEMS).slice(0, levelConfig.memoryCount);
+  const currentConfig = getDifficultyConfig();
 
-    const distractorCount = Math.max(levelConfig.memoryCount, 2);
+  const setupRound = () => {
+    const memorizeItems = shuffleArray(ALL_ITEMS).slice(0, currentConfig.memoryCount);
+
+    const distractorCount = Math.max(currentConfig.memoryCount, 2);
     const distractors = shuffleArray(
       ALL_ITEMS.filter((item) => !memorizeItems.some((m) => m.id === item.id))
     ).slice(0, distractorCount);
 
     const options = shuffleArray([...memorizeItems, ...distractors]);
 
-    hasSubmittedRef.current = false;
-    answerStartRef.current = null;
-    lastResultRef.current = null;
-
     setCurrentMemorizeItems(memorizeItems);
     setCurrentOptions(options);
     setSelectedIds([]);
-    setTapLogs([]);
-    setMemorizeCountdown(levelConfig.showTime);
+    setMemorizeCountdown(currentConfig.showTime);
     setPhase("memorize");
-
-    debugLog("setup_level", {
-      level: levelConfig.level,
-      memoryCount: levelConfig.memoryCount,
-      showTime: levelConfig.showTime,
-      memorizeIds: memorizeItems.map((item) => item.id),
-      optionIds: options.map((item) => item.id),
-    });
   };
 
-  // ===== 開始 =====
+  const handleSelectDifficulty = (level) => {
+    playClick();
+    setDifficulty(level);
+  };
+
+  const handleStartFromDifficulty = () => {
+    playClick();
+    setRound(1);
+    setReadyCountdown(5);
+    setFeedbackText("");
+    setSelectedIds([]);
+    setCurrentMemorizeItems([]);
+    setCurrentOptions([]);
+    setPhase("rules");
+  };
+
   const handleStart = () => {
     playClick();
-    hasSubmittedRef.current = false;
-    answerStartRef.current = null;
-    lastResultRef.current = null;
-    recordsRef.current = [];
-
-    setCurrentLevelIndex(0);
-    setRecords([]);
-    setSelectedIds([]);
-    setTapLogs([]);
-    setFeedbackText("");
     setReadyCountdown(5);
     setPhase("introVideo");
-
-    debugLog("start_test");
   };
 
-  // ===== 影片播完 =====
   const handleVideoEnd = () => {
     setReadyCountdown(5);
     setPhase("readyCountdown");
-    debugLog("intro_end");
   };
 
-  // ===== 開始前倒數 =====
   useEffect(() => {
     if (phase !== "readyCountdown") return undefined;
 
     if (readyCountdown <= 0) {
-      setupLevel(LEVELS[currentLevelIndex]);
+      setupRound();
       return undefined;
     }
 
@@ -191,20 +157,14 @@ export default function TestPage_PM() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [phase, readyCountdown, currentLevelIndex]);
+  }, [phase, readyCountdown, difficulty, round]);
 
-  // ===== 記憶倒數（不顯示）=====
   useEffect(() => {
     if (phase !== "memorize") return undefined;
 
     if (memorizeCountdown <= 0) {
-      setAnswerCountdown(10);
       setPhase("answer");
       answerStartRef.current = performance.now();
-      debugLog("memorize_end_answer_start", {
-        level: currentLevel?.level,
-        answerStart: answerStartRef.current,
-      });
       return undefined;
     }
 
@@ -213,156 +173,111 @@ export default function TestPage_PM() {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [phase, memorizeCountdown, currentLevel]);
+  }, [phase, memorizeCountdown]);
 
-  // ===== 作答倒數（10 秒內沒完成 = 失敗）=====
-  useEffect(() => {
-    if (phase !== "answer") return undefined;
-    if (hasSubmittedRef.current) return undefined;
-
-    if (answerCountdown <= 0) {
-      const correctIds = currentMemorizeItems.map((item) => item.id);
-
-      const record = {
-        level: currentLevel.level,
-        memoryCount: currentLevel.memoryCount,
-        showTime: currentLevel.showTime,
-        isCorrect: false,
-        isTimeout: true,
-        reactionTime: 10000,
-        isFast: false,
-        selectedIds,
-        correctIds,
-        tapLogs,
-      };
-
-      hasSubmittedRef.current = true;
-      pushRecord(record);
-      setFeedbackText("時間到，挑戰失敗！");
-      setPhase("feedback");
-      return undefined;
-    }
-
-    const timer = setTimeout(() => {
-      setAnswerCountdown((prev) => prev - 1);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [phase, answerCountdown, currentMemorizeItems, currentLevel, selectedIds, tapLogs]);
-
-  // ===== 點選答案（記錄每次點擊）=====
   const toggleSelect = (itemId) => {
-    if (phase !== "answer" || hasSubmittedRef.current) return;
+    if (phase !== "answer") return;
 
     playClick();
 
-    const correctIds = currentMemorizeItems.map((item) => item.id);
-    const now = answerStartRef.current
-      ? Math.round(performance.now() - answerStartRef.current)
-      : 0;
-
     setSelectedIds((prev) => {
       const alreadySelected = prev.includes(itemId);
-      let nextSelected = prev;
 
       if (alreadySelected) {
-        nextSelected = prev.filter((id) => id !== itemId);
-      } else if (prev.length < currentLevel.memoryCount) {
-        nextSelected = [...prev, itemId];
+        return prev.filter((id) => id !== itemId);
       }
 
-      if (nextSelected !== prev) {
-        setTapLogs((prevLogs) => [
-          ...prevLogs,
-          {
-            order: prevLogs.length + 1,
-            itemId,
-            timestamp: now,
-            isCorrectItem: correctIds.includes(itemId),
-            action: alreadySelected ? "deselect" : "select",
-            selectedCountAfter: nextSelected.length,
-          },
-        ]);
+      if (prev.length >= currentConfig.memoryCount) {
+        return prev;
       }
 
-      return nextSelected;
+      return [...prev, itemId];
     });
   };
 
-  // ===== 送出答案 =====
   const handleSubmit = () => {
-    if (phase !== "answer" || hasSubmittedRef.current) return;
-    if (selectedIds.length !== currentLevel.memoryCount) return;
+    if (phase !== "answer") return;
 
     playClick();
 
     const correctIds = currentMemorizeItems.map((item) => item.id);
     const isCorrect = arraysEqualAsSet(selectedIds, correctIds);
 
-    const reactionTime = answerStartRef.current
-      ? Math.round(performance.now() - answerStartRef.current)
-      : 0;
+    if (isCorrect) {
+      setFeedbackText("太棒了！你越來越厲害了 💖");
+    } else {
+      setFeedbackText("沒關係，我們再試一次看看 🌱");
+    }
 
-    const isFast = reactionTime < 5000;
-
-    const record = {
-      level: currentLevel.level,
-      memoryCount: currentLevel.memoryCount,
-      showTime: currentLevel.showTime,
-      isCorrect,
-      isTimeout: false,
-      reactionTime,
-      isFast,
-      selectedIds,
-      correctIds,
-      tapLogs,
-    };
-
-    hasSubmittedRef.current = true;
-    pushRecord(record);
-    setFeedbackText(isCorrect ? "答對了！準備進入下一關" : "答錯了，本次測驗結束！");
     setPhase("feedback");
   };
 
-  // ===== 下一步 =====
   const handleNext = () => {
     playClick();
-
-    const lastRecord = lastResultRef.current;
-    if (!lastRecord) return;
-
-    if (lastRecord.isCorrect) {
-      const nextIndex = currentLevelIndex + 1;
-
-      if (nextIndex < LEVELS.length) {
-        setCurrentLevelIndex(nextIndex);
-        setSelectedIds([]);
-        setCurrentMemorizeItems([]);
-        setCurrentOptions([]);
-        setTapLogs([]);
-        setFeedbackText("");
-        lastResultRef.current = null;
-        hasSubmittedRef.current = false;
-        answerStartRef.current = null;
-        setReadyCountdown(5);
-        setPhase("readyCountdown");
-      } else {
-        navigate("/result-picture-memory", {
-          state: { records: [...recordsRef.current] },
-        });
-      }
-    } else {
-      navigate("/result-picture-memory", {
-        state: { records: [...recordsRef.current] },
-      });
-    }
+    setRound((prev) => prev + 1);
+    setReadyCountdown(5);
+    setSelectedIds([]);
+    setCurrentMemorizeItems([]);
+    setCurrentOptions([]);
+    setPhase("readyCountdown");
   };
+
+  const intensity = Math.min(1, (round - 1) / 8);
 
   return (
     <div style={styles.page(bgImage)}>
       <div style={styles.overlay}>
         <div style={styles.container}>
-          <h1 style={styles.title}>Picture Memory 測驗</h1>
+          <h1 style={styles.title}>Picture Memory 訓練</h1>
+
+          {phase === "difficulty" && (
+            <div style={styles.card}>
+              <h2 style={styles.subtitle}>選擇難度</h2>
+              <p style={styles.text}>先選擇你想要的訓練模式喔！</p>
+
+              <div style={styles.difficultyGrid}>
+                <button
+                  type="button"
+                  onClick={() => handleSelectDifficulty(1)}
+                  style={{
+                    ...styles.difficultyCard,
+                    ...(difficulty === 1 ? styles.difficultyCardActive : {}),
+                  }}
+                >
+                  <div style={styles.difficultyLabel}>簡單</div>
+                  <div style={styles.difficultyDesc}>無干擾</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectDifficulty(2)}
+                  style={{
+                    ...styles.difficultyCard,
+                    ...(difficulty === 2 ? styles.difficultyCardActive : {}),
+                  }}
+                >
+                  <div style={styles.difficultyLabel}>普通</div>
+                  <div style={styles.difficultyDesc}>⭐ 閃爍 </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectDifficulty(3)}
+                  style={{
+                    ...styles.difficultyCard,
+                    ...(difficulty === 3 ? styles.difficultyCardActive : {}),
+                  }}
+                >
+                  <div style={styles.difficultyLabel}>困難</div>
+                  <div style={styles.difficultyDesc}>🔥 動態移動 </div>
+                </button>
+              </div>
+
+              <button style={styles.mainButton} onClick={handleStartFromDifficulty}>
+                開始
+              </button>
+            </div>
+          )}
 
           {phase === "rules" && (
             <div style={styles.smallCard}>
@@ -374,7 +289,7 @@ export default function TestPage_PM() {
                 <br />
                 等一下再把它們找出來！
                 <br />
-                每答對一關，就會變得更難喔！
+                練習時會依照難度加入不同干擾喔！
               </p>
 
               <button style={styles.mainButton} onClick={handleStart}>
@@ -398,13 +313,7 @@ export default function TestPage_PM() {
                 />
               </div>
 
-              <button
-                style={styles.secondaryButton}
-                onClick={() => {
-                  playClick();
-                  handleVideoEnd();
-                }}
-              >
+              <button style={styles.secondaryButton} onClick={handleVideoEnd}>
                 跳過
               </button>
             </div>
@@ -412,43 +321,60 @@ export default function TestPage_PM() {
 
           {phase === "readyCountdown" && (
             <div style={styles.smallCard}>
+              <p style={styles.levelText}>{currentConfig.label}</p>
               <h2 style={styles.subtitle}>準備開始</h2>
               <p style={styles.bigCountdown}>{readyCountdown}</p>
               <p style={styles.text}>遊戲即將開始！</p>
             </div>
           )}
 
-          {phase === "memorize" && currentLevel && (
+          {phase === "memorize" && (
             <div style={styles.card}>
-              <p style={styles.levelText}>第 {currentLevel.level} 關</p>
+              <p style={styles.levelText}>
+                {currentConfig.label}｜第 {round} 回合
+              </p>
               <h2 style={styles.subtitle}>
-                請記住這 {currentLevel.memoryCount} 個物品
+                請記住這 {currentConfig.memoryCount} 個物品
               </h2>
 
               <p style={styles.hintText}>請仔細記住這些物品喔！</p>
 
               <div style={styles.memoryGrid}>
-                {currentMemorizeItems.map((item) => (
-                  <div key={item.id} style={styles.memoryCard}>
-                    <img src={item.image} alt={item.id} style={styles.memoryImage} />
-                  </div>
-                ))}
+                {currentMemorizeItems.map((item, index) => {
+                  const imageStyle = { ...styles.memoryImage };
+
+                  if (difficulty === 2) {
+                    const flicker = Math.random() < 0.3 + intensity * 0.5;
+                    imageStyle.opacity = flicker ? 0.45 : 1;
+                  }
+
+                  if (difficulty === 3) {
+                    const offset = Math.sin(Date.now() / 220 + index) * (8 + intensity * 18);
+                    imageStyle.transform = `translateX(${offset}px)`;
+                  }
+
+                  return (
+                    <div key={item.id} style={styles.memoryCard}>
+                      <img src={item.image} alt={item.id} style={imageStyle} />
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {phase === "answer" && currentLevel && (
+          {phase === "answer" && (
             <div style={styles.card}>
-              <p style={styles.levelText}>第 {currentLevel.level} 關</p>
+              <p style={styles.levelText}>
+                {currentConfig.label}｜第 {round} 回合
+              </p>
               <h2 style={styles.subtitle}>
-                請選出剛剛出現的 {currentLevel.memoryCount} 個物品
+                請選出剛剛出現的 {currentConfig.memoryCount} 個物品
               </h2>
 
               <p style={styles.hintText}>
-                已選 {selectedIds.length} / {currentLevel.memoryCount}
+                已選 {selectedIds.length} / {currentConfig.memoryCount}
               </p>
-
-              <p style={styles.answerTimer}>剩下 {answerCountdown} 秒</p>
 
               <div style={styles.optionGrid}>
                 {currentOptions.map((item) => {
@@ -457,6 +383,7 @@ export default function TestPage_PM() {
                   return (
                     <button
                       key={item.id}
+                      type="button"
                       onClick={() => toggleSelect(item.id)}
                       style={{
                         ...styles.optionCard,
@@ -472,29 +399,50 @@ export default function TestPage_PM() {
               <button
                 style={{
                   ...styles.mainButton,
-                  opacity: selectedIds.length === currentLevel.memoryCount ? 1 : 0.5,
+                  opacity: selectedIds.length === currentConfig.memoryCount ? 1 : 0.5,
                   cursor:
-                    selectedIds.length === currentLevel.memoryCount
+                    selectedIds.length === currentConfig.memoryCount
                       ? "pointer"
                       : "not-allowed",
                 }}
                 onClick={handleSubmit}
-                disabled={selectedIds.length !== currentLevel.memoryCount}
+                disabled={selectedIds.length !== currentConfig.memoryCount}
               >
                 送出答案
               </button>
             </div>
           )}
 
-          {phase === "feedback" && (
-            <div style={styles.smallCard}>
-              <h2 style={styles.subtitle}>{feedbackText}</h2>
+         {phase === "feedback" && (
+  <div style={styles.smallCard}>
+    <h2 style={styles.subtitle}>{feedbackText}</h2>
 
-              <button style={styles.mainButton} onClick={handleNext}>
-                下一步
-              </button>
+            {/* 按鈕容器（重點） */}
+            <div
+            style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: "16px",
+                marginTop: "20px",
+            }}
+            >
+            <button style={styles.mainButton} onClick={handleNext}>
+                下一回合
+            </button>
+
+            <button
+                style={styles.secondaryButton}
+                onClick={() => {
+                playClick();
+                navigate("/result-picture-memory");
+                }}
+            >
+                結束遊戲
+            </button>
             </div>
-          )}
+        </div>
+        )}
+          )
         </div>
       </div>
     </div>
@@ -603,29 +551,49 @@ const styles = {
     textShadow: "2px 2px 0 #fff",
   },
 
-  answerTimer: {
-    fontSize: "26px",
-    fontWeight: "800",
-    color: "#D97706",
-    marginBottom: "18px",
+  difficultyGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: "18px",
+    marginTop: "18px",
+    marginBottom: "28px",
   },
 
-  videoWrapper: {
-    width: "100%",
-    maxWidth: "760px",
-    margin: "0 auto 24px",
+  difficultyCard: {
+    border: "3px solid transparent",
     borderRadius: "24px",
-    overflow: "hidden",
-    boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
-    backgroundColor: "#000",
+    padding: "24px 18px",
+    backgroundColor: "#fff",
+    boxShadow: "0 6px 14px rgba(0,0,0,0.08)",
+    cursor: "pointer",
+    transition: "0.2s",
+    color: "#5C4033",
   },
 
-  video: {
-    width: "100%",
-    height: "auto",
-    display: "block",
-    aspectRatio: "16 / 9",
-    objectFit: "contain",
+  difficultyCardActive: {
+    border: "3px solid #F4A261",
+    backgroundColor: "#FFF3E8",
+    transform: "translateY(-2px)",
+  },
+
+  difficultyTitle: {
+    fontSize: "28px",
+    fontWeight: "800",
+    marginBottom: "8px",
+    color: "#7A4F2B",
+  },
+
+  difficultyLabel: {
+    fontSize: "22px",
+    fontWeight: "800",
+    marginBottom: "8px",
+    color: "#5C4033",
+  },
+
+  difficultyDesc: {
+    fontSize: "18px",
+    fontWeight: "700",
+    color: "#8B5E3C",
   },
 
   memoryGrid: {
@@ -650,7 +618,7 @@ const styles = {
     maxWidth: "200px",
     height: "200px",
     objectFit: "contain",
-    marginBottom: "10px",
+    transition: "0.2s",
   },
 
   optionGrid: {
@@ -682,8 +650,8 @@ const styles = {
 
   optionImage: {
     width: "100%",
-    maxWidth: "200px",
-    height: "200px",
+    maxWidth: "180px",
+    height: "180px",
     objectFit: "contain",
     marginBottom: "8px",
   },
@@ -698,6 +666,7 @@ const styles = {
     fontWeight: "800",
     cursor: "pointer",
     boxShadow: "0 6px 14px rgba(0,0,0,0.15)",
+    marginTop: "12px"
   },
 
   secondaryButton: {
@@ -711,5 +680,23 @@ const styles = {
     cursor: "pointer",
     boxShadow: "0 6px 14px rgba(0,0,0,0.15)",
     marginTop: "12px",
+  },
+
+  videoWrapper: {
+    width: "100%",
+    maxWidth: "760px",
+    margin: "0 auto 24px",
+    borderRadius: "24px",
+    overflow: "hidden",
+    boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
+    backgroundColor: "#000",
+  },
+
+  video: {
+    width: "100%",
+    height: "auto",
+    display: "block",
+    aspectRatio: "16 / 9",
+    objectFit: "contain",
   },
 };

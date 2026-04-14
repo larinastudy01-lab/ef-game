@@ -59,10 +59,10 @@ function GameMenuPage() {
       title: "記住跳石橋的密碼幫助鹿先生",
       subtitle: "工作記憶遊戲 CBT",
       color: "#FFE0E0",
-      trainPath: "/training-working-memory",
-      testPath: "/test-working-memory",
+      trainPath: "/training-cbt",
+      testPath: "/test-cbt",
       description: "透過記憶與正確點擊，訓練孩子的工作記憶與資訊保持能力。",
-      available: false,
+      available: true,
     },
     {
       id: "linking-balloons",
