@@ -1,0 +1,4527 @@
+/* =========================================================
+   TestPage_LB.css
+   Linking Balloons｜氣球小路 專用美術樣式
+
+   參考：SRT / PM 的整體系統風格
+   - 橘色主按鈕、咖啡色文字、大圓角卡片、柔和陰影保持一致
+   - 背景、標題、副標題、規則文字可由 JSX / config 動態控制
+   - 本 CSS 主要處理 LB 的氣球、小羊、天空、路徑與規則提示
+   ========================================================= */
+
+:root {
+  /* ===== 與 SRT / PM 對齊的共用色 ===== */
+  --lb-brown-dark: #5d4037;
+  --lb-brown: #6d4c41;
+  --lb-brown-soft: #8d6e63;
+
+  --lb-orange: #ff8c42;
+  --lb-orange-hover: #ff7a22;
+  --lb-orange-light: #ffb26b;
+  --lb-orange-pale: #fff7ef;
+  --lb-orange-border: #ffcc9c;
+
+  --lb-cream: rgba(255, 248, 235, 0.96);
+  --lb-white: #ffffff;
+  --lb-sky: #dff4ff;
+  --lb-grass: #dff5d8;
+  --lb-path: #d6a86a;
+
+  --lb-success: #4caf50;
+  --lb-danger: #e53935;
+  --lb-warning: #f59e0b;
+
+  /* ===== 動態背景 ===== */
+  --lb-bg: linear-gradient(180deg, #dff4ff 0%, #fff8eb 62%, #e6f7d9 100%);
+  --lb-bg-overlay: rgba(255, 255, 255, 0.14);
+
+  /* ===== 圓角 ===== */
+  --lb-radius-sm: 14px;
+  --lb-radius-md: 16px;
+  --lb-radius-lg: 20px;
+  --lb-radius-card: 28px;
+  --lb-radius-pill: 999px;
+
+  /* ===== 陰影 ===== */
+  --lb-shadow-soft: 0 4px 10px rgba(0, 0, 0, 0.12);
+  --lb-shadow-card: 0 10px 26px rgba(0, 0, 0, 0.12);
+  --lb-shadow-strong: 0 14px 36px rgba(0, 0, 0, 0.16);
+  --lb-shadow-balloon: 0 8px 16px rgba(0, 0, 0, 0.16);
+
+  /* ===== 尺寸 ===== */
+  --lb-frame-max: 1120px;
+  --lb-card-max: 680px;
+  --lb-balloon-size: 116px;
+}
+
+/* =========================================================
+   1. 全頁背景
+   ========================================================= */
+
+.lb-page {
+  min-height: 100vh;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  color: var(--lb-brown-dark);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background:
+    linear-gradient(var(--lb-bg-overlay), var(--lb-bg-overlay)),
+    var(--lb-bg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.lb-intro-page,
+.lb-countdown-page,
+.lb-test-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 28px;
+}
+
+/* =========================================================
+   2. Intro 開始卡片
+   ========================================================= */
+
+.lb-intro-card {
+  width: 90%;
+  max-width: var(--lb-card-max);
+  background: var(--lb-cream);
+  border-radius: var(--lb-radius-card);
+  padding: 38px 36px 42px;
+  box-shadow: var(--lb-shadow-card);
+  text-align: center;
+  box-sizing: border-box;
+  border: 3px solid rgba(255, 255, 255, 0.68);
+}
+
+.lb-intro-card h1 {
+  font-size: 42px;
+  line-height: 1.25;
+  font-weight: 900;
+  color: var(--lb-brown-dark);
+  margin: 0 0 6px;
+  text-shadow: 2px 2px 0 #ffffff;
+}
+
+.lb-intro-card h2 {
+  font-size: 26px;
+  line-height: 1.35;
+  font-weight: 800;
+  color: var(--lb-brown-soft);
+  margin: 0 0 20px;
+}
+
+.lb-intro-card p {
+  font-size: 22px;
+  line-height: 1.75;
+  color: var(--lb-brown);
+  margin: 0 0 22px;
+  font-weight: 700;
+}
+
+.lb-intro-visual {
+  position: relative;
+  width: 100%;
+  min-height: 190px;
+  border-radius: 26px;
+  background: linear-gradient(180deg, #dff5ff 0%, #fff6d9 70%, #dff5d8 100%);
+  margin-bottom: 26px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+}
+
+.lb-sheep-large,
+.lb-home-large {
+  position: absolute;
+  bottom: 26px;
+  font-size: 64px;
+  filter: drop-shadow(0 5px 7px rgba(0, 0, 0, 0.14));
+  z-index: 2;
+}
+
+.lb-sheep-large {
+  left: 15%;
+}
+
+.lb-home-large {
+  right: 15%;
+}
+
+.lb-intro-balloon-group {
+  position: absolute;
+  top: 34px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  z-index: 3;
+}
+
+.lb-mini-balloon {
+  width: 38px;
+  height: 50px;
+  border-radius: 50% 50% 48% 48%;
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.16);
+  position: relative;
+}
+
+.lb-mini-balloon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 48px;
+  width: 2px;
+  height: 48px;
+  background: rgba(93, 64, 55, 0.38);
+  transform: translateX(-50%);
+}
+
+.lb-mini-balloon.red { background: #ff6b6b; }
+.lb-mini-balloon.blue { background: #5dade2; margin-top: 12px; }
+.lb-mini-balloon.yellow { background: #ffd166; }
+
+/* =========================================================
+   3. 規則卡片區
+   ========================================================= */
+
+.lb-rule-box {
+  background: var(--lb-orange-pale);
+  border: 2px solid var(--lb-orange-border);
+  border-radius: 22px;
+  padding: 22px 24px;
+  margin: 20px 0 30px;
+  text-align: left;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.lb-rule-box h3 {
+  font-size: 24px;
+  font-weight: 900;
+  color: var(--lb-brown-dark);
+  margin: 0 0 14px;
+  text-align: center;
+}
+
+.lb-rule-box p {
+  font-size: 21px;
+  line-height: 1.75;
+  color: var(--lb-brown);
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+
+.lb-rule-box p::before {
+  content: "🎈";
+  margin-right: 8px;
+}
+
+/* =========================================================
+   4. 按鈕：對齊 SRT / PM
+   ========================================================= */
+
+.lb-start-button {
+  border: none;
+  border-radius: var(--lb-radius-pill);
+  padding: 16px 36px;
+  min-width: 220px;
+  font-size: 22px;
+  font-weight: 900;
+  color: #ffffff;
+  background: var(--lb-orange);
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
+  transition: transform 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.lb-start-button:hover {
+  background: var(--lb-orange-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.lb-start-button:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* =========================================================
+   5. 倒數頁
+   ========================================================= */
+
+.lb-countdown-card {
+  width: 90%;
+  max-width: 520px;
+  min-height: 360px;
+  background: var(--lb-cream);
+  border-radius: var(--lb-radius-card);
+  box-shadow: var(--lb-shadow-card);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 38px 30px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.lb-countdown-card .lb-sheep-large {
+  position: static;
+  font-size: 78px;
+  margin-bottom: 14px;
+}
+
+.lb-countdown-card p {
+  font-size: 34px;
+  font-weight: 900;
+  color: var(--lb-brown-dark);
+  margin: 0 0 14px;
+}
+
+.lb-countdown-number {
+  font-size: 110px;
+  line-height: 1;
+  font-weight: 950;
+  color: var(--lb-orange);
+  text-shadow: 3px 3px 0 #ffffff, 0 8px 18px rgba(0, 0, 0, 0.14);
+  animation: lb-count-pop 0.42s ease-out;
+}
+
+@keyframes lb-count-pop {
+  from { transform: scale(0.72); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* =========================================================
+   6. 遊戲主框架
+   ========================================================= */
+
+.lb-game-frame {
+  width: 96%;
+  max-width: var(--lb-frame-max);
+  min-height: calc(100vh - 56px);
+  background: rgba(255, 248, 235, 0.92);
+  border-radius: 30px;
+  box-shadow: var(--lb-shadow-strong);
+  padding: 24px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border: 3px solid rgba(255, 255, 255, 0.68);
+}
+
+.lb-game-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 8px 10px 0;
+}
+
+.lb-title-group {
+  text-align: left;
+}
+
+.lb-title-group h1 {
+  font-size: 34px;
+  line-height: 1.2;
+  color: var(--lb-brown-dark);
+  font-weight: 900;
+  margin: 0 0 6px;
+  text-shadow: 2px 2px 0 #ffffff;
+}
+
+.lb-title-group p {
+  font-size: 20px;
+  line-height: 1.4;
+  color: var(--lb-brown);
+  font-weight: 700;
+  margin: 0;
+}
+
+.lb-trial-counter {
+  min-width: 92px;
+  padding: 12px 18px;
+  border-radius: var(--lb-radius-pill);
+  background: #ffffff;
+  color: var(--lb-brown-dark);
+  font-size: 22px;
+  font-weight: 900;
+  box-shadow: var(--lb-shadow-soft);
+  border: 2px solid var(--lb-orange-border);
+}
+
+/* =========================================================
+   7. 規則提示條
+   ========================================================= */
+
+.lb-rule-hint {
+  width: fit-content;
+  max-width: 92%;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #fff3cd;
+  color: #7a5c00;
+  border: 2px solid #ffe19a;
+  border-radius: 20px;
+  padding: 14px 22px;
+  box-shadow: var(--lb-shadow-soft);
+  font-size: 24px;
+  line-height: 1.45;
+  font-weight: 900;
+  text-align: center;
+}
+
+.lb-rule-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--lb-radius-pill);
+  background: var(--lb-orange);
+  color: #ffffff;
+  padding: 8px 16px;
+  font-size: 20px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+}
+
+/* =========================================================
+   8. 遊戲天空區
+   ========================================================= */
+
+.lb-play-area {
+  flex: 1;
+  min-height: 460px;
+}
+
+.lb-sky {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 500px; /* 給予一個基礎高度，防止被壓扁 */
+  position: relative;
+  background-size: cover; /* 或者 contain，看你們背景圖的設計 */
+  background-position: center;
+  overflow: hidden;
+}
+
+.lb-cloud {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.88);
+  border-radius: 999px;
+  filter: drop-shadow(0 4px 7px rgba(0,0,0,0.08));
+  z-index: 1;
+}
+
+.lb-cloud::before,
+.lb-cloud::after {
+  content: "";
+  position: absolute;
+  background: inherit;
+  border-radius: 50%;
+}
+
+.lb-cloud-1 {
+  width: 118px;
+  height: 42px;
+  top: 42px;
+  left: 64px;
+}
+
+.lb-cloud-1::before {
+  width: 54px;
+  height: 54px;
+  top: -25px;
+  left: 16px;
+}
+
+.lb-cloud-1::after {
+  width: 68px;
+  height: 68px;
+  top: -34px;
+  right: 12px;
+}
+
+.lb-cloud-2 {
+  width: 146px;
+  height: 48px;
+  top: 72px;
+  right: 78px;
+  opacity: 0.92;
+}
+
+.lb-cloud-2::before {
+  width: 64px;
+  height: 64px;
+  top: -32px;
+  left: 24px;
+}
+
+.lb-cloud-2::after {
+  width: 76px;
+  height: 76px;
+  top: -42px;
+  right: 18px;
+}
+
+.lb-home {
+  position: absolute;
+  right: 52px;
+  bottom: 70px;
+  font-size: 72px;
+  z-index: 5;
+  filter: drop-shadow(0 7px 9px rgba(0,0,0,0.16));
+}
+
+.lb-sheep {
+  position: absolute;
+  left: calc(42px + var(--sheep-progress, 0%));
+  bottom: 74px;
+  font-size: 62px;
+  z-index: 6;
+  transition: left 0.55s cubic-bezier(0.22, 0.8, 0.28, 1.08), transform 0.2s ease;
+  filter: drop-shadow(0 6px 8px rgba(0,0,0,0.15));
+}
+
+.lb-path-line {
+  position: absolute;
+  left: 82px;
+  right: 130px;
+  bottom: 82px;
+  height: 18px;
+  border-radius: var(--lb-radius-pill);
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(214, 168, 106, 0.75) 0 24px,
+    rgba(248, 221, 167, 0.88) 24px 42px
+  );
+  z-index: 2;
+  box-shadow: inset 0 2px 3px rgba(0,0,0,0.08);
+}
+
+.lb-balloons-area {
+  position: relative;
+  z-index: 7;
+  width: 100%;
+  min-height: 290px;
+  padding: 70px 70px 20px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: clamp(28px, 6vw, 72px);
+  flex-wrap: wrap;
+}
+
+/* =========================================================
+   9. 氣球按鈕
+   ========================================================= */
+
+.lb-balloon-button {
+  position: relative;
+  width: var(--lb-balloon-size);
+  height: calc(var(--lb-balloon-size) * 1.24);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  margin: 0 0 42px;
+  transform-origin: center bottom;
+  transition: transform 0.18s ease, filter 0.18s ease, opacity 0.18s ease;
+  filter: drop-shadow(var(--lb-shadow-balloon));
+  animation: lb-balloon-float 2.2s ease-in-out infinite;
+}
+
+.lb-balloon-button:nth-child(2) { animation-delay: 0.18s; }
+.lb-balloon-button:nth-child(3) { animation-delay: 0.32s; }
+.lb-balloon-button:nth-child(4) { animation-delay: 0.48s; }
+
+.lb-balloon-button::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--balloon-color, #ff6b6b);
+  border: 4px solid rgba(255, 255, 255, 0.82);
+  box-sizing: border-box;
+  box-shadow: inset -10px -14px 0 rgba(0,0,0,0.08), inset 8px 10px 0 rgba(255,255,255,0.2);
+}
+
+.lb-balloon-circle::before {
+  border-radius: 50% 50% 46% 46%;
+}
+
+.lb-balloon-oval::before {
+  border-radius: 50% 50% 46% 46%;
+  height: 118%;
+  transform: scaleX(0.78);
+}
+
+.lb-balloon-heart::before {
+  top: 13px;
+  left: 11px;
+  width: 72%;
+  height: 72%;
+  border-radius: 22px 22px 6px 22px;
+  transform: rotate(45deg);
+}
+
+.lb-balloon-heart::after {
+  content: "";
+  position: absolute;
+  top: 21px;
+  left: 21px;
+  width: 34px;
+  height: 34px;
+  background: var(--balloon-color, #ff6b6b);
+  border-radius: 50%;
+  box-shadow: 36px 0 0 var(--balloon-color, #ff6b6b);
+  z-index: 1;
+}
+
+.lb-balloon-button:hover:not(:disabled) {
+  transform: translateY(-5px) scale(1.05);
+  filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.22));
+}
+
+.lb-balloon-button:active:not(:disabled) {
+  transform: translateY(0) scale(0.96);
+}
+
+.lb-balloon-button:disabled {
+  cursor: default;
+}
+
+.lb-balloon-selected {
+  transform: scale(1.08);
+}
+
+.lb-balloon-correct {
+  animation: lb-correct-bounce 0.58s ease both;
+  filter: drop-shadow(0 0 14px rgba(76, 175, 80, 0.75));
+}
+
+.lb-balloon-correct::before {
+  outline: 6px solid rgba(76, 175, 80, 0.45);
+  outline-offset: 5px;
+}
+
+.lb-balloon-wrong {
+  animation: lb-wrong-shake 0.48s ease both;
+  filter: drop-shadow(0 0 14px rgba(229, 57, 53, 0.65));
+}
+
+.lb-balloon-wrong::before {
+  outline: 6px solid rgba(229, 57, 53, 0.38);
+  outline-offset: 5px;
+}
+
+.lb-balloon-shine {
+  position: absolute;
+  top: 22px;
+  left: 28px;
+  width: 22px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.48);
+  transform: rotate(24deg);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.lb-balloon-string {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--lb-balloon-size) * 1.08);
+  width: 3px;
+  height: 58px;
+  background: rgba(93, 64, 55, 0.42);
+  transform: translateX(-50%);
+  border-radius: var(--lb-radius-pill);
+  z-index: 0;
+}
+
+/* =========================================================
+   10. 氣球圖案
+   ========================================================= */
+
+.lb-pattern {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lb-pattern-star {
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 44px;
+  text-shadow: 0 3px 5px rgba(0,0,0,0.18);
+}
+
+.lb-pattern-dot {
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 70px;
+  height: 62px;
+  margin: 24px auto 0;
+}
+
+.lb-pattern-dot span {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+}
+
+.lb-pattern-stripe {
+  flex-direction: column;
+  gap: 9px;
+  transform: rotate(-16deg);
+}
+
+.lb-pattern-stripe span {
+  width: 68px;
+  height: 10px;
+  border-radius: var(--lb-radius-pill);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* =========================================================
+   11. 底部提示
+   ========================================================= */
+
+.lb-footer {
+  display: flex;
+  justify-content: center;
+  padding: 0 0 4px;
+}
+
+.lb-footer-message {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 10px 22px;
+  border-radius: var(--lb-radius-pill);
+  background: #ffffff;
+  color: var(--lb-brown);
+  font-size: 20px;
+  font-weight: 800;
+  box-shadow: var(--lb-shadow-soft);
+}
+
+/* =========================================================
+   12. 動畫
+   ========================================================= */
+
+@keyframes lb-balloon-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-9px); }
+}
+
+@keyframes lb-correct-bounce {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.16) translateY(-8px); }
+  70% { transform: scale(0.96) translateY(1px); }
+  100% { transform: scale(1.06); }
+}
+
+@keyframes lb-wrong-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(6px); }
+}
+
+/* =========================================================
+   13. RWD
+   ========================================================= */
+
+@media (max-width: 900px) {
+  :root {
+    --lb-balloon-size: 100px;
+  }
+
+  .lb-test-page {
+    padding: 18px;
+  }
+
+  .lb-game-frame {
+    width: 100%;
+    padding: 18px;
+    min-height: calc(100vh - 36px);
+  }
+
+  .lb-game-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .lb-title-group {
+    text-align: center;
+  }
+
+  .lb-rule-hint {
+    font-size: 22px;
+  }
+
+  .lb-balloons-area {
+    padding: 58px 24px 16px;
+    gap: 34px;
+  }
+
+  .lb-home {
+    right: 30px;
+    font-size: 62px;
+  }
+
+  .lb-sheep {
+    font-size: 54px;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --lb-balloon-size: 86px;
+  }
+
+  .lb-intro-page,
+  .lb-countdown-page,
+  .lb-test-page {
+    padding: 14px;
+  }
+
+  .lb-intro-card {
+    width: 100%;
+    padding: 28px 20px 32px;
+  }
+
+  .lb-intro-card h1 {
+    font-size: 34px;
+  }
+
+  .lb-intro-card h2 {
+    font-size: 22px;
+  }
+
+  .lb-intro-card p,
+  .lb-rule-box p {
+    font-size: 19px;
+  }
+
+  .lb-start-button {
+    width: 100%;
+    font-size: 20px;
+    padding: 15px 24px;
+  }
+
+  .lb-countdown-number {
+    font-size: 86px;
+  }
+
+  .lb-title-group h1 {
+    font-size: 30px;
+  }
+
+  .lb-title-group p,
+  .lb-footer-message {
+    font-size: 18px;
+  }
+
+  .lb-rule-hint {
+    width: 100%;
+    max-width: 100%;
+    font-size: 20px;
+    padding: 12px 16px;
+  }
+
+  .lb-rule-badge {
+    font-size: 18px;
+  }
+
+  .lb-play-area,
+  .lb-sky {
+    min-height: 500px;
+  }
+
+  .lb-balloons-area {
+    padding: 48px 12px 10px;
+    gap: 24px;
+  }
+
+  .lb-home {
+    right: 18px;
+    bottom: 62px;
+    font-size: 52px;
+  }
+
+  .lb-sheep {
+    left: calc(24px + var(--sheep-progress, 0%));
+    bottom: 68px;
+    font-size: 48px;
+  }
+
+  .lb-path-line {
+    left: 54px;
+    right: 94px;
+    bottom: 76px;
+  }
+}
+/* =========================================================
+   LB 圖片素材版補充
+   適用 asset/LB 內的 png 素材
+   ========================================================= */
+
+.lb-page-with-bg {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.16), rgba(255, 248, 235, 0.36)),
+    var(--lb-bg-image),
+    var(--lb-bg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.lb-intro-visual-image {
+  background:
+    linear-gradient(180deg, rgba(223, 245, 255, 0.72) 0%, rgba(255, 246, 217, 0.72) 70%, rgba(223, 245, 216, 0.72) 100%),
+    var(--lb-bg-image);
+  background-size: cover;
+  background-position: center;
+}
+
+.lb-intro-sheep-img {
+  position: absolute;
+  left: 12%;
+  bottom: 22px;
+  width: 96px;
+  height: auto;
+  z-index: 3;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.16));
+}
+
+.lb-intro-home-img {
+  position: absolute;
+  right: 12%;
+  bottom: 18px;
+  width: 112px;
+  height: auto;
+  z-index: 3;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.16));
+}
+
+.lb-intro-balloon-group-img {
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  z-index: 4;
+}
+
+.lb-intro-balloon-group-img img {
+  width: 68px;
+  height: 88px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.14));
+  animation: lb-balloon-float 2.2s ease-in-out infinite;
+}
+
+.lb-intro-balloon-group-img img:nth-child(2) {
+  margin-top: 16px;
+  animation-delay: 0.2s;
+}
+
+.lb-intro-balloon-group-img img:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* 教學卡片 */
+
+.lb-tutorial-card {
+  width: 92%;
+  max-width: 760px;
+  background: var(--lb-cream);
+  border-radius: var(--lb-radius-card);
+  padding: 34px 34px 38px;
+  box-shadow: var(--lb-shadow-card);
+  text-align: center;
+  box-sizing: border-box;
+  border: 3px solid rgba(255, 255, 255, 0.72);
+}
+
+.lb-tutorial-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  margin-bottom: 22px;
+}
+
+.lb-tutorial-top h1 {
+  font-size: 34px;
+  line-height: 1.25;
+  margin: 0 0 8px;
+  color: var(--lb-brown-dark);
+  font-weight: 900;
+}
+
+.lb-tutorial-top p {
+  font-size: 22px;
+  line-height: 1.65;
+  margin: 0;
+  color: var(--lb-brown);
+  font-weight: 700;
+  text-align: left;
+}
+
+.lb-tutorial-sheep {
+  width: 96px;
+  height: auto;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.16));
+}
+
+.lb-tutorial-rule {
+  margin-bottom: 24px;
+}
+
+.lb-tutorial-balloons {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: clamp(26px, 6vw, 64px);
+  flex-wrap: wrap;
+  padding: 16px 12px 10px;
+}
+
+.lb-tutorial-note {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 22px;
+  margin: 10px 0 26px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--lb-brown);
+  font-size: 20px;
+  font-weight: 800;
+  box-shadow: var(--lb-shadow-soft);
+}
+
+/* 圖片氣球 */
+
+.lb-image-balloon {
+  width: 132px;
+  height: 154px;
+  background: transparent;
+  border: none;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.18));
+}
+
+.lb-image-balloon::before,
+.lb-image-balloon::after {
+  display: none;
+}
+
+.lb-image-balloon-small {
+  width: 112px;
+  height: 132px;
+}
+
+.lb-balloon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+.lb-image-balloons-area {
+  padding-top: 58px;
+  gap: clamp(34px, 6vw, 78px);
+}
+
+.lb-image-balloon.lb-balloon-correct {
+  animation: lb-correct-bounce 0.58s ease both;
+  filter:
+    drop-shadow(0 0 16px rgba(76, 175, 80, 0.72))
+    drop-shadow(0 8px 14px rgba(0, 0, 0, 0.18));
+}
+
+.lb-image-balloon.lb-balloon-wrong {
+  animation: lb-wrong-shake 0.48s ease both;
+  filter:
+    drop-shadow(0 0 16px rgba(229, 57, 53, 0.68))
+    drop-shadow(0 8px 14px rgba(0, 0, 0, 0.18));
+}
+
+.lb-image-balloon.lb-balloon-correct .lb-balloon-img {
+  outline: 6px solid rgba(76, 175, 80, 0.38);
+  outline-offset: 8px;
+  border-radius: 26px;
+}
+
+.lb-image-balloon.lb-balloon-wrong .lb-balloon-img {
+  outline: 6px solid rgba(229, 57, 53, 0.34);
+  outline-offset: 8px;
+  border-radius: 26px;
+}
+
+/* 測驗場景圖片 */
+
+.lb-sky-image {
+  background:
+    linear-gradient(180deg, rgba(223, 244, 255, 0.78) 0%, rgba(236, 251, 255, 0.74) 48%, rgba(223, 245, 216, 0.78) 49%, rgba(205, 236, 194, 0.84) 100%),
+    var(--lb-bg-image);
+  background-size: cover;
+  background-position: center;
+}
+
+.lb-home-img {
+  position: absolute;
+  right: 42px;
+  bottom: 58px;
+  width: 110px;
+  height: auto;
+  z-index: 5;
+  filter: drop-shadow(0 7px 9px rgba(0, 0, 0, 0.16));
+}
+
+.lb-sheep-img {
+  position: absolute;
+  left: calc(36px + var(--sheep-progress, 0%));
+  bottom: 64px;
+  width: 92px;
+  height: auto;
+  z-index: 6;
+  transition: left 0.55s cubic-bezier(0.22, 0.8, 0.28, 1.08), transform 0.2s ease;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.15));
+}
+
+.lb-countdown-sheep-img {
+  width: 112px;
+  height: auto;
+  margin-bottom: 14px;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.16));
+}
+
+/* 手機與平板 */
+
+@media (max-width: 900px) {
+  .lb-image-balloon {
+    width: 116px;
+    height: 136px;
+  }
+
+  .lb-home-img {
+    right: 28px;
+    width: 92px;
+  }
+
+  .lb-sheep-img {
+    width: 80px;
+  }
+
+  .lb-tutorial-top {
+    flex-direction: column;
+  }
+
+  .lb-tutorial-top p {
+    text-align: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .lb-image-balloon {
+    width: 94px;
+    height: 112px;
+  }
+
+  .lb-image-balloon-small {
+    width: 88px;
+    height: 104px;
+  }
+
+  .lb-intro-sheep-img {
+    width: 78px;
+    left: 8%;
+  }
+
+  .lb-intro-home-img {
+    width: 88px;
+    right: 8%;
+  }
+
+  .lb-intro-balloon-group-img img {
+    width: 52px;
+    height: 70px;
+  }
+
+  .lb-home-img {
+    width: 76px;
+    right: 18px;
+    bottom: 60px;
+  }
+
+  .lb-sheep-img {
+    left: calc(18px + var(--sheep-progress, 0%));
+    width: 68px;
+    bottom: 66px;
+  }
+
+  .lb-tutorial-card {
+    width: 100%;
+    padding: 26px 18px 30px;
+  }
+
+  .lb-tutorial-top h1 {
+    font-size: 30px;
+  }
+
+  .lb-tutorial-top p {
+    font-size: 19px;
+  }
+
+  .lb-tutorial-balloons {
+    gap: 20px;
+  }
+}
+
+/* =========================================================
+   LB TrainingPage 圖片素材與訓練頁補充
+   ========================================================= */
+
+.lb-page-with-bg {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.16), rgba(255, 248, 235, 0.36)),
+    var(--lb-bg-image),
+    var(--lb-bg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.lb-intro-visual-image {
+  background:
+    linear-gradient(180deg, rgba(223, 245, 255, 0.72) 0%, rgba(255, 246, 217, 0.72) 70%, rgba(223, 245, 216, 0.72) 100%),
+    var(--lb-bg-image);
+  background-size: cover;
+  background-position: center;
+}
+
+.lb-intro-sheep-img {
+  position: absolute;
+  left: 12%;
+  bottom: 22px;
+  width: 96px;
+  height: auto;
+  z-index: 3;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.16));
+}
+
+.lb-intro-home-img {
+  position: absolute;
+  right: 12%;
+  bottom: 18px;
+  width: 112px;
+  height: auto;
+  z-index: 3;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.16));
+}
+
+.lb-intro-balloon-group-img {
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  z-index: 4;
+}
+
+.lb-intro-balloon-group-img img {
+  width: 68px;
+  height: 88px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.14));
+  animation: lb-balloon-float 2.2s ease-in-out infinite;
+}
+
+.lb-intro-balloon-group-img img:nth-child(2) {
+  margin-top: 16px;
+  animation-delay: 0.2s;
+}
+
+.lb-intro-balloon-group-img img:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.lb-training-select-card {
+  max-width: 960px;
+}
+
+.lb-difficulty-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+  gap: 18px;
+  margin: 24px 0 30px;
+}
+
+.lb-difficulty-card {
+  border: 2px solid var(--lb-orange-border);
+  border-radius: 24px;
+  padding: 22px 18px;
+  background: #fff7ef;
+  color: var(--lb-brown-dark);
+  cursor: pointer;
+  box-shadow: var(--lb-shadow-soft);
+  text-align: left;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.lb-difficulty-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--lb-shadow-card);
+  background: #ffffff;
+}
+
+.lb-difficulty-card:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.lb-difficulty-card strong {
+  display: block;
+  font-size: 28px;
+  margin-bottom: 8px;
+  font-weight: 900;
+}
+
+.lb-difficulty-card span {
+  display: block;
+  font-size: 19px;
+  font-weight: 900;
+  margin-bottom: 10px;
+  color: var(--lb-brown);
+}
+
+.lb-difficulty-card p {
+  display: block;
+  font-size: 17px;
+  line-height: 1.55;
+  font-weight: 700;
+  margin: 0;
+  color: var(--lb-brown-soft);
+}
+
+.lb-button-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.lb-secondary-button {
+  background: #8d6e63;
+}
+
+.lb-secondary-button:hover {
+  background: #795548;
+}
+
+.lb-dark-button {
+  background: #6d4c41;
+}
+
+.lb-dark-button:hover {
+  background: #5d4037;
+}
+
+/* 圖片氣球 */
+
+.lb-image-balloon {
+  width: 132px;
+  height: 154px;
+  background: transparent;
+  border: none;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.18));
+}
+
+.lb-image-balloon::before,
+.lb-image-balloon::after {
+  display: none;
+}
+
+.lb-image-balloon-small {
+  width: 112px;
+  height: 132px;
+}
+
+.lb-balloon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+.lb-image-balloons-area {
+  padding-top: 58px;
+  gap: clamp(34px, 6vw, 78px);
+}
+
+.lb-image-balloon.lb-balloon-correct {
+  animation: lb-correct-bounce 0.58s ease both;
+  filter:
+    drop-shadow(0 0 16px rgba(76, 175, 80, 0.72))
+    drop-shadow(0 8px 14px rgba(0, 0, 0, 0.18));
+}
+
+.lb-image-balloon.lb-balloon-wrong {
+  animation: lb-wrong-shake 0.48s ease both;
+  filter:
+    drop-shadow(0 0 16px rgba(229, 57, 53, 0.68))
+    drop-shadow(0 8px 14px rgba(0, 0, 0, 0.18));
+}
+
+.lb-image-balloon.lb-hint-glow .lb-balloon-img {
+  outline: 7px solid rgba(76, 175, 80, 0.45);
+  outline-offset: 8px;
+  border-radius: 26px;
+  animation: lb-hint-pulse 1.05s ease-in-out infinite;
+}
+
+.lb-image-balloon.lb-balloon-correct .lb-balloon-img {
+  outline: 6px solid rgba(76, 175, 80, 0.38);
+  outline-offset: 8px;
+  border-radius: 26px;
+}
+
+.lb-image-balloon.lb-balloon-wrong .lb-balloon-img {
+  outline: 6px solid rgba(229, 57, 53, 0.34);
+  outline-offset: 8px;
+  border-radius: 26px;
+}
+
+@keyframes lb-hint-pulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+
+  50% {
+    transform: scale(1.06);
+    filter: brightness(1.12);
+  }
+}
+
+/* 測驗場景圖片 */
+
+.lb-sky-image {
+  background:
+    linear-gradient(180deg, rgba(223, 244, 255, 0.78) 0%, rgba(236, 251, 255, 0.74) 48%, rgba(223, 245, 216, 0.78) 49%, rgba(205, 236, 194, 0.84) 100%),
+    var(--lb-bg-image);
+  background-size: cover;
+  background-position: center;
+}
+
+.lb-home-img {
+  position: absolute;
+  right: 42px;
+  bottom: 58px;
+  width: 110px;
+  height: auto;
+  z-index: 5;
+  filter: drop-shadow(0 7px 9px rgba(0, 0, 0, 0.16));
+}
+
+.lb-sheep-img {
+  position: absolute;
+  left: calc(36px + var(--sheep-progress, 0%));
+  bottom: 64px;
+  width: 92px;
+  height: auto;
+  z-index: 6;
+  transition: left 0.55s cubic-bezier(0.22, 0.8, 0.28, 1.08), transform 0.2s ease;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.15));
+}
+
+.lb-countdown-sheep-img {
+  width: 112px;
+  height: auto;
+  margin-bottom: 14px;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.16));
+}
+
+/* Training footer */
+
+.lb-training-footer {
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.lb-training-status-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.lb-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 82px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 2px solid var(--lb-orange-border);
+  color: var(--lb-brown-dark);
+  font-size: 17px;
+  font-weight: 900;
+  box-shadow: var(--lb-shadow-soft);
+}
+
+/* Summary */
+
+.lb-training-summary-card {
+  max-width: 780px;
+}
+
+.lb-summary-sheep-img {
+  width: 96px;
+  height: auto;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.16));
+}
+
+.lb-summary-stars {
+  font-size: 46px;
+  letter-spacing: 6px;
+  margin: 8px 0 18px;
+}
+
+.lb-summary-stars span {
+  color: #ddd2bf;
+}
+
+.lb-summary-stars span.is-active {
+  color: #ffb300;
+  text-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+}
+
+.lb-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: 14px;
+  margin: 22px 0 24px;
+}
+
+.lb-summary-metric-card {
+  background: #ffffff;
+  border: 2px solid var(--lb-orange-border);
+  border-radius: 20px;
+  padding: 15px 12px;
+  box-shadow: var(--lb-shadow-soft);
+}
+
+.lb-summary-metric-card span {
+  display: block;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--lb-brown-soft);
+}
+
+.lb-summary-metric-card strong {
+  display: block;
+  font-size: 28px;
+  color: var(--lb-brown-dark);
+  font-weight: 900;
+}
+
+/* RWD */
+
+@media (max-width: 900px) {
+  .lb-image-balloon {
+    width: 116px;
+    height: 136px;
+  }
+
+  .lb-home-img {
+    right: 28px;
+    width: 92px;
+  }
+
+  .lb-sheep-img {
+    width: 80px;
+  }
+
+  .lb-difficulty-card strong {
+    font-size: 26px;
+  }
+}
+
+@media (max-width: 640px) {
+  .lb-image-balloon {
+    width: 94px;
+    height: 112px;
+  }
+
+  .lb-image-balloon-small {
+    width: 88px;
+    height: 104px;
+  }
+
+  .lb-intro-sheep-img {
+    width: 78px;
+    left: 8%;
+  }
+
+  .lb-intro-home-img {
+    width: 88px;
+    right: 8%;
+  }
+
+  .lb-intro-balloon-group-img img {
+    width: 52px;
+    height: 70px;
+  }
+
+  .lb-home-img {
+    width: 76px;
+    right: 18px;
+    bottom: 60px;
+  }
+
+  .lb-sheep-img {
+    left: calc(18px + var(--sheep-progress, 0%));
+    width: 68px;
+    bottom: 66px;
+  }
+
+  .lb-button-row {
+    flex-direction: column;
+  }
+
+  .lb-button-row .lb-start-button {
+    width: 100%;
+  }
+
+  .lb-summary-stars {
+    font-size: 40px;
+  }
+}
+
+/* =========================================================
+   LB ResultPage 結果頁補充
+   ========================================================= */
+
+.lb-result-page {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 28px;
+  box-sizing: border-box;
+}
+
+.lb-result-card {
+  width: min(1180px, 96vw);
+  min-height: calc(100vh - 56px);
+  background: rgba(255, 248, 235, 0.94);
+  border: 3px solid rgba(255, 255, 255, 0.72);
+  border-radius: 32px;
+  box-shadow: var(--lb-shadow-strong);
+  padding: 28px;
+  box-sizing: border-box;
+}
+
+.lb-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 6px 6px 20px;
+}
+
+.lb-result-title-block {
+  text-align: left;
+}
+
+.lb-result-kicker {
+  display: inline-flex;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: #fff3cd;
+  border: 2px solid #ffe19a;
+  color: #7a5c00;
+  font-size: 17px;
+  font-weight: 900;
+  margin-bottom: 12px;
+}
+
+.lb-result-title-block h1 {
+  margin: 0 0 8px;
+  font-size: 36px;
+  line-height: 1.25;
+  color: var(--lb-brown-dark);
+  font-weight: 950;
+  text-shadow: 2px 2px 0 #ffffff;
+}
+
+.lb-result-title-block p {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.55;
+  color: var(--lb-brown);
+  font-weight: 700;
+}
+
+.lb-result-header-visual {
+  position: relative;
+  width: 210px;
+  height: 130px;
+  flex: 0 0 auto;
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(223, 244, 255, 0.84) 0%, rgba(236, 251, 255, 0.76) 54%, rgba(223, 245, 216, 0.86) 55%, rgba(205, 236, 194, 0.9) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.78);
+  overflow: hidden;
+}
+
+.lb-result-header-sheep {
+  position: absolute;
+  left: 22px;
+  bottom: 18px;
+  width: 72px;
+  height: auto;
+  z-index: 2;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.16));
+}
+
+.lb-result-header-home {
+  position: absolute;
+  right: 18px;
+  bottom: 15px;
+  width: 78px;
+  height: auto;
+  z-index: 2;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.16));
+}
+
+.lb-result-meta-row {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 20px;
+}
+
+.lb-result-meta-pill {
+  min-width: 150px;
+  background: #ffffff;
+  border: 2px solid var(--lb-orange-border);
+  border-radius: 18px;
+  padding: 12px 16px;
+  box-shadow: var(--lb-shadow-soft);
+  text-align: center;
+}
+
+.lb-result-meta-pill span {
+  display: block;
+  font-size: 15px;
+  color: var(--lb-brown-soft);
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.lb-result-meta-pill strong {
+  display: block;
+  font-size: 20px;
+  color: var(--lb-brown-dark);
+  font-weight: 950;
+}
+
+.lb-result-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 8px 0 24px;
+}
+
+.lb-result-tab {
+  border: 2px solid var(--lb-orange-border);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--lb-brown);
+  padding: 12px 24px;
+  font-size: 19px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: var(--lb-shadow-soft);
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.lb-result-tab:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--lb-shadow-card);
+}
+
+.lb-result-tab:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.lb-result-tab.is-active {
+  background: var(--lb-orange);
+  color: #ffffff;
+  border-color: var(--lb-orange);
+}
+
+/* 幼兒版 */
+
+.lb-result-child-panel {
+  background: rgba(255, 255, 255, 0.78);
+  border: 2px solid rgba(255, 255, 255, 0.82);
+  border-radius: 30px;
+  padding: 26px;
+  box-shadow: var(--lb-shadow-card);
+  text-align: center;
+}
+
+.lb-result-child-scene {
+  position: relative;
+  min-height: 250px;
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(223, 244, 255, 0.84) 0%, rgba(236, 251, 255, 0.78) 50%, rgba(223, 245, 216, 0.9) 51%, rgba(205, 236, 194, 0.92) 100%);
+  overflow: hidden;
+  margin-bottom: 22px;
+  border: 3px solid rgba(255, 255, 255, 0.72);
+}
+
+.lb-result-balloon-sky {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 28px;
+  z-index: 3;
+}
+
+.lb-result-balloon-sky img {
+  width: 70px;
+  height: 88px;
+  object-fit: contain;
+  filter: drop-shadow(0 7px 10px rgba(0, 0, 0, 0.14));
+  animation: lb-balloon-float 2.2s ease-in-out infinite;
+}
+
+.lb-result-balloon-sky img:nth-child(2) {
+  margin-top: 14px;
+  animation-delay: 0.22s;
+}
+
+.lb-result-balloon-sky img:nth-child(3) {
+  animation-delay: 0.42s;
+}
+
+.lb-result-path {
+  position: absolute;
+  left: 86px;
+  right: 138px;
+  bottom: 56px;
+  height: 18px;
+  border-radius: 999px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(214, 168, 106, 0.78) 0 24px,
+    rgba(248, 221, 167, 0.92) 24px 42px
+  );
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.08);
+  z-index: 1;
+}
+
+.lb-result-child-sheep {
+  position: absolute;
+  left: calc(34px + var(--result-sheep-progress, 0%));
+  bottom: 40px;
+  width: 88px;
+  height: auto;
+  z-index: 4;
+  transition: left 0.55s ease;
+  filter: drop-shadow(0 7px 9px rgba(0, 0, 0, 0.16));
+}
+
+.lb-result-child-home {
+  position: absolute;
+  right: 32px;
+  bottom: 30px;
+  width: 108px;
+  height: auto;
+  z-index: 3;
+  filter: drop-shadow(0 7px 9px rgba(0, 0, 0, 0.16));
+}
+
+.lb-result-child-label {
+  display: inline-flex;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: #fff3cd;
+  border: 2px solid #ffe19a;
+  color: #7a5c00;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.lb-result-stars {
+  font-size: 58px;
+  letter-spacing: 7px;
+  margin: 10px 0 10px;
+}
+
+.lb-result-stars span {
+  color: #ddd2bf;
+}
+
+.lb-result-stars span.is-active {
+  color: #ffb300;
+  text-shadow: 0 5px 9px rgba(0, 0, 0, 0.14);
+}
+
+.lb-result-child-panel h2 {
+  font-size: 32px;
+  color: var(--lb-brown-dark);
+  margin: 8px 0 8px;
+  font-weight: 950;
+}
+
+.lb-result-child-panel p {
+  font-size: 22px;
+  line-height: 1.65;
+  color: var(--lb-brown);
+  margin: 0 auto 22px;
+  max-width: 720px;
+  font-weight: 800;
+}
+
+.lb-result-badge-row {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.lb-result-badge {
+  min-width: 130px;
+  background: #ffffff;
+  border: 2px solid var(--lb-orange-border);
+  border-radius: 22px;
+  padding: 14px 18px;
+  box-shadow: var(--lb-shadow-soft);
+}
+
+.lb-result-badge strong {
+  display: block;
+  font-size: 30px;
+  color: var(--lb-brown-dark);
+  font-weight: 950;
+}
+
+.lb-result-badge span {
+  display: block;
+  font-size: 16px;
+  color: var(--lb-brown-soft);
+  font-weight: 900;
+}
+
+/* 家長版 */
+
+.lb-result-parent-grid,
+.lb-result-clinical-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 18px;
+}
+
+.lb-result-card-section {
+  background: rgba(255, 255, 255, 0.84);
+  border: 2px solid rgba(255, 255, 255, 0.78);
+  border-radius: 28px;
+  padding: 24px;
+  box-shadow: var(--lb-shadow-card);
+  box-sizing: border-box;
+}
+
+.lb-result-card-section h2 {
+  font-size: 26px;
+  line-height: 1.3;
+  margin: 0 0 16px;
+  color: var(--lb-brown-dark);
+  font-weight: 950;
+}
+
+.lb-result-radar-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.lb-result-chart-note {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--lb-brown-soft);
+  font-weight: 800;
+  text-align: center;
+  margin: 8px 0 0;
+}
+
+.lb-result-parent-summary {
+  font-size: 20px;
+  line-height: 1.75;
+  color: var(--lb-brown);
+  font-weight: 800;
+  background: #fff7ef;
+  border: 2px solid var(--lb-orange-border);
+  border-radius: 20px;
+  padding: 16px 18px;
+  margin: 0 0 18px;
+}
+
+.lb-result-ability-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.lb-result-ability-block {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 13px 14px;
+  border: 2px solid #f4dcc5;
+  box-shadow: var(--lb-shadow-soft);
+}
+
+.lb-result-ability-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 17px;
+  color: var(--lb-brown-dark);
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.lb-result-ability-track {
+  height: 14px;
+  border-radius: 999px;
+  background: #f0dfcf;
+  overflow: hidden;
+}
+
+.lb-result-ability-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--lb-orange-light), var(--lb-orange));
+}
+
+.lb-result-ability-block p {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--lb-brown-soft);
+  line-height: 1.45;
+  font-weight: 800;
+}
+
+.lb-result-suggestion-box {
+  margin-top: 18px;
+  background: #fff3cd;
+  border: 2px solid #ffe19a;
+  border-radius: 20px;
+  padding: 16px 18px;
+  color: #7a5c00;
+  font-size: 18px;
+  line-height: 1.65;
+  font-weight: 800;
+}
+
+.lb-result-suggestion-box strong {
+  margin-right: 4px;
+}
+
+/* 醫療端 */
+
+.lb-result-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 12px;
+}
+
+.lb-result-kpi-card {
+  background: #ffffff;
+  border: 2px solid #f4dcc5;
+  border-radius: 18px;
+  padding: 14px 12px;
+  box-shadow: var(--lb-shadow-soft);
+}
+
+.lb-result-kpi-card span {
+  display: block;
+  font-size: 14px;
+  color: var(--lb-brown-soft);
+  font-weight: 900;
+  margin-bottom: 6px;
+}
+
+.lb-result-kpi-card strong {
+  display: block;
+  font-size: 22px;
+  color: var(--lb-brown-dark);
+  font-weight: 950;
+}
+
+.lb-result-note-box {
+  margin-top: 16px;
+  background: #fff7ef;
+  border: 2px solid var(--lb-orange-border);
+  border-radius: 20px;
+  padding: 14px 16px;
+}
+
+.lb-result-note-box p {
+  margin: 0 0 8px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--lb-brown);
+  font-weight: 750;
+}
+
+.lb-result-note-box p:last-child {
+  margin-bottom: 0;
+}
+
+.lb-result-full-section {
+  grid-column: 1 / -1;
+}
+
+.lb-result-table-wrap {
+  overflow-x: auto;
+  border-radius: 18px;
+  border: 2px solid #f4dcc5;
+  background: #ffffff;
+}
+
+.lb-result-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 780px;
+}
+
+.lb-result-table th,
+.lb-result-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f2dfc8;
+  text-align: center;
+  color: var(--lb-brown-dark);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.lb-result-table th {
+  background: #fff7ef;
+  font-weight: 950;
+}
+
+.lb-result-table td {
+  font-weight: 750;
+}
+
+.lb-result-table tr:last-child td {
+  border-bottom: none;
+}
+
+.lb-result-empty-text {
+  font-size: 18px;
+  line-height: 1.7;
+  color: var(--lb-brown);
+  font-weight: 800;
+  margin: 0;
+}
+
+/* 底部按鈕 */
+
+.lb-result-bottom-row {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+
+/* RWD */
+
+@media (max-width: 980px) {
+  .lb-result-header {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .lb-result-title-block {
+    text-align: center;
+  }
+
+  .lb-result-parent-grid,
+  .lb-result-clinical-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .lb-result-full-section {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .lb-result-page {
+    padding: 14px;
+  }
+
+  .lb-result-card {
+    width: 100%;
+    padding: 18px;
+    border-radius: 26px;
+  }
+
+  .lb-result-title-block h1 {
+    font-size: 30px;
+  }
+
+  .lb-result-title-block p {
+    font-size: 18px;
+  }
+
+  .lb-result-header-visual {
+    width: 180px;
+    height: 112px;
+  }
+
+  .lb-result-tab {
+    width: 100%;
+    font-size: 18px;
+  }
+
+  .lb-result-child-scene {
+    min-height: 230px;
+  }
+
+  .lb-result-balloon-sky {
+    gap: 16px;
+  }
+
+  .lb-result-balloon-sky img {
+    width: 54px;
+    height: 72px;
+  }
+
+  .lb-result-child-sheep {
+    width: 68px;
+    left: calc(18px + var(--result-sheep-progress, 0%));
+  }
+
+  .lb-result-child-home {
+    width: 78px;
+    right: 18px;
+  }
+
+  .lb-result-path {
+    left: 54px;
+    right: 94px;
+  }
+
+  .lb-result-stars {
+    font-size: 44px;
+    letter-spacing: 5px;
+  }
+
+  .lb-result-child-panel h2 {
+    font-size: 26px;
+  }
+
+  .lb-result-child-panel p {
+    font-size: 19px;
+  }
+
+  .lb-result-bottom-row .lb-start-button {
+    width: 100%;
+  }
+}
+
+/* =========================================================
+   LB ResultPage 結果頁補充
+   ========================================================= */
+
+.lb-result-page {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 28px;
+  box-sizing: border-box;
+}
+
+.lb-result-card {
+  width: min(1180px, 96vw);
+  min-height: calc(100vh - 56px);
+  background: rgba(255, 248, 235, 0.94);
+  border: 3px solid rgba(255, 255, 255, 0.72);
+  border-radius: 32px;
+  box-shadow: var(--lb-shadow-strong);
+  padding: 28px;
+  box-sizing: border-box;
+}
+
+.lb-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 6px 6px 20px;
+}
+
+.lb-result-title-block {
+  text-align: left;
+}
+
+.lb-result-kicker {
+  display: inline-flex;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: #fff3cd;
+  border: 2px solid #ffe19a;
+  color: #7a5c00;
+  font-size: 17px;
+  font-weight: 900;
+  margin-bottom: 12px;
+}
+
+.lb-result-title-block h1 {
+  margin: 0 0 8px;
+  font-size: 36px;
+  line-height: 1.25;
+  color: var(--lb-brown-dark);
+  font-weight: 950;
+  text-shadow: 2px 2px 0 #ffffff;
+}
+
+.lb-result-title-block p {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.55;
+  color: var(--lb-brown);
+  font-weight: 700;
+}
+
+.lb-result-header-visual {
+  position: relative;
+  width: 210px;
+  height: 130px;
+  flex: 0 0 auto;
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(223, 244, 255, 0.84) 0%, rgba(236, 251, 255, 0.76) 54%, rgba(223, 245, 216, 0.86) 55%, rgba(205, 236, 194, 0.9) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.78);
+  overflow: hidden;
+}
+
+.lb-result-header-sheep {
+  position: absolute;
+  left: 22px;
+  bottom: 18px;
+  width: 72px;
+  height: auto;
+  z-index: 2;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.16));
+}
+
+.lb-result-header-home {
+  position: absolute;
+  right: 18px;
+  bottom: 15px;
+  width: 78px;
+  height: auto;
+  z-index: 2;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.16));
+}
+
+.lb-result-meta-row {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 20px;
+}
+
+.lb-result-meta-pill {
+  min-width: 150px;
+  background: #ffffff;
+  border: 2px solid var(--lb-orange-border);
+  border-radius: 18px;
+  padding: 12px 16px;
+  box-shadow: var(--lb-shadow-soft);
+  text-align: center;
+}
+
+.lb-result-meta-pill span {
+  display: block;
+  font-size: 15px;
+  color: var(--lb-brown-soft);
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.lb-result-meta-pill strong {
+  display: block;
+  font-size: 20px;
+  color: var(--lb-brown-dark);
+  font-weight: 950;
+}
+
+.lb-result-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 8px 0 24px;
+}
+
+.lb-result-tab {
+  border: 2px solid var(--lb-orange-border);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--lb-brown);
+  padding: 12px 24px;
+  font-size: 19px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: var(--lb-shadow-soft);
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.lb-result-tab:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--lb-shadow-card);
+}
+
+.lb-result-tab:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.lb-result-tab.is-active {
+  background: var(--lb-orange);
+  color: #ffffff;
+  border-color: var(--lb-orange);
+}
+
+/* 幼兒版 */
+
+.lb-result-child-panel {
+  background: rgba(255, 255, 255, 0.78);
+  border: 2px solid rgba(255, 255, 255, 0.82);
+  border-radius: 30px;
+  padding: 26px;
+  box-shadow: var(--lb-shadow-card);
+  text-align: center;
+}
+
+.lb-result-child-scene {
+  position: relative;
+  min-height: 250px;
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(223, 244, 255, 0.84) 0%, rgba(236, 251, 255, 0.78) 50%, rgba(223, 245, 216, 0.9) 51%, rgba(205, 236, 194, 0.92) 100%);
+  overflow: hidden;
+  margin-bottom: 22px;
+  border: 3px solid rgba(255, 255, 255, 0.72);
+}
+
+.lb-result-balloon-sky {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 28px;
+  z-index: 3;
+}
+
+.lb-result-balloon-sky img {
+  width: 70px;
+  height: 88px;
+  object-fit: contain;
+  filter: drop-shadow(0 7px 10px rgba(0, 0, 0, 0.14));
+  animation: lb-balloon-float 2.2s ease-in-out infinite;
+}
+
+.lb-result-balloon-sky img:nth-child(2) {
+  margin-top: 14px;
+  animation-delay: 0.22s;
+}
+
+.lb-result-balloon-sky img:nth-child(3) {
+  animation-delay: 0.42s;
+}
+
+.lb-result-path {
+  position: absolute;
+  left: 86px;
+  right: 138px;
+  bottom: 56px;
+  height: 18px;
+  border-radius: 999px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(214, 168, 106, 0.78) 0 24px,
+    rgba(248, 221, 167, 0.92) 24px 42px
+  );
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.08);
+  z-index: 1;
+}
+
+.lb-result-child-sheep {
+  position: absolute;
+  left: calc(34px + var(--result-sheep-progress, 0%));
+  bottom: 40px;
+  width: 88px;
+  height: auto;
+  z-index: 4;
+  transition: left 0.55s ease;
+  filter: drop-shadow(0 7px 9px rgba(0, 0, 0, 0.16));
+}
+
+.lb-result-child-home {
+  position: absolute;
+  right: 32px;
+  bottom: 30px;
+  width: 108px;
+  height: auto;
+  z-index: 3;
+  filter: drop-shadow(0 7px 9px rgba(0, 0, 0, 0.16));
+}
+
+.lb-result-child-label {
+  display: inline-flex;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: #fff3cd;
+  border: 2px solid #ffe19a;
+  color: #7a5c00;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.lb-result-stars {
+  font-size: 58px;
+  letter-spacing: 7px;
+  margin: 10px 0 10px;
+}
+
+.lb-result-stars span {
+  color: #ddd2bf;
+}
+
+.lb-result-stars span.is-active {
+  color: #ffb300;
+  text-shadow: 0 5px 9px rgba(0, 0, 0, 0.14);
+}
+
+.lb-result-child-panel h2 {
+  font-size: 32px;
+  color: var(--lb-brown-dark);
+  margin: 8px 0 8px;
+  font-weight: 950;
+}
+
+.lb-result-child-panel p {
+  font-size: 22px;
+  line-height: 1.65;
+  color: var(--lb-brown);
+  margin: 0 auto 22px;
+  max-width: 720px;
+  font-weight: 800;
+}
+
+.lb-result-badge-row {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.lb-result-badge {
+  min-width: 130px;
+  background: #ffffff;
+  border: 2px solid var(--lb-orange-border);
+  border-radius: 22px;
+  padding: 14px 18px;
+  box-shadow: var(--lb-shadow-soft);
+}
+
+.lb-result-badge strong {
+  display: block;
+  font-size: 30px;
+  color: var(--lb-brown-dark);
+  font-weight: 950;
+}
+
+.lb-result-badge span {
+  display: block;
+  font-size: 16px;
+  color: var(--lb-brown-soft);
+  font-weight: 900;
+}
+
+/* 家長版 */
+
+.lb-result-parent-grid,
+.lb-result-clinical-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 18px;
+}
+
+.lb-result-card-section {
+  background: rgba(255, 255, 255, 0.84);
+  border: 2px solid rgba(255, 255, 255, 0.78);
+  border-radius: 28px;
+  padding: 24px;
+  box-shadow: var(--lb-shadow-card);
+  box-sizing: border-box;
+}
+
+.lb-result-card-section h2 {
+  font-size: 26px;
+  line-height: 1.3;
+  margin: 0 0 16px;
+  color: var(--lb-brown-dark);
+  font-weight: 950;
+}
+
+.lb-result-radar-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.lb-result-chart-note {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--lb-brown-soft);
+  font-weight: 800;
+  text-align: center;
+  margin: 8px 0 0;
+}
+
+.lb-result-parent-summary {
+  font-size: 20px;
+  line-height: 1.75;
+  color: var(--lb-brown);
+  font-weight: 800;
+  background: #fff7ef;
+  border: 2px solid var(--lb-orange-border);
+  border-radius: 20px;
+  padding: 16px 18px;
+  margin: 0 0 18px;
+}
+
+.lb-result-ability-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.lb-result-ability-block {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 13px 14px;
+  border: 2px solid #f4dcc5;
+  box-shadow: var(--lb-shadow-soft);
+}
+
+.lb-result-ability-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 17px;
+  color: var(--lb-brown-dark);
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.lb-result-ability-track {
+  height: 14px;
+  border-radius: 999px;
+  background: #f0dfcf;
+  overflow: hidden;
+}
+
+.lb-result-ability-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--lb-orange-light), var(--lb-orange));
+}
+
+.lb-result-ability-block p {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--lb-brown-soft);
+  line-height: 1.45;
+  font-weight: 800;
+}
+
+.lb-result-suggestion-box {
+  margin-top: 18px;
+  background: #fff3cd;
+  border: 2px solid #ffe19a;
+  border-radius: 20px;
+  padding: 16px 18px;
+  color: #7a5c00;
+  font-size: 18px;
+  line-height: 1.65;
+  font-weight: 800;
+}
+
+.lb-result-suggestion-box strong {
+  margin-right: 4px;
+}
+
+/* 醫療端 */
+
+.lb-result-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 12px;
+}
+
+.lb-result-kpi-card {
+  background: #ffffff;
+  border: 2px solid #f4dcc5;
+  border-radius: 18px;
+  padding: 14px 12px;
+  box-shadow: var(--lb-shadow-soft);
+}
+
+.lb-result-kpi-card span {
+  display: block;
+  font-size: 14px;
+  color: var(--lb-brown-soft);
+  font-weight: 900;
+  margin-bottom: 6px;
+}
+
+.lb-result-kpi-card strong {
+  display: block;
+  font-size: 22px;
+  color: var(--lb-brown-dark);
+  font-weight: 950;
+}
+
+.lb-result-note-box {
+  margin-top: 16px;
+  background: #fff7ef;
+  border: 2px solid var(--lb-orange-border);
+  border-radius: 20px;
+  padding: 14px 16px;
+}
+
+.lb-result-note-box p {
+  margin: 0 0 8px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--lb-brown);
+  font-weight: 750;
+}
+
+.lb-result-note-box p:last-child {
+  margin-bottom: 0;
+}
+
+.lb-result-full-section {
+  grid-column: 1 / -1;
+}
+
+.lb-result-table-wrap {
+  overflow-x: auto;
+  border-radius: 18px;
+  border: 2px solid #f4dcc5;
+  background: #ffffff;
+}
+
+.lb-result-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 780px;
+}
+
+.lb-result-table th,
+.lb-result-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f2dfc8;
+  text-align: center;
+  color: var(--lb-brown-dark);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.lb-result-table th {
+  background: #fff7ef;
+  font-weight: 950;
+}
+
+.lb-result-table td {
+  font-weight: 750;
+}
+
+.lb-result-table tr:last-child td {
+  border-bottom: none;
+}
+
+.lb-result-empty-text {
+  font-size: 18px;
+  line-height: 1.7;
+  color: var(--lb-brown);
+  font-weight: 800;
+  margin: 0;
+}
+
+/* 底部按鈕 */
+
+.lb-result-bottom-row {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+
+/* RWD */
+
+@media (max-width: 980px) {
+  .lb-result-header {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .lb-result-title-block {
+    text-align: center;
+  }
+
+  .lb-result-parent-grid,
+  .lb-result-clinical-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .lb-result-full-section {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .lb-result-page {
+    padding: 14px;
+  }
+
+  .lb-result-card {
+    width: 100%;
+    padding: 18px;
+    border-radius: 26px;
+  }
+
+  .lb-result-title-block h1 {
+    font-size: 30px;
+  }
+
+  .lb-result-title-block p {
+    font-size: 18px;
+  }
+
+  .lb-result-header-visual {
+    width: 180px;
+    height: 112px;
+  }
+
+  .lb-result-tab {
+    width: 100%;
+    font-size: 18px;
+  }
+
+  .lb-result-child-scene {
+    min-height: 230px;
+  }
+
+  .lb-result-balloon-sky {
+    gap: 16px;
+  }
+
+  .lb-result-balloon-sky img {
+    width: 54px;
+    height: 72px;
+  }
+
+  .lb-result-child-sheep {
+    width: 68px;
+    left: calc(18px + var(--result-sheep-progress, 0%));
+  }
+
+  .lb-result-child-home {
+    width: 78px;
+    right: 18px;
+  }
+
+  .lb-result-path {
+    left: 54px;
+    right: 94px;
+  }
+
+  .lb-result-stars {
+    font-size: 44px;
+    letter-spacing: 5px;
+  }
+
+  .lb-result-child-panel h2 {
+    font-size: 26px;
+  }
+
+  .lb-result-child-panel p {
+    font-size: 19px;
+  }
+
+  .lb-result-bottom-row .lb-start-button {
+    width: 100%;
+  }
+}
+
+/* =========================================================
+   LB ResultPage 結果頁補充
+   ========================================================= */
+
+.lb-result-page {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 28px;
+  box-sizing: border-box;
+}
+
+.lb-result-card {
+  width: min(1180px, 96vw);
+  min-height: calc(100vh - 56px);
+  background: rgba(255, 248, 235, 0.94);
+  border: 3px solid rgba(255, 255, 255, 0.72);
+  border-radius: 32px;
+  box-shadow: var(--lb-shadow-strong);
+  padding: 28px;
+  box-sizing: border-box;
+}
+
+.lb-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 6px 6px 20px;
+}
+
+.lb-result-title-block {
+  text-align: left;
+}
+
+.lb-result-kicker {
+  display: inline-flex;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: #fff3cd;
+  border: 2px solid #ffe19a;
+  color: #7a5c00;
+  font-size: 17px;
+  font-weight: 900;
+  margin-bottom: 12px;
+}
+
+.lb-result-title-block h1 {
+  margin: 0 0 8px;
+  font-size: 36px;
+  line-height: 1.25;
+  color: var(--lb-brown-dark);
+  font-weight: 950;
+  text-shadow: 2px 2px 0 #ffffff;
+}
+
+.lb-result-title-block p {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.55;
+  color: var(--lb-brown);
+  font-weight: 700;
+}
+
+.lb-result-header-visual {
+  position: relative;
+  width: 210px;
+  height: 130px;
+  flex: 0 0 auto;
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(223, 244, 255, 0.84) 0%, rgba(236, 251, 255, 0.76) 54%, rgba(223, 245, 216, 0.86) 55%, rgba(205, 236, 194, 0.9) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.78);
+  overflow: hidden;
+}
+
+.lb-result-header-sheep {
+  position: absolute;
+  left: 22px;
+  bottom: 18px;
+  width: 72px;
+  height: auto;
+  z-index: 2;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.16));
+}
+
+.lb-result-header-home {
+  position: absolute;
+  right: 18px;
+  bottom: 15px;
+  width: 78px;
+  height: auto;
+  z-index: 2;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.16));
+}
+
+.lb-result-meta-row {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 20px;
+}
+
+.lb-result-meta-pill {
+  min-width: 150px;
+  background: #ffffff;
+  border: 2px solid var(--lb-orange-border);
+  border-radius: 18px;
+  padding: 12px 16px;
+  box-shadow: var(--lb-shadow-soft);
+  text-align: center;
+}
+
+.lb-result-meta-pill span {
+  display: block;
+  font-size: 15px;
+  color: var(--lb-brown-soft);
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.lb-result-meta-pill strong {
+  display: block;
+  font-size: 20px;
+  color: var(--lb-brown-dark);
+  font-weight: 950;
+}
+
+.lb-result-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 8px 0 24px;
+}
+
+.lb-result-tab {
+  border: 2px solid var(--lb-orange-border);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--lb-brown);
+  padding: 12px 24px;
+  font-size: 19px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: var(--lb-shadow-soft);
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.lb-result-tab:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--lb-shadow-card);
+}
+
+.lb-result-tab:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.lb-result-tab.is-active {
+  background: var(--lb-orange);
+  color: #ffffff;
+  border-color: var(--lb-orange);
+}
+
+/* 幼兒版 */
+
+.lb-result-child-panel {
+  background: rgba(255, 255, 255, 0.78);
+  border: 2px solid rgba(255, 255, 255, 0.82);
+  border-radius: 30px;
+  padding: 26px;
+  box-shadow: var(--lb-shadow-card);
+  text-align: center;
+}
+
+.lb-result-child-scene {
+  position: relative;
+  min-height: 250px;
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(223, 244, 255, 0.84) 0%, rgba(236, 251, 255, 0.78) 50%, rgba(223, 245, 216, 0.9) 51%, rgba(205, 236, 194, 0.92) 100%);
+  overflow: hidden;
+  margin-bottom: 22px;
+  border: 3px solid rgba(255, 255, 255, 0.72);
+}
+
+.lb-result-balloon-sky {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 28px;
+  z-index: 3;
+}
+
+.lb-result-balloon-sky img {
+  width: 70px;
+  height: 88px;
+  object-fit: contain;
+  filter: drop-shadow(0 7px 10px rgba(0, 0, 0, 0.14));
+  animation: lb-balloon-float 2.2s ease-in-out infinite;
+}
+
+.lb-result-balloon-sky img:nth-child(2) {
+  margin-top: 14px;
+  animation-delay: 0.22s;
+}
+
+.lb-result-balloon-sky img:nth-child(3) {
+  animation-delay: 0.42s;
+}
+
+.lb-result-path {
+  position: absolute;
+  left: 86px;
+  right: 138px;
+  bottom: 56px;
+  height: 18px;
+  border-radius: 999px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(214, 168, 106, 0.78) 0 24px,
+    rgba(248, 221, 167, 0.92) 24px 42px
+  );
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.08);
+  z-index: 1;
+}
+
+.lb-result-child-sheep {
+  position: absolute;
+  left: calc(34px + var(--result-sheep-progress, 0%));
+  bottom: 40px;
+  width: 88px;
+  height: auto;
+  z-index: 4;
+  transition: left 0.55s ease;
+  filter: drop-shadow(0 7px 9px rgba(0, 0, 0, 0.16));
+}
+
+.lb-result-child-home {
+  position: absolute;
+  right: 32px;
+  bottom: 30px;
+  width: 108px;
+  height: auto;
+  z-index: 3;
+  filter: drop-shadow(0 7px 9px rgba(0, 0, 0, 0.16));
+}
+
+.lb-result-child-label {
+  display: inline-flex;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: #fff3cd;
+  border: 2px solid #ffe19a;
+  color: #7a5c00;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.lb-result-stars {
+  font-size: 58px;
+  letter-spacing: 7px;
+  margin: 10px 0 10px;
+}
+
+.lb-result-stars span {
+  color: #ddd2bf;
+}
+
+.lb-result-stars span.is-active {
+  color: #ffb300;
+  text-shadow: 0 5px 9px rgba(0, 0, 0, 0.14);
+}
+
+.lb-result-child-panel h2 {
+  font-size: 32px;
+  color: var(--lb-brown-dark);
+  margin: 8px 0 8px;
+  font-weight: 950;
+}
+
+.lb-result-child-panel p {
+  font-size: 22px;
+  line-height: 1.65;
+  color: var(--lb-brown);
+  margin: 0 auto 22px;
+  max-width: 720px;
+  font-weight: 800;
+}
+
+.lb-result-badge-row {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.lb-result-badge {
+  min-width: 130px;
+  background: #ffffff;
+  border: 2px solid var(--lb-orange-border);
+  border-radius: 22px;
+  padding: 14px 18px;
+  box-shadow: var(--lb-shadow-soft);
+}
+
+.lb-result-badge strong {
+  display: block;
+  font-size: 30px;
+  color: var(--lb-brown-dark);
+  font-weight: 950;
+}
+
+.lb-result-badge span {
+  display: block;
+  font-size: 16px;
+  color: var(--lb-brown-soft);
+  font-weight: 900;
+}
+
+/* 家長版 */
+
+.lb-result-parent-grid,
+.lb-result-clinical-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 18px;
+}
+
+.lb-result-card-section {
+  background: rgba(255, 255, 255, 0.84);
+  border: 2px solid rgba(255, 255, 255, 0.78);
+  border-radius: 28px;
+  padding: 24px;
+  box-shadow: var(--lb-shadow-card);
+  box-sizing: border-box;
+}
+
+.lb-result-card-section h2 {
+  font-size: 26px;
+  line-height: 1.3;
+  margin: 0 0 16px;
+  color: var(--lb-brown-dark);
+  font-weight: 950;
+}
+
+.lb-result-radar-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.lb-result-chart-note {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--lb-brown-soft);
+  font-weight: 800;
+  text-align: center;
+  margin: 8px 0 0;
+}
+
+.lb-result-parent-summary {
+  font-size: 20px;
+  line-height: 1.75;
+  color: var(--lb-brown);
+  font-weight: 800;
+  background: #fff7ef;
+  border: 2px solid var(--lb-orange-border);
+  border-radius: 20px;
+  padding: 16px 18px;
+  margin: 0 0 18px;
+}
+
+.lb-result-ability-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.lb-result-ability-block {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 13px 14px;
+  border: 2px solid #f4dcc5;
+  box-shadow: var(--lb-shadow-soft);
+}
+
+.lb-result-ability-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 17px;
+  color: var(--lb-brown-dark);
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.lb-result-ability-track {
+  height: 14px;
+  border-radius: 999px;
+  background: #f0dfcf;
+  overflow: hidden;
+}
+
+.lb-result-ability-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--lb-orange-light), var(--lb-orange));
+}
+
+.lb-result-ability-block p {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--lb-brown-soft);
+  line-height: 1.45;
+  font-weight: 800;
+}
+
+.lb-result-suggestion-box {
+  margin-top: 18px;
+  background: #fff3cd;
+  border: 2px solid #ffe19a;
+  border-radius: 20px;
+  padding: 16px 18px;
+  color: #7a5c00;
+  font-size: 18px;
+  line-height: 1.65;
+  font-weight: 800;
+}
+
+.lb-result-suggestion-box strong {
+  margin-right: 4px;
+}
+
+/* 醫療端 */
+
+.lb-result-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 12px;
+}
+
+.lb-result-kpi-card {
+  background: #ffffff;
+  border: 2px solid #f4dcc5;
+  border-radius: 18px;
+  padding: 14px 12px;
+  box-shadow: var(--lb-shadow-soft);
+}
+
+.lb-result-kpi-card span {
+  display: block;
+  font-size: 14px;
+  color: var(--lb-brown-soft);
+  font-weight: 900;
+  margin-bottom: 6px;
+}
+
+.lb-result-kpi-card strong {
+  display: block;
+  font-size: 22px;
+  color: var(--lb-brown-dark);
+  font-weight: 950;
+}
+
+.lb-result-note-box {
+  margin-top: 16px;
+  background: #fff7ef;
+  border: 2px solid var(--lb-orange-border);
+  border-radius: 20px;
+  padding: 14px 16px;
+}
+
+.lb-result-note-box p {
+  margin: 0 0 8px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--lb-brown);
+  font-weight: 750;
+}
+
+.lb-result-note-box p:last-child {
+  margin-bottom: 0;
+}
+
+.lb-result-full-section {
+  grid-column: 1 / -1;
+}
+
+.lb-result-table-wrap {
+  overflow-x: auto;
+  border-radius: 18px;
+  border: 2px solid #f4dcc5;
+  background: #ffffff;
+}
+
+.lb-result-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 780px;
+}
+
+.lb-result-table th,
+.lb-result-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f2dfc8;
+  text-align: center;
+  color: var(--lb-brown-dark);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.lb-result-table th {
+  background: #fff7ef;
+  font-weight: 950;
+}
+
+.lb-result-table td {
+  font-weight: 750;
+}
+
+.lb-result-table tr:last-child td {
+  border-bottom: none;
+}
+
+.lb-result-empty-text {
+  font-size: 18px;
+  line-height: 1.7;
+  color: var(--lb-brown);
+  font-weight: 800;
+  margin: 0;
+}
+
+/* 底部按鈕 */
+
+.lb-result-bottom-row {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+
+/* RWD */
+
+@media (max-width: 980px) {
+  .lb-result-header {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .lb-result-title-block {
+    text-align: center;
+  }
+
+  .lb-result-parent-grid,
+  .lb-result-clinical-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .lb-result-full-section {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .lb-result-page {
+    padding: 14px;
+  }
+
+  .lb-result-card {
+    width: 100%;
+    padding: 18px;
+    border-radius: 26px;
+  }
+
+  .lb-result-title-block h1 {
+    font-size: 30px;
+  }
+
+  .lb-result-title-block p {
+    font-size: 18px;
+  }
+
+  .lb-result-header-visual {
+    width: 180px;
+    height: 112px;
+  }
+
+  .lb-result-tab {
+    width: 100%;
+    font-size: 18px;
+  }
+
+  .lb-result-child-scene {
+    min-height: 230px;
+  }
+
+  .lb-result-balloon-sky {
+    gap: 16px;
+  }
+
+  .lb-result-balloon-sky img {
+    width: 54px;
+    height: 72px;
+  }
+
+  .lb-result-child-sheep {
+    width: 68px;
+    left: calc(18px + var(--result-sheep-progress, 0%));
+  }
+
+  .lb-result-child-home {
+    width: 78px;
+    right: 18px;
+  }
+
+  .lb-result-path {
+    left: 54px;
+    right: 94px;
+  }
+
+  .lb-result-stars {
+    font-size: 44px;
+    letter-spacing: 5px;
+  }
+
+  .lb-result-child-panel h2 {
+    font-size: 26px;
+  }
+
+  .lb-result-child-panel p {
+    font-size: 19px;
+  }
+
+  .lb-result-bottom-row .lb-start-button {
+    width: 100%;
+  }
+}
+
+/* =========================================================
+   LB ResultPage 幼兒版簡化
+   只保留小羊、星級、鼓勵語
+   ========================================================= */
+
+.lb-result-child-simple {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 46px 30px;
+}
+
+.lb-child-simple-sheep {
+  width: 128px;
+  height: auto;
+  margin-bottom: 12px;
+  filter: drop-shadow(0 7px 10px rgba(0, 0, 0, 0.16));
+}
+
+.lb-result-stars-simple {
+  font-size: 76px;
+  letter-spacing: 10px;
+  margin: 14px 0 12px;
+}
+
+.lb-result-child-simple h2 {
+  font-size: 36px;
+  margin: 10px 0 10px;
+}
+
+.lb-result-child-simple p {
+  max-width: 560px;
+  font-size: 23px;
+  line-height: 1.7;
+  margin: 0 auto;
+}
+
+@media (max-width: 640px) {
+  .lb-result-child-simple {
+    padding: 34px 18px;
+  }
+
+  .lb-child-simple-sheep {
+    width: 100px;
+  }
+
+  .lb-result-stars-simple {
+    font-size: 56px;
+    letter-spacing: 6px;
+  }
+
+  .lb-result-child-simple h2 {
+    font-size: 28px;
+  }
+
+  .lb-result-child-simple p {
+    font-size: 19px;
+  }
+}
+
+/* 貼到 src/styles/GamePage_LB.css 底部：LB 門牌數字與前導/結束動畫補充 */
+.lb-doorplate-node {
+  position: relative;
+  min-width: 74px;
+  min-height: 84px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  transform-origin: center bottom;
+  transition: transform 0.16s ease, filter 0.16s ease, opacity 0.16s ease;
+}
+
+.lb-doorplate-node:hover:not(:disabled) {
+  transform: translateY(-4px) scale(1.04);
+}
+
+.lb-doorplate-node:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+}
+
+.lb-doorplate-roof {
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  width: 64px;
+  height: 18px;
+  border-radius: 16px 16px 6px 6px;
+  background: #b87946;
+  transform: translateX(-50%);
+  box-shadow: 0 4px 0 rgba(93, 57, 29, 0.18);
+}
+
+.lb-doorplate-number {
+  position: absolute;
+  left: 50%;
+  top: 18px;
+  width: 64px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  font-size: 2rem;
+  font-weight: 900;
+  color: #5b3a21;
+  background: #fff2c9;
+  border: 4px solid #c58b50;
+  transform: translateX(-50%);
+  box-shadow: 0 8px 0 rgba(83, 55, 31, 0.2);
+}
+
+.lb-doorplate-post {
+  position: absolute;
+  left: 50%;
+  top: 66px;
+  width: 12px;
+  height: 26px;
+  border-radius: 8px;
+  background: #8b5a35;
+  transform: translateX(-50%);
+}
+
+.lb-doorplate-node-red .lb-doorplate-number {
+  background: #ffdfdf;
+  border-color: #e65a5a;
+  color: #b82020;
+}
+
+.lb-doorplate-node-blue .lb-doorplate-number {
+  background: #dfefff;
+  border-color: #5a91e6;
+  color: #1d5db8;
+}
+
+.lb-doorplate-node-completed {
+  opacity: 0.48;
+  filter: grayscale(0.1);
+}
+
+.lb-doorplate-node-wrong {
+  animation: lb-doorplate-shake 0.35s ease;
+}
+
+.lb-intro-demo-area {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 18px;
+  flex-wrap: wrap;
+  min-height: 104px;
+  margin: 14px 0 8px;
+}
+
+.lb-intro-road-sign {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.lb-intro-dot {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  background: #ffe8b7;
+  color: #7a4a21;
+  opacity: 0.55;
+}
+
+.lb-intro-dot-active,
+.lb-intro-dot-done {
+  opacity: 1;
+  transform: scale(1.08);
+}
+
+.lb-ending-animation {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 14px;
+  margin: 12px 0;
+}
+
+.lb-ending-doorplate {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  border: 4px solid #c58b50;
+  background: #fff2c9;
+  color: #5b3a21;
+  font-size: 1.45rem;
+  font-weight: 900;
+  animation: lb-doorplate-pop 0.9s ease-in-out infinite alternate;
+}
+
+.lb-ending-doorplate:nth-child(2) { animation-delay: 0.12s; }
+.lb-ending-doorplate:nth-child(3) { animation-delay: 0.24s; }
+
+.lb-ending-home-img {
+  width: 64px;
+  height: auto;
+  margin-left: 8px;
+}
+
+@keyframes lb-doorplate-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
+@keyframes lb-doorplate-pop {
+  from { transform: translateY(0); }
+  to { transform: translateY(-8px); }
+}
+/* Add these styles to the bottom of src/styles/GamePage_LB.css */
+
+.lb-video-intro-card {
+  max-width: 820px;
+  padding: 24px;
+}
+
+.lb-intro-video,
+.lb-ending-video {
+  width: min(760px, 88vw);
+  max-height: 46vh;
+  object-fit: contain;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 14px 34px rgba(95, 72, 46, 0.18);
+}
+
+.lb-intro-video-fallback {
+  width: min(760px, 88vw);
+  min-height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  border-radius: 24px;
+  background: linear-gradient(#dff5ff 0 52%, #d9f2cd 52% 100%);
+}
+
+.lb-intro-video-fallback img {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+}
+
+.lb-doorplate-intro-card h2,
+.lb-video-intro-card h2,
+.lb-stage-break-card h2 {
+  margin: 10px 0 6px;
+}
+
+.lb-start-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.lb-intro-road-demo {
+  position: relative;
+  width: min(660px, 86vw);
+  height: 180px;
+  margin: 18px auto 12px;
+  border-radius: 28px;
+  background: linear-gradient(#dff5ff 0 40%, #d9f2cd 40% 100%);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.45);
+}
+
+.lb-demo-road-line {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 58%;
+  height: 18px;
+  border-radius: 999px;
+  background: repeating-linear-gradient(90deg, #d9b978 0 26px, #f1d89d 26px 52px);
+  box-shadow: 0 6px 0 rgba(132, 92, 45, 0.14);
+}
+
+.lb-road-play-area {
+  position: relative;
+  min-height: 520px;
+  overflow: hidden;
+}
+
+.lb-number-sky {
+  position: relative;
+  height: 42%;
+  min-height: 190px;
+  background: linear-gradient(#dff5ff, #edfaff);
+}
+
+.lb-road-ground {
+  position: relative;
+  height: 58%;
+  min-height: 300px;
+  background: linear-gradient(#d9f2cd, #cbe9bd);
+  overflow: hidden;
+}
+
+.lb-home-img {
+  position: absolute;
+  right: 4%;
+  bottom: 8px;
+  width: clamp(90px, 11vw, 140px);
+  height: auto;
+  object-fit: contain;
+  z-index: 6;
+}
+
+.lb-road-sheep-img {
+  position: absolute;
+  left: calc(4% + var(--sheep-progress, 0%));
+  bottom: 40px;
+  width: clamp(82px, 10vw, 130px);
+  height: auto;
+  object-fit: contain;
+  z-index: 8;
+  transition: left 380ms ease;
+}
+
+.lb-road-path-line {
+  position: absolute;
+  left: 6%;
+  right: 8%;
+  top: 58%;
+  height: 22px;
+  border-radius: 999px;
+  background: repeating-linear-gradient(90deg, #d9b978 0 30px, #f1d89d 30px 60px);
+  box-shadow: 0 8px 0 rgba(132, 92, 45, 0.13);
+  z-index: 1;
+}
+
+.lb-number-road-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+}
+
+.lb-number-road-layer .lb-doorplate-node,
+.lb-intro-road-demo .lb-doorplate-node {
+  position: absolute;
+  width: clamp(66px, 7vw, 86px);
+  height: clamp(54px, 6vw, 70px);
+}
+
+.lb-doorplate-node {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  filter: drop-shadow(0 8px 0 rgba(95, 64, 35, 0.22));
+  transition: transform 160ms ease, filter 160ms ease, opacity 160ms ease;
+}
+
+.lb-doorplate-node:hover:not(:disabled) {
+  transform: translate(-50%, -54%) scale(1.04) !important;
+}
+
+.lb-doorplate-node:active:not(:disabled) {
+  transform: translate(-50%, -49%) scale(0.98) !important;
+}
+
+.lb-doorplate-roof {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 0;
+  height: 24%;
+  border-radius: 16px 16px 6px 6px;
+  background: #bd7a3f;
+}
+
+.lb-doorplate-post {
+  position: absolute;
+  left: 50%;
+  top: 70%;
+  width: 16%;
+  height: 38%;
+  border-radius: 999px;
+  background: #9b6435;
+  transform: translateX(-50%);
+  z-index: 0;
+}
+
+.lb-doorplate-number {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 18%;
+  margin: auto;
+  width: 100%;
+  height: 66%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 4px solid #c98b4a;
+  border-radius: 16px;
+  background: #fff0bd;
+  color: #633718;
+  font-size: clamp(1.35rem, 2.7vw, 2.15rem);
+  font-weight: 900;
+  z-index: 2;
+}
+
+.lb-doorplate-node-red .lb-doorplate-number {
+  background: #ffe0dd;
+  border-color: #e45a4f;
+  color: #b62520;
+}
+
+.lb-doorplate-node-blue .lb-doorplate-number {
+  background: #dff0ff;
+  border-color: #4b91d9;
+  color: #1f5b99;
+}
+
+.lb-doorplate-node-completed {
+  opacity: 0.38;
+  filter: grayscale(0.25);
+}
+
+.lb-doorplate-node-wrong {
+  animation: lbDoorWrong 0.28s ease-in-out 0s 2;
+}
+
+@keyframes lbDoorWrong {
+  0%, 100% { margin-left: 0; }
+  25% { margin-left: -6px; }
+  75% { margin-left: 6px; }
+}
+
+.lb-compact-header {
+  padding-bottom: 4px;
+}
+
+.lb-compact-header h1 {
+  margin-bottom: 2px;
+}
+
+.lb-compact-header p,
+.lb-compact-footer {
+  font-size: 1rem;
+}
+
+.lb-compact-target {
+  width: fit-content;
+  margin: 4px auto 10px;
+  padding: 8px 18px;
+  border-radius: 999px;
+}
+
+@media (max-width: 900px) {
+  .lb-road-play-area {
+    min-height: 460px;
+  }
+
+  .lb-number-road-layer .lb-doorplate-node,
+  .lb-intro-road-demo .lb-doorplate-node {
+    width: 58px;
+    height: 50px;
+  }
+}
+/* Add these styles to the bottom of src/styles/GamePage_LB.css */
+
+.lb-video-intro-card {
+  max-width: 820px;
+  padding: 24px;
+}
+
+.lb-intro-video,
+.lb-ending-video {
+  width: min(760px, 88vw);
+  max-height: 46vh;
+  object-fit: contain;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 14px 34px rgba(95, 72, 46, 0.18);
+}
+
+.lb-intro-video-fallback {
+  width: min(760px, 88vw);
+  min-height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  border-radius: 24px;
+  background: linear-gradient(#dff5ff 0 52%, #d9f2cd 52% 100%);
+}
+
+.lb-intro-video-fallback img {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+}
+
+.lb-doorplate-intro-card h2,
+.lb-video-intro-card h2,
+.lb-stage-break-card h2 {
+  margin: 10px 0 6px;
+}
+
+.lb-start-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.lb-intro-road-demo {
+  position: relative;
+  width: min(660px, 86vw);
+  height: 180px;
+  margin: 18px auto 12px;
+  border-radius: 28px;
+  background: linear-gradient(#dff5ff 0 40%, #d9f2cd 40% 100%);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.45);
+}
+
+.lb-demo-road-line {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 58%;
+  height: 18px;
+  border-radius: 999px;
+  background: repeating-linear-gradient(90deg, #d9b978 0 26px, #f1d89d 26px 52px);
+  box-shadow: 0 6px 0 rgba(132, 92, 45, 0.14);
+}
+
+.lb-road-play-area {
+  position: relative;
+  min-height: 520px;
+  overflow: hidden;
+}
+
+.lb-number-sky {
+  position: relative;
+  height: 42%;
+  min-height: 190px;
+  background: linear-gradient(#dff5ff, #edfaff);
+}
+
+.lb-road-ground {
+  position: relative;
+  height: 58%;
+  min-height: 300px;
+  background: linear-gradient(#d9f2cd, #cbe9bd);
+  overflow: hidden;
+}
+
+.lb-home-img {
+  position: absolute;
+  right: 4%;
+  bottom: 8px;
+  width: clamp(90px, 11vw, 140px);
+  height: auto;
+  object-fit: contain;
+  z-index: 6;
+}
+
+.lb-road-sheep-img {
+  position: absolute;
+  left: calc(4% + var(--sheep-progress, 0%));
+  bottom: 40px;
+  width: clamp(82px, 10vw, 130px);
+  height: auto;
+  object-fit: contain;
+  z-index: 8;
+  transition: left 380ms ease;
+}
+
+.lb-road-path-line {
+  position: absolute;
+  left: 6%;
+  right: 8%;
+  top: 58%;
+  height: 22px;
+  border-radius: 999px;
+  background: repeating-linear-gradient(90deg, #d9b978 0 30px, #f1d89d 30px 60px);
+  box-shadow: 0 8px 0 rgba(132, 92, 45, 0.13);
+  z-index: 1;
+}
+
+.lb-number-road-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+}
+
+.lb-number-road-layer .lb-doorplate-node,
+.lb-intro-road-demo .lb-doorplate-node {
+  position: absolute;
+  width: clamp(66px, 7vw, 86px);
+  height: clamp(54px, 6vw, 70px);
+}
+
+.lb-doorplate-node {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  filter: drop-shadow(0 8px 0 rgba(95, 64, 35, 0.22));
+  transition: transform 160ms ease, filter 160ms ease, opacity 160ms ease;
+}
+
+.lb-doorplate-node:hover:not(:disabled) {
+  transform: translate(-50%, -54%) scale(1.04) !important;
+}
+
+.lb-doorplate-node:active:not(:disabled) {
+  transform: translate(-50%, -49%) scale(0.98) !important;
+}
+
+.lb-doorplate-roof {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 0;
+  height: 24%;
+  border-radius: 16px 16px 6px 6px;
+  background: #bd7a3f;
+}
+
+.lb-doorplate-post {
+  position: absolute;
+  left: 50%;
+  top: 70%;
+  width: 16%;
+  height: 38%;
+  border-radius: 999px;
+  background: #9b6435;
+  transform: translateX(-50%);
+  z-index: 0;
+}
+
+.lb-doorplate-number {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 18%;
+  margin: auto;
+  width: 100%;
+  height: 66%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 4px solid #c98b4a;
+  border-radius: 16px;
+  background: #fff0bd;
+  color: #633718;
+  font-size: clamp(1.35rem, 2.7vw, 2.15rem);
+  font-weight: 900;
+  z-index: 2;
+}
+
+.lb-doorplate-node-red .lb-doorplate-number {
+  background: #ffe0dd;
+  border-color: #e45a4f;
+  color: #b62520;
+}
+
+.lb-doorplate-node-blue .lb-doorplate-number {
+  background: #dff0ff;
+  border-color: #4b91d9;
+  color: #1f5b99;
+}
+
+.lb-doorplate-node-completed {
+  opacity: 0.38;
+  filter: grayscale(0.25);
+}
+
+.lb-doorplate-node-wrong {
+  animation: lbDoorWrong 0.28s ease-in-out 0s 2;
+}
+
+@keyframes lbDoorWrong {
+  0%, 100% { margin-left: 0; }
+  25% { margin-left: -6px; }
+  75% { margin-left: 6px; }
+}
+
+.lb-compact-header {
+  padding-bottom: 4px;
+}
+
+.lb-compact-header h1 {
+  margin-bottom: 2px;
+}
+
+.lb-compact-header p,
+.lb-compact-footer {
+  font-size: 1rem;
+}
+
+.lb-compact-target {
+  width: fit-content;
+  margin: 4px auto 10px;
+  padding: 8px 18px;
+  border-radius: 999px;
+}
+
+@media (max-width: 900px) {
+  .lb-road-play-area {
+    min-height: 460px;
+  }
+
+  .lb-number-road-layer .lb-doorplate-node,
+  .lb-intro-road-demo .lb-doorplate-node {
+    width: 58px;
+    height: 50px;
+  }
+}
+/* Add these styles to the bottom of src/styles/GamePage_LB.css */
+
+.lb-video-intro-card {
+  max-width: 820px;
+  padding: 24px;
+}
+
+.lb-intro-video,
+.lb-ending-video {
+  width: min(760px, 88vw);
+  max-height: 46vh;
+  object-fit: contain;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 14px 34px rgba(95, 72, 46, 0.18);
+}
+
+.lb-intro-video-fallback {
+  width: min(760px, 88vw);
+  min-height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  border-radius: 24px;
+  background: linear-gradient(#dff5ff 0 52%, #d9f2cd 52% 100%);
+}
+
+.lb-intro-video-fallback img {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+}
+
+.lb-doorplate-intro-card h2,
+.lb-video-intro-card h2,
+.lb-stage-break-card h2 {
+  margin: 10px 0 6px;
+}
+
+.lb-start-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.lb-intro-road-demo {
+  position: relative;
+  width: min(660px, 86vw);
+  height: 180px;
+  margin: 18px auto 12px;
+  border-radius: 28px;
+  background: linear-gradient(#dff5ff 0 40%, #d9f2cd 40% 100%);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.45);
+}
+
+.lb-demo-road-line {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 58%;
+  height: 18px;
+  border-radius: 999px;
+  background: repeating-linear-gradient(90deg, #d9b978 0 26px, #f1d89d 26px 52px);
+  box-shadow: 0 6px 0 rgba(132, 92, 45, 0.14);
+}
+
+.lb-road-play-area {
+  position: relative;
+  min-height: 520px;
+  overflow: hidden;
+}
+
+.lb-number-sky {
+  position: relative;
+  height: 42%;
+  min-height: 190px;
+  background: linear-gradient(#dff5ff, #edfaff);
+}
+
+.lb-road-ground {
+  position: relative;
+  height: 58%;
+  min-height: 300px;
+  background: linear-gradient(#d9f2cd, #cbe9bd);
+  overflow: hidden;
+}
+
+.lb-home-img {
+  position: absolute;
+  right: 4%;
+  bottom: 8px;
+  width: clamp(90px, 11vw, 140px);
+  height: auto;
+  object-fit: contain;
+  z-index: 6;
+}
+
+.lb-road-sheep-img {
+  position: absolute;
+  left: calc(4% + var(--sheep-progress, 0%));
+  bottom: 40px;
+  width: clamp(82px, 10vw, 130px);
+  height: auto;
+  object-fit: contain;
+  z-index: 8;
+  transition: left 380ms ease;
+}
+
+.lb-road-path-line {
+  position: absolute;
+  left: 6%;
+  right: 8%;
+  top: 58%;
+  height: 22px;
+  border-radius: 999px;
+  background: repeating-linear-gradient(90deg, #d9b978 0 30px, #f1d89d 30px 60px);
+  box-shadow: 0 8px 0 rgba(132, 92, 45, 0.13);
+  z-index: 1;
+}
+
+.lb-number-road-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+}
+
+.lb-number-road-layer .lb-doorplate-node,
+.lb-intro-road-demo .lb-doorplate-node {
+  position: absolute;
+  width: clamp(66px, 7vw, 86px);
+  height: clamp(54px, 6vw, 70px);
+}
+
+.lb-doorplate-node {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  filter: drop-shadow(0 8px 0 rgba(95, 64, 35, 0.22));
+  transition: transform 160ms ease, filter 160ms ease, opacity 160ms ease;
+}
+
+.lb-doorplate-node:hover:not(:disabled) {
+  transform: translate(-50%, -54%) scale(1.04) !important;
+}
+
+.lb-doorplate-node:active:not(:disabled) {
+  transform: translate(-50%, -49%) scale(0.98) !important;
+}
+
+.lb-doorplate-roof {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 0;
+  height: 24%;
+  border-radius: 16px 16px 6px 6px;
+  background: #bd7a3f;
+}
+
+.lb-doorplate-post {
+  position: absolute;
+  left: 50%;
+  top: 70%;
+  width: 16%;
+  height: 38%;
+  border-radius: 999px;
+  background: #9b6435;
+  transform: translateX(-50%);
+  z-index: 0;
+}
+
+.lb-doorplate-number {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 18%;
+  margin: auto;
+  width: 100%;
+  height: 66%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 4px solid #c98b4a;
+  border-radius: 16px;
+  background: #fff0bd;
+  color: #633718;
+  font-size: clamp(1.35rem, 2.7vw, 2.15rem);
+  font-weight: 900;
+  z-index: 2;
+}
+
+.lb-doorplate-node-red .lb-doorplate-number {
+  background: #ffe0dd;
+  border-color: #e45a4f;
+  color: #b62520;
+}
+
+.lb-doorplate-node-blue .lb-doorplate-number {
+  background: #dff0ff;
+  border-color: #4b91d9;
+  color: #1f5b99;
+}
+
+.lb-doorplate-node-completed {
+  opacity: 0.38;
+  filter: grayscale(0.25);
+}
+
+.lb-doorplate-node-wrong {
+  animation: lbDoorWrong 0.28s ease-in-out 0s 2;
+}
+
+@keyframes lbDoorWrong {
+  0%, 100% { margin-left: 0; }
+  25% { margin-left: -6px; }
+  75% { margin-left: 6px; }
+}
+
+.lb-compact-header {
+  padding-bottom: 4px;
+}
+
+.lb-compact-header h1 {
+  margin-bottom: 2px;
+}
+
+.lb-compact-header p,
+.lb-compact-footer {
+  font-size: 1rem;
+}
+
+.lb-compact-target {
+  width: fit-content;
+  margin: 4px auto 10px;
+  padding: 8px 18px;
+  border-radius: 999px;
+}
+
+@media (max-width: 900px) {
+  .lb-road-play-area {
+    min-height: 460px;
+  }
+
+  .lb-number-road-layer .lb-doorplate-node,
+  .lb-intro-road-demo .lb-doorplate-node {
+    width: 58px;
+    height: 50px;
+  }
+}

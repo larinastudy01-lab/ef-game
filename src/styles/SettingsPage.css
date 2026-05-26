@@ -1,0 +1,487 @@
+/* SettingsPage.css */
+/* 森林童話設定頁 */
+
+.settings-page {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: 28px;
+  font-family: "jf-openhuninn", "Nunito", "Microsoft JhengHei", sans-serif;
+  color: #573a1d;
+  background:
+    radial-gradient(circle at 16% 14%, rgba(255, 240, 160, 0.95), transparent 24%),
+    radial-gradient(circle at 88% 18%, rgba(174, 224, 255, 0.78), transparent 28%),
+    linear-gradient(180deg, #8fd2ff 0%, #d9f3aa 42%, #e4c37a 100%);
+}
+
+.settings-background-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.55), transparent 34%),
+    radial-gradient(circle at 18% 78%, rgba(120, 190, 96, 0.35), transparent 30%),
+    radial-gradient(circle at 88% 82%, rgba(111, 172, 83, 0.3), transparent 30%);
+}
+
+.settings-card {
+  position: relative;
+  z-index: 1;
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 28px;
+  border-radius: 38px;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 238, 0.96), rgba(255, 242, 205, 0.94));
+  border: 6px solid rgba(255, 221, 151, 0.95);
+  box-shadow:
+    0 24px 60px rgba(77, 48, 18, 0.22),
+    inset 0 0 0 5px rgba(255, 255, 255, 0.28);
+}
+
+.settings-header {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 22px;
+}
+
+.settings-back-button {
+  flex: 0 0 auto;
+  width: 66px;
+  height: 66px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #fff0ba, #f6bc4d);
+  color: #6f441b;
+  font-size: 38px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow:
+    0 7px 0 rgba(133, 82, 24, 0.25),
+    0 12px 20px rgba(83, 51, 15, 0.17);
+  transition: transform 0.14s ease, filter 0.14s ease;
+}
+
+.settings-back-button:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.03);
+}
+
+.settings-back-button:active {
+  transform: translateY(3px);
+  box-shadow:
+    0 3px 0 rgba(133, 82, 24, 0.25),
+    0 8px 14px rgba(83, 51, 15, 0.12);
+}
+
+.settings-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  margin-bottom: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #ffdda0;
+  color: #775020;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.settings-header h1 {
+  margin: 0 0 6px;
+  font-size: clamp(32px, 4vw, 48px);
+  line-height: 1.05;
+  color: #563818;
+}
+
+.settings-header p {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  color: #7a592e;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 330px;
+  grid-template-areas:
+    "sound time summary"
+    "ability ability summary";
+  gap: 18px;
+}
+
+.settings-panel,
+.settings-summary {
+  border-radius: 30px;
+  padding: 22px;
+  background: rgba(255, 250, 230, 0.82);
+  border: 4px solid rgba(231, 182, 93, 0.45);
+  box-shadow: 0 14px 30px rgba(93, 58, 20, 0.1);
+}
+
+.sound-panel {
+  grid-area: sound;
+}
+
+.time-panel {
+  grid-area: time;
+}
+
+.ability-panel {
+  grid-area: ability;
+}
+
+.settings-summary {
+  grid-area: summary;
+  background:
+    linear-gradient(180deg, rgba(255, 239, 185, 0.95), rgba(255, 249, 226, 0.95));
+}
+
+.panel-title-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.panel-icon {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #ffeaa8, #f7be4d);
+  color: #6f441b;
+  font-size: 30px;
+  font-weight: 900;
+  box-shadow: 0 8px 16px rgba(86, 54, 20, 0.12);
+}
+
+.panel-title-row h2,
+.settings-summary h2 {
+  margin: 0 0 4px;
+  font-size: 28px;
+  color: #563818;
+}
+
+.panel-title-row p {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #7a592e;
+}
+
+.volume-control {
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.volume-control + .volume-control {
+  margin-top: 14px;
+}
+
+.volume-text {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.volume-text strong {
+  font-size: 20px;
+}
+
+.volume-text span {
+  min-width: 62px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  text-align: center;
+  background: #f8d278;
+  color: #65411c;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.volume-control input {
+  width: 100%;
+  height: 14px;
+  accent-color: #efae35;
+  cursor: pointer;
+}
+
+.time-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.time-option,
+.ability-option,
+.settings-primary-button,
+.settings-secondary-button {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.14s ease, filter 0.14s ease, box-shadow 0.14s ease;
+}
+
+.time-option {
+  min-height: 96px;
+  padding: 16px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.58);
+  color: #60401f;
+  box-shadow: inset 0 0 0 3px rgba(213, 176, 112, 0.38);
+}
+
+.time-option strong {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 24px;
+}
+
+.time-option span {
+  font-size: 15px;
+  font-weight: 800;
+  color: #816038;
+}
+
+.time-option.active {
+  background: linear-gradient(180deg, #ffe7a2, #f4bd4d);
+  box-shadow:
+    inset 0 0 0 4px rgba(255, 255, 255, 0.35),
+    0 7px 0 rgba(125, 76, 20, 0.2);
+}
+
+.time-option:hover,
+.ability-option:hover {
+  transform: translateY(-3px);
+  filter: brightness(1.02);
+}
+
+.ability-options {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.ability-option {
+  position: relative;
+  min-height: 150px;
+  padding: 18px 14px 16px;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.58);
+  color: #60401f;
+  text-align: left;
+  box-shadow: inset 0 0 0 3px rgba(213, 176, 112, 0.36);
+}
+
+.ability-option.active {
+  background: linear-gradient(180deg, #fff0bc, #f7c456);
+  box-shadow:
+    inset 0 0 0 4px rgba(255, 255, 255, 0.34),
+    0 7px 0 rgba(125, 76, 20, 0.18);
+}
+
+.ability-check {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(100, 70, 31, 0.16);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.ability-option.active .ability-check {
+  background: #74b85d;
+}
+
+.ability-option strong {
+  display: block;
+  max-width: 120px;
+  margin-bottom: 10px;
+  font-size: 24px;
+  line-height: 1.12;
+}
+
+.ability-option small {
+  display: block;
+  min-height: 40px;
+  font-size: 15px;
+  line-height: 1.35;
+  font-weight: 800;
+  color: #7a592e;
+}
+
+.ability-option em {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  color: #6a471f;
+  font-style: normal;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.settings-summary h2 {
+  margin-bottom: 18px;
+}
+
+.summary-item {
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.summary-item + .summary-item {
+  margin-top: 12px;
+}
+
+.summary-item span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 15px;
+  font-weight: 900;
+  color: #876139;
+}
+
+.summary-item strong {
+  display: block;
+  font-size: 20px;
+  line-height: 1.35;
+  color: #563818;
+}
+
+.summary-note {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(118, 184, 91, 0.18);
+  color: #5f4b25;
+  font-size: 16px;
+  line-height: 1.55;
+  font-weight: 850;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.settings-primary-button,
+.settings-secondary-button {
+  min-width: 168px;
+  min-height: 58px;
+  padding: 14px 22px;
+  border-radius: 999px;
+  color: #5d3c1b;
+  font-size: 20px;
+  font-weight: 900;
+  box-shadow:
+    0 8px 0 rgba(107, 70, 25, 0.24),
+    0 14px 24px rgba(85, 54, 18, 0.14);
+}
+
+.settings-primary-button {
+  background: linear-gradient(180deg, #ffd86c, #efad3c);
+}
+
+.settings-secondary-button {
+  background: linear-gradient(180deg, #e7f3bc, #a6d178);
+}
+
+.settings-primary-button:hover,
+.settings-secondary-button:hover {
+  transform: translateY(-3px);
+  filter: brightness(1.03);
+}
+
+.settings-primary-button:active,
+.settings-secondary-button:active {
+  transform: translateY(3px);
+  box-shadow:
+    0 4px 0 rgba(107, 70, 25, 0.24),
+    0 8px 16px rgba(85, 54, 18, 0.1);
+}
+
+.settings-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 34px;
+  z-index: 20;
+  transform: translateX(-50%);
+  padding: 14px 24px;
+  border-radius: 999px;
+  background: rgba(83, 58, 28, 0.9);
+  color: #fff5d7;
+  font-size: 20px;
+  font-weight: 900;
+  box-shadow: 0 14px 28px rgba(44, 26, 10, 0.25);
+}
+
+@media (max-width: 1080px) {
+  .settings-grid {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "sound time"
+      "ability ability"
+      "summary summary";
+  }
+
+  .ability-options {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .settings-page {
+    padding: 16px;
+    overflow: auto;
+  }
+
+  .settings-card {
+    padding: 18px;
+    border-radius: 28px;
+  }
+
+  .settings-header {
+    align-items: flex-start;
+  }
+
+  .settings-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "sound"
+      "time"
+      "ability"
+      "summary";
+  }
+
+  .time-options,
+  .ability-options {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-actions {
+    flex-direction: column-reverse;
+  }
+
+  .settings-primary-button,
+  .settings-secondary-button {
+    width: 100%;
+  }
+}

@@ -1,0 +1,324 @@
+/* TestMapPage.css */
+/* 測驗地圖頁：森林測驗入口 */
+
+.test-map-page {
+  min-height: 100vh;
+  padding: 30px;
+  font-family: "jf-openhuninn", "Nunito", "Microsoft JhengHei", sans-serif;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(255, 244, 190, 0.9), transparent 26%),
+    radial-gradient(circle at 90% 12%, rgba(198, 230, 154, 0.72), transparent 28%),
+    linear-gradient(180deg, #f9e8b9 0%, #cfa76a 52%, #7d5b35 100%);
+  color: #5d3d1f;
+}
+
+.test-map-shell {
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+.test-map-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: center;
+  padding: 28px 30px;
+  margin-bottom: 22px;
+  border-radius: 36px;
+  background: rgba(255, 248, 224, 0.93);
+  border: 6px solid rgba(126, 85, 42, 0.26);
+  box-shadow: 0 18px 38px rgba(76, 48, 18, 0.18);
+}
+
+.test-map-label {
+  display: inline-block;
+  margin: 0 0 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #e8c57d;
+  color: #67401d;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.test-map-header h1 {
+  margin: 0 0 8px;
+  font-size: clamp(34px, 4vw, 52px);
+  color: #60401f;
+}
+
+.test-map-header p {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #76532d;
+}
+
+.test-map-back,
+.start-full-test-button,
+.view-parent-result-button,
+.single-test-button {
+  border: none;
+  border-radius: 999px;
+  color: #5f3c1b;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow:
+    0 7px 0 rgba(102, 67, 28, 0.28),
+    0 13px 18px rgba(82, 50, 16, 0.14);
+}
+
+.test-map-back {
+  min-height: 56px;
+  padding: 14px 22px;
+  background: linear-gradient(180deg, #d7edaa, #96c875);
+  font-size: 20px;
+}
+
+.test-map-content {
+  display: grid;
+  grid-template-columns: 330px 1fr;
+  gap: 22px;
+}
+
+.test-pipi-card,
+.test-main-card {
+  border-radius: 36px;
+  background:
+    linear-gradient(180deg, rgba(255, 251, 232, 0.97), rgba(255, 238, 196, 0.95));
+  border: 6px solid rgba(126, 85, 42, 0.28);
+  box-shadow:
+    0 18px 40px rgba(76, 48, 18, 0.2),
+    inset 0 0 0 5px rgba(255, 255, 255, 0.25);
+}
+
+.test-pipi-card {
+  align-self: start;
+  padding: 26px;
+  text-align: center;
+}
+
+.test-pipi-avatar {
+  width: 108px;
+  height: 108px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 35% 25%, #fff7b6, #f4c743);
+  color: #70481e;
+  font-size: 24px;
+  font-weight: 900;
+  box-shadow: 0 10px 22px rgba(92, 58, 18, 0.18);
+}
+
+.test-pipi-card h2 {
+  margin: 0 0 12px;
+  font-size: 30px;
+  color: #60401f;
+}
+
+.test-pipi-card p {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.55;
+  font-weight: 750;
+  color: #76532d;
+}
+
+.test-progress-box {
+  margin: 20px 0;
+  padding: 18px;
+  border-radius: 24px;
+  background: #fff0bf;
+}
+
+.test-progress-box span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.test-progress-box strong {
+  font-size: 34px;
+}
+
+.start-full-test-button,
+.view-parent-result-button {
+  width: 100%;
+  min-height: 58px;
+  margin-top: 12px;
+  padding: 14px 18px;
+  font-size: 19px;
+}
+
+.start-full-test-button {
+  background: linear-gradient(180deg, #ffd76d, #edae3f);
+}
+
+.view-parent-result-button {
+  background: linear-gradient(180deg, #d7edaa, #96c875);
+}
+
+.test-main-card {
+  padding: 28px;
+}
+
+.test-filter-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.test-filter-tabs button {
+  min-height: 92px;
+  border: none;
+  border-radius: 24px;
+  background: rgba(255, 248, 224, 0.84);
+  color: #60401f;
+  cursor: pointer;
+  box-shadow: 0 10px 18px rgba(82, 50, 16, 0.12);
+  transition: transform 0.16s ease, background 0.16s ease;
+}
+
+.test-filter-tabs button:hover,
+.test-filter-tabs button.active {
+  transform: translateY(-4px);
+  background: #ffe7a7;
+}
+
+.test-filter-tabs strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 22px;
+}
+
+.test-filter-tabs span {
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.test-game-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.test-game-card {
+  position: relative;
+  min-height: 300px;
+  padding: 22px;
+  border-radius: 34px;
+  background: linear-gradient(180deg, #fff8df, #f2d294);
+  box-shadow:
+    0 10px 0 rgba(102, 67, 28, 0.18),
+    0 16px 24px rgba(82, 50, 16, 0.14);
+}
+
+.test-game-card.done {
+  outline: 6px solid rgba(153, 205, 104, 0.62);
+}
+
+.test-game-top {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.test-game-icon {
+  width: 82px;
+  height: 82px;
+  border-radius: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f7d983;
+  font-size: 42px;
+  box-shadow: inset 0 0 0 5px rgba(255, 255, 255, 0.32);
+}
+
+.test-game-top p {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 900;
+  color: #85633e;
+}
+
+.test-game-top h2 {
+  margin: 0;
+  font-size: 27px;
+  color: #60401f;
+}
+
+.test-game-story {
+  margin: 0 0 16px;
+  min-height: 58px;
+  font-size: 18px;
+  line-height: 1.5;
+  font-weight: 800;
+  color: #76532d;
+}
+
+.test-game-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.48);
+}
+
+.test-game-meta span,
+.test-game-meta strong {
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.single-test-button {
+  width: 100%;
+  min-height: 54px;
+  padding: 12px 18px;
+  background: linear-gradient(180deg, #ffd76d, #edae3f);
+  font-size: 19px;
+}
+
+@media (max-width: 1080px) {
+  .test-map-content {
+    grid-template-columns: 1fr;
+  }
+
+  .test-filter-tabs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .test-map-page {
+    padding: 18px;
+  }
+
+  .test-map-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .test-map-back {
+    width: 100%;
+  }
+
+  .test-filter-tabs,
+  .test-game-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .test-game-top {
+    flex-direction: column;
+    text-align: center;
+  }
+}

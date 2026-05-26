@@ -1,0 +1,611 @@
+/* =========================================================
+   GamePage.css
+   共用遊戲頁美術樣式
+   適用：全部關卡
+
+   使用方式：
+   1. 在 JSX 引入：import "../styles/GamePage.css";
+   2. 最外層使用 className="game-page"
+   3. 每個關卡背景用 CSS 變數傳入：
+      style={{ "--game-bg": `url(${bgImg})` }}
+
+   注意：
+   - 背景圖片、標題、副標題、規則文字不要寫死在 CSS。
+   - CSS 只負責美術風格。
+   - JSX / config 負責每一關的內容切換。
+   ========================================================= */
+
+:root {
+  /* ===== 主色系 ===== */
+  --game-brown-dark: #5d4037;
+  --game-brown: #6d4c41;
+  --game-brown-soft: #8d6e63;
+  --game-brown-button: #9c7563;
+
+  --game-orange: #ff8c42;
+  --game-orange-hover: #ff7a22;
+  --game-orange-light: #ffb26b;
+  --game-orange-border: #ffcc9c;
+  --game-orange-pale: #fff7ef;
+
+  --game-cream: #f7f1e8;
+  --game-white: #ffffff;
+
+  --game-success: #4caf50;
+  --game-danger: #e53935;
+
+  --game-hint-bg: #fff3cd;
+  --game-hint-text: #7a5c00;
+
+  /* ===== 圓角 ===== */
+  --game-radius-sm: 14px;
+  --game-radius-md: 16px;
+  --game-radius-lg: 18px;
+  --game-radius-card: 24px;
+  --game-radius-large-card: 28px;
+  --game-radius-pill: 999px;
+
+  /* ===== 陰影 ===== */
+  --game-shadow-soft: 0 4px 10px rgba(0, 0, 0, 0.12);
+  --game-shadow-card: 0 8px 20px rgba(0, 0, 0, 0.1);
+  --game-shadow-card-strong: 0 10px 30px rgba(0, 0, 0, 0.12);
+  --game-shadow-overlay: 0 8px 20px rgba(0, 0, 0, 0.15);
+
+  /* ===== 動態背景預設值 ===== */
+  --game-bg: none;
+  --game-bg-overlay: rgba(255, 255, 255, 0.15);
+}
+
+/* =========================================================
+   1. 全頁背景
+   ========================================================= */
+
+.game-page {
+  min-height: 100vh;
+  text-align: center;
+  padding-top: 20px;
+  overflow-x: hidden;
+
+  background-image:
+    linear-gradient(var(--game-bg-overlay), var(--game-bg-overlay)),
+    var(--game-bg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+/* 如果某些頁面不需要上方 padding，可以加這個 class */
+.game-page--full {
+  padding-top: 0;
+}
+
+/* =========================================================
+   2. 開始卡片 / 規則卡片
+   ========================================================= */
+
+.game-start-card {
+  margin: 80px auto;
+  width: 90%;
+  max-width: 580px;
+  background: var(--game-white);
+  border-radius: var(--game-radius-card);
+  padding: 40px 30px;
+  box-shadow: var(--game-shadow-card);
+}
+
+/* 測驗頁如果想讓卡片低一點可以使用 */
+.game-start-card--test {
+  margin-top: 120px;
+  max-width: 500px;
+}
+
+.game-rule-card,
+.game-overlay-card {
+  margin: 100px auto;
+  width: 90%;
+  max-width: 600px;
+  background: var(--game-white);
+  border-radius: var(--game-radius-card);
+  padding: 45px 35px;
+  box-shadow: var(--game-shadow-overlay);
+}
+
+/* =========================================================
+   3. 標題 / 文字
+   ========================================================= */
+
+.game-title {
+  font-size: 38px;
+  line-height: 1.3;
+  color: var(--game-brown-dark);
+  margin: 0 0 18px;
+  font-weight: 800;
+}
+
+.game-subtitle {
+  font-size: 22px;
+  line-height: 1.5;
+  color: var(--game-brown);
+  margin: 0 0 24px;
+  font-weight: 600;
+}
+
+.game-notice {
+  font-size: 18px;
+  color: var(--game-brown-soft);
+  margin: 0 0 30px;
+  line-height: 1.6;
+}
+
+.game-rule-content {
+  font-size: 24px;
+  line-height: 2;
+  color: var(--game-brown);
+  margin-bottom: 25px;
+}
+
+.game-rule-content p {
+  margin: 0 0 8px;
+}
+
+.game-rule-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.game-rule-list li {
+  font-size: 24px;
+  line-height: 1.8;
+  color: var(--game-brown);
+  margin-bottom: 12px;
+}
+
+/* =========================================================
+   4. 按鈕
+   ========================================================= */
+
+.game-main-button,
+.game-start-button {
+  padding: 15px 32px;
+  font-size: 22px;
+  border-radius: var(--game-radius-md);
+  border: none;
+  background-color: var(--game-orange);
+  color: var(--game-white);
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  font-weight: 800;
+  transition: transform 0.18s ease, background-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.game-main-button:hover,
+.game-start-button:hover {
+  background-color: var(--game-orange-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+}
+
+.game-main-button:active,
+.game-start-button:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* =========================================================
+   5. 難度選擇區
+   ========================================================= */
+
+.game-difficulty-box {
+  background: var(--game-orange-pale);
+  border-radius: var(--game-radius-lg);
+  padding: 20px;
+  margin-bottom: 28px;
+}
+
+.game-difficulty-title {
+  font-size: 20px;
+  color: var(--game-brown);
+  margin: 0 0 15px;
+  font-weight: 800;
+}
+
+.game-difficulty-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.game-difficulty-button {
+  padding: 12px 20px;
+  font-size: 18px;
+  border-radius: var(--game-radius-sm);
+  border: 2px solid var(--game-orange-border);
+  background: var(--game-white);
+  color: var(--game-brown-soft);
+  cursor: pointer;
+  font-weight: 800;
+  transition: transform 0.18s ease, background-color 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.game-difficulty-button:hover {
+  transform: translateY(-1px);
+  background: #fffaf5;
+}
+
+.game-difficulty-button.active,
+.game-difficulty-button--active {
+  background: var(--game-orange-light);
+  color: var(--game-white);
+  border-color: var(--game-orange);
+}
+
+/* =========================================================
+   6. Intro 前導影片頁
+   ========================================================= */
+
+.game-intro-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 35px;
+}
+
+.game-page-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--game-brown-dark);
+  margin: 0 0 28px;
+  text-shadow: 0 2px 6px rgba(255, 255, 255, 0.4);
+}
+
+.game-intro-card {
+  width: 88%;
+  max-width: 980px;
+  background: var(--game-cream);
+  border-radius: var(--game-radius-large-card);
+  padding: 38px 40px 28px;
+  box-shadow: var(--game-shadow-card-strong);
+}
+
+.game-intro-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #8b5e3c;
+  margin: 0 0 12px;
+}
+
+.game-intro-text {
+  font-size: 18px;
+  color: #7b6a58;
+  margin: 0 0 28px;
+  font-weight: 600;
+}
+
+.game-intro-video-frame {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.game-intro-video {
+  width: 72%;
+  max-width: 630px;
+  border-radius: var(--game-radius-card);
+  object-fit: cover;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.game-skip-button,
+.game-intro-skip-button {
+  padding: 14px 34px;
+  font-size: 18px;
+  font-weight: 800;
+  border-radius: var(--game-radius-pill);
+  border: none;
+  background-color: var(--game-brown-button);
+  color: var(--game-white);
+  cursor: pointer;
+  box-shadow: var(--game-shadow-soft);
+  transition: transform 0.18s ease, background-color 0.18s ease;
+}
+
+.game-skip-button:hover,
+.game-intro-skip-button:hover {
+  transform: translateY(-2px);
+  background-color: #8b6656;
+}
+
+/* =========================================================
+   7. 倒數頁
+   ========================================================= */
+
+.game-countdown-wrapper {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.game-countdown-title {
+  font-size: 42px;
+  color: var(--game-brown-dark);
+  margin: 0 0 20px;
+  font-weight: 800;
+}
+
+.game-countdown-number {
+  font-size: 120px;
+  font-weight: 900;
+  color: var(--game-orange);
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: game-countdown-pop 0.35s ease-out;
+}
+
+@keyframes game-countdown-pop {
+  from {
+    transform: scale(0.75);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* =========================================================
+   8. 遊戲中上方資訊
+   ========================================================= */
+
+.game-top-bar {
+  margin-top: 15px;
+}
+
+.game-score {
+  font-size: 30px;
+  color: var(--game-brown-dark);
+  margin: 0 0 8px;
+  font-weight: 800;
+}
+
+.game-mode-text {
+  font-size: 18px;
+  color: var(--game-brown-soft);
+  margin: 0;
+  font-weight: 600;
+}
+
+.game-hint-bubble {
+  margin: 18px auto 0;
+  width: fit-content;
+  max-width: 80%;
+  background: var(--game-hint-bg);
+  color: var(--game-hint-text);
+  padding: 14px 22px;
+  border-radius: var(--game-radius-lg);
+  font-size: 22px;
+  font-weight: 800;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  animation: game-hint-pop 0.25s ease-out;
+}
+
+@keyframes game-hint-pop {
+  from {
+    transform: translateY(-8px) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* =========================================================
+   9. 遊戲區與物件
+   ========================================================= */
+
+.game-area {
+  position: relative;
+  width: 100%;
+  height: 75vh;
+}
+
+.game-item {
+  position: absolute;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  user-select: none;
+  -webkit-user-drag: none;
+  z-index: 2;
+  animation: game-item-pop 0.18s ease-out;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.game-item:hover {
+  filter: brightness(1.06);
+  transform: translate(-50%, -50%) scale(1.04);
+}
+
+.game-item:active {
+  transform: translate(-50%, -50%) scale(0.96);
+}
+
+@keyframes game-item-pop {
+  from {
+    transform: translate(-50%, -50%) scale(0.7);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+/* =========================================================
+   10. 點擊分數 / 打勾效果
+   ========================================================= */
+
+.game-effect {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 34px;
+  font-weight: 900;
+  pointer-events: none;
+  z-index: 3;
+  animation: game-float-score 0.7s ease-out forwards;
+}
+
+.game-effect.correct,
+.game-effect--correct {
+  color: var(--game-success);
+}
+
+.game-effect.penalty,
+.game-effect--penalty {
+  color: var(--game-danger);
+}
+
+.game-effect.check,
+.game-effect--check {
+  color: var(--game-success);
+  font-size: 32px;
+}
+
+@keyframes game-float-score {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -95%) scale(1.25);
+  }
+}
+
+/* =========================================================
+   11. 舊版 video wrapper 保留
+   如果其他頁還有用 videoWrapper / video，可以套這組
+   ========================================================= */
+
+.game-video-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  background: black;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.game-video {
+  width: 90%;
+  max-width: 900px;
+  border-radius: 20px;
+}
+
+/* =========================================================
+   12. RWD 平板 / 手機
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .game-page {
+    padding-top: 16px;
+    background-attachment: scroll;
+  }
+
+  .game-start-card,
+  .game-rule-card,
+  .game-overlay-card {
+    width: 86%;
+    padding: 32px 22px;
+  }
+
+  .game-start-card,
+  .game-start-card--test {
+    margin-top: 70px;
+  }
+
+  .game-title {
+    font-size: 30px;
+  }
+
+  .game-subtitle {
+    font-size: 20px;
+  }
+
+  .game-rule-content,
+  .game-rule-list li {
+    font-size: 21px;
+    line-height: 1.8;
+  }
+
+  .game-main-button,
+  .game-start-button {
+    font-size: 20px;
+    padding: 14px 28px;
+  }
+
+  .game-intro-card {
+    width: 86%;
+    padding: 30px 22px 24px;
+  }
+
+  .game-intro-video {
+    width: 88%;
+  }
+
+  .game-countdown-title {
+    font-size: 34px;
+  }
+
+  .game-countdown-number {
+    font-size: 96px;
+  }
+
+  .game-score {
+    font-size: 26px;
+  }
+
+  .game-hint-bubble {
+    font-size: 20px;
+    max-width: 86%;
+  }
+}
+
+@media (max-width: 480px) {
+  .game-title {
+    font-size: 26px;
+  }
+
+  .game-subtitle {
+    font-size: 18px;
+  }
+
+  .game-rule-content,
+  .game-rule-list li {
+    font-size: 19px;
+  }
+
+  .game-difficulty-button {
+    font-size: 16px;
+    padding: 10px 16px;
+  }
+
+  .game-page-title {
+    font-size: 24px;
+  }
+
+  .game-intro-video {
+    width: 94%;
+  }
+}

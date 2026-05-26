@@ -1,0 +1,2857 @@
+/* =========================================================
+   GamePage_Dcss.css
+   Dcss / Dimensional Change Card Sort 專用美術樣式
+   適用：TestPage_Dcss.jsx
+
+   設計方向：
+   - 對齊 SRT / PM 的卡片圓角、橘色主按鈕、柔和陰影與幼兒友善尺寸
+   - Dcss 主題保留「孔雀小姐服飾店 / 衣服分類」的粉嫩、溫暖、童話感
+   - 背景、標題、副標題、規則文字仍建議由 JSX / config 控制
+   - CSS 只負責美術與排版
+   ========================================================= */
+
+:root {
+  /* ===== 共用系統色，對齊 SRT / PM ===== */
+  --Dcss-brown-dark: #5d4037;
+  --Dcss-brown: #6d4c41;
+  --Dcss-brown-soft: #8d6e63;
+  --Dcss-text: #4d3b2f;
+
+  --Dcss-orange: #ff8c42;
+  --Dcss-orange-hover: #ff7a22;
+  --Dcss-orange-light: #ffb26b;
+  --Dcss-orange-pale: #fff7ef;
+  --Dcss-orange-border: #ffcc9c;
+
+  /* ===== Dcss 主題色 ===== */
+  --Dcss-pink: #ef6fae;
+  --Dcss-pink-soft: #ffe7f1;
+  --Dcss-blue: #5aa9ff;
+  --Dcss-blue-soft: #eaf4ff;
+  --Dcss-purple: #8f6ed5;
+  --Dcss-purple-soft: #f2edff;
+  --Dcss-green: #61b98f;
+  --Dcss-yellow: #f4c542;
+  --Dcss-red: #e85b5b;
+
+  --Dcss-white: #ffffff;
+  --Dcss-card-bg: rgba(255, 252, 246, 0.96);
+  --Dcss-stage-bg: rgba(255, 247, 239, 0.88);
+
+  /* ===== 動態背景 ===== */
+  --Dcss-bg: radial-gradient(circle at top, #fff2dd 0%, #ffe5ee 45%, #e8f5ff 100%);
+  --Dcss-bg-overlay: rgba(255, 255, 255, 0.18);
+
+  /* ===== 圓角，對齊前面遊戲 ===== */
+  --Dcss-radius-sm: 14px;
+  --Dcss-radius-md: 16px;
+  --Dcss-radius-lg: 20px;
+  --Dcss-radius-card: 28px;
+  --Dcss-radius-large: 32px;
+  --Dcss-radius-pill: 999px;
+
+  /* ===== 陰影 ===== */
+  --Dcss-shadow-soft: 0 4px 10px rgba(0, 0, 0, 0.10);
+  --Dcss-shadow-card: 0 10px 25px rgba(0, 0, 0, 0.12);
+  --Dcss-shadow-strong: 0 14px 34px rgba(0, 0, 0, 0.16);
+  --Dcss-shadow-button: 0 6px 14px rgba(0, 0, 0, 0.15);
+
+  /* ===== 尺寸 ===== */
+  --Dcss-shell-max: 1180px;
+  --Dcss-card-max: 960px;
+}
+
+/* =========================================================
+   1. 全頁背景
+   ========================================================= */
+
+.Dcss-page {
+  min-height: 100vh;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 28px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow-x: hidden;
+
+  background-image: linear-gradient(var(--Dcss-bg-overlay), var(--Dcss-bg-overlay)), var(--Dcss-bg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  color: var(--Dcss-text);
+  font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* =========================================================
+   2. 開始頁 Intro
+   ========================================================= */
+
+.Dcss-intro-card {
+  width: min(92vw, var(--Dcss-card-max));
+  min-height: 480px;
+  display: grid;
+  grid-template-columns: 0.88fr 1.12fr;
+  align-items: center;
+  gap: 28px;
+  padding: 42px 44px;
+  box-sizing: border-box;
+  border-radius: var(--Dcss-radius-large);
+  background: var(--Dcss-card-bg);
+  box-shadow: var(--Dcss-shadow-card);
+  border: 3px solid rgba(255, 255, 255, 0.82);
+}
+
+.Dcss-intro-left {
+  min-height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, rgba(255, 231, 241, 0.88), rgba(234, 244, 255, 0.88));
+  border-radius: 30px;
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.72);
+}
+
+.Dcss-peacock-large {
+  width: min(80%, 330px);
+  max-height: 360px;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 16px rgba(80, 60, 40, 0.16));
+  animation: Dcss-float 2.8s ease-in-out infinite;
+}
+
+.Dcss-intro-content {
+  text-align: left;
+}
+
+.Dcss-intro-content h1,
+.Dcss-rule-content h1 {
+  margin: 14px 0 18px;
+  font-size: 40px;
+  line-height: 1.25;
+  color: var(--Dcss-brown-dark);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.Dcss-intro-content p,
+.Dcss-rule-content p {
+  margin: 0 0 12px;
+  font-size: 24px;
+  line-height: 1.75;
+  color: var(--Dcss-brown);
+  font-weight: 650;
+}
+
+.Dcss-rule-content strong {
+  color: var(--Dcss-orange);
+  font-weight: 900;
+  padding: 0 3px;
+}
+
+/* =========================================================
+   3. 標籤與按鈕
+   ========================================================= */
+
+.Dcss-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 9px 18px;
+  border-radius: var(--Dcss-radius-pill);
+  background: var(--Dcss-orange-pale);
+  color: var(--Dcss-brown);
+  border: 2px solid var(--Dcss-orange-border);
+  font-size: 18px;
+  font-weight: 900;
+  box-shadow: 0 3px 8px rgba(255, 140, 66, 0.12);
+}
+
+.Dcss-tag.danger {
+  background: #fff0f0;
+  color: #b94747;
+  border-color: #ffb9b9;
+}
+
+.Dcss-main-btn {
+  margin-top: 26px;
+  min-width: 180px;
+  min-height: 58px;
+  padding: 15px 32px;
+  border: none;
+  border-radius: var(--Dcss-radius-md);
+  background: var(--Dcss-orange);
+  color: var(--Dcss-white);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: var(--Dcss-shadow-button);
+  transition: transform 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.Dcss-main-btn:hover {
+  background: var(--Dcss-orange-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.Dcss-main-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.Dcss-main-btn:focus-visible,
+.Dcss-basket-btn:focus-visible {
+  outline: 4px solid rgba(255, 140, 66, 0.35);
+  outline-offset: 4px;
+}
+
+/* =========================================================
+   4. 規則頁
+   ========================================================= */
+
+.Dcss-rule-card,
+.Dcss-switch-card {
+  width: min(92vw, 920px);
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  align-items: center;
+  gap: 28px;
+  padding: 42px 44px;
+  box-sizing: border-box;
+  border-radius: var(--Dcss-radius-large);
+  background: var(--Dcss-card-bg);
+  box-shadow: var(--Dcss-shadow-card);
+  border: 3px solid rgba(255, 255, 255, 0.82);
+}
+
+.Dcss-switch-card {
+  background: linear-gradient(145deg, rgba(255, 252, 246, 0.97), rgba(242, 237, 255, 0.96));
+}
+
+.Dcss-peacock-rule {
+  width: min(100%, 220px);
+  max-height: 300px;
+  object-fit: contain;
+  justify-self: center;
+  filter: drop-shadow(0 8px 14px rgba(80, 60, 40, 0.16));
+}
+
+.Dcss-rule-content {
+  text-align: left;
+}
+
+.Dcss-demo-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 18px;
+  margin: 26px 0 8px;
+  flex-wrap: wrap;
+}
+
+.Dcss-demo-basket {
+  width: 170px;
+  min-height: 148px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 22px;
+  background: var(--Dcss-white);
+  box-shadow: var(--Dcss-shadow-soft);
+  border: 3px solid rgba(255, 204, 156, 0.85);
+}
+
+.Dcss-demo-basket img {
+  width: 92px;
+  height: 78px;
+  object-fit: contain;
+}
+
+.Dcss-demo-basket span {
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.Dcss-demo-basket .pink,
+.pink {
+  color: var(--Dcss-pink);
+}
+
+.Dcss-demo-basket .blue,
+.blue {
+  color: var(--Dcss-blue);
+}
+
+.Dcss-switch-symbol {
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 28px 0 6px;
+  padding: 16px 20px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: var(--Dcss-shadow-soft);
+}
+
+.Dcss-switch-symbol span {
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.Dcss-switch-symbol .old-rule {
+  color: var(--Dcss-brown-soft);
+  text-decoration: line-through;
+  opacity: 0.72;
+}
+
+.Dcss-switch-symbol .arrow {
+  color: var(--Dcss-orange);
+  font-size: 30px;
+}
+
+.Dcss-switch-symbol .new-rule {
+  color: var(--Dcss-purple);
+}
+
+/* =========================================================
+   5. 測驗主畫面外框
+   ========================================================= */
+
+.Dcss-test-shell {
+  width: min(96vw, var(--Dcss-shell-max));
+  min-height: calc(100vh - 56px);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 26px 30px 30px;
+  box-sizing: border-box;
+  border-radius: var(--Dcss-radius-large);
+  background: rgba(255, 252, 246, 0.92);
+  box-shadow: var(--Dcss-shadow-card);
+  border: 3px solid rgba(255, 255, 255, 0.76);
+}
+
+.Dcss-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  text-align: left;
+  padding: 2px 4px 8px;
+}
+
+.Dcss-top-bar h2 {
+  margin: 12px 0 0;
+  font-size: 32px;
+  line-height: 1.25;
+  color: var(--Dcss-brown-dark);
+  font-weight: 900;
+}
+
+.Dcss-progress-pill {
+  flex-shrink: 0;
+  padding: 12px 22px;
+  border-radius: var(--Dcss-radius-pill);
+  background: var(--Dcss-orange-pale);
+  border: 2px solid var(--Dcss-orange-border);
+  color: var(--Dcss-brown);
+  font-size: 20px;
+  font-weight: 900;
+  box-shadow: 0 4px 10px rgba(255, 140, 66, 0.10);
+}
+
+.Dcss-main-area {
+  position: relative;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 230px 1fr 330px;
+  align-items: center;
+  gap: 24px;
+  padding: 24px;
+  border-radius: 30px;
+  background: var(--Dcss-stage-bg);
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.58);
+}
+
+/* =========================================================
+   6. 孔雀提示區
+   ========================================================= */
+
+.Dcss-helper {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+}
+
+.Dcss-helper img {
+  width: 165px;
+  max-height: 220px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 12px rgba(80, 60, 40, 0.15));
+}
+
+.Dcss-speech {
+  position: relative;
+  width: 100%;
+  max-width: 210px;
+  padding: 15px 18px;
+  border-radius: 22px;
+  background: var(--Dcss-white);
+  border: 3px solid rgba(255, 204, 156, 0.88);
+  box-shadow: var(--Dcss-shadow-soft);
+  color: var(--Dcss-brown);
+  font-size: 20px;
+  line-height: 1.45;
+  font-weight: 850;
+  text-align: center;
+}
+
+.Dcss-speech::before {
+  content: "";
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  background: var(--Dcss-white);
+  border-left: 3px solid rgba(255, 204, 156, 0.88);
+  border-top: 3px solid rgba(255, 204, 156, 0.88);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+/* =========================================================
+   7. 中央衣服卡片
+   ========================================================= */
+
+.Dcss-card-stage {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  min-height: 430px;
+}
+
+.Dcss-cloth-card {
+  width: min(36vw, 290px);
+  min-width: 230px;
+  aspect-ratio: 1 / 1.12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 32px;
+  background: linear-gradient(180deg, #ffffff 0%, #fff7ef 100%);
+  border: 5px solid rgba(255, 204, 156, 0.9);
+  box-shadow: 0 12px 26px rgba(80, 60, 40, 0.14);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.Dcss-cloth-card img {
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.10));
+}
+
+.Dcss-cloth-card.correct {
+  border-color: rgba(76, 175, 80, 0.9);
+  box-shadow: 0 0 0 8px rgba(76, 175, 80, 0.12), 0 12px 26px rgba(80, 60, 40, 0.14);
+  animation: Dcss-pop 0.38s ease;
+}
+
+.Dcss-cloth-card.wrong {
+  border-color: rgba(232, 91, 91, 0.9);
+  box-shadow: 0 0 0 8px rgba(232, 91, 91, 0.12), 0 12px 26px rgba(80, 60, 40, 0.14);
+  animation: Dcss-shake 0.34s ease;
+}
+
+.Dcss-card-info {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.Dcss-card-info span {
+  min-width: 76px;
+  padding: 9px 15px;
+  border-radius: var(--Dcss-radius-pill);
+  background: var(--Dcss-white);
+  color: var(--Dcss-brown);
+  border: 2px solid rgba(255, 204, 156, 0.9);
+  font-size: 20px;
+  font-weight: 900;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* =========================================================
+   8. 籃子答案區
+   ========================================================= */
+
+.Dcss-baskets-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  align-items: center;
+}
+
+.Dcss-basket-btn {
+  width: 100%;
+  min-height: 185px;
+  padding: 18px 18px 16px;
+  border-radius: 28px;
+  border: 4px solid rgba(255, 204, 156, 0.85);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--Dcss-shadow-soft);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.Dcss-basket-btn:hover:not(:disabled) {
+  transform: translateY(-3px) scale(1.02);
+  border-color: var(--Dcss-orange);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.14);
+}
+
+.Dcss-basket-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+.Dcss-basket-btn.selected {
+  border-color: var(--Dcss-purple);
+  background: var(--Dcss-purple-soft);
+  box-shadow: 0 0 0 8px rgba(143, 110, 213, 0.13), 0 10px 22px rgba(0, 0, 0, 0.13);
+}
+
+.Dcss-basket-btn:disabled {
+  cursor: default;
+}
+
+.Dcss-basket-label {
+  min-width: 120px;
+  padding: 9px 18px;
+  border-radius: var(--Dcss-radius-pill);
+  background: var(--Dcss-orange-pale);
+  color: var(--Dcss-brown-dark);
+  font-size: 24px;
+  font-weight: 900;
+  border: 2px solid rgba(255, 204, 156, 0.9);
+}
+
+.Dcss-basket-btn img {
+  width: 136px;
+  height: 104px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.10));
+}
+
+/* =========================================================
+   9. 回饋訊息
+   ========================================================= */
+
+.Dcss-feedback {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 5;
+  width: fit-content;
+  max-width: 84%;
+  padding: 14px 26px;
+  border-radius: var(--Dcss-radius-pill);
+  background: var(--Dcss-white);
+  border: 3px solid rgba(255, 204, 156, 0.95);
+  box-shadow: var(--Dcss-shadow-card);
+  font-size: 24px;
+  line-height: 1.35;
+  font-weight: 900;
+  text-align: center;
+  animation: Dcss-feedback-in 0.22s ease;
+}
+
+.Dcss-feedback.correct {
+  color: #2f8f55;
+  border-color: rgba(76, 175, 80, 0.65);
+  background: #f0fff6;
+}
+
+.Dcss-feedback.wrong {
+  color: #bd4a4a;
+  border-color: rgba(232, 91, 91, 0.65);
+  background: #fff4f4;
+}
+
+/* =========================================================
+   10. 動畫
+   ========================================================= */
+
+@keyframes Dcss-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes Dcss-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes Dcss-shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-7px);
+  }
+  50% {
+    transform: translateX(7px);
+  }
+  75% {
+    transform: translateX(-4px);
+  }
+}
+
+@keyframes Dcss-feedback-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+/* =========================================================
+   11. RWD：平板與手機
+   ========================================================= */
+
+@media (max-width: 1040px) {
+  .Dcss-page {
+    padding: 20px;
+    align-items: flex-start;
+  }
+
+  .Dcss-intro-card,
+  .Dcss-rule-card,
+  .Dcss-switch-card {
+    grid-template-columns: 1fr;
+    text-align: center;
+    padding: 34px 28px;
+  }
+
+  .Dcss-intro-content,
+  .Dcss-rule-content {
+    text-align: center;
+  }
+
+  .Dcss-intro-left {
+    min-height: 260px;
+  }
+
+  .Dcss-peacock-large {
+    max-height: 260px;
+  }
+
+  .Dcss-peacock-rule {
+    max-height: 210px;
+  }
+
+  .Dcss-demo-row,
+  .Dcss-switch-symbol {
+    justify-content: center;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .Dcss-main-area {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .Dcss-helper {
+    flex-direction: row;
+    align-self: center;
+    justify-content: center;
+  }
+
+  .Dcss-helper img {
+    width: 110px;
+    max-height: 145px;
+  }
+
+  .Dcss-speech {
+    max-width: 360px;
+  }
+
+  .Dcss-speech::before {
+    top: 50%;
+    left: -12px;
+    transform: translateY(-50%) rotate(-45deg);
+    border-left: 3px solid rgba(255, 204, 156, 0.88);
+    border-top: 3px solid rgba(255, 204, 156, 0.88);
+  }
+
+  .Dcss-baskets-row {
+    width: 100%;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .Dcss-basket-btn {
+    min-height: 165px;
+  }
+
+  .Dcss-cloth-card {
+    width: min(50vw, 260px);
+  }
+}
+
+@media (max-width: 720px) {
+  .Dcss-page {
+    padding: 14px;
+  }
+
+  .Dcss-intro-card,
+  .Dcss-rule-card,
+  .Dcss-switch-card,
+  .Dcss-test-shell {
+    width: 100%;
+    border-radius: 24px;
+    padding: 24px 18px;
+  }
+
+  .Dcss-intro-content h1,
+  .Dcss-rule-content h1 {
+    font-size: 30px;
+  }
+
+  .Dcss-intro-content p,
+  .Dcss-rule-content p {
+    font-size: 19px;
+    line-height: 1.65;
+  }
+
+  .Dcss-main-btn {
+    width: 100%;
+    font-size: 20px;
+  }
+
+  .Dcss-top-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .Dcss-top-bar h2 {
+    font-size: 26px;
+  }
+
+  .Dcss-progress-pill {
+    font-size: 18px;
+  }
+
+  .Dcss-main-area {
+    padding: 18px 14px 86px;
+    border-radius: 24px;
+  }
+
+  .Dcss-helper {
+    flex-direction: column;
+  }
+
+  .Dcss-speech::before {
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+  }
+
+  .Dcss-card-stage {
+    min-height: 330px;
+  }
+
+  .Dcss-cloth-card {
+    min-width: 190px;
+    width: min(70vw, 230px);
+  }
+
+  .Dcss-baskets-row {
+    grid-template-columns: 1fr;
+  }
+
+  .Dcss-basket-btn {
+    min-height: 140px;
+  }
+
+  .Dcss-basket-btn img {
+    width: 110px;
+    height: 82px;
+  }
+
+  .Dcss-basket-label {
+    font-size: 21px;
+  }
+
+  .Dcss-feedback {
+    bottom: 18px;
+    font-size: 20px;
+    max-width: 90%;
+    padding: 12px 18px;
+  }
+
+  .Dcss-switch-symbol {
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .Dcss-switch-symbol span {
+    font-size: 20px;
+  }
+}
+/* =========================================================
+   12. Dcss ResultPage 結果頁樣式
+   貼到 GamePage_Dcss.css 最底部
+   ========================================================= */
+
+.Dcss-result-shell {
+  width: min(96vw, var(--Dcss-shell-max));
+  min-height: calc(100vh - 56px);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 28px 32px 30px;
+  box-sizing: border-box;
+  border-radius: var(--Dcss-radius-large);
+  background: rgba(255, 252, 246, 0.94);
+  box-shadow: var(--Dcss-shadow-card);
+  border: 3px solid rgba(255, 255, 255, 0.78);
+}
+
+.Dcss-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 2px 4px 8px;
+}
+
+.Dcss-result-header h1 {
+  margin: 12px 0 0;
+  font-size: 34px;
+  line-height: 1.25;
+  color: var(--Dcss-brown-dark);
+  font-weight: 900;
+}
+
+.Dcss-result-tabs {
+  display: inline-flex;
+  gap: 8px;
+  padding: 8px;
+  border-radius: var(--Dcss-radius-pill);
+  background: rgba(255, 255, 255, 0.82);
+  border: 2px solid rgba(255, 204, 156, 0.88);
+  box-shadow: var(--Dcss-shadow-soft);
+}
+
+.Dcss-result-tabs button {
+  min-width: 92px;
+  min-height: 44px;
+  padding: 9px 18px;
+  border: none;
+  border-radius: var(--Dcss-radius-pill);
+  background: transparent;
+  color: var(--Dcss-brown);
+  font-size: 18px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+
+.Dcss-result-tabs button:hover {
+  transform: translateY(-1px);
+  background: var(--Dcss-orange-pale);
+}
+
+.Dcss-result-tabs button.active {
+  background: var(--Dcss-orange);
+  color: var(--Dcss-white);
+  box-shadow: 0 5px 12px rgba(255, 140, 66, 0.22);
+}
+
+.Dcss-result-warning {
+  padding: 13px 18px;
+  border-radius: 18px;
+  background: #fff4f4;
+  border: 2px solid #ffb9b9;
+  color: #b94747;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.Dcss-result-panel {
+  flex: 1;
+  padding: 28px;
+  border-radius: 30px;
+  background: var(--Dcss-stage-bg);
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.58);
+}
+
+.Dcss-child-result-main {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  align-items: center;
+  gap: 30px;
+}
+
+.Dcss-result-peacock-wrap {
+  min-height: 370px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 30px;
+  background: linear-gradient(180deg, rgba(255, 231, 241, 0.88), rgba(234, 244, 255, 0.88));
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.72);
+}
+
+.Dcss-result-peacock {
+  width: min(80%, 300px);
+  max-height: 340px;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 16px rgba(80, 60, 40, 0.16));
+  animation: Dcss-float 2.8s ease-in-out infinite;
+}
+
+.Dcss-child-result-content h1,
+.Dcss-section-title h1 {
+  margin: 14px 0 14px;
+  font-size: 38px;
+  line-height: 1.25;
+  color: var(--Dcss-brown-dark);
+  font-weight: 900;
+}
+
+.Dcss-child-message,
+.Dcss-section-title p,
+.Dcss-parent-explain-card p,
+.Dcss-clinician-summary p {
+  margin: 0;
+  color: var(--Dcss-brown);
+  font-size: 21px;
+  line-height: 1.75;
+  font-weight: 650;
+}
+
+.Dcss-result-stars {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 16px;
+  font-size: 60px;
+  line-height: 1;
+}
+
+.Dcss-result-stars span {
+  filter: drop-shadow(0 5px 8px rgba(80, 60, 40, 0.12));
+}
+
+.Dcss-result-stars .active {
+  color: var(--Dcss-yellow);
+}
+
+.Dcss-result-stars .inactive {
+  color: #eadfd2;
+}
+
+.Dcss-score-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+}
+
+.Dcss-score-badge,
+.Dcss-score-mini-card,
+.Dcss-highlight-card,
+.Dcss-metric-card,
+.Dcss-parent-explain-card,
+.Dcss-clinician-summary,
+.Dcss-trial-table-card,
+.Dcss-score-breakdown-card {
+  background: rgba(255, 255, 255, 0.94);
+  border: 3px solid rgba(255, 204, 156, 0.84);
+  box-shadow: var(--Dcss-shadow-soft);
+  border-radius: 24px;
+}
+
+.Dcss-score-badge {
+  width: 210px;
+  min-height: 126px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding: 18px;
+}
+
+.Dcss-score-badge span,
+.Dcss-score-mini-card span,
+.Dcss-highlight-card span,
+.Dcss-metric-card span {
+  color: var(--Dcss-brown-soft);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.Dcss-score-badge strong {
+  color: var(--Dcss-orange);
+  font-size: 54px;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.Dcss-score-badge small {
+  color: var(--Dcss-brown-soft);
+  font-size: 18px;
+  font-weight: 900;
+  align-self: flex-end;
+  margin-bottom: 10px;
+}
+
+.Dcss-score-mini-card {
+  width: 190px;
+  min-height: 126px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px;
+  box-sizing: border-box;
+}
+
+.Dcss-score-mini-card strong {
+  color: var(--Dcss-purple);
+  font-size: 38px;
+  font-weight: 950;
+}
+
+.Dcss-child-note {
+  margin-top: 22px;
+  padding: 16px 22px;
+  border-radius: var(--Dcss-radius-pill);
+  background: var(--Dcss-orange-pale);
+  border: 2px solid var(--Dcss-orange-border);
+  color: var(--Dcss-brown);
+  text-align: center;
+  font-size: 21px;
+  line-height: 1.45;
+  font-weight: 900;
+}
+
+.Dcss-section-title {
+  margin-bottom: 22px;
+}
+
+.Dcss-parent-highlight-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.Dcss-highlight-card {
+  padding: 20px;
+}
+
+.Dcss-highlight-card strong {
+  display: block;
+  margin: 8px 0 8px;
+  color: var(--Dcss-orange);
+  font-size: 34px;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.Dcss-highlight-card p,
+.Dcss-indicator-card p {
+  margin: 0;
+  color: var(--Dcss-brown);
+  font-size: 17px;
+  line-height: 1.55;
+  font-weight: 650;
+}
+
+.Dcss-parent-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.Dcss-indicator-card {
+  padding: 18px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 3px solid rgba(255, 204, 156, 0.76);
+  box-shadow: var(--Dcss-shadow-soft);
+}
+
+.Dcss-indicator-header,
+.Dcss-breakdown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.Dcss-indicator-header strong,
+.Dcss-breakdown-header span {
+  color: var(--Dcss-brown-dark);
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.Dcss-indicator-header span,
+.Dcss-breakdown-header strong {
+  color: var(--Dcss-purple);
+  font-size: 20px;
+  font-weight: 950;
+}
+
+.Dcss-indicator-bar {
+  width: 100%;
+  height: 15px;
+  overflow: hidden;
+  border-radius: var(--Dcss-radius-pill);
+  background: #f0e4d8;
+  margin-bottom: 10px;
+}
+
+.Dcss-indicator-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--Dcss-orange-light), var(--Dcss-orange));
+  transition: width 0.35s ease;
+}
+
+.Dcss-parent-explain-card,
+.Dcss-clinician-summary,
+.Dcss-trial-table-card,
+.Dcss-score-breakdown-card {
+  margin-top: 18px;
+  padding: 22px;
+}
+
+.Dcss-parent-explain-card h3,
+.Dcss-clinician-summary h3,
+.Dcss-trial-table-card h3,
+.Dcss-score-breakdown-card h3 {
+  margin: 0 0 12px;
+  color: var(--Dcss-brown-dark);
+  font-size: 24px;
+  line-height: 1.3;
+  font-weight: 950;
+}
+
+.Dcss-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.Dcss-metric-card {
+  min-height: 108px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 9px;
+  padding: 18px;
+  box-sizing: border-box;
+}
+
+.Dcss-metric-card strong {
+  color: var(--Dcss-orange);
+  font-size: 32px;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.Dcss-metric-card small {
+  margin-left: 3px;
+  color: var(--Dcss-brown-soft);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.Dcss-breakdown-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px 20px;
+}
+
+.Dcss-breakdown-row {
+  min-width: 0;
+}
+
+.Dcss-trial-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 18px;
+  border: 2px solid rgba(255, 204, 156, 0.65);
+}
+
+.Dcss-trial-table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.Dcss-trial-table th,
+.Dcss-trial-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid rgba(141, 110, 99, 0.14);
+  color: var(--Dcss-brown);
+  font-size: 15px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.Dcss-trial-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--Dcss-orange-pale);
+  color: var(--Dcss-brown-dark);
+  font-weight: 950;
+}
+
+.Dcss-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  padding: 4px 9px;
+  border-radius: var(--Dcss-radius-pill);
+  font-weight: 900;
+}
+
+.Dcss-status.correct {
+  color: #2f8f55;
+  background: #ecfff4;
+}
+
+.Dcss-status.wrong {
+  color: #bd4a4a;
+  background: #fff0f0;
+}
+
+.Dcss-empty-text {
+  margin: 0;
+  color: var(--Dcss-brown-soft);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.Dcss-result-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+
+.Dcss-result-actions .Dcss-main-btn {
+  margin-top: 0;
+}
+
+.Dcss-sub-btn {
+  min-width: 160px;
+  min-height: 56px;
+  padding: 14px 28px;
+  border-radius: var(--Dcss-radius-md);
+  border: 3px solid rgba(255, 204, 156, 0.9);
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--Dcss-brown);
+  font-size: 21px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: var(--Dcss-shadow-soft);
+  transition: transform 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.Dcss-sub-btn:hover {
+  transform: translateY(-2px);
+  background: var(--Dcss-orange-pale);
+  box-shadow: var(--Dcss-shadow-button);
+}
+
+.Dcss-sub-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+@media (max-width: 1040px) {
+  .Dcss-result-header,
+  .Dcss-child-result-main {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .Dcss-result-tabs {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .Dcss-result-peacock-wrap {
+    min-height: 260px;
+  }
+
+  .Dcss-result-peacock {
+    max-height: 240px;
+  }
+
+  .Dcss-parent-highlight-grid,
+  .Dcss-metric-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .Dcss-result-shell,
+  .Dcss-result-panel {
+    width: 100%;
+    border-radius: 24px;
+    padding: 22px 16px;
+  }
+
+  .Dcss-result-header h1,
+  .Dcss-child-result-content h1,
+  .Dcss-section-title h1 {
+    font-size: 28px;
+  }
+
+  .Dcss-result-tabs {
+    border-radius: 20px;
+    flex-wrap: wrap;
+  }
+
+  .Dcss-result-tabs button {
+    flex: 1;
+    min-width: 88px;
+    font-size: 16px;
+  }
+
+  .Dcss-child-message,
+  .Dcss-section-title p,
+  .Dcss-parent-explain-card p,
+  .Dcss-clinician-summary p {
+    font-size: 18px;
+  }
+
+  .Dcss-result-stars {
+    font-size: 46px;
+  }
+
+  .Dcss-score-badge,
+  .Dcss-score-mini-card {
+    width: 100%;
+  }
+
+  .Dcss-parent-highlight-grid,
+  .Dcss-parent-grid,
+  .Dcss-metric-grid,
+  .Dcss-breakdown-list {
+    grid-template-columns: 1fr;
+  }
+
+  .Dcss-result-actions {
+    flex-direction: column;
+  }
+
+  .Dcss-result-actions .Dcss-main-btn,
+  .Dcss-sub-btn {
+    width: 100%;
+  }
+}
+/* =========================================================
+   Dcss TrainingPage 補充樣式
+   貼到 GamePage_Dcss.css 最底部即可
+   ========================================================= */
+
+.Dcss-training-intro-card {
+  width: min(94vw, 1120px);
+}
+
+.Dcss-level-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 24px 0 8px;
+}
+
+.Dcss-level-card {
+  min-height: 245px;
+  padding: 20px 18px;
+  border-radius: 26px;
+  border: 3px solid rgba(255, 204, 156, 0.92);
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--Dcss-brown);
+  box-shadow: var(--Dcss-shadow-soft);
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.Dcss-level-card:hover {
+  transform: translateY(-4px) scale(1.015);
+  box-shadow: var(--Dcss-shadow-card);
+  border-color: var(--Dcss-orange);
+}
+
+.Dcss-level-card.easy {
+  background: linear-gradient(180deg, #ffffff 0%, #fff3f8 100%);
+}
+
+.Dcss-level-card.normal {
+  background: linear-gradient(180deg, #ffffff 0%, #fff7ef 100%);
+}
+
+.Dcss-level-card.hard {
+  background: linear-gradient(180deg, #ffffff 0%, #f2edff 100%);
+}
+
+.Dcss-level-emoji {
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  background: var(--Dcss-orange-pale);
+  font-size: 28px;
+  box-shadow: inset 0 0 0 2px rgba(255, 204, 156, 0.9);
+}
+
+.Dcss-level-card small {
+  color: var(--Dcss-orange);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.Dcss-level-card h3 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 950;
+  color: var(--Dcss-brown-dark);
+}
+
+.Dcss-level-card strong {
+  font-size: 18px;
+  line-height: 1.4;
+  color: var(--Dcss-brown);
+}
+
+.Dcss-level-card p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.55;
+  font-weight: 650;
+  color: var(--Dcss-brown-soft);
+}
+
+.Dcss-level-card em {
+  margin-top: auto;
+  font-style: normal;
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--Dcss-purple);
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: 999px;
+  padding: 7px 12px;
+}
+
+.Dcss-sub-btn {
+  margin-top: 16px;
+  min-width: 160px;
+  min-height: 52px;
+  padding: 12px 24px;
+  border: 3px solid rgba(255, 204, 156, 0.96);
+  border-radius: var(--Dcss-radius-md);
+  background: #ffffff;
+  color: var(--Dcss-brown);
+  font-size: 19px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: var(--Dcss-shadow-soft);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.Dcss-sub-btn:hover {
+  transform: translateY(-2px);
+  border-color: var(--Dcss-orange);
+  box-shadow: var(--Dcss-shadow-card);
+}
+
+.Dcss-rule-banner {
+  width: fit-content;
+  align-self: center;
+  padding: 12px 28px;
+  border-radius: 999px;
+  font-size: 24px;
+  font-weight: 950;
+  box-shadow: var(--Dcss-shadow-soft);
+  border: 3px solid rgba(255, 255, 255, 0.85);
+}
+
+.Dcss-rule-banner.color-rule {
+  background: linear-gradient(90deg, #ffe7f1, #eaf4ff);
+  color: var(--Dcss-purple);
+}
+
+.Dcss-rule-banner.type-rule {
+  background: linear-gradient(90deg, #fff7ef, #f2edff);
+  color: var(--Dcss-brown-dark);
+}
+
+.Dcss-training-hint {
+  max-width: 560px;
+  padding: 12px 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--Dcss-brown);
+  font-size: 19px;
+  line-height: 1.45;
+  font-weight: 850;
+  border: 2px solid rgba(255, 204, 156, 0.9);
+  box-shadow: var(--Dcss-shadow-soft);
+  text-align: center;
+}
+
+.Dcss-training-status {
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  max-width: calc(100% - 48px);
+}
+
+.Dcss-training-status span {
+  padding: 8px 13px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 2px solid rgba(255, 204, 156, 0.78);
+  color: var(--Dcss-brown);
+  font-size: 16px;
+  font-weight: 900;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
+}
+
+.Dcss-feedback strong,
+.Dcss-feedback span {
+  display: inline-block;
+}
+
+.Dcss-feedback strong {
+  margin-right: 10px;
+}
+
+.Dcss-big-rule {
+  margin: 18px 0 4px;
+  font-size: 32px;
+  color: var(--Dcss-purple);
+  font-weight: 950;
+}
+
+.Dcss-finish-card {
+  width: min(92vw, 980px);
+}
+
+.Dcss-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin: 24px 0 18px;
+}
+
+.Dcss-summary-card {
+  min-height: 112px;
+  padding: 16px 12px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 3px solid rgba(255, 204, 156, 0.82);
+  box-shadow: var(--Dcss-shadow-soft);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+}
+
+.Dcss-summary-card strong {
+  font-size: 30px;
+  color: var(--Dcss-orange);
+  font-weight: 950;
+}
+
+.Dcss-summary-card span {
+  color: var(--Dcss-brown);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.Dcss-finish-note {
+  margin: 14px 0 6px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  background: var(--Dcss-orange-pale);
+  border: 2px solid rgba(255, 204, 156, 0.9);
+  color: var(--Dcss-brown);
+  font-size: 20px;
+  line-height: 1.55;
+  font-weight: 850;
+}
+
+.Dcss-finish-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.Dcss-finish-actions .Dcss-main-btn,
+.Dcss-finish-actions .Dcss-sub-btn {
+  margin-top: 0;
+}
+
+@media (max-width: 1040px) {
+  .Dcss-level-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .Dcss-level-card {
+    min-height: auto;
+  }
+
+  .Dcss-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .Dcss-training-status {
+    position: static;
+    justify-content: center;
+    margin-top: 4px;
+  }
+}
+
+@media (max-width: 720px) {
+  .Dcss-rule-banner {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+    font-size: 20px;
+  }
+
+  .Dcss-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .Dcss-finish-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .Dcss-finish-actions .Dcss-main-btn,
+  .Dcss-finish-actions .Dcss-sub-btn {
+    width: 100%;
+  }
+}
+
+/* DCCS TestPage：答案籃固定上下排列 */
+.Dcss-main-area-vertical-baskets {
+  grid-template-columns: 230px 1fr 330px;
+}
+
+.Dcss-baskets-column {
+  display: grid;
+  grid-template-columns: 1fr !important;
+  gap: 24px;
+  align-items: stretch;
+}
+
+.Dcss-baskets-column .Dcss-basket-btn {
+  width: 100%;
+  min-height: 185px;
+}
+
+@media (max-width: 1040px) {
+  .Dcss-main-area-vertical-baskets {
+    grid-template-columns: 1fr;
+  }
+
+  .Dcss-baskets-column {
+    width: 100%;
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .Dcss-baskets-column .Dcss-basket-btn {
+    min-height: 138px;
+  }
+}
+
+/* =========================================================
+   DCCS TrainingPage 修正版：上下籃子與文字重疊修正
+   ========================================================= */
+
+.Dcss-training-shell {
+  min-height: calc(100vh - 56px);
+}
+
+.Dcss-training-main-area {
+  position: relative;
+  grid-template-columns: 230px minmax(360px, 1fr) 330px;
+  align-items: center;
+  padding-bottom: 98px;
+}
+
+.Dcss-main-area-vertical-baskets {
+  grid-template-columns: 230px minmax(360px, 1fr) 330px;
+}
+
+.Dcss-baskets-column {
+  display: grid;
+  grid-template-columns: 1fr !important;
+  gap: 24px;
+  align-items: stretch;
+}
+
+.Dcss-baskets-column .Dcss-basket-btn {
+  width: 100%;
+  min-height: 185px;
+}
+
+.Dcss-training-card-stage {
+  min-height: 440px;
+  justify-content: center;
+}
+
+.Dcss-training-hint {
+  width: min(100%, 560px);
+  box-sizing: border-box;
+  margin-top: 2px;
+}
+
+.Dcss-training-feedback {
+  bottom: 64px;
+  max-width: min(760px, 82%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  white-space: normal;
+}
+
+.Dcss-training-feedback strong {
+  margin-right: 0;
+}
+
+.Dcss-training-status-fixed {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 20px;
+  max-width: none;
+  justify-content: center;
+  z-index: 4;
+}
+
+.Dcss-training-status-fixed span {
+  white-space: nowrap;
+}
+
+@media (max-width: 1040px) {
+  .Dcss-training-main-area,
+  .Dcss-main-area-vertical-baskets {
+    grid-template-columns: 1fr;
+  }
+
+  .Dcss-training-main-area {
+    padding-bottom: 28px;
+  }
+
+  .Dcss-baskets-column {
+    width: 100%;
+    grid-template-columns: 1fr !important;
+  }
+
+  .Dcss-training-feedback {
+    position: static;
+    transform: none;
+    max-width: 100%;
+    margin-top: 4px;
+  }
+
+  .Dcss-training-status-fixed {
+    position: static;
+    margin-top: 8px;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 720px) {
+  .Dcss-training-card-stage {
+    min-height: auto;
+  }
+
+  .Dcss-baskets-column .Dcss-basket-btn {
+    min-height: 138px;
+  }
+
+  .Dcss-training-feedback {
+    font-size: 18px;
+    border-radius: 20px;
+  }
+
+  .Dcss-training-status-fixed {
+    gap: 6px;
+  }
+
+  .Dcss-training-status-fixed span {
+    font-size: 14px;
+  }
+}
+
+/* DCCS TestPage 修正版：避免前導被切到、正式測驗不直接顯示答案 */
+
+.Dcss-page {
+  width: 100vw;
+  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: clamp(10px, 2vh, 24px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.Dcss-video-card,
+.Dcss-intro-card,
+.Dcss-rule-card,
+.Dcss-switch-card,
+.Dcss-test-shell {
+  box-sizing: border-box;
+  max-height: calc(100dvh - 28px);
+  overflow: hidden;
+}
+
+.Dcss-icon-intro-card {
+  width: min(1080px, calc(100vw - 32px));
+  height: min(760px, calc(100dvh - 32px));
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(250px, 0.85fr) minmax(420px, 1.15fr);
+  align-items: center;
+  gap: clamp(18px, 3vw, 44px);
+  padding: clamp(22px, 4vh, 44px);
+}
+
+.Dcss-icon-intro-card .Dcss-intro-left {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+.Dcss-icon-intro-card .Dcss-peacock-large {
+  width: min(300px, 27vw);
+  max-height: min(420px, 52vh);
+  object-fit: contain;
+}
+
+.Dcss-icon-intro-content {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(12px, 2vh, 22px);
+}
+
+.Dcss-icon-intro-content h1 {
+  margin: 0;
+  font-size: clamp(34px, 4.8vw, 56px);
+  line-height: 1.05;
+}
+
+.Dcss-icon-intro-content .Dcss-picture-rule-row {
+  width: min(460px, 42vw);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 1.6vw, 20px);
+  margin: 0;
+}
+
+.Dcss-rule-cloth-demo {
+  width: clamp(120px, 16vw, 190px);
+  height: clamp(120px, 16vw, 190px);
+  object-fit: contain;
+}
+
+.Dcss-rule-basket-demo {
+  width: clamp(160px, 20vw, 250px);
+  height: clamp(130px, 17vw, 210px);
+  object-fit: contain;
+}
+
+.Dcss-picture-rule-card {
+  width: min(980px, calc(100vw - 32px));
+  height: min(760px, calc(100dvh - 32px));
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(190px, 0.45fr) minmax(420px, 1fr);
+  align-items: center;
+  gap: clamp(14px, 2vw, 28px);
+  padding: clamp(18px, 3vh, 34px);
+}
+
+.Dcss-picture-rule-card .Dcss-peacock-rule {
+  width: min(240px, 23vw);
+  max-height: min(360px, 48vh);
+  object-fit: contain;
+  align-self: center;
+  justify-self: center;
+}
+
+.Dcss-picture-rule-content {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 1.8vh, 18px);
+}
+
+.Dcss-picture-rule-content .Dcss-picture-rule-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(10px, 1.5vw, 18px);
+  margin: 0;
+}
+
+.Dcss-mini-example {
+  min-height: 0;
+  padding: clamp(10px, 1.8vh, 16px);
+  border-radius: 28px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  justify-items: center;
+  gap: 8px;
+}
+
+.Dcss-mini-example > img {
+  width: clamp(90px, 11vw, 135px);
+  height: clamp(90px, 11vw, 135px);
+  object-fit: contain;
+}
+
+.Dcss-demo-target img {
+  max-width: clamp(78px, 9vw, 120px);
+  max-height: clamp(78px, 9vw, 120px);
+  object-fit: contain;
+}
+
+.Dcss-rule-change-visual {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(14px, 2vw, 24px);
+}
+
+.Dcss-rule-on img {
+  width: clamp(70px, 8vw, 105px);
+  height: clamp(70px, 8vw, 105px);
+  object-fit: contain;
+}
+
+/* 正式測驗：籃子只顯示分類提示，不顯示當題的答案衣服 */
+.Dcss-color-target-only {
+  min-height: clamp(62px, 7vw, 88px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.Dcss-color-target-only i {
+  width: clamp(44px, 5.8vw, 76px);
+  height: clamp(44px, 5.8vw, 76px);
+  border-radius: 999px;
+  border: 5px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 8px 18px rgba(90, 54, 31, 0.16), inset 0 0 0 2px rgba(90, 54, 31, 0.08);
+}
+
+.Dcss-type-target-neutral {
+  min-height: clamp(72px, 8vw, 108px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.Dcss-type-target-neutral img {
+  width: clamp(74px, 8.5vw, 118px);
+  height: clamp(74px, 8.5vw, 118px);
+  object-fit: contain;
+  filter: grayscale(1) saturate(0) brightness(1.08) contrast(0.86);
+  opacity: 0.88;
+}
+
+.Dcss-visual-basket-btn .Dcss-basket-label,
+.Dcss-card-info,
+.Dcss-training-hint {
+  display: none !important;
+}
+
+.Dcss-visual-basket-btn {
+  min-height: clamp(220px, 28vh, 300px);
+  padding: clamp(12px, 2vh, 18px);
+}
+
+.Dcss-visual-basket-btn > img {
+  width: clamp(150px, 17vw, 240px);
+  max-height: clamp(105px, 14vw, 180px);
+  object-fit: contain;
+}
+
+.Dcss-card-stage-visual .Dcss-cloth-card img {
+  max-width: clamp(170px, 19vw, 260px);
+  max-height: clamp(170px, 19vw, 260px);
+  object-fit: contain;
+}
+
+@media (max-height: 760px) {
+  .Dcss-page {
+    padding: 8px;
+  }
+
+  .Dcss-icon-intro-card,
+  .Dcss-picture-rule-card,
+  .Dcss-test-shell {
+    height: calc(100dvh - 16px);
+  }
+
+  .Dcss-main-btn {
+    min-height: 56px;
+    padding: 12px 42px;
+  }
+
+  .Dcss-visual-basket-btn {
+    min-height: 200px;
+  }
+}
+
+@media (max-width: 900px) {
+  .Dcss-icon-intro-card,
+  .Dcss-picture-rule-card {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .Dcss-icon-intro-card .Dcss-peacock-large,
+  .Dcss-picture-rule-card .Dcss-peacock-rule {
+    width: min(190px, 30vw);
+    max-height: 26vh;
+  }
+
+  .Dcss-picture-rule-content .Dcss-picture-rule-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* DCCS final visual fix
+   1. 顏色規則：籃子上方顯示真正顏色圓框
+   2. 衣服規則：籃子上方顯示黑色剪影
+   3. 測驗頁固定單螢幕，不裁切
+*/
+
+.Dcss-page {
+  width: 100vw;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: clamp(8px, 1.4vh, 18px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.Dcss-test-shell,
+.Dcss-video-card,
+.Dcss-intro-card,
+.Dcss-rule-card,
+.Dcss-switch-card {
+  box-sizing: border-box;
+  max-width: calc(100vw - 28px);
+  max-height: calc(100dvh - 24px);
+  overflow: hidden;
+}
+
+.Dcss-test-shell-visual {
+  width: min(1320px, calc(100vw - 28px));
+  height: min(930px, calc(100dvh - 24px));
+  padding: clamp(20px, 2.8vh, 36px);
+  display: flex;
+  flex-direction: column;
+}
+
+.Dcss-top-bar-compact {
+  flex: 0 0 auto;
+  margin-bottom: clamp(12px, 1.8vh, 22px);
+}
+
+.Dcss-top-bar-compact h2 {
+  margin: clamp(8px, 1vh, 12px) 0 0;
+  font-size: clamp(30px, 3.2vw, 44px);
+  line-height: 1.05;
+}
+
+.Dcss-progress-pill {
+  transform: scale(0.95);
+  transform-origin: top right;
+}
+
+.Dcss-main-area-visual {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(150px, 0.7fr) minmax(280px, 1.2fr) minmax(300px, 1fr);
+  align-items: center;
+  gap: clamp(14px, 2.2vw, 34px);
+  padding: clamp(14px, 2vh, 26px);
+}
+
+.Dcss-helper-compact {
+  align-self: center;
+  justify-self: center;
+}
+
+.Dcss-helper-compact img {
+  width: clamp(120px, 14vw, 190px);
+  max-height: 25vh;
+  object-fit: contain;
+}
+
+.Dcss-short-speech {
+  min-width: clamp(160px, 17vw, 240px);
+  padding: clamp(10px, 1.4vh, 16px) clamp(16px, 2vw, 28px);
+  font-size: clamp(20px, 2vw, 28px);
+}
+
+.Dcss-card-stage-visual {
+  min-height: 0;
+  align-self: center;
+  justify-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 1.4vh, 14px);
+}
+
+.Dcss-icon-rule-banner {
+  width: auto;
+  min-width: clamp(72px, 7vw, 110px);
+  min-height: clamp(34px, 4vh, 52px);
+  padding: clamp(4px, 0.8vh, 8px) clamp(10px, 1.2vw, 18px);
+  border-radius: 999px;
+}
+
+.Dcss-current-rule-icons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(6px, 0.7vw, 10px);
+}
+
+.Dcss-current-rule-icons img,
+.Dcss-current-rule-icons .Dcss-shadow-cloth {
+  width: clamp(34px, 4.2vw, 58px);
+  height: clamp(34px, 4.2vw, 58px);
+  object-fit: contain;
+}
+
+.Dcss-current-color-icons i {
+  width: clamp(18px, 2vw, 28px);
+  height: clamp(18px, 2vw, 28px);
+}
+
+.Dcss-card-stage-visual .Dcss-cloth-card {
+  width: clamp(210px, 25vw, 330px);
+  height: clamp(210px, 25vw, 330px);
+  padding: clamp(16px, 2vw, 26px);
+}
+
+.Dcss-card-stage-visual .Dcss-cloth-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.Dcss-visual-baskets-column {
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: clamp(12px, 2vh, 22px);
+  align-self: stretch;
+}
+
+.Dcss-visual-basket-btn {
+  min-height: 0 !important;
+  height: 100%;
+  padding: clamp(8px, 1.2vh, 14px);
+  display: grid;
+  grid-template-rows: minmax(48px, 0.45fr) minmax(90px, 0.8fr);
+  align-items: center;
+  justify-items: center;
+}
+
+.Dcss-visual-basket-btn > img {
+  width: clamp(135px, 15vw, 210px);
+  max-height: clamp(82px, 11vh, 132px);
+  object-fit: contain;
+}
+
+.Dcss-visual-target {
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 顏色圓框：前導與測驗都會直接顯示顏色 */
+.Dcss-color-dot-inline {
+  display: block;
+  border-radius: 999px;
+  border: 5px solid rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 18px rgba(90, 54, 31, 0.16), inset 0 0 0 2px rgba(90, 54, 31, 0.08);
+}
+
+.Dcss-color-dot-inline.guide {
+  width: clamp(44px, 5.2vw, 72px);
+  height: clamp(44px, 5.2vw, 72px);
+}
+
+.Dcss-color-dot-inline.test {
+  width: clamp(42px, 5.2vw, 70px);
+  height: clamp(42px, 5.2vw, 70px);
+}
+
+/* 前導示範的籃子：顏色圓框在籃子上方 */
+.Dcss-demo-target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(4px, 0.7vh, 8px);
+}
+
+.Dcss-demo-target-color img,
+.Dcss-demo-target-type img:not(.Dcss-shadow-cloth) {
+  width: clamp(82px, 9vw, 122px);
+  height: clamp(62px, 7vw, 94px);
+  object-fit: contain;
+}
+
+/* 衣服類別：黑色剪影 */
+.Dcss-shadow-cloth {
+  filter: brightness(0) saturate(0);
+  opacity: 0.72;
+  object-fit: contain;
+}
+
+.Dcss-demo-target-type .Dcss-shadow-cloth {
+  width: clamp(58px, 6.5vw, 90px);
+  height: clamp(58px, 6.5vw, 90px);
+}
+
+.Dcss-type-target-neutral {
+  min-height: 0;
+}
+
+.Dcss-type-target-neutral .Dcss-shadow-cloth {
+  width: clamp(54px, 6.2vw, 88px);
+  height: clamp(54px, 6.2vw, 88px);
+}
+
+/* 規則前導：避免被切 */
+.Dcss-picture-rule-card {
+  width: min(1080px, calc(100vw - 28px));
+  height: min(820px, calc(100dvh - 24px));
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(190px, 0.48fr) minmax(520px, 1fr);
+  align-items: center;
+  gap: clamp(12px, 2vw, 28px);
+  padding: clamp(18px, 3vh, 34px);
+}
+
+.Dcss-picture-rule-card .Dcss-peacock-rule {
+  width: min(260px, 24vw);
+  max-height: min(390px, 48vh);
+  object-fit: contain;
+}
+
+.Dcss-picture-rule-content {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(10px, 1.8vh, 18px);
+}
+
+.Dcss-picture-rule-content .Dcss-picture-rule-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(10px, 1.4vw, 18px);
+}
+
+.Dcss-mini-example {
+  min-height: 0;
+  padding: clamp(8px, 1.4vh, 14px);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  justify-items: center;
+  gap: 8px;
+}
+
+.Dcss-mini-example > img {
+  width: clamp(82px, 10vw, 132px);
+  height: clamp(82px, 10vw, 132px);
+  object-fit: contain;
+}
+
+@media (max-height: 760px) {
+  .Dcss-test-shell-visual {
+    padding: 14px 20px;
+  }
+
+  .Dcss-top-bar-compact {
+    margin-bottom: 8px;
+  }
+
+  .Dcss-main-area-visual {
+    padding: 10px 14px;
+    gap: 14px;
+  }
+
+  .Dcss-helper-compact img {
+    width: clamp(96px, 12vw, 145px);
+  }
+
+  .Dcss-card-stage-visual .Dcss-cloth-card {
+    width: clamp(170px, 22vw, 250px);
+    height: clamp(170px, 22vw, 250px);
+  }
+
+  .Dcss-visual-basket-btn > img {
+    width: clamp(120px, 13vw, 170px);
+    max-height: 92px;
+  }
+
+  .Dcss-color-dot-inline.test {
+    width: 46px;
+    height: 46px;
+  }
+
+  .Dcss-type-target-neutral .Dcss-shadow-cloth {
+    width: 58px;
+    height: 58px;
+  }
+
+  .Dcss-short-speech {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 980px) {
+  .Dcss-main-area-visual {
+    grid-template-columns: minmax(120px, 0.55fr) minmax(240px, 1fr) minmax(260px, 0.85fr);
+  }
+
+  .Dcss-picture-rule-card {
+    grid-template-columns: 1fr;
+  }
+
+  .Dcss-picture-rule-card .Dcss-peacock-rule {
+    width: min(190px, 30vw);
+    max-height: 22vh;
+  }
+}
+
+/* DCCS TrainingPage：三難度圖示化 + 單螢幕修正 */
+
+.Dcss-training-shell-visual {
+  width: min(1320px, calc(100vw - 28px));
+  height: min(930px, calc(100dvh - 24px));
+  padding: clamp(18px, 2.6vh, 34px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.Dcss-training-main-area-visual {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(145px, 0.7fr) minmax(280px, 1.15fr) minmax(300px, 1fr);
+  align-items: center;
+  gap: clamp(14px, 2.2vw, 34px);
+  padding: clamp(14px, 2vh, 26px);
+}
+
+.Dcss-color-dot-inline {
+  display: block;
+  border-radius: 999px;
+  border: 5px solid rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 18px rgba(90, 54, 31, 0.16), inset 0 0 0 2px rgba(90, 54, 31, 0.08);
+}
+
+.Dcss-color-dot-inline.training {
+  width: clamp(44px, 5.2vw, 72px);
+  height: clamp(44px, 5.2vw, 72px);
+}
+
+.Dcss-color-dot-inline.small {
+  width: clamp(18px, 2.1vw, 30px);
+  height: clamp(18px, 2.1vw, 30px);
+  border-width: 3px;
+}
+
+.Dcss-shadow-cloth {
+  filter: brightness(0) saturate(0);
+  opacity: 0.72;
+  object-fit: contain;
+}
+
+.Dcss-current-rule-icons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(6px, 0.7vw, 10px);
+}
+
+.Dcss-current-type-icons .Dcss-shadow-cloth {
+  width: clamp(34px, 4.2vw, 58px);
+  height: clamp(34px, 4.2vw, 58px);
+}
+
+.Dcss-icon-rule-banner {
+  width: auto;
+  min-width: clamp(80px, 8vw, 130px);
+  min-height: clamp(36px, 4.2vh, 54px);
+  padding: clamp(5px, 0.8vh, 8px) clamp(10px, 1.2vw, 18px);
+  border-radius: 999px;
+}
+
+.Dcss-training-hint-short {
+  font-size: clamp(18px, 2vw, 26px);
+  font-weight: 900;
+  color: #6a3a28;
+  background: rgba(255, 255, 255, 0.78);
+  border: 2px solid rgba(255, 190, 140, 0.75);
+  border-radius: 999px;
+  padding: 8px 20px;
+}
+
+.Dcss-visual-baskets-column {
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: clamp(12px, 2vh, 22px);
+  align-self: stretch;
+}
+
+.Dcss-visual-basket-btn {
+  min-height: 0 !important;
+  height: 100%;
+  padding: clamp(8px, 1.2vh, 14px);
+  display: grid;
+  grid-template-rows: minmax(50px, 0.45fr) minmax(88px, 0.82fr);
+  align-items: center;
+  justify-items: center;
+}
+
+.Dcss-visual-basket-btn > img {
+  width: clamp(135px, 15vw, 210px);
+  max-height: clamp(82px, 11vh, 132px);
+  object-fit: contain;
+}
+
+.Dcss-visual-target {
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.Dcss-type-target-neutral .Dcss-shadow-cloth {
+  width: clamp(54px, 6.2vw, 88px);
+  height: clamp(54px, 6.2vw, 88px);
+}
+
+.Dcss-card-stage-visual .Dcss-cloth-card {
+  width: clamp(210px, 25vw, 330px);
+  height: clamp(210px, 25vw, 330px);
+  padding: clamp(16px, 2vw, 26px);
+}
+
+.Dcss-card-stage-visual .Dcss-cloth-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.Dcss-helper-compact img {
+  width: clamp(120px, 14vw, 190px);
+  max-height: 25vh;
+  object-fit: contain;
+}
+
+.Dcss-short-speech {
+  min-width: clamp(150px, 16vw, 220px);
+  padding: clamp(10px, 1.4vh, 16px) clamp(16px, 2vw, 28px);
+  font-size: clamp(20px, 2vw, 28px);
+  font-weight: 900;
+}
+
+.Dcss-training-visual-guide,
+.Dcss-training-switch-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(16px, 2.2vw, 28px);
+  margin: clamp(12px, 2vh, 22px) 0;
+}
+
+.Dcss-guide-piece {
+  min-width: clamp(150px, 18vw, 220px);
+  padding: clamp(12px, 2vh, 20px);
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 3px solid rgba(255, 198, 152, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.Dcss-guide-piece > img:not(.Dcss-shadow-cloth) {
+  width: clamp(120px, 14vw, 190px);
+  max-height: clamp(80px, 11vh, 130px);
+  object-fit: contain;
+}
+
+.Dcss-guide-piece .Dcss-shadow-cloth {
+  width: clamp(70px, 8vw, 110px);
+  height: clamp(70px, 8vw, 110px);
+}
+
+.Dcss-rule-off,
+.Dcss-rule-on {
+  min-width: clamp(160px, 19vw, 240px);
+  min-height: clamp(90px, 12vh, 140px);
+  padding: clamp(12px, 2vh, 18px);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 3px solid rgba(255, 198, 152, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.Dcss-cross {
+  color: #d75f5f;
+  font-size: clamp(28px, 3vw, 40px);
+  font-weight: 900;
+}
+
+@media (max-height: 760px) {
+  .Dcss-training-shell-visual {
+    padding: 14px 20px;
+  }
+
+  .Dcss-training-main-area-visual {
+    padding: 10px 14px;
+    gap: 14px;
+  }
+
+  .Dcss-card-stage-visual .Dcss-cloth-card {
+    width: clamp(170px, 22vw, 250px);
+    height: clamp(170px, 22vw, 250px);
+  }
+
+  .Dcss-visual-basket-btn > img {
+    width: clamp(120px, 13vw, 170px);
+    max-height: 92px;
+  }
+
+  .Dcss-color-dot-inline.training {
+    width: 48px;
+    height: 48px;
+  }
+
+  .Dcss-type-target-neutral .Dcss-shadow-cloth {
+    width: 58px;
+    height: 58px;
+  }
+}
+
+/* DCCS TrainingPage 對齊 TestPage 版面
+   請貼在 GamePage_DCCS.css 最下面，讓訓練作答頁與測驗頁比例一致
+*/
+
+.Dcss-training-shell-visual.Dcss-test-shell-visual {
+  width: min(1320px, calc(100vw - 28px));
+  height: min(930px, calc(100dvh - 24px));
+  padding: clamp(20px, 2.8vh, 36px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.Dcss-training-shell-visual .Dcss-top-bar-compact {
+  flex: 0 0 auto;
+  margin-bottom: clamp(12px, 1.8vh, 22px);
+}
+
+.Dcss-training-shell-visual .Dcss-top-bar-compact h2 {
+  margin: clamp(8px, 1vh, 12px) 0 0;
+  font-size: clamp(30px, 3.2vw, 44px);
+  line-height: 1.05;
+}
+
+.Dcss-training-main-area-visual.Dcss-main-area-visual {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(150px, 0.7fr) minmax(280px, 1.2fr) minmax(300px, 1fr);
+  align-items: center;
+  gap: clamp(14px, 2.2vw, 34px);
+  padding: clamp(14px, 2vh, 26px);
+}
+
+.Dcss-training-main-area-visual .Dcss-helper-compact {
+  align-self: center;
+  justify-self: center;
+}
+
+.Dcss-training-main-area-visual .Dcss-helper-compact img {
+  width: clamp(120px, 14vw, 190px);
+  max-height: 25vh;
+  object-fit: contain;
+}
+
+.Dcss-training-main-area-visual .Dcss-short-speech {
+  min-width: clamp(160px, 17vw, 240px);
+  padding: clamp(10px, 1.4vh, 16px) clamp(16px, 2vw, 28px);
+  font-size: clamp(20px, 2vw, 28px);
+  font-weight: 900;
+}
+
+.Dcss-training-main-area-visual .Dcss-card-stage-visual {
+  min-height: 0;
+  align-self: center;
+  justify-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 1.4vh, 14px);
+}
+
+.Dcss-training-main-area-visual .Dcss-icon-rule-banner {
+  width: auto;
+  min-width: clamp(72px, 7vw, 110px);
+  min-height: clamp(34px, 4vh, 52px);
+  padding: clamp(4px, 0.8vh, 8px) clamp(10px, 1.2vw, 18px);
+  border-radius: 999px;
+}
+
+.Dcss-training-main-area-visual .Dcss-current-rule-icons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(6px, 0.7vw, 10px);
+}
+
+.Dcss-training-main-area-visual .Dcss-current-rule-icons img,
+.Dcss-training-main-area-visual .Dcss-current-rule-icons .Dcss-shadow-cloth {
+  width: clamp(34px, 4.2vw, 58px);
+  height: clamp(34px, 4.2vw, 58px);
+  object-fit: contain;
+}
+
+.Dcss-training-main-area-visual .Dcss-current-color-icons .Dcss-color-dot-inline.small {
+  width: clamp(18px, 2vw, 28px);
+  height: clamp(18px, 2vw, 28px);
+  border-width: 3px;
+}
+
+.Dcss-training-main-area-visual .Dcss-card-stage-visual .Dcss-cloth-card {
+  width: clamp(210px, 25vw, 330px);
+  height: clamp(210px, 25vw, 330px);
+  padding: clamp(16px, 2vw, 26px);
+}
+
+.Dcss-training-main-area-visual .Dcss-card-stage-visual .Dcss-cloth-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.Dcss-training-main-area-visual .Dcss-training-hint-short {
+  font-size: clamp(18px, 1.8vw, 24px);
+  font-weight: 900;
+  color: #6a3a28;
+  background: rgba(255, 255, 255, 0.78);
+  border: 2px solid rgba(255, 190, 140, 0.75);
+  border-radius: 999px;
+  padding: 7px 18px;
+}
+
+.Dcss-training-main-area-visual .Dcss-visual-baskets-column {
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: clamp(12px, 2vh, 22px);
+  align-self: stretch;
+}
+
+.Dcss-training-main-area-visual .Dcss-visual-basket-btn {
+  min-height: 0 !important;
+  height: 100%;
+  padding: clamp(8px, 1.2vh, 14px);
+  display: grid;
+  grid-template-rows: minmax(48px, 0.45fr) minmax(90px, 0.8fr);
+  align-items: center;
+  justify-items: center;
+}
+
+.Dcss-training-main-area-visual .Dcss-visual-basket-btn > img {
+  width: clamp(135px, 15vw, 210px);
+  max-height: clamp(82px, 11vh, 132px);
+  object-fit: contain;
+}
+
+.Dcss-training-main-area-visual .Dcss-color-dot-inline.training {
+  width: clamp(42px, 5.2vw, 70px);
+  height: clamp(42px, 5.2vw, 70px);
+}
+
+.Dcss-training-main-area-visual .Dcss-type-target-neutral .Dcss-shadow-cloth {
+  width: clamp(54px, 6.2vw, 88px);
+  height: clamp(54px, 6.2vw, 88px);
+}
+
+.Dcss-training-main-area-visual .Dcss-training-feedback {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(18px, 3vh, 34px);
+  transform: translateX(-50%);
+  z-index: 5;
+  max-width: min(420px, 60vw);
+}
+
+@media (max-height: 760px) {
+  .Dcss-training-shell-visual.Dcss-test-shell-visual {
+    padding: 14px 20px;
+  }
+
+  .Dcss-training-shell-visual .Dcss-top-bar-compact {
+    margin-bottom: 8px;
+  }
+
+  .Dcss-training-main-area-visual.Dcss-main-area-visual {
+    padding: 10px 14px;
+    gap: 14px;
+  }
+
+  .Dcss-training-main-area-visual .Dcss-helper-compact img {
+    width: clamp(96px, 12vw, 145px);
+  }
+
+  .Dcss-training-main-area-visual .Dcss-card-stage-visual .Dcss-cloth-card {
+    width: clamp(170px, 22vw, 250px);
+    height: clamp(170px, 22vw, 250px);
+  }
+
+  .Dcss-training-main-area-visual .Dcss-visual-basket-btn > img {
+    width: clamp(120px, 13vw, 170px);
+    max-height: 92px;
+  }
+
+  .Dcss-training-main-area-visual .Dcss-color-dot-inline.training {
+    width: 46px;
+    height: 46px;
+  }
+
+  .Dcss-training-main-area-visual .Dcss-type-target-neutral .Dcss-shadow-cloth {
+    width: 58px;
+    height: 58px;
+  }
+
+  .Dcss-training-main-area-visual .Dcss-short-speech {
+    font-size: 20px;
+  }
+}

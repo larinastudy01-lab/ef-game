@@ -1,0 +1,337 @@
+/* RestPage.css */
+/* 20 分鐘休息頁：森林休息站風格 */
+
+.rest-page {
+  width: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "jf-openhuninn", "Nunito", "Microsoft JhengHei", sans-serif;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 244, 190, 0.9), transparent 28%),
+    radial-gradient(circle at 20% 70%, rgba(191, 226, 157, 0.68), transparent 32%),
+    linear-gradient(180deg, #f9e8b9 0%, #cda76c 48%, #765636 100%);
+  color: #5d3d1f;
+}
+
+.rest-card {
+  position: relative;
+  width: min(980px, 94vw);
+  min-height: 660px;
+  padding: 42px 46px 34px;
+  border-radius: 44px;
+  background:
+    linear-gradient(180deg, rgba(255, 251, 232, 0.97), rgba(255, 238, 196, 0.95));
+  border: 8px solid rgba(126, 85, 42, 0.34);
+  box-shadow:
+    0 24px 52px rgba(59, 38, 16, 0.26),
+    inset 0 0 0 6px rgba(255, 255, 255, 0.28);
+  text-align: center;
+}
+
+.rest-fireflies {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 44px;
+}
+
+.rest-fireflies span {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(255, 226, 94, 0.95);
+  box-shadow: 0 0 20px rgba(255, 226, 94, 0.9);
+  animation: fireflyFloat 8s ease-in-out infinite;
+}
+
+.rest-fireflies span:nth-child(1) {
+  left: 12%;
+  top: 18%;
+}
+
+.rest-fireflies span:nth-child(2) {
+  left: 82%;
+  top: 24%;
+  animation-delay: 1.2s;
+}
+
+.rest-fireflies span:nth-child(3) {
+  left: 68%;
+  top: 72%;
+  animation-delay: 2.4s;
+}
+
+.rest-fireflies span:nth-child(4) {
+  left: 24%;
+  top: 76%;
+  animation-delay: 3.2s;
+}
+
+.rest-fireflies span:nth-child(5) {
+  left: 48%;
+  top: 14%;
+  animation-delay: 4s;
+}
+
+@keyframes fireflyFloat {
+  0%, 100% {
+    transform: translate(0, 0) scale(0.8);
+    opacity: 0.45;
+  }
+  50% {
+    transform: translate(18px, -26px) scale(1.2);
+    opacity: 1;
+  }
+}
+
+.rest-character-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin-bottom: 12px;
+}
+
+.rest-character {
+  min-width: 96px;
+  padding: 12px 18px;
+  border-radius: 999px;
+  font-size: 22px;
+  font-weight: 900;
+  color: #6a4320;
+  box-shadow: 0 8px 16px rgba(91, 57, 20, 0.16);
+}
+
+.rest-character.bear {
+  background: #e2b56e;
+}
+
+.rest-character.chick {
+  background: #ffe07a;
+}
+
+.rest-label {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  margin: 4px 0 10px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #e8c57d;
+  color: #67401d;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.rest-card h1 {
+  position: relative;
+  z-index: 1;
+  margin: 0 0 12px;
+  font-size: clamp(38px, 5vw, 58px);
+  color: #60401f;
+  text-shadow: 0 3px 0 rgba(255, 255, 255, 0.48);
+}
+
+.rest-story {
+  position: relative;
+  z-index: 1;
+  width: min(720px, 92%);
+  margin: 0 auto 26px;
+  font-size: clamp(22px, 3vw, 30px);
+  line-height: 1.45;
+  font-weight: 800;
+  color: #76532d;
+}
+
+.rest-breathing-area {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  gap: 24px;
+  align-items: center;
+  width: min(720px, 100%);
+  margin: 0 auto 22px;
+}
+
+.rest-breathing-circle {
+  width: 210px;
+  height: 210px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 28%, #fffbd1, #f4cc67 58%, #d8a04d);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 16px 26px rgba(88, 58, 22, 0.18),
+    inset 0 0 0 8px rgba(255, 255, 255, 0.28);
+  animation: breathing 4.8s ease-in-out infinite;
+}
+
+.rest-breathing-circle span {
+  font-size: 76px;
+}
+
+@keyframes breathing {
+  0%, 100% {
+    transform: scale(0.92);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.rest-tip-card {
+  padding: 24px;
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.52);
+  box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.22);
+  text-align: left;
+}
+
+.rest-tip-card h2 {
+  margin: 0 0 10px;
+  font-size: 34px;
+  color: #60401f;
+}
+
+.rest-tip-card p {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.5;
+  font-weight: 800;
+  color: #76532d;
+}
+
+.rest-soft-status {
+  position: relative;
+  z-index: 1;
+  margin: 18px auto 22px;
+  padding: 18px;
+  width: min(680px, 100%);
+  border-radius: 28px;
+  background: #fff0bf;
+}
+
+.rest-leaf-row {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin-bottom: 8px;
+}
+
+.rest-leaf-row span {
+  font-size: 34px;
+  opacity: 0.35;
+  transform: translateY(-6px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.rest-leaf-row span.active {
+  opacity: 1;
+  transform: translateY(4px);
+}
+
+.rest-soft-status p {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 900;
+  color: #76532d;
+}
+
+.rest-ready-stars {
+  font-size: 42px;
+  color: #ffc83d;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 6px 8px rgba(108, 72, 26, 0.18));
+}
+
+.rest-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.rest-button {
+  min-width: 170px;
+  min-height: 60px;
+  padding: 14px 24px;
+  border: none;
+  border-radius: 999px;
+  color: #5f3c1b;
+  font-size: 22px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow:
+    0 8px 0 rgba(102, 67, 28, 0.28),
+    0 14px 18px rgba(82, 50, 16, 0.14);
+  transition: transform 0.16s ease, filter 0.16s ease;
+}
+
+.rest-button:hover {
+  transform: translateY(-3px);
+  filter: brightness(1.03);
+}
+
+.rest-button.primary {
+  background: linear-gradient(180deg, #ffd76d, #edae3f);
+}
+
+.rest-button.secondary {
+  background: linear-gradient(180deg, #d7edaa, #96c875);
+}
+
+.rest-button.parent {
+  background: linear-gradient(180deg, #f1d0a1, #c99155);
+}
+
+.rest-note {
+  position: relative;
+  z-index: 1;
+  width: min(720px, 94%);
+  margin: 20px auto 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: rgba(93, 61, 31, 0.78);
+}
+
+@media (max-width: 760px) {
+  .rest-page {
+    padding: 18px;
+  }
+
+  .rest-card {
+    min-height: auto;
+    padding: 30px 20px;
+  }
+
+  .rest-breathing-area {
+    grid-template-columns: 1fr;
+  }
+
+  .rest-tip-card {
+    text-align: center;
+  }
+
+  .rest-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .rest-button {
+    width: min(340px, 100%);
+  }
+}
