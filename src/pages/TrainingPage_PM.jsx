@@ -1,10 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
+<<<<<<< HEAD
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { analyzePerformance } from "../ai/performanceAnalyzer";
 import { analyzeErrors } from "../ai/errorAnalyzer";
 import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
+=======
+import { useNavigate } from "react-router-dom";
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
 
 import PM01 from "../asset/PM/PM_01.png";
 import PM02 from "../asset/PM/PM_02.png";
@@ -17,6 +21,7 @@ import PM08 from "../asset/PM/PM_08.png";
 import PM09 from "../asset/PM/PM_09.png";
 import PM10 from "../asset/PM/PM_10.png";
 import PM11 from "../asset/PM/PM_11.png";
+<<<<<<< HEAD
 import rabbitAvatar from "../asset/avatar/rabbit.png";
 
 import clickSfx from "../asset/Click_SRT.mp3";
@@ -28,6 +33,12 @@ import homeAgainBtn from "../asset/home/again.png";
 import homeBackBtn from "../asset/home/back.png";
 import homeSkipBtn from "../asset/home/skip.png";
 import homeStartBtn from "../asset/home/start.png";
+=======
+
+import clickSfx from "../asset/Click_SRT.mp3";
+import bgImage from "../asset/SRT_background.jpg";
+import introVideo from "../asset/SRT_start.mp4";
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
 
 const ALL_ITEMS = [
   { id: "PM01", image: PM01 },
@@ -43,6 +54,7 @@ const ALL_ITEMS = [
   { id: "PM11", image: PM11 },
 ];
 
+<<<<<<< HEAD
 
 const COMPLETED_LEVELS_STORAGE_KEY = "ef_game_completed_training_levels";
 const PM_STAGE_STAR_STORAGE_KEY = "ef_game_training_stage_stars";
@@ -341,16 +353,24 @@ const saveTrainingStageProgress = ({ stageId, level, stars, finalResult }) => {
 function shuffleArray(arr) {
   const copy = [...arr];
 
+=======
+function shuffleArray(arr) {
+  const copy = [...arr];
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
   for (let i = copy.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
+<<<<<<< HEAD
 
+=======
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
   return copy;
 }
 
 function arraysEqualAsSet(arr1, arr2) {
   if (arr1.length !== arr2.length) return false;
+<<<<<<< HEAD
 
   return [...arr1].sort().join(",") === [...arr2].sort().join(",");
 }
@@ -403,6 +423,20 @@ export default function TrainingPage_PM() {
 
   const [baseDifficulty] = useState(() => getStageDifficulty(trainingStage.level, pmTestResult));
   const [adaptiveOffset, setAdaptiveOffset] = useState(0);
+=======
+  return [...arr1].sort().join(",") === [...arr2].sort().join(",");
+}
+
+export default function TrainingPage_PM() {
+  const navigate = useNavigate();
+  const audioRef = useRef(null);
+  const answerStartRef = useRef(null);
+
+  const [phase, setPhase] = useState("difficulty");
+  // difficulty -> rules -> introVideo -> readyCountdown -> memorize -> answer -> feedback
+
+  const [difficulty, setDifficulty] = useState(1);
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
   const [round, setRound] = useState(1);
 
   const [currentMemorizeItems, setCurrentMemorizeItems] = useState([]);
@@ -411,6 +445,7 @@ export default function TrainingPage_PM() {
 
   const [readyCountdown, setReadyCountdown] = useState(5);
   const [memorizeCountdown, setMemorizeCountdown] = useState(0);
+<<<<<<< HEAD
   const [answerCountdown, setAnswerCountdown] = useState(15);
 
   const [feedbackText, setFeedbackText] = useState("");
@@ -419,11 +454,15 @@ export default function TrainingPage_PM() {
   const [backgroundWarning, setBackgroundWarning] = useState(false);
 
   const [motionTick, setMotionTick] = useState(0);
+=======
+  const [feedbackText, setFeedbackText] = useState("");
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
 
   useEffect(() => {
     audioRef.current = new Audio(clickSfx);
   }, []);
 
+<<<<<<< HEAD
   useEffect(() => {
     return () => {
       if (answerStartFrameRef.current) cancelAnimationFrame(answerStartFrameRef.current);
@@ -520,10 +559,54 @@ export default function TrainingPage_PM() {
     const options = shuffleArray([...memorizeItems, ...distractors]).slice(0, 8);
 
     resetRuntimeRefs();
+=======
+  const playClick = () => {
+    if (!audioRef.current) return;
+    audioRef.current.currentTime = 0;
+    audioRef.current.play().catch(() => {});
+  };
+
+    const getDifficultyConfig = () => {
+    if (difficulty === 1) {
+        return {
+        label: "Lv1 簡單",
+        memoryCount: Math.min(2 + Math.floor((round - 1) / 3), 3),
+        showTime: Math.max(6 - Math.floor((round - 1) / 5) * 0.5, 5),
+        };
+    }
+
+    if (difficulty === 2) {
+        return {
+        label: "Lv2 普通",
+        memoryCount: Math.min(4 + Math.floor((round - 1) / 3), 5),
+        showTime: Math.max(4 - Math.floor((round - 1) / 5) * 0.4, 3),
+        };
+    }
+
+    return {
+        label: "Lv3 困難",
+        memoryCount: Math.min(5 + Math.floor((round - 1) / 3), 6),
+        showTime: Math.max(4 - Math.floor((round - 1) / 5) * 0.4, 3),
+    };
+    };
+
+  const currentConfig = getDifficultyConfig();
+
+  const setupRound = () => {
+    const memorizeItems = shuffleArray(ALL_ITEMS).slice(0, currentConfig.memoryCount);
+
+    const distractorCount = Math.max(currentConfig.memoryCount, 2);
+    const distractors = shuffleArray(
+      ALL_ITEMS.filter((item) => !memorizeItems.some((m) => m.id === item.id))
+    ).slice(0, distractorCount);
+
+    const options = shuffleArray([...memorizeItems, ...distractors]);
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
 
     setCurrentMemorizeItems(memorizeItems);
     setCurrentOptions(options);
     setSelectedIds([]);
+<<<<<<< HEAD
     setMemorizeCountdown(config.showTime);
     setAnswerCountdown(config.answerTime);
     setFeedbackText("");
@@ -560,6 +643,22 @@ export default function TrainingPage_PM() {
     setFeedbackText("");
     setFeedbackType("success");
     setLastRecord(null);
+=======
+    setMemorizeCountdown(currentConfig.showTime);
+    setPhase("memorize");
+  };
+
+  const handleSelectDifficulty = (level) => {
+    playClick();
+    setDifficulty(level);
+  };
+
+  const handleStartFromDifficulty = () => {
+    playClick();
+    setRound(1);
+    setReadyCountdown(5);
+    setFeedbackText("");
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
     setSelectedIds([]);
     setCurrentMemorizeItems([]);
     setCurrentOptions([]);
@@ -568,22 +667,29 @@ export default function TrainingPage_PM() {
 
   const handleStart = () => {
     playClick();
+<<<<<<< HEAD
     setPhase("tutorial");
   };
 
   const handleTutorialDone = () => {
     playClick();
     answerStartRef.current = performance.now();
+=======
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
     setReadyCountdown(5);
     setPhase("introVideo");
   };
 
   const handleVideoEnd = () => {
+<<<<<<< HEAD
     answerStartRef.current = performance.now();
+=======
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
     setReadyCountdown(5);
     setPhase("readyCountdown");
   };
 
+<<<<<<< HEAD
   const handleEndingVideoEnd = () => {
     const finalResult = finalResultRef.current;
 
@@ -603,11 +709,16 @@ export default function TrainingPage_PM() {
     });
   };
 
+=======
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
   useEffect(() => {
     if (phase !== "readyCountdown") return undefined;
 
     if (readyCountdown <= 0) {
+<<<<<<< HEAD
       answerStartRef.current = performance.now();
+=======
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
       setupRound();
       return undefined;
     }
@@ -617,12 +728,17 @@ export default function TrainingPage_PM() {
     }, 1000);
 
     return () => clearTimeout(timer);
+<<<<<<< HEAD
   }, [phase, readyCountdown]);
+=======
+  }, [phase, readyCountdown, difficulty, round]);
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
 
   useEffect(() => {
     if (phase !== "memorize") return undefined;
 
     if (memorizeCountdown <= 0) {
+<<<<<<< HEAD
       const config = getDifficultyConfig();
 
       setAnswerCountdown(config.answerTime);
@@ -633,6 +749,10 @@ export default function TrainingPage_PM() {
         answerStartRef.current = performance.now();
       });
 
+=======
+      setPhase("answer");
+      answerStartRef.current = performance.now();
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
       return undefined;
     }
 
@@ -643,6 +763,7 @@ export default function TrainingPage_PM() {
     return () => clearTimeout(timer);
   }, [phase, memorizeCountdown]);
 
+<<<<<<< HEAD
   useEffect(() => {
     if (phase !== "answer") return undefined;
     if (hasSubmittedRef.current) return undefined;
@@ -793,10 +914,31 @@ export default function TrainingPage_PM() {
       resetRuntimeRefs();
       setPhase("readyCountdown");
     }, 200);
+=======
+  const toggleSelect = (itemId) => {
+    if (phase !== "answer") return;
+
+    playClick();
+
+    setSelectedIds((prev) => {
+      const alreadySelected = prev.includes(itemId);
+
+      if (alreadySelected) {
+        return prev.filter((id) => id !== itemId);
+      }
+
+      if (prev.length >= currentConfig.memoryCount) {
+        return prev;
+      }
+
+      return [...prev, itemId];
+    });
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
   };
 
   const handleSubmit = () => {
     if (phase !== "answer") return;
+<<<<<<< HEAD
     if (hasSubmittedRef.current) return;
     if (selectedIdsRef.current.length !== currentConfig.memoryCount) return;
 
@@ -826,10 +968,26 @@ export default function TrainingPage_PM() {
     if (last?.isTimeout) {
       setAdaptiveOffset((prev) => clampNumber(prev - 1, -2, 2));
     }
+=======
+
+    playClick();
+
+    const correctIds = currentMemorizeItems.map((item) => item.id);
+    const isCorrect = arraysEqualAsSet(selectedIds, correctIds);
+
+    if (isCorrect) {
+      setFeedbackText("太棒了！你越來越厲害了 💖");
+    } else {
+      setFeedbackText("沒關係，我們再試一次看看 🌱");
+    }
+
+    setPhase("feedback");
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
   };
 
   const handleNext = () => {
     playClick();
+<<<<<<< HEAD
     if (roundTransitionRef.current) return;
 
     const nextRound = Math.min(TRAINING_TOTAL_ROUNDS, round + 1);
@@ -854,10 +1012,14 @@ export default function TrainingPage_PM() {
     playClick();
 
     answerStartRef.current = performance.now();
+=======
+    setRound((prev) => prev + 1);
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
     setReadyCountdown(5);
     setSelectedIds([]);
     setCurrentMemorizeItems([]);
     setCurrentOptions([]);
+<<<<<<< HEAD
     setFeedbackText("");
     setFeedbackType("success");
     setLastRecord(null);
@@ -1121,22 +1283,112 @@ export default function TrainingPage_PM() {
 
               <p style={styles.textCompact}>點滿指定數量後，再按「放進小籃子」。</p>
               {renderImageButton({ src: homeStartBtn, alt: "開始遊戲", onClick: handleTutorialDone })}
+=======
+    setPhase("readyCountdown");
+  };
+
+  const intensity = Math.min(1, (round - 1) / 8);
+
+  return (
+    <div style={styles.page(bgImage)}>
+      <div style={styles.overlay}>
+        <div style={styles.container}>
+          <h1 style={styles.title}>Picture Memory 訓練</h1>
+
+          {phase === "difficulty" && (
+            <div style={styles.card}>
+              <h2 style={styles.subtitle}>選擇難度</h2>
+              <p style={styles.text}>先選擇你想要的訓練模式喔！</p>
+
+              <div style={styles.difficultyGrid}>
+                <button
+                  type="button"
+                  onClick={() => handleSelectDifficulty(1)}
+                  style={{
+                    ...styles.difficultyCard,
+                    ...(difficulty === 1 ? styles.difficultyCardActive : {}),
+                  }}
+                >
+                  <div style={styles.difficultyLabel}>簡單</div>
+                  <div style={styles.difficultyDesc}>無干擾</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectDifficulty(2)}
+                  style={{
+                    ...styles.difficultyCard,
+                    ...(difficulty === 2 ? styles.difficultyCardActive : {}),
+                  }}
+                >
+                  <div style={styles.difficultyLabel}>普通</div>
+                  <div style={styles.difficultyDesc}>⭐ 閃爍 </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectDifficulty(3)}
+                  style={{
+                    ...styles.difficultyCard,
+                    ...(difficulty === 3 ? styles.difficultyCardActive : {}),
+                  }}
+                >
+                  <div style={styles.difficultyLabel}>困難</div>
+                  <div style={styles.difficultyDesc}>🔥 動態移動 </div>
+                </button>
+              </div>
+
+              <button style={styles.mainButton} onClick={handleStartFromDifficulty}>
+                開始
+              </button>
+            </div>
+          )}
+
+          {phase === "rules" && (
+            <div style={styles.smallCard}>
+              <h2 style={styles.subtitle}>遊戲規則</h2>
+              <p style={styles.text}>
+                兔子妹妹經過湖畔時，不小心把隨身的物品掉丟了。
+                <br />
+                請你先記住她掉了哪些東西，
+                <br />
+                等一下再把它們找出來！
+                <br />
+                練習時會依照難度加入不同干擾喔！
+              </p>
+
+              <button style={styles.mainButton} onClick={handleStart}>
+                開始
+              </button>
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
             </div>
           )}
 
           {phase === "introVideo" && (
+<<<<<<< HEAD
             <div style={styles.videoPanel}>
               <div style={styles.videoFrame}>
+=======
+            <div style={styles.mediumCard}>
+              <h2 style={styles.subtitle}>準備開始囉！</h2>
+              <p style={styles.text}>請先看看遊戲小故事</p>
+
+              <div style={styles.videoWrapper}>
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
                 <video
                   src={introVideo}
                   style={styles.video}
                   autoPlay
+<<<<<<< HEAD
                   playsInline
+=======
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
                   controls={false}
                   onEnded={handleVideoEnd}
                 />
               </div>
 
+<<<<<<< HEAD
               {renderImageButton({
                 src: homeSkipBtn,
                 alt: "跳過動畫",
@@ -1146,31 +1398,55 @@ export default function TrainingPage_PM() {
                   handleVideoEnd();
                 },
               })}
+=======
+              <button style={styles.secondaryButton} onClick={handleVideoEnd}>
+                跳過
+              </button>
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
             </div>
           )}
 
           {phase === "readyCountdown" && (
             <div style={styles.smallCard}>
+<<<<<<< HEAD
               <p style={styles.kicker}>第 {round} / {TRAINING_TOTAL_ROUNDS} 題</p>
               <h1 style={styles.title}>看清楚湖裡的小物品</h1>
               <div style={styles.bigCountdown}>{readyCountdown}</div>
               <p style={styles.textCompact}>皮皮會陪你一起看，等湖面亮起來就開始。</p>
+=======
+              <p style={styles.levelText}>{currentConfig.label}</p>
+              <h2 style={styles.subtitle}>準備開始</h2>
+              <p style={styles.bigCountdown}>{readyCountdown}</p>
+              <p style={styles.text}>遊戲即將開始！</p>
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
             </div>
           )}
 
           {phase === "memorize" && (
             <div style={styles.card}>
+<<<<<<< HEAD
               <p style={styles.kicker}>第 {round} / {TRAINING_TOTAL_ROUNDS} 題</p>
               <h1 style={styles.title}>看清楚湖裡的小物品</h1>
 
               <div style={styles.iconHint}>
                 <span>請記住這些圖片</span>
               </div>
+=======
+              <p style={styles.levelText}>
+                {currentConfig.label}｜第 {round} 回合
+              </p>
+              <h2 style={styles.subtitle}>
+                請記住這 {currentConfig.memoryCount} 個物品
+              </h2>
+
+              <p style={styles.hintText}>請仔細記住這些物品喔！</p>
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
 
               <div style={styles.memoryGrid}>
                 {currentMemorizeItems.map((item, index) => {
                   const imageStyle = { ...styles.memoryImage };
 
+<<<<<<< HEAD
                   if (currentConfig.motion === "flicker") {
                     const flickerValue = 0.7 + 0.3 * Math.sin(motionTick * 0.9 + index * 1.3 + round * 0.4);
                     imageStyle.opacity = Math.max(0.45, flickerValue - intensity * 0.15);
@@ -1178,6 +1454,15 @@ export default function TrainingPage_PM() {
 
                   if (currentConfig.motion === "move") {
                     const offset = Math.sin(motionTick * 0.45 + index) * (10 + intensity * 20);
+=======
+                  if (difficulty === 2) {
+                    const flicker = Math.random() < 0.3 + intensity * 0.5;
+                    imageStyle.opacity = flicker ? 0.45 : 1;
+                  }
+
+                  if (difficulty === 3) {
+                    const offset = Math.sin(Date.now() / 220 + index) * (8 + intensity * 18);
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
                     imageStyle.transform = `translateX(${offset}px)`;
                   }
 
@@ -1192,6 +1477,7 @@ export default function TrainingPage_PM() {
           )}
 
           {phase === "answer" && (
+<<<<<<< HEAD
             <div
               style={{
                 ...styles.card,
@@ -1209,6 +1495,19 @@ export default function TrainingPage_PM() {
               {backgroundWarning && (
                 <div style={styles.backgroundWarning}>先看清楚圖片，再點選物品喔！</div>
               )}
+=======
+            <div style={styles.card}>
+              <p style={styles.levelText}>
+                {currentConfig.label}｜第 {round} 回合
+              </p>
+              <h2 style={styles.subtitle}>
+                請選出剛剛出現的 {currentConfig.memoryCount} 個物品
+              </h2>
+
+              <p style={styles.hintText}>
+                已選 {selectedIds.length} / {currentConfig.memoryCount}
+              </p>
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
 
               <div style={styles.optionGrid}>
                 {currentOptions.map((item) => {
@@ -1218,10 +1517,14 @@ export default function TrainingPage_PM() {
                     <button
                       key={item.id}
                       type="button"
+<<<<<<< HEAD
                       onClick={(event) => {
                         event.stopPropagation();
                         toggleSelect(item.id);
                       }}
+=======
+                      onClick={() => toggleSelect(item.id)}
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
                       style={{
                         ...styles.optionCard,
                         ...(isSelected ? styles.optionCardSelected : {}),
@@ -1234,6 +1537,7 @@ export default function TrainingPage_PM() {
               </div>
 
               <button
+<<<<<<< HEAD
                 type="button"
                 style={{
                   ...styles.mainButton,
@@ -1247,10 +1551,25 @@ export default function TrainingPage_PM() {
                 disabled={selectedIds.length !== currentConfig.memoryCount}
               >
                 放進小籃子
+=======
+                style={{
+                  ...styles.mainButton,
+                  opacity: selectedIds.length === currentConfig.memoryCount ? 1 : 0.5,
+                  cursor:
+                    selectedIds.length === currentConfig.memoryCount
+                      ? "pointer"
+                      : "not-allowed",
+                }}
+                onClick={handleSubmit}
+                disabled={selectedIds.length !== currentConfig.memoryCount}
+              >
+                送出答案
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
               </button>
             </div>
           )}
 
+<<<<<<< HEAD
           {phase === "endingVideo" && (
             <div style={styles.videoPanel}>
               <div style={styles.videoFrame}>
@@ -1323,12 +1642,45 @@ export default function TrainingPage_PM() {
               </div>
             </div>
           )}
+=======
+         {phase === "feedback" && (
+  <div style={styles.smallCard}>
+    <h2 style={styles.subtitle}>{feedbackText}</h2>
+
+            {/* 按鈕容器（重點） */}
+            <div
+            style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: "16px",
+                marginTop: "20px",
+            }}
+            >
+            <button style={styles.mainButton} onClick={handleNext}>
+                下一回合
+            </button>
+
+            <button
+                style={styles.secondaryButton}
+                onClick={() => {
+                playClick();
+                navigate("/result-picture-memory");
+                }}
+            >
+                結束遊戲
+            </button>
+            </div>
+        </div>
+        )}
+          )
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
         </div>
       </div>
     </div>
   );
 }
 
+<<<<<<< HEAD
 const forestFont = "'jf-openhuninn', 'Fredoka', 'Nunito', 'Microsoft JhengHei', sans-serif";
 
 const glossyGreen = "linear-gradient(180deg, #b7f05d 0%, #7fca36 46%, #4f9827 100%)";
@@ -1341,10 +1693,17 @@ const styles = {
     minHeight: "100dvh",
     width: "100%",
     overflow: "hidden",
+=======
+const styles = {
+  page: (bgImage) => ({
+    minHeight: "100vh",
+    width: "100%",
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
     backgroundImage: `url(${bgImage})`,
     backgroundSize: "cover",
     backgroundPosition: "center",
     backgroundRepeat: "no-repeat",
+<<<<<<< HEAD
     fontFamily: forestFont,
     touchAction: "manipulation",
   }),
@@ -1360,10 +1719,23 @@ const styles = {
     alignItems: "center",
     padding: "clamp(10px, 1.5vw, 20px)",
     boxSizing: "border-box",
+=======
+  }),
+
+  overlay: {
+    minHeight: "100vh",
+    width: "100%",
+    background: "rgba(255,255,255,0.18)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: "24px",
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
   },
 
   container: {
     width: "100%",
+<<<<<<< HEAD
     maxWidth: "1180px",
     height: "100%",
     display: "flex",
@@ -1669,20 +2041,240 @@ const styles = {
     justifyContent: "center",
     boxSizing: "border-box",
     boxShadow: "inset 0 0 0 4px rgba(41, 113, 206, 0.18), 0 14px 28px rgba(77, 53, 30, 0.16)",
+=======
+    maxWidth: "1150px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "20px",
+  },
+
+  card: {
+    width: "100%",
+    backgroundColor: "rgba(255, 248, 235, 0.96)",
+    borderRadius: "30px",
+    padding: "34px",
+    boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
+    textAlign: "center",
+  },
+
+  smallCard: {
+    width: "100%",
+    maxWidth: "520px",
+    backgroundColor: "rgba(255, 248, 235, 0.96)",
+    borderRadius: "30px",
+    padding: "40px 34px",
+    boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
+    textAlign: "center",
+  },
+
+  mediumCard: {
+    width: "100%",
+    maxWidth: "900px",
+    backgroundColor: "rgba(255, 248, 235, 0.96)",
+    borderRadius: "30px",
+    padding: "34px",
+    boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
+    textAlign: "center",
+  },
+
+  title: {
+    fontSize: "42px",
+    fontWeight: "800",
+    color: "#5C4033",
+    textShadow: "2px 2px 0 #fff",
+    margin: 0,
+  },
+
+  subtitle: {
+    fontSize: "34px",
+    color: "#7A4F2B",
+    marginBottom: "18px",
+    fontWeight: "800",
+  },
+
+  text: {
+    fontSize: "24px",
+    lineHeight: 1.8,
+    color: "#4D3B2F",
+    marginBottom: "28px",
+  },
+
+  hintText: {
+    fontSize: "22px",
+    color: "#7A4F2B",
+    fontWeight: "700",
+    marginBottom: "22px",
+  },
+
+  levelText: {
+    fontSize: "22px",
+    color: "#8B5E3C",
+    fontWeight: "700",
+    marginBottom: "10px",
+  },
+
+  bigCountdown: {
+    fontSize: "100px",
+    fontWeight: "900",
+    color: "#F4A261",
+    margin: "20px 0",
+    textShadow: "2px 2px 0 #fff",
+  },
+
+  difficultyGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: "18px",
+    marginTop: "18px",
+    marginBottom: "28px",
+  },
+
+  difficultyCard: {
+    border: "3px solid transparent",
+    borderRadius: "24px",
+    padding: "24px 18px",
+    backgroundColor: "#fff",
+    boxShadow: "0 6px 14px rgba(0,0,0,0.08)",
+    cursor: "pointer",
+    transition: "0.2s",
+    color: "#5C4033",
+  },
+
+  difficultyCardActive: {
+    border: "3px solid #F4A261",
+    backgroundColor: "#FFF3E8",
+    transform: "translateY(-2px)",
+  },
+
+  difficultyTitle: {
+    fontSize: "28px",
+    fontWeight: "800",
+    marginBottom: "8px",
+    color: "#7A4F2B",
+  },
+
+  difficultyLabel: {
+    fontSize: "22px",
+    fontWeight: "800",
+    marginBottom: "8px",
+    color: "#5C4033",
+  },
+
+  difficultyDesc: {
+    fontSize: "18px",
+    fontWeight: "700",
+    color: "#8B5E3C",
+  },
+
+  memoryGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: "22px",
+    marginTop: "16px",
+    justifyItems: "center",
+  },
+
+  memoryCard: {
+    backgroundColor: "#fff",
+    borderRadius: "22px",
+    padding: "18px",
+    boxShadow: "0 6px 14px rgba(0,0,0,0.08)",
+    width: "180px",
+    maxWidth: "220px",
+  },
+
+  memoryImage: {
+    width: "100%",
+    maxWidth: "200px",
+    height: "200px",
+    objectFit: "contain",
+    transition: "0.2s",
+  },
+
+  optionGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: "20px",
+    marginTop: "20px",
+    marginBottom: "28px",
+    justifyItems: "center",
+  },
+
+  optionCard: {
+    border: "4px solid transparent",
+    borderRadius: "24px",
+    padding: "18px",
+    backgroundColor: "#fff",
+    cursor: "pointer",
+    boxShadow: "0 6px 14px rgba(0,0,0,0.08)",
+    transition: "0.2s",
+    width: "180px",
+    maxWidth: "220px",
+  },
+
+  optionCardSelected: {
+    border: "4px solid #7B61FF",
+    backgroundColor: "#F3F0FF",
+    transform: "scale(1.02)",
+  },
+
+  optionImage: {
+    width: "100%",
+    maxWidth: "180px",
+    height: "180px",
+    objectFit: "contain",
+    marginBottom: "8px",
+  },
+
+  mainButton: {
+    backgroundColor: "#F4A261",
+    color: "#fff",
+    border: "none",
+    borderRadius: "999px",
+    padding: "16px 36px",
+    fontSize: "22px",
+    fontWeight: "800",
+    cursor: "pointer",
+    boxShadow: "0 6px 14px rgba(0,0,0,0.15)",
+    marginTop: "12px"
+  },
+
+  secondaryButton: {
+    backgroundColor: "#8D6E63",
+    color: "#fff",
+    border: "none",
+    borderRadius: "999px",
+    padding: "16px 36px",
+    fontSize: "22px",
+    fontWeight: "800",
+    cursor: "pointer",
+    boxShadow: "0 6px 14px rgba(0,0,0,0.15)",
+    marginTop: "12px",
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
   },
 
   videoWrapper: {
     width: "100%",
+<<<<<<< HEAD
     maxWidth: "720px",
     margin: "0 auto 18px",
     borderRadius: "26px",
     overflow: "hidden",
     boxShadow: "0 12px 26px rgba(77, 53, 30, 0.2)",
+=======
+    maxWidth: "760px",
+    margin: "0 auto 24px",
+    borderRadius: "24px",
+    overflow: "hidden",
+    boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
     backgroundColor: "#000",
   },
 
   video: {
     width: "100%",
+<<<<<<< HEAD
     height: "100%",
     display: "block",
     aspectRatio: "16 / 9",
@@ -2032,3 +2624,11 @@ const styles = {
   },
 };
 
+=======
+    height: "auto",
+    display: "block",
+    aspectRatio: "16 / 9",
+    objectFit: "contain",
+  },
+};
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d

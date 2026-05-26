@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -7,6 +8,11 @@ import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
 import { createGameResult } from "../ai/gameResultTemplate";
 
+=======
+import React, { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
 // ===== 圖片 =====
 import PM01 from "../asset/PM/PM_01.png";
 import PM02 from "../asset/PM/PM_02.png";
@@ -19,6 +25,7 @@ import PM08 from "../asset/PM/PM_08.png";
 import PM09 from "../asset/PM/PM_09.png";
 import PM10 from "../asset/PM/PM_10.png";
 import PM11 from "../asset/PM/PM_11.png";
+<<<<<<< HEAD
 import rabbitAvatar from "../asset/avatar/rabbit.png";
 
 // ===== 背景 / 前導影片 / 結束影片 =====
@@ -31,6 +38,13 @@ import homeBackBtn from "../asset/home/back.png";
 import homeAgainBtn from "../asset/home/again.png";
 import homeResultBtn from "../asset/home/result.png";
 import mouseGuideImg from "../asset/mouse.png";
+=======
+
+// ===== 音效 / 背景 / 前導影片 =====
+import clickSfx from "../asset/Click_SRT.mp3";
+import bgImage from "../asset/SRT_background.jpg";
+import introVideo from "../asset/SRT_start.mp4";
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
 
 const ALL_ITEMS = [
   { id: "PM01", image: PM01 },
@@ -46,6 +60,7 @@ const ALL_ITEMS = [
   { id: "PM11", image: PM11 },
 ];
 
+<<<<<<< HEAD
 // PM 需求：一個畫面最多放 8 張圖片，避免兒童需要滑動螢幕。
 const LEVELS = [
   { level: 1, memoryCount: 2, showTime: 5, answerTime: 10, optionCount: 6 },
@@ -67,6 +82,21 @@ const DEFAULT_ERRORS = {
   ruleSwitchError: 0,
 };
 
+=======
+// ===== 難度設定 =====
+const LEVELS = [
+  { level: 1, memoryCount: 2, showTime: 5 },
+  { level: 2, memoryCount: 3, showTime: 4 },
+  { level: 3, memoryCount: 4, showTime: 3 },
+  { level: 4, memoryCount: 5, showTime: 3 },
+  { level: 5, memoryCount: 6, showTime: 2.5 },
+  { level: 6, memoryCount: 7, showTime: 2.5 },
+  { level: 7, memoryCount: 8, showTime: 2 },
+  { level: 8, memoryCount: 9, showTime: 2 },
+  { level: 9, memoryCount: 10, showTime: 2 },
+];
+
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
 function shuffleArray(arr) {
   const copy = [...arr];
   for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -78,6 +108,7 @@ function shuffleArray(arr) {
 
 function arraysEqualAsSet(arr1, arr2) {
   if (arr1.length !== arr2.length) return false;
+<<<<<<< HEAD
   const sorted1 = [...arr1].sort().join(",");
   const sorted2 = [...arr2].sort().join(",");
   return sorted1 === sorted2;
@@ -137,11 +168,15 @@ function safeCreateGameResult(payload) {
       createdAt: new Date().toISOString(),
     };
   }
+=======
+  return [...arr1].sort().join(",") === [...arr2].sort().join(",");
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
 }
 
 export default function TestPage_PM() {
   const navigate = useNavigate();
 
+<<<<<<< HEAD
   const answerStartRef = useRef(null);
   const recordsRef = useRef([]);
   const tapLogsRef = useRef([]);
@@ -156,12 +191,23 @@ export default function TestPage_PM() {
 
   const [phase, setPhase] = useState("rules");
   // rules -> tutorial -> introVideo -> memorize -> answer -> feedback -> endingVideo -> result
+=======
+  const audioRef = useRef(null);
+  const answerStartRef = useRef(null);
+  const lastResultRef = useRef(null);
+  const recordsRef = useRef([]);
+  const hasSubmittedRef = useRef(false);
+
+  const [phase, setPhase] = useState("rules");
+  // rules -> introVideo -> readyCountdown -> memorize -> answer -> feedback
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
 
   const [currentLevelIndex, setCurrentLevelIndex] = useState(0);
   const [currentMemorizeItems, setCurrentMemorizeItems] = useState([]);
   const [currentOptions, setCurrentOptions] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
 
+<<<<<<< HEAD
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackType, setFeedbackType] = useState("success");
 
@@ -226,18 +272,62 @@ export default function TestPage_PM() {
     selectedIdsRef.current = [];
     lastResultRef.current = null;
     hasSubmittedRef.current = false;
+=======
+  const [readyCountdown, setReadyCountdown] = useState(5);
+  const [memorizeCountdown, setMemorizeCountdown] = useState(0); // 不顯示
+  const [answerCountdown, setAnswerCountdown] = useState(10); // 顯示
+
+  const [feedbackText, setFeedbackText] = useState("");
+  const [records, setRecords] = useState([]);
+  const [tapLogs, setTapLogs] = useState([]);
+
+  const currentLevel = LEVELS[currentLevelIndex];
+
+  useEffect(() => {
+    recordsRef.current = records;
+  }, [records]);
+
+  useEffect(() => {
+    audioRef.current = new Audio(clickSfx);
+  }, []);
+
+  const debugLog = (label, payload = {}) => {
+    console.log(`[TestPage_PM] ${label}`, payload);
+  };
+
+  const playClick = () => {
+    if (!audioRef.current) return;
+    try {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(() => {});
+    } catch (error) {
+      console.warn("[TestPage_PM] audio play failed:", error);
+    }
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
   };
 
   const pushRecord = (record) => {
     lastResultRef.current = record;
+<<<<<<< HEAD
     recordsRef.current = [...recordsRef.current, record];
     console.log("[TestPage_PM] record saved:", record);
   };
 
+=======
+    setRecords((prev) => {
+      const next = [...prev, record];
+      return next;
+    });
+    debugLog("record_saved", record);
+  };
+
+  // ===== 建立關卡 =====
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
   const setupLevel = (levelConfig) => {
     if (!levelConfig) return;
 
     const memorizeItems = shuffleArray(ALL_ITEMS).slice(0, levelConfig.memoryCount);
+<<<<<<< HEAD
     const maxDistractors = Math.max(levelConfig.optionCount - memorizeItems.length, 0);
     const distractors = shuffleArray(
       ALL_ITEMS.filter(
@@ -393,10 +483,206 @@ export default function TestPage_PM() {
       correctIds,
       tapLogs: tapLogsRef.current,
       createdAt: new Date().toISOString(),
+=======
+
+    const distractorCount = Math.max(levelConfig.memoryCount, 2);
+    const distractors = shuffleArray(
+      ALL_ITEMS.filter((item) => !memorizeItems.some((m) => m.id === item.id))
+    ).slice(0, distractorCount);
+
+    const options = shuffleArray([...memorizeItems, ...distractors]);
+
+    hasSubmittedRef.current = false;
+    answerStartRef.current = null;
+    lastResultRef.current = null;
+
+    setCurrentMemorizeItems(memorizeItems);
+    setCurrentOptions(options);
+    setSelectedIds([]);
+    setTapLogs([]);
+    setMemorizeCountdown(levelConfig.showTime);
+    setPhase("memorize");
+
+    debugLog("setup_level", {
+      level: levelConfig.level,
+      memoryCount: levelConfig.memoryCount,
+      showTime: levelConfig.showTime,
+      memorizeIds: memorizeItems.map((item) => item.id),
+      optionIds: options.map((item) => item.id),
+    });
+  };
+
+  // ===== 開始 =====
+  const handleStart = () => {
+    playClick();
+    hasSubmittedRef.current = false;
+    answerStartRef.current = null;
+    lastResultRef.current = null;
+    recordsRef.current = [];
+
+    setCurrentLevelIndex(0);
+    setRecords([]);
+    setSelectedIds([]);
+    setTapLogs([]);
+    setFeedbackText("");
+    setReadyCountdown(5);
+    setPhase("introVideo");
+
+    debugLog("start_test");
+  };
+
+  // ===== 影片播完 =====
+  const handleVideoEnd = () => {
+    setReadyCountdown(5);
+    setPhase("readyCountdown");
+    debugLog("intro_end");
+  };
+
+  // ===== 開始前倒數 =====
+  useEffect(() => {
+    if (phase !== "readyCountdown") return undefined;
+
+    if (readyCountdown <= 0) {
+      setupLevel(LEVELS[currentLevelIndex]);
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      setReadyCountdown((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [phase, readyCountdown, currentLevelIndex]);
+
+  // ===== 記憶倒數（不顯示）=====
+  useEffect(() => {
+    if (phase !== "memorize") return undefined;
+
+    if (memorizeCountdown <= 0) {
+      setAnswerCountdown(10);
+      setPhase("answer");
+      answerStartRef.current = performance.now();
+      debugLog("memorize_end_answer_start", {
+        level: currentLevel?.level,
+        answerStart: answerStartRef.current,
+      });
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      setMemorizeCountdown((prev) => Math.max(0, +(prev - 0.5).toFixed(1)));
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [phase, memorizeCountdown, currentLevel]);
+
+  // ===== 作答倒數（10 秒內沒完成 = 失敗）=====
+  useEffect(() => {
+    if (phase !== "answer") return undefined;
+    if (hasSubmittedRef.current) return undefined;
+
+    if (answerCountdown <= 0) {
+      const correctIds = currentMemorizeItems.map((item) => item.id);
+
+      const record = {
+        level: currentLevel.level,
+        memoryCount: currentLevel.memoryCount,
+        showTime: currentLevel.showTime,
+        isCorrect: false,
+        isTimeout: true,
+        reactionTime: 10000,
+        isFast: false,
+        selectedIds,
+        correctIds,
+        tapLogs,
+      };
+
+      hasSubmittedRef.current = true;
+      pushRecord(record);
+      setFeedbackText("時間到，挑戰失敗！");
+      setPhase("feedback");
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      setAnswerCountdown((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [phase, answerCountdown, currentMemorizeItems, currentLevel, selectedIds, tapLogs]);
+
+  // ===== 點選答案（記錄每次點擊）=====
+  const toggleSelect = (itemId) => {
+    if (phase !== "answer" || hasSubmittedRef.current) return;
+
+    playClick();
+
+    const correctIds = currentMemorizeItems.map((item) => item.id);
+    const now = answerStartRef.current
+      ? Math.round(performance.now() - answerStartRef.current)
+      : 0;
+
+    setSelectedIds((prev) => {
+      const alreadySelected = prev.includes(itemId);
+      let nextSelected = prev;
+
+      if (alreadySelected) {
+        nextSelected = prev.filter((id) => id !== itemId);
+      } else if (prev.length < currentLevel.memoryCount) {
+        nextSelected = [...prev, itemId];
+      }
+
+      if (nextSelected !== prev) {
+        setTapLogs((prevLogs) => [
+          ...prevLogs,
+          {
+            order: prevLogs.length + 1,
+            itemId,
+            timestamp: now,
+            isCorrectItem: correctIds.includes(itemId),
+            action: alreadySelected ? "deselect" : "select",
+            selectedCountAfter: nextSelected.length,
+          },
+        ]);
+      }
+
+      return nextSelected;
+    });
+  };
+
+  // ===== 送出答案 =====
+  const handleSubmit = () => {
+    if (phase !== "answer" || hasSubmittedRef.current) return;
+    if (selectedIds.length !== currentLevel.memoryCount) return;
+
+    playClick();
+
+    const correctIds = currentMemorizeItems.map((item) => item.id);
+    const isCorrect = arraysEqualAsSet(selectedIds, correctIds);
+
+    const reactionTime = answerStartRef.current
+      ? Math.round(performance.now() - answerStartRef.current)
+      : 0;
+
+    const isFast = reactionTime < 5000;
+
+    const record = {
+      level: currentLevel.level,
+      memoryCount: currentLevel.memoryCount,
+      showTime: currentLevel.showTime,
+      isCorrect,
+      isTimeout: false,
+      reactionTime,
+      isFast,
+      selectedIds,
+      correctIds,
+      tapLogs,
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
     };
 
     hasSubmittedRef.current = true;
     pushRecord(record);
+<<<<<<< HEAD
 
     if (isTimeout) {
       setFeedbackText("時間到了，皮皮會陪你一起看看這次結果。");
@@ -671,33 +957,127 @@ export default function TestPage_PM() {
                 </button>
                 <img src={mouseGuideImg} alt="提示點擊" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
               </div>
+=======
+    setFeedbackText(isCorrect ? "答對了！準備進入下一關" : "答錯了，本次測驗結束！");
+    setPhase("feedback");
+  };
+
+  // ===== 下一步 =====
+  const handleNext = () => {
+    playClick();
+
+    const lastRecord = lastResultRef.current;
+    if (!lastRecord) return;
+
+    if (lastRecord.isCorrect) {
+      const nextIndex = currentLevelIndex + 1;
+
+      if (nextIndex < LEVELS.length) {
+        setCurrentLevelIndex(nextIndex);
+        setSelectedIds([]);
+        setCurrentMemorizeItems([]);
+        setCurrentOptions([]);
+        setTapLogs([]);
+        setFeedbackText("");
+        lastResultRef.current = null;
+        hasSubmittedRef.current = false;
+        answerStartRef.current = null;
+        setReadyCountdown(5);
+        setPhase("readyCountdown");
+      } else {
+        navigate("/result-picture-memory", {
+          state: { records: [...recordsRef.current] },
+        });
+      }
+    } else {
+      navigate("/result-picture-memory", {
+        state: { records: [...recordsRef.current] },
+      });
+    }
+  };
+
+  return (
+    <div style={styles.page(bgImage)}>
+      <div style={styles.overlay}>
+        <div style={styles.container}>
+          <h1 style={styles.title}>Picture Memory 測驗</h1>
+
+          {phase === "rules" && (
+            <div style={styles.smallCard}>
+              <h2 style={styles.subtitle}>遊戲規則</h2>
+              <p style={styles.text}>
+                兔子妹妹經過湖畔時，不小心把隨身的物品掉丟了。
+                <br />
+                請你先記住她掉了哪些東西，
+                <br />
+                等一下再把它們找出來！
+                <br />
+                每答對一關，就會變得更難喔！
+              </p>
+
+              <button style={styles.mainButton} onClick={handleStart}>
+                開始
+              </button>
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
             </div>
           )}
 
           {phase === "introVideo" && (
+<<<<<<< HEAD
             <div style={styles.videoPanel}>
               <div style={styles.videoFrame}>
+=======
+            <div style={styles.mediumCard}>
+              <h2 style={styles.subtitle}>準備開始囉！</h2>
+              <p style={styles.text}>請先看看遊戲小故事</p>
+
+              <div style={styles.videoWrapper}>
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
                 <video
                   src={introVideo}
                   style={styles.video}
                   autoPlay
+<<<<<<< HEAD
                   playsInline
+=======
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
                   controls={false}
                   onEnded={handleVideoEnd}
                 />
               </div>
 
+<<<<<<< HEAD
               <div style={styles.guidedAction}>
                 <button type="button" style={{ ...styles.imageButton, ...styles.skipImageButton }} onClick={handleVideoEnd} aria-label="跳過動畫">
                   <img src={homeSkipBtn} alt="跳過動畫" style={styles.imageButtonImg} />
                 </button>
                 <img src={mouseGuideImg} alt="提示點擊" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
               </div>
+=======
+              <button
+                style={styles.secondaryButton}
+                onClick={() => {
+                  playClick();
+                  handleVideoEnd();
+                }}
+              >
+                跳過
+              </button>
+            </div>
+          )}
+
+          {phase === "readyCountdown" && (
+            <div style={styles.smallCard}>
+              <h2 style={styles.subtitle}>準備開始</h2>
+              <p style={styles.bigCountdown}>{readyCountdown}</p>
+              <p style={styles.text}>遊戲即將開始！</p>
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
             </div>
           )}
 
           {phase === "memorize" && currentLevel && (
             <div style={styles.card}>
+<<<<<<< HEAD
               <p style={styles.kicker}>第 {currentLevel.level} 關</p>
               <h1 style={styles.title}>看清楚湖裡的小物品</h1>
 
@@ -705,6 +1085,14 @@ export default function TestPage_PM() {
                 <span>👀</span>
                 <span>請記住這些圖片</span>
               </div>
+=======
+              <p style={styles.levelText}>第 {currentLevel.level} 關</p>
+              <h2 style={styles.subtitle}>
+                請記住這 {currentLevel.memoryCount} 個物品
+              </h2>
+
+              <p style={styles.hintText}>請仔細記住這些物品喔！</p>
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
 
               <div style={styles.memoryGrid}>
                 {currentMemorizeItems.map((item) => (
@@ -717,6 +1105,7 @@ export default function TestPage_PM() {
           )}
 
           {phase === "answer" && currentLevel && (
+<<<<<<< HEAD
             <div style={styles.card} onClick={trackRandomClick}>
               <p style={styles.kicker}>第 {currentLevel.level} 關</p>
               <h1 style={styles.title}>找回剛剛看過的物品</h1>
@@ -727,15 +1116,36 @@ export default function TestPage_PM() {
                   已找到 {selectedIds.length} / {currentLevel.memoryCount}
                 </span>
               </div>
+=======
+            <div style={styles.card}>
+              <p style={styles.levelText}>第 {currentLevel.level} 關</p>
+              <h2 style={styles.subtitle}>
+                請選出剛剛出現的 {currentLevel.memoryCount} 個物品
+              </h2>
+
+              <p style={styles.hintText}>
+                已選 {selectedIds.length} / {currentLevel.memoryCount}
+              </p>
+
+              <p style={styles.answerTimer}>剩下 {answerCountdown} 秒</p>
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
 
               <div style={styles.optionGrid}>
                 {currentOptions.map((item) => {
                   const isSelected = selectedIds.includes(item.id);
+<<<<<<< HEAD
                   return (
                     <button
                       key={item.id}
                       type="button"
                       onClick={(event) => toggleSelect(event, item.id)}
+=======
+
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => toggleSelect(item.id)}
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
                       style={{
                         ...styles.optionCard,
                         ...(isSelected ? styles.optionCardSelected : {}),
@@ -748,11 +1158,15 @@ export default function TestPage_PM() {
               </div>
 
               <button
+<<<<<<< HEAD
                 type="button"
+=======
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
                 style={{
                   ...styles.mainButton,
                   opacity: selectedIds.length === currentLevel.memoryCount ? 1 : 0.5,
                   cursor:
+<<<<<<< HEAD
                     selectedIds.length === currentLevel.memoryCount ? "pointer" : "not-allowed",
                 }}
                 onClick={(event) => {
@@ -762,12 +1176,23 @@ export default function TestPage_PM() {
                 disabled={selectedIds.length !== currentLevel.memoryCount}
               >
                 放進小籃子
+=======
+                    selectedIds.length === currentLevel.memoryCount
+                      ? "pointer"
+                      : "not-allowed",
+                }}
+                onClick={handleSubmit}
+                disabled={selectedIds.length !== currentLevel.memoryCount}
+              >
+                送出答案
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
               </button>
             </div>
           )}
 
           {phase === "feedback" && (
             <div style={styles.smallCard}>
+<<<<<<< HEAD
               <p style={styles.kicker}>{feedbackType === "success" ? "任務成功" : "任務完成"}</p>
               <h1
                 style={{
@@ -862,6 +1287,13 @@ export default function TestPage_PM() {
                   <img src={homeResultBtn} alt="詳細結果" style={styles.imageButtonImg} />
                 </button>
               </div>
+=======
+              <h2 style={styles.subtitle}>{feedbackText}</h2>
+
+              <button style={styles.mainButton} onClick={handleNext}>
+                下一步
+              </button>
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
             </div>
           )}
         </div>
@@ -870,6 +1302,7 @@ export default function TestPage_PM() {
   );
 }
 
+<<<<<<< HEAD
 const forestFont = "'jf-openhuninn', 'Fredoka', 'Nunito', 'Microsoft JhengHei', sans-serif";
 
 const glossyGreen = "linear-gradient(180deg, #b7f05d 0%, #7fca36 46%, #4f9827 100%)";
@@ -882,10 +1315,17 @@ const styles = {
     minHeight: "100dvh",
     width: "100%",
     overflow: "hidden",
+=======
+const styles = {
+  page: (bgImage) => ({
+    minHeight: "100vh",
+    width: "100%",
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
     backgroundImage: `url(${bgImage})`,
     backgroundSize: "cover",
     backgroundPosition: "center",
     backgroundRepeat: "no-repeat",
+<<<<<<< HEAD
     fontFamily: forestFont,
     touchAction: "manipulation",
   }),
@@ -901,10 +1341,23 @@ const styles = {
     alignItems: "center",
     padding: "clamp(10px, 1.5vw, 20px)",
     boxSizing: "border-box",
+=======
+  }),
+
+  overlay: {
+    minHeight: "100vh",
+    width: "100%",
+    background: "rgba(255,255,255,0.18)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: "24px",
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
   },
 
   container: {
     width: "100%",
+<<<<<<< HEAD
     maxWidth: "1180px",
     height: "100%",
     display: "flex",
@@ -1173,20 +1626,116 @@ const styles = {
     justifyContent: "center",
     boxSizing: "border-box",
     boxShadow: "inset 0 0 0 4px rgba(41, 113, 206, 0.18), 0 14px 28px rgba(77, 53, 30, 0.16)",
+=======
+    maxWidth: "1150px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "20px",
+  },
+
+  card: {
+    width: "100%",
+    backgroundColor: "rgba(255, 248, 235, 0.96)",
+    borderRadius: "30px",
+    padding: "34px",
+    boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
+    textAlign: "center",
+  },
+
+  smallCard: {
+    width: "100%",
+    maxWidth: "520px",
+    backgroundColor: "rgba(255, 248, 235, 0.96)",
+    borderRadius: "30px",
+    padding: "40px 34px",
+    boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
+    textAlign: "center",
+  },
+
+  mediumCard: {
+    width: "100%",
+    maxWidth: "900px",
+    backgroundColor: "rgba(255, 248, 235, 0.96)",
+    borderRadius: "30px",
+    padding: "34px",
+    boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
+    textAlign: "center",
+  },
+
+  title: {
+    fontSize: "42px",
+    fontWeight: "800",
+    color: "#5C4033",
+    textShadow: "2px 2px 0 #fff",
+    margin: 0,
+  },
+
+  subtitle: {
+    fontSize: "34px",
+    color: "#7A4F2B",
+    marginBottom: "18px",
+    fontWeight: "800",
+  },
+
+  text: {
+    fontSize: "24px",
+    lineHeight: 1.8,
+    color: "#4D3B2F",
+    marginBottom: "28px",
+  },
+
+  hintText: {
+    fontSize: "22px",
+    color: "#7A4F2B",
+    fontWeight: "700",
+    marginBottom: "22px",
+  },
+
+  levelText: {
+    fontSize: "22px",
+    color: "#8B5E3C",
+    fontWeight: "700",
+    marginBottom: "10px",
+  },
+
+  bigCountdown: {
+    fontSize: "100px",
+    fontWeight: "900",
+    color: "#F4A261",
+    margin: "20px 0",
+    textShadow: "2px 2px 0 #fff",
+  },
+
+  answerTimer: {
+    fontSize: "26px",
+    fontWeight: "800",
+    color: "#D97706",
+    marginBottom: "18px",
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
   },
 
   videoWrapper: {
     width: "100%",
+<<<<<<< HEAD
     maxWidth: "720px",
     margin: "0 auto 18px",
     borderRadius: "26px",
     overflow: "hidden",
     boxShadow: "0 12px 26px rgba(77, 53, 30, 0.2)",
+=======
+    maxWidth: "760px",
+    margin: "0 auto 24px",
+    borderRadius: "24px",
+    overflow: "hidden",
+    boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
     backgroundColor: "#000",
   },
 
   video: {
     width: "100%",
+<<<<<<< HEAD
     height: "100%",
     display: "block",
     aspectRatio: "16 / 9",
@@ -1255,10 +1804,17 @@ const styles = {
     borderRadius: "999px",
     display: "block",
     pointerEvents: "none",
+=======
+    height: "auto",
+    display: "block",
+    aspectRatio: "16 / 9",
+    objectFit: "contain",
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
   },
 
   memoryGrid: {
     display: "grid",
+<<<<<<< HEAD
     gridTemplateColumns: "repeat(4, minmax(128px, 1fr))",
     gap: "clamp(10px, 1.5vw, 16px)",
     marginTop: "4px",
@@ -1279,19 +1835,42 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+=======
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: "22px",
+    marginTop: "16px",
+    justifyItems: "center",
+  },
+
+  memoryCard: {
+    backgroundColor: "#fff",
+    borderRadius: "22px",
+    padding: "18px",
+    boxShadow: "0 6px 14px rgba(0,0,0,0.08)",
+    width: "180px",
+    maxWidth: "220px",
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
   },
 
   memoryImage: {
     width: "100%",
+<<<<<<< HEAD
     height: "100%",
     objectFit: "contain",
     borderRadius: "999px",
     display: "block",
     pointerEvents: "none",
+=======
+    maxWidth: "200px",
+    height: "200px",
+    objectFit: "contain",
+    marginBottom: "10px",
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
   },
 
   optionGrid: {
     display: "grid",
+<<<<<<< HEAD
     gridTemplateColumns: "repeat(4, minmax(128px, 1fr))",
     gap: "clamp(10px, 1.4vw, 15px)",
     marginTop: "2px",
@@ -1325,10 +1904,36 @@ const styles = {
     background: "linear-gradient(180deg, #f4ffe7, #dfffc4)",
     transform: "translateY(-3px) scale(1.02)",
     boxShadow: "0 14px 24px rgba(80, 112, 58, 0.18), 0 0 0 7px rgba(139, 216, 86, 0.18)",
+=======
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: "20px",
+    marginTop: "20px",
+    marginBottom: "28px",
+    justifyItems: "center",
+  },
+
+  optionCard: {
+    border: "4px solid transparent",
+    borderRadius: "24px",
+    padding: "18px",
+    backgroundColor: "#fff",
+    cursor: "pointer",
+    boxShadow: "0 6px 14px rgba(0,0,0,0.08)",
+    transition: "0.2s",
+    width: "180px",
+    maxWidth: "220px",
+  },
+
+  optionCardSelected: {
+    border: "4px solid #7B61FF",
+    backgroundColor: "#F3F0FF",
+    transform: "scale(1.02)",
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
   },
 
   optionImage: {
     width: "100%",
+<<<<<<< HEAD
     height: "100%",
     objectFit: "contain",
     borderRadius: "999px",
@@ -1575,3 +2180,36 @@ const styles = {
     touchAction: "manipulation",
   },
 };
+=======
+    maxWidth: "200px",
+    height: "200px",
+    objectFit: "contain",
+    marginBottom: "8px",
+  },
+
+  mainButton: {
+    backgroundColor: "#F4A261",
+    color: "#fff",
+    border: "none",
+    borderRadius: "999px",
+    padding: "16px 36px",
+    fontSize: "22px",
+    fontWeight: "800",
+    cursor: "pointer",
+    boxShadow: "0 6px 14px rgba(0,0,0,0.15)",
+  },
+
+  secondaryButton: {
+    backgroundColor: "#8D6E63",
+    color: "#fff",
+    border: "none",
+    borderRadius: "999px",
+    padding: "16px 36px",
+    fontSize: "22px",
+    fontWeight: "800",
+    cursor: "pointer",
+    boxShadow: "0 6px 14px rgba(0,0,0,0.15)",
+    marginTop: "12px",
+  },
+};
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d

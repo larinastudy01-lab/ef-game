@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
@@ -9,3 +10,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl || "https://placeholder.supabase.co", supabaseAnonKey || "placeholder-anon-key");
+=======
+import { createClient } from "@supabase/supabase-js"
+
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+>>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
