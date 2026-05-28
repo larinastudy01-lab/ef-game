@@ -51,19 +51,16 @@ const trendStyleMap = {
     label: "本週有進步",
     color: "#2f8f5b",
     bg: "#e8f7ee",
-    icon: "🌱",
   },
   stable: {
     label: "表現穩定",
     color: "#7a5c22",
     bg: "#fff5d9",
-    icon: "🌼",
   },
   watch: {
     label: "需觀察",
     color: "#b45b3e",
     bg: "#fff0ea",
-    icon: "👀",
   },
 };
 

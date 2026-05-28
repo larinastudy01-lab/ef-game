@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
@@ -35,13 +34,46 @@ const genderOptions = [
 const MIN_PATIENT_AGE = 2;
 const MAX_PATIENT_AGE = 18;
 
-const calculateAge = (birthDateValue) => {
-  if (!birthDateValue) return null;
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
 
+  return `${year}-${month}-${day}`;
+};
+
+const parseLocalDateOnly = (dateValue) => {
+  if (!dateValue) return null;
+
+  const [yearText, monthText, dayText] = dateValue.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+
+  if (!year || !month || !day) return null;
+
+  const date = new Date(year, month - 1, day);
+  date.setHours(0, 0, 0, 0);
+
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null;
+  }
+
+  return date;
+};
+
+const getTodayDateOnly = () => {
   const today = new Date();
-  const birth = new Date(`${birthDateValue}T00:00:00`);
+  today.setHours(0, 0, 0, 0);
 
-  if (Number.isNaN(birth.getTime())) return null;
+  return today;
+};
+
+const calculateAge = (birthDateValue) => {
+  const birth = parseLocalDateOnly(birthDateValue);
+  if (!birth) return null;
+
+  const today = getTodayDateOnly();
 
   let years = today.getFullYear() - birth.getFullYear();
   let months = today.getMonth() - birth.getMonth();
@@ -52,7 +84,7 @@ const calculateAge = (birthDateValue) => {
     months += 12;
   }
 
-  return { years, months, birth };
+  return { years, months, birth, today };
 };
 
 const isValidAvatarKey = (key) => avatarOptions.some((item) => item.key === key);
@@ -95,6 +127,7 @@ function AddPatientPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLockRef = useRef(false);
+  const todayMaxBirthday = useMemo(() => getLocalDateString(), []);
 
   const selectedAvatar = useMemo(
     () => avatarOptions.find((item) => item.key === avatarKey) || avatarOptions[0],
@@ -122,7 +155,7 @@ function AddPatientPage() {
     if (cleanNickname.length > 12) return "暱稱請控制在 12 個字以內。";
     if (!birthDate) return "請選擇孩子生日。";
     if (!ageInfo) return "生日格式不正確，請重新選擇。";
-    if (ageInfo.birth > new Date()) return "生日不能是未來日期。";
+    if (ageInfo.birth > ageInfo.today) return "生日不能是未來日期。";
     if (!Number.isInteger(ageInfo.years)) return "年齡資料異常，請重新選擇生日。";
     if (ageInfo.years < MIN_PATIENT_AGE || ageInfo.years > MAX_PATIENT_AGE) {
       return `建檔年齡需介於 ${MIN_PATIENT_AGE}-${MAX_PATIENT_AGE} 歲，請確認生日是否正確。`;
@@ -195,128 +228,13 @@ function AddPatientPage() {
       submitLockRef.current = false;
       setIsSubmitting(false);
     }
-=======
-import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabaseClient";
-import { useNavigate } from "react-router-dom";
-
-function AddPatientPage() {
-  const [nickname, setNickname] = useState("");
-  const [birthDate, setBirthDate] = useState("");
-  const [gender, setGender] = useState("");
-  const [patients, setPatients] = useState([]);
-  const [guardianName, setGuardianName] = useState("");
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    fetchGuardianAndPatients();
-  }, []);
-
-  const fetchGuardianAndPatients = async () => {
-    // 1. 先確認是否登入
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      alert("請先登入");
-      navigate("/login");
-      return;
-    }
-
-    // 2. 取得家長資料
-    const { data: profileData, error: profileError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
-
-    if (!profileError && profileData) {
-      setGuardianName(profileData.full_name || "家長");
-    }
-
-    // 3. 取得這位家長的孩子資料
-    const { data: patientData, error: patientError } = await supabase
-      .from("patients")
-      .select("*")
-      .eq("guardian_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (patientError) {
-      console.error("讀取孩子資料失敗:", patientError.message);
-      return;
-    }
-
-    setPatients(patientData || []);
-  };
-
-  const handleAddPatient = async () => {
-    if (!nickname || !birthDate) {
-      alert("請填寫孩子暱稱與出生年月日");
-      return;
-    }
-
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      alert("請先登入");
-      navigate("/login");
-      return;
-    }
-
-    const { error } = await supabase.from("patients").insert([
-      {
-        guardian_id: user.id,
-        nickname: nickname,
-        birth_date: birthDate,
-        gender: gender,
-      },
-    ]);
-
-    if (error) {
-      alert("新增孩子失敗：" + error.message);
-      return;
-    }
-
-    alert("孩子資料新增成功！");
-    setNickname("");
-    setBirthDate("");
-    setGender("");
-    fetchGuardianAndPatients();
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    alert("已登出");
-    navigate("/login");
-  };
-
-  const calculateAge = (birthDate) => {
-    if (!birthDate) return "-";
-    const today = new Date();
-    const birth = new Date(birthDate);
-
-    let years = today.getFullYear() - birth.getFullYear();
-    let months = today.getMonth() - birth.getMonth();
-
-    if (months < 0) {
-      years--;
-      months += 12;
-    }
-
-    return `${years} 歲 ${months} 個月`;
->>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
   };
 
   return (
-    <div style={pageStyle}>
-<<<<<<< HEAD
-      <main style={shellStyle}>
-        <section style={introPanelStyle}>
+    <div className="add-patient-page" style={pageStyle}>
+      <style>{responsiveStyle}</style>
+      <main className="add-patient-shell" style={shellStyle}>
+        <section className="add-patient-panel" style={introPanelStyle}>
           <button type="button" onClick={() => navigate(-1)} disabled={isSubmitting} style={isSubmitting ? secondaryButtonDisabledStyle : backButtonStyle}>
             ← 返回
           </button>
@@ -337,8 +255,8 @@ function AddPatientPage() {
           </div>
         </section>
 
-        <section style={formCardStyle}>
-          <div style={formHeaderStyle}>
+        <section className="add-patient-panel" style={formCardStyle}>
+          <div className="add-patient-form-header" style={formHeaderStyle}>
             <div>
               <h2 style={sectionTitleStyle}>新增孩子資料</h2>
               <p style={sectionDescStyle}>生日會用於計算年齡，未來可支援常模比較與醫療端追蹤。</p>
@@ -372,7 +290,7 @@ function AddPatientPage() {
               value={birthDate}
               onChange={(event) => setBirthDate(event.target.value)}
               disabled={isSubmitting}
-              max={new Date().toISOString().split("T")[0]}
+              max={todayMaxBirthday}
               style={inputStyle}
             />
             <p style={helperTextStyle}>{agePreview}</p>
@@ -382,7 +300,7 @@ function AddPatientPage() {
             </label>
             <select id="gender" value={gender} onChange={(event) => setGender(event.target.value)} disabled={isSubmitting} style={inputStyle}>
               {genderOptions.map((option) => (
-                <option key={option.label} value={option.value}>
+                <option key={option.label} value={option.value} disabled={!option.value}>
                   {option.label}
                 </option>
               ))}
@@ -391,7 +309,7 @@ function AddPatientPage() {
             <label style={labelStyle}>
               選擇頭像 <span style={requiredStyle}>必填</span>
             </label>
-            <div style={avatarGridStyle}>
+            <div className="add-patient-avatar-grid" style={avatarGridStyle}>
               {avatarOptions.map((option) => {
                 const isSelected = avatarKey === option.key;
                 return (
@@ -419,103 +337,53 @@ function AddPatientPage() {
           </form>
         </section>
       </main>
-=======
-      {/* Header */}
-      <div style={headerStyle}>
-        <div>
-          <h1 style={titleStyle}>EF 幼兒認知訓練平台</h1>
-          <p style={subtitleStyle}>家長端｜孩子資料管理</p>
-        </div>
-
-        <div style={headerRightStyle}>
-          <span style={guardianTextStyle}>您好，{guardianName}</span>
-          <button onClick={handleLogout} style={logoutButtonStyle}>
-            登出
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div style={contentWrapperStyle}>
-        {/* 左側：新增孩子 */}
-        <div style={cardStyle}>
-          <h2 style={sectionTitleStyle}>新增孩子資料</h2>
-          <p style={sectionDescStyle}>
-            請先建立孩子基本資料，之後即可進行遊戲與訓練紀錄管理。
-          </p>
-
-          <input
-            type="text"
-            placeholder="孩子暱稱"
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            style={inputStyle}
-          />
-
-          <input
-            type="date"
-            value={birthDate}
-            onChange={(e) => setBirthDate(e.target.value)}
-            style={inputStyle}
-          />
-
-          <select
-            value={gender}
-            onChange={(e) => setGender(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">請選擇性別（可選）</option>
-            <option value="男">男</option>
-            <option value="女">女</option>
-            <option value="其他">其他</option>
-          </select>
-
-          <button onClick={handleAddPatient} style={primaryButtonStyle}>
-            新增孩子
-          </button>
-        </div>
-
-        {/* 右側：孩子清單 */}
-        <div style={cardStyle}>
-          <h2 style={sectionTitleStyle}>已建立孩子名單</h2>
-          <p style={sectionDescStyle}>
-            目前已建立的孩子資料會顯示在這裡。
-          </p>
-
-          {patients.length === 0 ? (
-            <div style={emptyBoxStyle}>
-              <p style={{ margin: 0, color: "#777" }}>尚未新增任何孩子資料</p>
-            </div>
-          ) : (
-            <div style={patientListStyle}>
-              {patients.map((patient) => (
-                <div key={patient.id} style={patientCardStyle}>
-                  <div>
-                    <h3 style={patientNameStyle}>{patient.nickname}</h3>
-                    <p style={patientInfoStyle}>
-                      出生日期：{patient.birth_date}
-                    </p>
-                    <p style={patientInfoStyle}>
-                      年齡：{calculateAge(patient.birth_date)}
-                    </p>
-                    <p style={patientInfoStyle}>
-                      性別：{patient.gender || "未填寫"}
-                    </p>
-                  </div>
-
-                  <button style={detailButtonStyle}>查看資料</button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
->>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
     </div>
   );
 }
 
-<<<<<<< HEAD
+const responsiveStyle = `
+  .add-patient-page,
+  .add-patient-page *,
+  .add-patient-page *::before,
+  .add-patient-page *::after {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  @media (max-width: 1023px) {
+    .add-patient-shell {
+      grid-template-columns: 1fr !important;
+      align-items: stretch !important;
+      min-height: auto !important;
+    }
+
+    .add-patient-panel {
+      padding: 24px !important;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .add-patient-page {
+      padding: 16px !important;
+      background-attachment: scroll !important;
+    }
+
+    .add-patient-shell {
+      gap: 18px !important;
+    }
+
+    .add-patient-form-header {
+      flex-direction: column !important;
+      align-items: stretch !important;
+    }
+
+    .add-patient-panel {
+      border-radius: 26px !important;
+      padding: 20px !important;
+    }
+  }
+`;
+
 const pageStyle = {
   minHeight: "100vh",
   backgroundImage: `linear-gradient(90deg, rgba(255, 246, 224, 0.82), rgba(255, 246, 224, 0.48)), url(${homeBackground})`,
@@ -563,6 +431,7 @@ const backButtonStyle = {
   padding: "10px 16px",
   fontWeight: "900",
   cursor: "pointer",
+  touchAction: "manipulation",
   marginBottom: "24px",
 };
 
@@ -655,6 +524,7 @@ const secondaryButtonStyle = {
   padding: "10px 16px",
   fontWeight: "900",
   cursor: "pointer",
+  touchAction: "manipulation",
 };
 
 const secondaryButtonDisabledStyle = {
@@ -675,95 +545,10 @@ const requiredStyle = {
   color: "#dc2626",
   fontSize: "12px",
   marginLeft: "4px",
-=======
-/* ===== styles ===== */
-
-const pageStyle = {
-  minHeight: "100vh",
-  background: "linear-gradient(135deg, #fff5e1, #fce7c8)",
-  padding: "32px",
-  fontFamily: "Arial, sans-serif",
-  boxSizing: "border-box",
-};
-
-const headerStyle = {
-  background: "#ffffff",
-  borderRadius: "24px",
-  padding: "24px 32px",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: "28px",
-};
-
-const titleStyle = {
-  margin: 0,
-  fontSize: "30px",
-  fontWeight: "700",
-  color: "#222",
-};
-
-const subtitleStyle = {
-  margin: "8px 0 0 0",
-  fontSize: "15px",
-  color: "#777",
-};
-
-const headerRightStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: "16px",
-};
-
-const guardianTextStyle = {
-  fontSize: "16px",
-  color: "#444",
-  fontWeight: "600",
-};
-
-const logoutButtonStyle = {
-  padding: "10px 18px",
-  borderRadius: "12px",
-  border: "none",
-  backgroundColor: "#ef4444",
-  color: "white",
-  fontSize: "14px",
-  cursor: "pointer",
-};
-
-const contentWrapperStyle = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1.2fr",
-  gap: "24px",
-};
-
-const cardStyle = {
-  background: "#ffffff",
-  borderRadius: "24px",
-  padding: "28px",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-};
-
-const sectionTitleStyle = {
-  marginTop: 0,
-  marginBottom: "10px",
-  fontSize: "28px",
-  color: "#222",
-};
-
-const sectionDescStyle = {
-  marginTop: 0,
-  marginBottom: "24px",
-  fontSize: "15px",
-  color: "#777",
-  lineHeight: "1.6",
->>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
 };
 
 const inputStyle = {
   width: "100%",
-<<<<<<< HEAD
   padding: "15px 18px",
   borderRadius: "18px",
   border: "2px solid rgba(244, 190, 80, 0.45)",
@@ -773,6 +558,7 @@ const inputStyle = {
   color: "#3f3020",
   outline: "none",
   boxShadow: "inset 0 2px 8px rgba(74, 51, 20, 0.04)",
+  touchAction: "manipulation",
 };
 
 const helperTextStyle = {
@@ -785,7 +571,7 @@ const helperTextStyle = {
 
 const avatarGridStyle = {
   display: "grid",
-  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))",
   gap: "12px",
 };
 
@@ -803,6 +589,7 @@ const avatarButtonStyle = {
   alignItems: "center",
   justifyContent: "center",
   gap: "6px",
+  touchAction: "manipulation",
 };
 
 const avatarButtonActiveStyle = {
@@ -839,20 +626,10 @@ const successBoxStyle = {
   padding: "13px 15px",
   lineHeight: "1.6",
   fontWeight: "800",
-=======
-  padding: "14px 16px",
-  marginBottom: "16px",
-  borderRadius: "14px",
-  border: "1px solid #ddd",
-  fontSize: "16px",
-  boxSizing: "border-box",
-  backgroundColor: "#fafafa",
->>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
 };
 
 const primaryButtonStyle = {
   width: "100%",
-<<<<<<< HEAD
   padding: "16px",
   borderRadius: "20px",
   border: "3px solid rgba(255,255,255,0.9)",
@@ -863,6 +640,7 @@ const primaryButtonStyle = {
   cursor: "pointer",
   marginTop: "20px",
   boxShadow: "0 8px 0 rgba(177, 111, 12, 0.22), 0 14px 24px rgba(245,158,11,0.25)",
+  touchAction: "manipulation",
 };
 
 const primaryButtonDisabledStyle = {
@@ -872,63 +650,3 @@ const primaryButtonDisabledStyle = {
 };
 
 export default AddPatientPage;
-=======
-  padding: "14px",
-  borderRadius: "14px",
-  border: "none",
-  backgroundColor: "#f59e0b",
-  color: "white",
-  fontSize: "17px",
-  fontWeight: "600",
-  cursor: "pointer",
-  marginTop: "8px",
-};
-
-const emptyBoxStyle = {
-  background: "#fafafa",
-  border: "1px dashed #ddd",
-  borderRadius: "16px",
-  padding: "24px",
-  textAlign: "center",
-};
-
-const patientListStyle = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "16px",
-};
-
-const patientCardStyle = {
-  background: "#fffaf2",
-  border: "1px solid #f3e0b5",
-  borderRadius: "18px",
-  padding: "20px",
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-};
-
-const patientNameStyle = {
-  margin: "0 0 10px 0",
-  fontSize: "22px",
-  color: "#222",
-};
-
-const patientInfoStyle = {
-  margin: "4px 0",
-  fontSize: "14px",
-  color: "#666",
-};
-
-const detailButtonStyle = {
-  padding: "10px 18px",
-  borderRadius: "12px",
-  border: "none",
-  backgroundColor: "#2563eb",
-  color: "white",
-  fontSize: "14px",
-  cursor: "pointer",
-};
-
-export default AddPatientPage;
->>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d

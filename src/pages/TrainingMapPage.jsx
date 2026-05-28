@@ -48,7 +48,6 @@ const GAME_CONFIG = {
     description: "記住石頭順序，幫鹿先生過橋。",
     route: "/training-cbt",
     storageKey: "cbtTrainingResult",
-    icon: "🪨",
   },
   PM: {
     name: "湖邊找物",
@@ -56,8 +55,6 @@ const GAME_CONFIG = {
     ability: "memory",
     description: "記住圖片，幫兔子妹妹找回物品。",
     route: "/training-picture-memory",
-    storageKey: "pmTrainingResult",
-    icon: "🧺",
   },
   SRT: {
     name: "橡實接接",
@@ -66,7 +63,6 @@ const GAME_CONFIG = {
     description: "看到橡實出現，幫小松鼠接住。",
     route: "/training-srt",
     storageKey: "srtTrainingResult",
-    icon: "🌰",
   },
   DPT: {
     name: "趕走蒼蠅",
@@ -75,7 +71,6 @@ const GAME_CONFIG = {
     description: "找到搗亂蒼蠅，幫派對順利開始。",
     route: "/training-dot-probe",
     storageKey: "dptTrainingResult",
-    icon: "🪰",
   },
   LB: {
     name: "回家小路",
@@ -84,7 +79,6 @@ const GAME_CONFIG = {
     description: "照順序點路標，幫綿羊奶奶回家。",
     route: "/training-linking-balloons",
     storageKey: "lbTrainingResult",
-    icon: "🔢",
   },
   DCCS: {
     name: "服飾分類",
@@ -93,7 +87,6 @@ const GAME_CONFIG = {
     description: "依照顏色或圖案，幫孔雀小姐整理衣服。",
     route: "/training-dccs",
     storageKey: "dccsTrainingResult",
-    icon: "👗",
   },
 };
 

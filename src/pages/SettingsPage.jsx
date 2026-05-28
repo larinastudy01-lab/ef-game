@@ -977,7 +977,6 @@ function SettingsPage() {
 
           <section className="settings-panel parent-panel">
             <div className="panel-title-row">
-              <span className="panel-icon">🔒</span>
               <div>
                 <h2>家長鎖</h2>
                 <p>避免孩子誤改訓練時間等重要設定。</p>

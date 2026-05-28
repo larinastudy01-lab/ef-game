@@ -396,7 +396,6 @@ function ParentView({ payload, result, context, interpretation }) {
 
   const observations = [
     {
-      icon: "👀",
       title: "知道現在要看什麼",
       level: getReadableLevel(understandRule),
       text: "這是在看孩子有沒有抓到目前的玩法：現在是看顏色，還是看衣服種類。",
@@ -404,7 +403,6 @@ function ParentView({ payload, result, context, interpretation }) {
       active: true,
     },
     {
-      icon: "🔄",
       title: "玩法改變後能不能跟上",
       level: context.hasSwitchData ? getReadableLevel(switchRule) : "這關還沒看這個",
       text: context.hasSwitchData
@@ -414,7 +412,6 @@ function ParentView({ payload, result, context, interpretation }) {
       active: context.hasSwitchData,
     },
     {
-      icon: "🧭",
       title: "會不會還照剛剛的玩法",
       level: context.hasInterferenceData ? getReadableLevel(avoidOldRule) : "這關還沒看這個",
       text: context.hasInterferenceData
@@ -424,7 +421,6 @@ function ParentView({ payload, result, context, interpretation }) {
       active: context.hasInterferenceData,
     },
     {
-      icon: "🌿",
       title: "能不能穩穩完成",
       level: getReadableLevel(stableResponse),
       text: "這不是看孩子有多快，而是看孩子能不能穩定完成，不是忽快忽慢或一直猜。",

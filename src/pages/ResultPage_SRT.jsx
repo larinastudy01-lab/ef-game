@@ -1,23 +1,11 @@
-<<<<<<< HEAD
 // src/pages/ResultPage_SRT.jsx
 
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-=======
-import bgImg from "../asset/SRT_background.jpg";
-import React, { useState } from "react";
->>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
-import {
-  Radar,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  ResponsiveContainer,
-} from "recharts";
 
-<<<<<<< HEAD
 import bgImg from "../asset/SRT_testbackground.png";
+import homeBackBtn from "../asset/home/back.png";
+import homeAgainBtn from "../asset/home/again.png";
 import {
   calculateSrtScore,
   getStoredSrtResult,
@@ -37,12 +25,6 @@ const ResultPage_SRT = ({
   onBackToMenu,
 }) => {
   const navigate = useNavigate();
-
-  /*
-    =========================================================
-    1. 整理資料來源
-    =========================================================
-  */
 
   const normalizedRecords = useMemo(() => {
     if (Array.isArray(trialRecords) && trialRecords.length > 0) {
@@ -71,8 +53,21 @@ const ResultPage_SRT = ({
       }));
     }
 
+    if (Array.isArray(rtRecords) && rtRecords.length > 0) {
+      return rtRecords.map((reactionTime, index) => ({
+        trialIndex: index + 1,
+        isCorrect: Number.isFinite(Number(reactionTime)),
+        reactionTime: Number.isFinite(Number(reactionTime)) ? Number(reactionTime) : null,
+        timeout: false,
+        missed: false,
+        falseClick: false,
+        clickedRotten: false,
+        targetType: "normal",
+      }));
+    }
+
     return [];
-  }, [trialRecords]);
+  }, [trialRecords, rtRecords]);
 
   const scoringResult = useMemo(() => {
     if (normalizedRecords.length > 0) {
@@ -87,24 +82,25 @@ const ResultPage_SRT = ({
     return calculateSrtScore([]);
   }, [normalizedRecords]);
 
-  /*
-    =========================================================
-    2. 防呆資料
-    =========================================================
-  */
-
   const summary = scoringResult?.summary || {};
   const childView = scoringResult?.childView || {};
   const parentView = scoringResult?.parentView || {};
 
   const isTrainingMode = mode === "training" || summaryData?.mode === "training";
 
-  const stars =
-    childView.stars ||
-    scoringResult?.stars ||
-    starResult?.stars ||
-    starResult?.star ||
-    1;
+  const stars = Math.max(
+    0,
+    Math.min(
+      3,
+      Number(
+        childView.stars ||
+          scoringResult?.stars ||
+          starResult?.stars ||
+          starResult?.star ||
+          1
+      ) || 1
+    )
+  );
 
   const totalScore = scoringResult?.totalScore ?? starResult?.totalScore ?? 0;
 
@@ -136,17 +132,54 @@ const ResultPage_SRT = ({
     : buildTestNextSuggestion({ stars, summary, abilityScores });
 
   const intuitiveIndicators = isTrainingMode
-    ? []
+    ? buildTrainingIndicators(summaryData, avgRT)
     : buildIntuitiveIndicators({ summary, abilityScores });
 
-  const radarData = normalizeRadarData(intuitiveIndicators);
-  const hasRadarData = radarData.length > 0;
-
-  /*
-    =========================================================
-    3. 事件
-    =========================================================
-  */
+  const quickStats = isTrainingMode
+    ? [
+        {
+          label: "接到橡實",
+          value: `${summaryData?.hitCount || 0} 次`,
+          helper: "正確點到可以接的橡實",
+        },
+        {
+          label: "漏接橡實",
+          value: `${summaryData?.missCount || missCount || 0} 次`,
+          helper: "可以再觀察是否看得到目標",
+        },
+        {
+          label: "平均反應",
+          value: formatMsShort(summaryData?.avgRT || avgRT || 0),
+          helper: "接到橡實時的平均速度",
+        },
+        {
+          label: "避開壞橡實",
+          value: `${summaryData?.correctAvoidCount || 0} 次`,
+          helper: "看清楚後忍住不點",
+        },
+      ]
+    : [
+        {
+          label: "完成題數",
+          value: `${summary?.totalTrials || totalSpawn || normalizedRecords.length || 0} 題`,
+          helper: "本次有效出現的橡實數",
+        },
+        {
+          label: "正確率",
+          value: `${Math.round(summary?.accuracyPercent || 0)}%`,
+          helper: "有沒有點到正確目標",
+        },
+        {
+          label: "平均反應",
+          value: formatMsShort(summary?.avgReactionTime || avgRT || 0),
+          helper: "看到橡實後按下去的速度",
+        },
+        {
+          label: "漏接/逾時",
+          value: `${summary?.missCount || summary?.timeoutCount || missCount || 0} 次`,
+          helper: "沒有在時間內完成的次數",
+        },
+      ];
 
   const handleBackToMenu = () => {
     if (onBackToMenu) {
@@ -166,455 +199,158 @@ const ResultPage_SRT = ({
     navigate(isTrainingMode ? "/training-srt" : "/test-srt");
   };
 
-  /*
-    =========================================================
-    4. 畫面
-    =========================================================
-  */
-
   return (
     <div
       className="srt-result-page"
       style={{
-        backgroundImage: `
-          linear-gradient(rgba(255,255,255,0.2), rgba(255,255,255,0.2)),
-          url(${bgImg})
-        `,
+        backgroundImage: `linear-gradient(rgba(255,255,255,0.22), rgba(255,255,255,0.22)), url(${bgImg})`,
       }}
     >
       <style>{resultPageCss}</style>
 
-      <div className="srt-result-card srt-soft-card">
-        <h1 className="srt-result-main-title">
-          {isTrainingMode ? "橡實練習完成" : "橡實挑戰完成"}
-        </h1>
-
-        <p className="srt-result-subtitle">
-          給家長看的結果說明｜用白話了解孩子這次在做什麼
-        </p>
-
-        <div className="srt-overview-card srt-soft-card">
-          <div className="srt-score-circle">
-            <div className="srt-score-center">
-              <span className="srt-score-number">{displayScore}</span>
-              <span className="srt-score-unit">分</span>
-            </div>
-          </div>
-
-          <div className="srt-overview-text-box">
-            <p className="srt-overview-label">
-              {isTrainingMode ? "這次練習" : "這次挑戰"}
-            </p>
-
-            <h2 className="srt-overview-title">{childShortLabel}</h2>
-
-            <p className="srt-overview-desc">{oneSentenceResult}</p>
-          </div>
-        </div>
+      <main className="srt-result-main-card">
+        <header className="srt-result-header">
+          <p className="srt-mode-tag">
+            {isTrainingMode ? "練習結果" : "測驗結果"}
+          </p>
+          <h1 className="srt-result-main-title">
+            {isTrainingMode ? "橡實練習完成" : "橡實挑戰完成"}
+          </h1>
+          <p className="srt-result-subtitle">
+            給家長看的結果說明｜用白話了解孩子這次在做什麼
+          </p>
+        </header>
 
         <section className="srt-parent-panel">
-          <div className="srt-parent-summary-box srt-summary-main">
-            <p className="srt-mini-label">家長快速解讀</p>
-            <p className="srt-parent-summary-text">{parentPlainSummary}</p>
-          </div>
-
-          <div className="srt-highlight-grid">
-            {keyHighlights.map((item) => (
-              <div key={item.title} className="srt-highlight-card srt-soft-card">
-                <span className={`srt-highlight-badge ${item.tone}`}>{item.badge}</span>
-                <h3>{item.title}</h3>
-                <p>{item.text}</p>
+          <section className="srt-overview-card">
+            <div className="srt-overview-left">
+              <div className="srt-score-circle" aria-label={`${displayScore} 分`}>
+                <span className="srt-score-number">{displayScore}</span>
+                <span className="srt-score-unit">分</span>
               </div>
-            ))}
-          </div>
 
-          <div className="srt-next-card srt-soft-card">
-            <p className="srt-mini-label">下次建議</p>
-            <h2>{nextSuggestion.title}</h2>
-            <p>{nextSuggestion.text}</p>
-          </div>
+              <div className="srt-overview-text-box">
+                <p className="srt-overview-label">
+                  {isTrainingMode ? "這次練習" : "這次挑戰"}
+                </p>
+                <h2 className="srt-overview-title">{childShortLabel}</h2>
+                <p className="srt-overview-desc">{oneSentenceResult}</p>
+              </div>
+            </div>
 
-          {!isTrainingMode && (
-            <>
-              <h2 className="srt-section-title">孩子這次主要表現</h2>
-
-              <div className="srt-indicator-grid">
-                {intuitiveIndicators.map((item) => (
-                  <div key={item.key} className="srt-indicator-card srt-soft-card">
-                    <div className="srt-indicator-header">
-                      <h3>{item.title}</h3>
-                      <span>{item.status}</span>
-                    </div>
-
-                    <p className="srt-indicator-score">
-                      {item.value} / 100
-                    </p>
-
-                    <p className="srt-indicator-desc">{item.description}</p>
-                    <p className="srt-indicator-advice">{item.advice}</p>
-
-                    <div className="srt-progress-track">
-                      <div
-                        className="srt-progress-fill"
-                        style={{ width: `${safePercent(item.value)}%` }}
-                      />
-                    </div>
-                  </div>
+            <div className="srt-star-summary">
+              <div className="srt-star-row" aria-label={`${stars} 顆星`}>
+                {[1, 2, 3].map((star) => (
+                  <span
+                    key={star}
+                    className={`srt-star-chip ${star <= stars ? "is-on" : ""}`}
+                  >
+                    ★
+                  </span>
                 ))}
               </div>
+              <p>星星代表本次完成表現</p>
+              <small>請搭配下方觀察重點一起看，不是單一次診斷。</small>
+            </div>
+          </section>
 
-              <div className="srt-chart-section srt-soft-card">
-                <div className="srt-chart-header">
-                  <div>
-                    <p className="srt-mini-label">進階參考</p>
-                    <h2 className="srt-section-title srt-chart-title">
-                      能力分布圖
-                    </h2>
-                  </div>
-                  <p>
-                    越靠近外圈，代表這一項越穩定。家長可以先看上面的文字卡片，這張圖只是輔助比較。
-                  </p>
-                </div>
+          <section className="srt-quick-stats">
+            {quickStats.map((item) => (
+              <article key={item.label} className="srt-stat-card">
+                <p className="srt-stat-label">{item.label}</p>
+                <p className="srt-stat-value">{item.value}</p>
+                <p className="srt-stat-helper">{item.helper}</p>
+              </article>
+            ))}
+          </section>
 
-                <div className="srt-chart-box">
-                  {hasRadarData ? (
-                    <ResponsiveContainer
-                      width="100%"
-                      height={320}
-                      minWidth={280}
-                      minHeight={280}
-                    >
-                      <RadarChart data={radarData}>
-                        <PolarGrid />
-                        <PolarAngleAxis dataKey="subject" />
-                        <PolarRadiusAxis domain={[0, 100]} tick={false} />
-                        <Radar
-                          dataKey="value"
-                          stroke="#ff8c42"
-                          fill="#ffb26b"
-                          fillOpacity={0.65}
-                        />
-                      </RadarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="srt-chart-empty">
-                      這次有效資料不足，暫時無法產生能力分布圖。
+          <section className="srt-panel-block">
+            <h2 className="srt-section-title">家長快速解讀</h2>
+            <p className="srt-parent-summary-text">{parentPlainSummary}</p>
+          </section>
+
+          <section className="srt-panel-block">
+            <h2 className="srt-section-title">家長可以這樣看</h2>
+            <p className="srt-parent-intro">
+              不需要先懂專有名詞，只要看每張卡片的「孩子在做什麼」和「代表什麼」。
+            </p>
+
+            <div className="srt-highlight-grid">
+              {keyHighlights.map((item) => (
+                <article key={item.title} className="srt-observation-card">
+                  <div className="srt-observation-top">
+                    <span className={`srt-status-pill ${item.tone}`}>{item.badge}</span>
+                    <div>
+                      <p className="srt-card-label">觀察重點</p>
+                      <h3>{item.title}</h3>
                     </div>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-
-          {isTrainingMode && (
-            <>
-              <h2 className="srt-section-title">這次練習看什麼？</h2>
-
-              <div className="srt-indicator-grid">
-                <TrainingInfoCard
-                  title="這次難度"
-                  value={summaryData?.difficultyLabel || "普通"}
-                  desc="代表這次橡實出現的速度、大小與干擾程度。"
-                />
-                <TrainingInfoCard
-                  title="有沒有接到橡實？"
-                  value={`${summaryData?.hitCount || 0} 次`}
-                  desc="孩子正確點到可以接的橡實次數。"
-                />
-                <TrainingInfoCard
-                  title="看到後點得多快？"
-                  value={formatMsWithSeconds(summaryData?.avgRT || avgRT || 0)}
-                  desc="這是成功接到橡實時的平均反應時間。"
-                />
-                <TrainingInfoCard
-                  title="壞橡實有沒有忍住？"
-                  value={`${summaryData?.correctAvoidCount || 0} 次`}
-                  desc="孩子看到壞橡實時，成功忍住沒有點的次數。"
-                />
-                <TrainingInfoCard
-                  title="金色橡實有沒有注意到？"
-                  value={`${summaryData?.distractorMetrics?.goldenHitCount ?? summaryData?.goldenHitCount ?? 0} 次`}
-                  desc="孩子有沒有注意到比較特別、比較值得接的金色橡實。"
-                />
-              </div>
-            </>
-          )}
-        </section>
-
-        <div className="srt-action-btns">
-          <button
-            type="button"
-            className="srt-action-btn srt-menu-btn"
-            onClick={handleBackToMenu}
-          >
-            回森林主頁
-          </button>
-
-          <button
-            type="button"
-            className="srt-action-btn srt-restart-btn"
-            onClick={handleRestart}
-          >
-=======
-const ResultPage_SRT = ({
-  mode,
-  score,
-  avgRT,
-  rtRecords,
-  trialRecords,
-  totalSpawn,
-  missCount,
-  radarData,
-  summaryData,
-  starResult,
-  onRestart,
-  onBackToMenu,
-}) => {
-  const [viewRole, setViewRole] = useState("child");
-
-  // ===== 指標 =====
-  const {
-    stdRT = 0,
-    hitRate = 0,
-    firstHalfAvg = avgRT,
-    secondHalfAvg = avgRT,
-    hitCount = rtRecords.length,
-    fastestRT = 0,
-    slowestRT = 0,
-  } = summaryData || {};
-
-  // ===== 射擊遊戲風格四大能力 =====
-  const getReactionSpeed = (rt) => {
-    if (rt <= 400) return 100;
-    if (rt <= 500) return 92;
-    if (rt <= 650) return 82;
-    if (rt <= 800) return 70;
-    if (rt <= 950) return 58;
-    return 42;
-  };
-
-  const getAccuracy = (rate) => {
-    if (rate >= 95) return 100;
-    if (rate >= 90) return 92;
-    if (rate >= 80) return 82;
-    if (rate >= 70) return 70;
-    if (rate >= 60) return 58;
-    return 42;
-  };
-
-  const getConsistency = (std) => {
-    if (std <= 80) return 100;
-    if (std <= 120) return 90;
-    if (std <= 180) return 80;
-    if (std <= 240) return 68;
-    if (std <= 300) return 55;
-    return 40;
-  };
-
-  const getFocus = (first, second) => {
-    const drop = second - first;
-
-    if (drop <= 30) return 100;
-    if (drop <= 80) return 90;
-    if (drop <= 120) return 80;
-    if (drop <= 180) return 65;
-    if (drop <= 250) return 50;
-    return 35;
-  };
-
-  const reactionSpeed = getReactionSpeed(avgRT);
-  const accuracy = getAccuracy(hitRate);
-  const consistency = getConsistency(stdRT);
-  const focus = getFocus(firstHalfAvg, secondHalfAvg);
-
-  // ===== 射擊遊戲風格雷達圖 =====
-  const shootingRadarData = [
-    { subject: "反應速度", value: reactionSpeed },
-    { subject: "命中準確", value: accuracy },
-    { subject: "操作穩定", value: consistency },
-    { subject: "持續專注", value: focus },
-  ];
-
-  // ===== 綜合分數（給家長回饋用）=====
-  const performanceScore =
-    reactionSpeed * 0.35 +
-    accuracy * 0.3 +
-    consistency * 0.2 +
-    focus * 0.15;
-
-  const getStars = () => {
-    return "⭐".repeat(starResult?.star || 1);
-  };
-
-  // ===== 家長解釋文字 =====
-  const getParentFeedback = () => {
-    if (performanceScore >= 85)
-      return "孩子的反應速度、命中表現與持續專注都很穩定，整體表現非常良好。";
-    if (performanceScore >= 70)
-      return "整體表現不錯，已有良好的遊戲節奏與反應能力，可持續練習提升穩定度。";
-    if (performanceScore >= 55)
-      return "孩子已能完成多數任務，建議持續透過遊戲加強反應速度與專注維持。";
-    return "建議多進行短時間、重複式練習，幫助孩子建立更穩定的反應與注意力表現。";
-  };
-
-  return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h2 style={styles.mainTitle}>完成了 🎉</h2>
-
-        {/* ===== 星級評分區 ===== */}
-        <div style={styles.starSection}>
-          <h2 style={styles.starTitle}>本次表現評級</h2>
-
-          <div style={styles.starRow}>
-            <span style={styles.starIcon}>
-              {starResult?.star >= 1 ? "⭐" : "☆"}
-            </span>
-            <span style={styles.starIcon}>
-              {starResult?.star >= 2 ? "⭐" : "☆"}
-            </span>
-            <span style={styles.starIcon}>
-              {starResult?.star >= 3 ? "⭐" : "☆"}
-            </span>
-          </div>
-
-          <p style={styles.starLevel}>{starResult?.level}</p>
-          <p style={styles.starFeedback}>{starResult?.feedback}</p>
-        </div>
-
-        {/* ===== 切換角色 ===== */}
-        <div style={styles.roleSwitch}>
-          <button
-            style={{
-              ...styles.roleBtn,
-              ...(viewRole === "child" ? styles.roleBtnActive : {}),
-            }}
-            onClick={() => setViewRole("child")}
-          >
-            幼兒
-          </button>
-
-          <button
-            style={{
-              ...styles.roleBtn,
-              ...(viewRole === "parent" ? styles.roleBtnActive : {}),
-            }}
-            onClick={() => setViewRole("parent")}
-          >
-            家長
-          </button>
-
-          <button
-            style={{
-              ...styles.roleBtn,
-              ...(viewRole === "medical" ? styles.roleBtnActive : {}),
-            }}
-            onClick={() => setViewRole("medical")}
-          >
-            醫療
-          </button>
-        </div>
-
-        {/* ================= 幼兒端 ================= */}
-        {viewRole === "child" && null}
-
-        {/* ================= 家長端 ================= */}
-        {viewRole === "parent" && (
-          <>
-            <div style={{ width: "100%", height: 320 }}>
-              <ResponsiveContainer>
-                <RadarChart data={shootingRadarData}>
-                  <PolarGrid />
-                  <PolarAngleAxis dataKey="subject" />
-                  <PolarRadiusAxis domain={[0, 100]} />
-                  <Radar
-                    dataKey="value"
-                    stroke="#ff8c42"
-                    fill="#ffb26b"
-                    fillOpacity={0.6}
-                  />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div style={styles.parentBox}>
-              <p style={styles.parentText}>{getParentFeedback()}</p>
-            </div>
-          </>
-        )}
-
-        {/* ================= 醫療端 ================= */}
-        {viewRole === "medical" && (
-          <>
-            <div style={{ width: "100%", height: 280 }}>
-              <ResponsiveContainer>
-                <RadarChart data={shootingRadarData}>
-                  <PolarGrid />
-                  <PolarAngleAxis dataKey="subject" />
-                  <PolarRadiusAxis domain={[0, 100]} />
-                  <Radar
-                    dataKey="value"
-                    stroke="#ff8c42"
-                    fill="#ffb26b"
-                    fillOpacity={0.6}
-                  />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div style={styles.medicalBox}>
-              <p>平均反應時間：{avgRT} ms</p>
-              <p>最快反應時間：{fastestRT} ms</p>
-              <p>最慢反應時間：{slowestRT} ms</p>
-              <p>反應標準差：{stdRT}</p>
-              <p>命中率：{hitRate}%</p>
-              <p>成功次數：{hitCount}</p>
-              <p>漏按次數：{missCount}</p>
-              <p>前半平均：{firstHalfAvg} ms</p>
-              <p>後半平均：{secondHalfAvg} ms</p>
-            </div>
-
-            <h4 style={{ marginTop: "18px", color: "#5d4037" }}>
-              每次反應時間
-            </h4>
-
-            <div style={styles.table}>
-              {trialRecords.map((t, i) => (
-                <div key={i} style={styles.row}>
-                  <span>#{t.trial}</span>
-                  <span>{t.hit ? "✔" : "✘"}</span>
-                  <span>{t.reactionTime || "-"}</span>
-                </div>
+                  </div>
+                  <p>{item.text}</p>
+                </article>
               ))}
             </div>
-          </>
-        )}
+          </section>
 
-        {/* ===== 按鈕 ===== */}
-        <div style={styles.actionBtns}>
-          <button style={styles.menuBtn} onClick={onBackToMenu}>
-            返回選單
+          <section className="srt-panel-block">
+            <h2 className="srt-section-title">
+              {isTrainingMode ? "這次練習看什麼？" : "孩子這次主要表現"}
+            </h2>
+            <div className="srt-indicator-grid">
+              {intuitiveIndicators.map((item) => (
+                <article key={item.key || item.title} className="srt-observation-card">
+                  <div className="srt-observation-top">
+                    <span className="srt-status-pill neutral">
+                      {item.status || item.value}
+                    </span>
+                    <div>
+                      <p className="srt-card-label">孩子在做什麼</p>
+                      <h3>{item.title}</h3>
+                    </div>
+                  </div>
+                  {item.value !== undefined && !isTrainingMode && (
+                    <p className="srt-indicator-score">{item.value} / 100</p>
+                  )}
+                  <p>{item.description || item.desc}</p>
+                  {item.advice && <p className="srt-card-meaning">{item.advice}</p>}
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="srt-next-card">
+            <h2 className="srt-section-title">下一步建議</h2>
+            <h3>{nextSuggestion.title}</h3>
+            <p>{nextSuggestion.text}</p>
+          </section>
+
+          <section className="srt-note-box">
+            <h3>給家長的小提醒</h3>
+            <p>
+              這份結果是本次遊戲中的觀察紀錄，可以幫助了解孩子在「看見橡實、快速反應、維持注意」時的狀況；不代表醫療診斷，建議搭配多次練習或其他任務一起觀察。
+            </p>
+          </section>
+        </section>
+
+        <footer className="srt-action-btns">
+          <button
+            type="button"
+            className="srt-image-button"
+            onClick={handleBackToMenu}
+            aria-label="回到森林"
+          >
+            <img src={homeBackBtn} alt="回到森林" />
           </button>
 
-          <button style={styles.btn} onClick={onRestart}>
->>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d
-            再玩一次
+          <button
+            type="button"
+            className="srt-image-button"
+            onClick={handleRestart}
+            aria-label="再玩一次"
+          >
+            <img src={homeAgainBtn} alt="再玩一次" />
           </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-<<<<<<< HEAD
-const TrainingInfoCard = ({ title, value, desc }) => {
-  return (
-    <div className="srt-indicator-card srt-soft-card">
-      <div className="srt-indicator-header">
-        <h3>{title}</h3>
-        <span>{value}</span>
-      </div>
-      <p className="srt-indicator-desc">{desc}</p>
+        </footer>
+      </main>
     </div>
   );
 };
@@ -648,21 +384,6 @@ function sanitizeAbilityScores(rawAbilityScores = {}, summary = {}) {
   };
 }
 
-function normalizeRadarData(indicators = []) {
-  if (!Array.isArray(indicators)) return [];
-
-  return indicators
-    .map((item) => ({
-      subject: item?.shortLabel || item?.title || "指標",
-      value: safePercent(item?.value, 0),
-    }))
-    .filter(
-      (item) =>
-        typeof item.subject === "string" &&
-        item.subject.trim().length > 0 &&
-        Number.isFinite(item.value)
-    );
-}
 
 function getSimpleStatus(value) {
   if (value >= 80) return "表現良好";
@@ -975,7 +696,6 @@ function buildIntuitiveIndicators({ summary = {}, abilityScores = {} }) {
   ];
 }
 
-export default ResultPage_SRT;
 
 /*
   =========================================================
@@ -983,706 +703,622 @@ export default ResultPage_SRT;
   =========================================================
 */
 
+
+function formatMsShort(ms) {
+  const safeMs = safeNumber(ms, 0);
+  if (!safeMs) return "--";
+  return `${(safeMs / 1000).toFixed(2)} 秒`;
+}
+
+function buildTrainingIndicators(summaryData = {}, avgRT = 0) {
+  return [
+    {
+      key: "difficulty",
+      title: "這次難度",
+      value: summaryData?.difficultyLabel || "普通",
+      status: summaryData?.difficultyLabel || "普通",
+      desc: "代表這次橡實出現的速度、大小與干擾程度。",
+    },
+    {
+      key: "hit",
+      title: "有沒有接到橡實？",
+      value: `${summaryData?.hitCount || 0} 次`,
+      status: `${summaryData?.hitCount || 0} 次`,
+      desc: "孩子正確點到可以接的橡實次數。",
+    },
+    {
+      key: "speed",
+      title: "看到後點得多快？",
+      value: formatMsWithSeconds(summaryData?.avgRT || avgRT || 0),
+      status: formatMsShort(summaryData?.avgRT || avgRT || 0),
+      desc: "這是成功接到橡實時的平均反應時間。",
+    },
+    {
+      key: "avoid",
+      title: "壞橡實有沒有忍住？",
+      value: `${summaryData?.correctAvoidCount || 0} 次`,
+      status: `${summaryData?.correctAvoidCount || 0} 次`,
+      desc: "孩子看到壞橡實時，成功忍住沒有點的次數。",
+    },
+    {
+      key: "golden",
+      title: "金色橡實有沒有注意到？",
+      value: `${summaryData?.distractorMetrics?.goldenHitCount ?? summaryData?.goldenHitCount ?? 0} 次`,
+      status: `${summaryData?.distractorMetrics?.goldenHitCount ?? summaryData?.goldenHitCount ?? 0} 次`,
+      desc: "孩子有沒有注意到比較特別、比較值得接的金色橡實。",
+    },
+  ];
+}
+
 const resultPageCss = `
 .srt-result-page {
-  min-height: 100vh;
   width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  text-align: center;
-  padding: 24px;
-  box-sizing: border-box;
+  min-height: 100dvh;
+  height: 100dvh;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  background-attachment: fixed;
-}
-
-.srt-result-card {
-  width: 92%;
-  max-width: 980px;
-  min-width: 0;
-  max-height: 92vh;
-  overflow-y: auto;
-  background: rgba(255, 255, 255, 0.965);
-  backdrop-filter: blur(8px);
-  border-radius: 34px;
-  padding: 34px 32px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
   box-sizing: border-box;
-  border: 2px solid rgba(255, 178, 107, 0.25);
+  overflow: hidden;
+  font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+  color: #5b3524;
 }
 
-.srt-soft-card {
-  box-shadow: 0 12px 30px rgba(93, 64, 55, 0.12);
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
-    border-color 0.18s ease,
-    background-color 0.18s ease;
+.srt-result-main-card {
+  width: min(1040px, 96vw);
+  max-height: calc(100dvh - 40px);
+  background: rgba(255, 248, 235, 0.97);
+  border: 7px solid #f4b13a;
+  border-radius: 34px;
+  padding: 24px 34px 26px;
+  box-sizing: border-box;
+  box-shadow: 0 18px 36px rgba(81, 55, 20, 0.22);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
 }
 
-.srt-soft-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 16px 36px rgba(93, 64, 55, 0.16);
+.srt-result-main-card::before {
+  content: "";
+  position: absolute;
+  inset: 20px;
+  border: 2px dashed rgba(255, 255, 255, 0.8);
+  border-radius: 26px;
+  pointer-events: none;
+}
+
+.srt-result-header {
+  text-align: center;
+  margin-bottom: 14px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.srt-mode-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 0 8px;
+  padding: 6px 18px;
+  border-radius: 999px;
+  background: #fff6db;
+  border: 2px solid #efbd58;
+  color: #915725;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
 }
 
 .srt-result-main-title {
-  font-size: 42px;
-  color: #5d4037;
-  margin: 0 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  min-width: min(560px, 84vw);
+  margin: 0;
+  padding: 14px 48px;
+  border-radius: 20px;
+  border: 4px solid #f0b24a;
+  background: linear-gradient(180deg, #fff0ab 0%, #fff7cc 100%);
+  box-shadow: 0 6px 0 #d99b3f;
+  color: #6b3e22;
+  font-size: clamp(34px, 5vw, 52px);
   font-weight: 950;
-  letter-spacing: 1px;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-shadow: 0 3px 0 rgba(255, 255, 255, 0.62);
+}
+
+.srt-result-main-title::before,
+.srt-result-main-title::after {
+  content: "🌿";
+  font-size: 26px;
 }
 
 .srt-result-subtitle {
-  font-size: 19px;
-  color: #8d6e63;
-  margin: 0 0 28px;
-  font-weight: 800;
+  margin: 16px 0 0;
+  color: #6a432e;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.srt-parent-panel {
+  position: relative;
+  z-index: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px 8px 14px;
+  scrollbar-width: thin;
+  scrollbar-color: #d9a340 rgba(255, 247, 225, 0.75);
+}
+
+.srt-parent-panel::-webkit-scrollbar {
+  width: 10px;
+}
+
+.srt-parent-panel::-webkit-scrollbar-thumb {
+  background: #d9a340;
+  border-radius: 999px;
+}
+
+.srt-overview-card,
+.srt-panel-block,
+.srt-next-card,
+.srt-note-box {
+  background: rgba(255, 255, 255, 0.88);
+  border: 4px solid rgba(236, 197, 123, 0.72);
+  border-radius: 28px;
+  box-shadow: 0 8px 0 rgba(205, 156, 62, 0.18), 0 12px 22px rgba(92, 58, 16, 0.09);
 }
 
 .srt-overview-card {
-  width: 100%;
-  background: #fff8ef;
-  border-radius: 30px;
-  padding: 28px 30px;
-  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 22px;
+  padding: 26px 30px;
+  margin-bottom: 30px;
+}
+
+.srt-overview-left {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 30px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .srt-score-circle {
-  width: 164px;
-  height: 164px;
-  min-width: 164px;
-  min-height: 164px;
+  width: 184px;
+  height: 184px;
+  min-width: 184px;
+  min-height: 184px;
   border-radius: 50%;
-  background: linear-gradient(145deg, #ffb26b, #ff8c42);
+  background: linear-gradient(180deg, #86d7ff 0%, #43aee6 100%);
+  border: 6px solid #ffffff;
+  outline: 4px solid #88ccec;
+  box-shadow: 0 7px 0 rgba(39, 125, 170, 0.28), 0 13px 22px rgba(40, 112, 148, 0.18);
   color: #ffffff;
   display: flex;
-  justify-content: center;
   align-items: center;
-  box-shadow:
-    0 12px 26px rgba(255, 140, 66, 0.32),
-    inset 0 3px 8px rgba(255, 255, 255, 0.28);
-}
-
-.srt-score-center {
-  display: flex;
-  align-items: baseline;
   justify-content: center;
-  line-height: 1;
-  transform: translateY(1px);
+  gap: 8px;
 }
 
 .srt-score-number {
   font-size: 58px;
   font-weight: 950;
   line-height: 1;
-  letter-spacing: -1px;
 }
 
 .srt-score-unit {
-  font-size: 22px;
+  font-size: 28px;
   font-weight: 950;
-  margin-left: 4px;
-  line-height: 1;
-}
-
-.srt-overview-text-box {
-  text-align: left;
-  max-width: 590px;
+  align-self: flex-end;
+  margin-bottom: 36px;
 }
 
 .srt-overview-label,
-.srt-mini-label {
-  margin: 0 0 6px;
-  font-size: 17px;
-  color: #9a6a48;
+.srt-card-label,
+.srt-stat-label {
+  margin: 0 0 8px;
+  color: #835234;
+  font-size: 15px;
   font-weight: 950;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
 }
 
 .srt-overview-title {
-  margin: 0 0 10px;
-  font-size: 34px;
-  color: #5d4037;
+  margin: 0 0 12px;
+  color: #5b2f20;
+  font-size: clamp(30px, 3.4vw, 42px);
+  font-weight: 950;
+  line-height: 1.15;
+}
+
+.srt-overview-desc,
+.srt-parent-summary-text,
+.srt-parent-intro,
+.srt-observation-card p,
+.srt-next-card p,
+.srt-note-box p {
+  margin: 0;
+  color: #6b3d2a;
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1.7;
+}
+
+.srt-star-summary {
+  flex: 0 0 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 18px 14px;
+  border-radius: 24px;
+  background: #fff8df;
+  border: 3px solid #efd08b;
+  text-align: center;
+}
+
+.srt-star-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.srt-star-chip {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff3cf;
+  border: 3px solid #dfb55e;
+  color: #c18a2f;
+  font-size: 27px;
+  line-height: 1;
+  opacity: 0.5;
+}
+
+.srt-star-chip.is-on {
+  background: linear-gradient(180deg, #fff2a6 0%, #ffc857 100%);
+  color: #8b5a18;
+  opacity: 1;
+  box-shadow: 0 4px 0 #c88a28;
+}
+
+.srt-star-summary p {
+  margin: 0;
+  color: #6a432e;
+  font-size: 16px;
   font-weight: 950;
 }
 
-.srt-overview-desc {
-  margin: 0;
-  font-size: 21px;
-  color: #6d4c41;
-  line-height: 1.7;
-  font-weight: 850;
+.srt-star-summary small {
+  color: #8a624d;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
 }
 
-.srt-parent-panel {
-  width: 100%;
-  min-width: 0;
+.srt-quick-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 26px;
+}
+
+.srt-stat-card {
+  min-height: 126px;
+  padding: 18px 16px;
+  border-radius: 24px;
+  background: rgba(255, 252, 244, 0.96);
+  border: 3px solid rgba(239, 198, 124, 0.75);
+  box-shadow: 0 7px 0 rgba(213, 165, 75, 0.17);
+  box-sizing: border-box;
+}
+
+.srt-stat-value {
+  margin: 0 0 6px;
+  color: #5b2f20;
+  font-size: 30px;
+  font-weight: 950;
+}
+
+.srt-stat-helper {
+  margin: 0;
+  color: #8a624d;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.srt-panel-block,
+.srt-next-card,
+.srt-note-box {
+  padding: 22px 26px;
+  margin-bottom: 26px;
 }
 
 .srt-section-title {
-  font-size: 28px;
-  color: #5d4037;
-  margin: 26px 0 18px;
+  margin: 0 0 12px;
+  color: #6b3a21;
+  font-size: 24px;
   font-weight: 950;
-}
-
-.srt-parent-summary-box {
-  background: #fff7ef;
-  border-radius: 24px;
-  padding: 22px 24px;
-  margin-bottom: 18px;
-  border: 2px solid #ffecd6;
-  text-align: left;
-}
-
-.srt-summary-main {
-  background: #fffaf5;
-}
-
-.srt-parent-summary-text {
-  font-size: 18px;
-  color: #5d4037;
-  line-height: 1.9;
-  margin: 0;
-  font-weight: 780;
 }
 
 .srt-highlight-grid,
 .srt-indicator-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
-  min-width: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 18px;
 }
 
-.srt-highlight-card,
-.srt-indicator-card,
-.srt-next-card,
-.srt-chart-section {
-  min-width: 0;
-  background: #ffffff;
-  border-radius: 22px;
-  padding: 18px;
-  text-align: left;
-  border: 2px solid #fff0df;
+.srt-indicator-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.srt-highlight-badge {
-  display: inline-flex;
-  width: 40px;
-  height: 40px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
+.srt-observation-card {
+  padding: 20px;
+  border-radius: 24px;
+  background: rgba(255, 253, 247, 0.96);
+  border: 3px solid rgba(236, 197, 123, 0.72);
+  box-shadow: 0 7px 0 rgba(205, 156, 62, 0.15);
+  box-sizing: border-box;
+}
+
+.srt-observation-top {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.srt-observation-card h3,
+.srt-next-card h3,
+.srt-note-box h3 {
+  margin: 0 0 8px;
+  color: #5d3220;
   font-size: 22px;
   font-weight: 950;
-  margin-bottom: 10px;
+  line-height: 1.25;
 }
 
-.srt-highlight-badge.good {
-  background: #e7f6df;
-  color: #4f8f35;
-}
-
-.srt-highlight-badge.watch {
-  background: #fff3d8;
-  color: #c67a00;
-}
-
-.srt-highlight-badge.alert {
-  background: #ffe5df;
-  color: #c45135;
-}
-
-.srt-highlight-badge.neutral {
-  background: #fff0df;
-  color: #a56a3a;
-}
-
-.srt-highlight-card h3,
-.srt-next-card h2 {
-  font-size: 21px;
-  color: #5d4037;
-  margin: 0 0 8px;
-  font-weight: 950;
-}
-
-.srt-highlight-card p,
-.srt-next-card p,
-.srt-chart-header p {
-  font-size: 16px;
-  color: #6d4c41;
-  line-height: 1.75;
-  margin: 0;
-  font-weight: 760;
-}
-
-.srt-next-card {
-  margin: 18px 0 4px;
-  background: #fff8ef;
-}
-
-.srt-indicator-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.srt-indicator-header h3 {
-  font-size: 20px;
-  color: #5d4037;
-  margin: 0;
-  font-weight: 950;
-}
-
-.srt-indicator-header span {
-  font-size: 15px;
-  color: #ffffff;
-  background: linear-gradient(145deg, #ff9f5a, #ff8c42);
+.srt-status-pill {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 36px;
+  padding: 6px 10px;
   border-radius: 999px;
-  padding: 7px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff4de;
+  border: 2px solid #f2c27d;
+  color: #9a6322;
+  font-size: 16px;
   font-weight: 950;
-  white-space: nowrap;
+}
+
+.srt-status-pill.good {
+  background: #e9f8ef;
+  color: #2f7d4f;
+  border-color: #9ed9b4;
+}
+
+.srt-status-pill.watch {
+  background: #fff4de;
+  color: #9a6322;
+  border-color: #f2c27d;
+}
+
+.srt-status-pill.alert {
+  background: #fff0ec;
+  color: #a9472d;
+  border-color: #e7a08e;
+}
+
+.srt-status-pill.neutral {
+  background: #eef7ff;
+  color: #27719b;
+  border-color: #9bd2f2;
 }
 
 .srt-indicator-score {
-  font-size: 24px;
-  color: #ff8c42;
-  font-weight: 950;
-  margin: 12px 0 4px;
+  color: #5b2f20 !important;
+  font-size: 26px !important;
+  font-weight: 950 !important;
+  margin-bottom: 8px !important;
 }
 
-.srt-indicator-desc,
-.srt-indicator-advice {
-  font-size: 15px;
-  color: #6d4c41;
-  line-height: 1.7;
-  margin: 8px 0;
-  font-weight: 720;
+.srt-card-meaning {
+  margin-top: 10px !important;
+  padding-top: 10px;
+  border-top: 2px dashed rgba(213, 165, 75, 0.38);
+  color: #8a624d !important;
+  font-size: 17px !important;
 }
 
-.srt-indicator-advice {
-  color: #8d6e63;
-  background: #fff8ef;
-  border-radius: 14px;
-  padding: 10px 12px;
+.srt-next-card {
+  background: #fff6dc;
 }
 
-.srt-progress-track {
-  width: 100%;
-  height: 12px;
-  border-radius: 999px;
-  background: #f4e4d4;
-  overflow: hidden;
-  margin-top: 12px;
-}
-
-.srt-progress-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #ffb26b, #ff8c42);
-}
-
-.srt-chart-section {
-  margin-top: 20px;
-  padding: 20px;
-  min-width: 0;
-}
-
-.srt-chart-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
-  align-items: flex-start;
-  text-align: left;
-  margin-bottom: 14px;
-  flex-wrap: wrap;
-}
-
-.srt-chart-title {
-  margin: 0;
-}
-
-.srt-chart-header p {
-  max-width: 520px;
-}
-
-.srt-chart-box {
-  width: 100%;
-  min-width: 280px;
-  min-height: 320px;
-  background: #fffdfa;
-  border-radius: 24px;
-  padding: 18px;
-  box-sizing: border-box;
-  border: 2px solid rgba(255, 240, 223, 0.8);
-  overflow: hidden;
-}
-
-.srt-chart-empty {
-  min-height: 280px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #8d6e63;
-  font-size: 17px;
-  font-weight: 850;
-  line-height: 1.7;
-  text-align: center;
+.srt-note-box {
+  background: rgba(255, 250, 238, 0.92);
+  margin-bottom: 16px;
 }
 
 .srt-action-btns {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 18px;
-  margin-top: 32px;
-  flex-wrap: wrap;
+  gap: 28px;
+  padding-top: 2px;
 }
 
-.srt-action-btn {
-  min-width: 184px;
-  height: 68px;
-  border-radius: 22px;
-  font-size: 22px;
-  font-weight: 950;
-  cursor: pointer;
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
-    background-color 0.18s ease,
-    border-color 0.18s ease;
-}
-
-.srt-menu-btn {
-  border: 2px solid #ffb26b;
-  background: linear-gradient(145deg, #fffaf5, #ffffff);
-  color: #ff8c42;
-  box-shadow: 0 7px 16px rgba(255, 178, 107, 0.26);
-}
-
-.srt-restart-btn {
+.srt-image-button {
+  width: clamp(168px, 16vw, 232px);
+  height: auto;
+  padding: 0;
   border: none;
-  background: linear-gradient(145deg, #ff9f5a, #ff8c42);
-  color: #ffffff;
-  box-shadow: 0 9px 20px rgba(255, 140, 66, 0.35);
+  background: transparent;
+  border-radius: 18px;
+  line-height: 0;
+  cursor: pointer;
+  transform-origin: 50% 58%;
+  transition: transform 0.18s ease, filter 0.18s ease;
 }
 
-.srt-action-btn:hover {
-  transform: translateY(-3px);
+.srt-image-button img {
+  width: 100%;
+  height: auto;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 10px 8px rgba(74, 48, 16, 0.26));
 }
 
-.srt-menu-btn:hover {
-  background: #fff7ef;
-  box-shadow: 0 11px 24px rgba(255, 178, 107, 0.32);
+.srt-image-button:hover {
+  transform: translateY(-3px) scale(1.04);
+  filter: brightness(1.05);
 }
 
-.srt-restart-btn:hover {
-  background: linear-gradient(145deg, #ff9b50, #ff7a22);
-  box-shadow: 0 12px 26px rgba(255, 140, 66, 0.42);
+.srt-image-button:active {
+  transform: translateY(2px) scale(0.97);
 }
 
-.srt-action-btn:active {
-  transform: translateY(0) scale(0.97);
-  box-shadow: 0 5px 12px rgba(255, 140, 66, 0.2);
-}
-
-@media (max-width: 768px) {
-  .srt-result-page {
-    padding: 18px;
-    background-attachment: scroll;
+@media (max-width: 1024px) {
+  .srt-result-main-card {
+    padding: 22px 24px 24px;
   }
 
-  .srt-result-card {
-    width: 96%;
-    padding: 28px 20px;
+  .srt-overview-card,
+  .srt-overview-left {
+    align-items: center;
+  }
+
+  .srt-quick-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .srt-highlight-grid,
+  .srt-indicator-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .srt-result-page {
+    height: auto;
+    min-height: 100dvh;
+    overflow: auto;
+    padding: 14px;
+  }
+
+  .srt-result-main-card {
+    max-height: none;
+    width: 100%;
+    border-width: 5px;
+    border-radius: 28px;
+    padding: 18px 14px 20px;
   }
 
   .srt-result-main-title {
-    font-size: 34px;
+    min-width: auto;
+    width: 100%;
+    padding: 12px 18px;
+    font-size: 30px;
+  }
+
+  .srt-result-main-title::before,
+  .srt-result-main-title::after {
+    display: none;
   }
 
   .srt-result-subtitle {
-    font-size: 18px;
+    font-size: 17px;
+  }
+
+  .srt-parent-panel {
+    overflow: visible;
+    padding: 4px 2px 14px;
   }
 
   .srt-overview-card {
-    padding: 24px 18px;
-    gap: 20px;
+    flex-direction: column;
+    padding: 20px 16px;
+    gap: 18px;
   }
 
-  .srt-score-circle {
-    width: 140px;
-    height: 140px;
-    min-width: 140px;
-    min-height: 140px;
-  }
-
-  .srt-score-number {
-    font-size: 50px;
-  }
-
-  .srt-overview-text-box {
+  .srt-overview-left {
+    flex-direction: column;
+    gap: 18px;
     text-align: center;
   }
 
-  .srt-overview-title {
-    font-size: 30px;
-  }
-
-  .srt-overview-desc {
-    font-size: 19px;
-  }
-
-  .srt-chart-header {
-    display: block;
-  }
-
-  .srt-chart-box {
-    min-width: 0;
-  }
-}
-
-@media (max-width: 480px) {
-  .srt-result-main-title {
-    font-size: 30px;
-  }
-
   .srt-score-circle {
-    width: 124px;
-    height: 124px;
-    min-width: 124px;
-    min-height: 124px;
+    width: 136px;
+    height: 136px;
+    min-width: 136px;
+    min-height: 136px;
   }
 
   .srt-score-number {
-    font-size: 44px;
+    font-size: 46px;
   }
 
   .srt-score-unit {
-    font-size: 18px;
+    font-size: 22px;
+    margin-bottom: 26px;
+  }
+
+  .srt-star-summary {
+    flex-basis: auto;
+    width: 100%;
+  }
+
+  .srt-quick-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .srt-overview-desc,
+  .srt-parent-summary-text,
+  .srt-parent-intro,
+  .srt-observation-card p,
+  .srt-next-card p,
+  .srt-note-box p {
+    font-size: 17px;
+  }
+
+  .srt-panel-block,
+  .srt-next-card,
+  .srt-note-box {
+    padding: 18px 16px;
+  }
+
+  .srt-action-btns {
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .srt-image-button {
+    width: min(72vw, 206px);
   }
 }
 `;
-=======
+
 export default ResultPage_SRT;
-
-// ===== style =====
-const styles = {
-  container: {
-    minHeight: "100vh",
-    width: "100%",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    textAlign: "center",
-    padding: "20px",
-    backgroundImage: `
-      linear-gradient(rgba(255,255,255,0.18), rgba(255,255,255,0.18)),
-      url(${bgImg})
-    `,
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    backgroundRepeat: "no-repeat",
-    backgroundAttachment: "fixed",
-    boxSizing: "border-box",
-  },
-
-  card: {
-    width: "90%",
-    maxWidth: "620px",
-    background: "rgba(255,255,255,0.95)",
-    backdropFilter: "blur(8px)",
-    padding: "38px 30px",
-    borderRadius: "30px",
-    textAlign: "center",
-    boxShadow: "0 12px 40px rgba(0,0,0,0.15)",
-    border: "2px solid rgba(255,178,107,0.2)",
-  },
-
-  mainTitle: {
-    fontSize: "34px",
-    color: "#5d4037",
-    marginBottom: "10px",
-  },
-
-  starSection: {
-    background: "#fff8ef",
-    borderRadius: "24px",
-    padding: "28px 24px",
-    margin: "20px auto 28px",
-    width: "92%",
-    maxWidth: "540px",
-    boxShadow: "0 8px 18px rgba(0,0,0,0.08)",
-  },
-
-  starTitle: {
-    fontSize: "28px",
-    fontWeight: "bold",
-    color: "#7a4f2a",
-    marginBottom: "18px",
-  },
-
-  starRow: {
-    display: "flex",
-    justifyContent: "center",
-    gap: "12px",
-    marginBottom: "14px",
-  },
-
-  starIcon: {
-    fontSize: "52px",
-    lineHeight: 1,
-  },
-
-  starLevel: {
-    fontSize: "24px",
-    fontWeight: "bold",
-    color: "#5d4037",
-    marginBottom: "10px",
-  },
-
-  starFeedback: {
-    fontSize: "18px",
-    color: "#7b6a58",
-    lineHeight: "1.8",
-  },
-
-  roleSwitch: {
-    display: "flex",
-    justifyContent: "center",
-    gap: "16px",
-    margin: "20px 0 28px",
-    flexWrap: "wrap",
-  },
-
-  roleBtn: {
-    minWidth: "110px",
-    padding: "14px 28px",
-    borderRadius: "20px",
-    border: "2px solid #f4b26b",
-    backgroundColor: "#fffaf5",
-    color: "#7a5a4a",
-    fontSize: "20px",
-    fontWeight: "bold",
-    cursor: "pointer",
-    transition: "all 0.2s ease",
-  },
-
-  roleBtnActive: {
-    background: "linear-gradient(145deg, #ff9f5a, #ff8c42)",
-    color: "white",
-    border: "2px solid #f28b2f",
-    boxShadow: "0 6px 14px rgba(255,140,66,0.3)",
-  },
-
-  star: {
-    fontSize: "56px",
-    marginTop: "10px",
-    marginBottom: "12px",
-  },
-
-  parentStars: {
-    fontSize: "46px",
-    marginTop: "4px",
-    marginBottom: "10px",
-  },
-
-  childText: {
-    fontSize: "22px",
-    marginTop: "10px",
-    color: "#4e342e",
-    fontWeight: "bold",
-  },
-
-  parentBox: {
-    marginTop: "18px",
-    background: "#fff7ef",
-    borderRadius: "18px",
-    padding: "16px 18px",
-  },
-
-  parentText: {
-    fontSize: "18px",
-    color: "#5d4037",
-    lineHeight: "1.8",
-    margin: 0,
-  },
-
-  medicalBox: {
-    textAlign: "left",
-    background: "#fff7ef",
-    padding: "16px 18px",
-    borderRadius: "14px",
-    color: "#5d4037",
-    lineHeight: "1.9",
-    marginTop: "12px",
-    fontSize: "17px",
-  },
-
-  table: {
-    maxHeight: "220px",
-    overflowY: "auto",
-    marginTop: "10px",
-    background: "#fffdfa",
-    borderRadius: "12px",
-    padding: "6px 0",
-  },
-
-  row: {
-    display: "flex",
-    justifyContent: "space-between",
-    padding: "8px 14px",
-    borderBottom: "1px solid #eee",
-    color: "#5d4037",
-    fontSize: "16px",
-  },
-
-  actionBtns: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: "18px",
-    marginTop: "30px",
-    flexWrap: "wrap",
-  },
-
-  menuBtn: {
-    minWidth: "180px",
-    height: "74px",
-    borderRadius: "20px",
-    border: "2px solid #ffb26b",
-    background: "linear-gradient(145deg, #fffaf5, #fff)",
-    color: "#ff8c42",
-    cursor: "pointer",
-    fontSize: "22px",
-    fontWeight: "bold",
-    boxShadow: "0 6px 14px rgba(255,178,107,0.25)",
-    transition: "all 0.2s ease",
-  },
-
-  btn: {
-    minWidth: "180px",
-    height: "74px",
-    borderRadius: "20px",
-    border: "none",
-    background: "linear-gradient(145deg, #ff9f5a, #ff8c42)",
-    color: "white",
-    cursor: "pointer",
-    fontSize: "22px",
-    fontWeight: "bold",
-    boxShadow: "0 8px 18px rgba(255,140,66,0.35)",
-    transition: "all 0.2s ease",
-  },
-};
->>>>>>> c6f22a2f424662c5364c50484a73204c14e3c37d

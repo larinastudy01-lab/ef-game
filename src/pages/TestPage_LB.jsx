@@ -8,6 +8,14 @@ import backgroundImg from "../asset/LB/background.png";
 import sheepImg from "../asset/LB/sheep.png";
 import homeImg from "../asset/LB/home.png";
 import houseNumber01Img from "../asset/LB/house number_01.png";
+import introVideo from "../asset/SRT_start.mp4";
+import endingVideo from "../asset/SRT_start.mp4";
+import homeStartBtn from "../asset/home/start.png";
+import homeSkipBtn from "../asset/home/skip.png";
+import homeBackBtn from "../asset/home/back.png";
+import homeAgainBtn from "../asset/home/again.png";
+import homeResultBtn from "../asset/home/result.png";
+import mouseGuideImg from "../asset/mouse.png";
 
 /*
   TestPage_LB.jsx — clean restart version
@@ -35,21 +43,21 @@ const TUTORIAL_STEPS = [
   {
     id: "forward",
     order: "1",
-    iconLine: ["🐑", "1", "→", "2", "→", "3", "→", "🏠"],
+    iconLine: ["1", "→", "2", "→", "3", "→"],
     sequence: ["1", "2", "3", "4"],
     choices: ["1", "2", "3", "4"],
   },
   {
     id: "backward",
     order: "2",
-    iconLine: ["🐑", "4", "→", "3", "→", "2", "→", "🏠"],
+    iconLine: [ "4", "→", "3", "→", "2", "→"],
     sequence: ["4", "3", "2", "1"],
     choices: ["1", "2", "3", "4"],
   },
   {
     id: "red-blue",
     order: "3",
-    iconLine: ["🐑", "red-1", "→", "blue-1", "→", "red-2", "→", "🏠"],
+    iconLine: ["red-1", "→", "blue-1", "→", "red-2", "→"],
     sequence: ["red-1", "blue-1", "red-2", "blue-2"],
     choices: ["red-1", "blue-1", "red-2", "blue-2"],
   },
@@ -300,7 +308,7 @@ function DoorplateButton({ item, disabled, completed, isWrong, isCorrect, onClic
 function TestPageLB() {
   const navigate = useNavigate();
 
-  const [phase, setPhase] = useState("intro");
+  const [phase, setPhase] = useState("start");
   const [tutorialStep, setTutorialStep] = useState(0);
   const [tutorialCompletedKeys, setTutorialCompletedKeys] = useState([]);
   const [tutorialMessage, setTutorialMessage] = useState("輪到你點點看。");
@@ -315,12 +323,15 @@ function TestPageLB() {
   const [wrongKey, setWrongKey] = useState("");
   const [correctKey, setCorrectKey] = useState("");
   const [isLocked, setIsLocked] = useState(false);
+  const [resultPayload, setResultPayload] = useState(null);
 
   const startedAtRef = useRef(nowISO());
   const stageStartedAtRef = useRef(Date.now());
   const stepStartedAtRef = useRef(Date.now());
   const finishedRef = useRef(false);
   const timeoutRef = useRef(null);
+  const introVideoRef = useRef(null);
+  const endingVideoRef = useRef(null);
 
   const currentStage = STAGES[stageIndex];
   const displayItems = useMemo(() => buildStageItems(currentStage), [currentStage]);
@@ -328,11 +339,64 @@ function TestPageLB() {
   const expectedItem = currentStage.items.find((item) => item.key === expectedKey);
   const stageDone = stepIndex >= currentStage.sequence.length;
 
+  const pauseVideo = (videoRef) => {
+    const video = videoRef.current;
+    if (video && !video.paused) video.pause();
+  };
+
+  const pauseAllVideos = () => {
+    pauseVideo(introVideoRef);
+    pauseVideo(endingVideoRef);
+  };
+
+  const setGamePhase = (nextPhase) => {
+    pauseAllVideos();
+    setPhase(nextPhase);
+  };
+
   useEffect(() => {
     return () => {
       window.clearTimeout(timeoutRef.current);
+      pauseAllVideos();
     };
   }, []);
+
+  const resetWholeTest = () => {
+    window.clearTimeout(timeoutRef.current);
+    finishedRef.current = false;
+    startedAtRef.current = nowISO();
+    stageStartedAtRef.current = Date.now();
+    stepStartedAtRef.current = Date.now();
+    setTutorialStep(0);
+    setTutorialCompletedKeys([]);
+    setTutorialMessage("輪到你點點看。");
+    setTutorialErrorKey("");
+    setTutorialSuccessKey("");
+    setStageIndex(0);
+    setStepIndex(0);
+    setCompletedKeys([]);
+    setTrials([]);
+    setStageRecords([]);
+    setMessage("請依照前導教學中的規則完成測驗。");
+    setWrongKey("");
+    setCorrectKey("");
+    setIsLocked(false);
+    setResultPayload(null);
+  };
+
+  const handleStart = () => {
+    resetWholeTest();
+    setGamePhase("introVideo");
+  };
+
+  const handleIntroVideoEnd = () => {
+    resetTutorialStep(0);
+    setGamePhase("intro");
+  };
+
+  const handleEndingVideoEnd = () => {
+    setGamePhase("result");
+  };
 
   useEffect(() => {
     if (phase !== "playing" || stageDone) return undefined;
@@ -423,7 +487,7 @@ function TestPageLB() {
     resetStageState(0);
     setTrials([]);
     setStageRecords([]);
-    setPhase("playing");
+    setGamePhase("playing");
   };
 
   const recordTrial = ({ item, correct, errorType }) => {
@@ -541,7 +605,7 @@ function TestPageLB() {
     const nextStageIndex = stageIndex + 1;
 
     if (nextStageIndex < STAGES.length) {
-      setPhase("stageComplete");
+      setGamePhase("stageComplete");
       setMessage(`${currentStage.title}完成。`);
       return;
     }
@@ -557,7 +621,7 @@ function TestPageLB() {
     if (nextStageIndex >= STAGES.length) return;
 
     resetStageState(nextStageIndex);
-    setPhase("playing");
+    setGamePhase("playing");
   };
 
   const finishGame = ({ completed, extraStageRecord = null }) => {
@@ -582,6 +646,11 @@ function TestPageLB() {
       console.warn("[TestPage_LB] failed to save result", error);
     }
 
+    setResultPayload(resultPayload);
+    setGamePhase("endingVideo");
+  };
+
+  const goDetailedResult = () => {
     navigate(RESULT_ROUTE, {
       replace: true,
       state: {
@@ -592,17 +661,73 @@ function TestPageLB() {
     });
   };
 
+  const resultStars = Math.max(1, Math.min(3, Number(resultPayload?.stars || resultPayload?.summary?.stars || 1)));
+
   const progressPercent = currentStage.sequence.length
     ? Math.min(100, Math.round((stepIndex / currentStage.sequence.length) * 100))
     : 0;
+
+  if (phase === "start") {
+    return (
+      <div className="lb-simple-page lb-srt-skin">
+        <LBResetStyle />
+        <main className="lb-center-shell lb-start-shell">
+          <section className="lb-soft-panel lb-start-panel" aria-label="LB 測驗開始">
+            <h1 className="lb-game-title">Linking Balloons</h1>
+            <div className="lb-start-content">
+              <div className="lb-dialog-bubble">幫綿羊奶奶照順序找到門牌，一起走回家。</div>
+              <div className="lb-round-icon lb-start-avatar">
+                <img src={sheepImg} alt="綿羊奶奶" />
+              </div>
+            </div>
+            <div className="lb-guided-action lb-guided-start">
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-start" onClick={handleStart} aria-label="開始">
+                <img src={homeStartBtn} alt="開始" />
+              </button>
+              <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  if (phase === "introVideo") {
+    return (
+      <div className="lb-simple-page lb-srt-skin">
+        <LBResetStyle />
+        <main className="lb-center-shell">
+          <section className="lb-soft-panel lb-video-panel" aria-label="開始動畫">
+            <div className="lb-video-frame">
+              <video
+                ref={introVideoRef}
+                src={introVideo}
+                autoPlay
+                playsInline
+                controls={false}
+                onEnded={handleIntroVideoEnd}
+                className="lb-video"
+              />
+            </div>
+            <div className="lb-guided-action lb-guided-skip">
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleIntroVideoEnd} aria-label="跳過動畫">
+                <img src={homeSkipBtn} alt="跳過動畫" />
+              </button>
+              <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
 
   if (phase === "intro") {
     const isLastTutorial = tutorialStep >= TUTORIAL_STEPS.length - 1;
 
     return (
-      <div className="lb-simple-page">
+      <div className="lb-simple-page lb-srt-skin">
         <LBResetStyle />
-        <main className="lb-simple-card lb-intro-card">
+        <main className="lb-simple-card lb-intro-card lb-rule-panel">
           <div className="lb-intro-visual" aria-hidden="true">
             <img className="lb-intro-sheep" src={sheepImg} alt="綿羊奶奶" draggable="false" />
           </div>
@@ -703,9 +828,9 @@ function TestPageLB() {
     const nextStage = STAGES[stageIndex + 1];
 
     return (
-      <div className="lb-simple-page">
+      <div className="lb-simple-page lb-srt-skin">
         <LBResetStyle />
-        <main className="lb-simple-card lb-stage-card">
+        <main className="lb-simple-card lb-stage-card lb-stage-panel">
           <div className="lb-intro-visual" aria-hidden="true">
             <img className="lb-stage-home" src={homeImg} alt="小屋" draggable="false" />
           </div>
@@ -722,10 +847,76 @@ function TestPageLB() {
     );
   }
 
+  if (phase === "endingVideo") {
+    return (
+      <div className="lb-simple-page lb-srt-skin">
+        <LBResetStyle />
+        <main className="lb-center-shell">
+          <section className="lb-soft-panel lb-video-panel" aria-label="結束動畫">
+            <div className="lb-video-frame">
+              <video
+                ref={endingVideoRef}
+                src={endingVideo}
+                autoPlay
+                playsInline
+                controls={false}
+                onEnded={handleEndingVideoEnd}
+                className="lb-video"
+              />
+            </div>
+            <div className="lb-guided-action lb-guided-skip">
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleEndingVideoEnd} aria-label="跳過動畫">
+                <img src={homeSkipBtn} alt="跳過動畫" />
+              </button>
+              <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  if (phase === "result") {
+    return (
+      <div className="lb-simple-page lb-srt-skin">
+        <LBResetStyle />
+        <main className="lb-center-shell lb-result-shell">
+          <section className="lb-soft-panel lb-result-panel" aria-label="測驗結果">
+            <div className="lb-cute-stars" aria-label={`${resultStars} 顆星`}>
+              {[1, 2, 3].map((star) => (
+                <span key={star} className={`lb-cute-star ${star <= resultStars ? "is-on" : ""}`}>★</span>
+              ))}
+            </div>
+            <div className="lb-start-content lb-result-content">
+              <div className="lb-dialog-bubble">完成了！你有照順序找到門牌屋。</div>
+              <div className="lb-round-icon lb-result-icon">
+                <img src={homeImg} alt="門牌屋" />
+              </div>
+            </div>
+            <div className="lb-result-actions">
+              <div className="lb-guided-action lb-guided-result-main">
+                <button type="button" className="lb-forest-button lb-image-button lb-btn-home" onClick={() => navigate("/test-map")} aria-label="回到森林">
+                  <img src={homeBackBtn} alt="回到森林" />
+                </button>
+                <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+              </div>
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-replay" onClick={handleStart} aria-label="再玩一次">
+                <img src={homeAgainBtn} alt="再玩一次" />
+              </button>
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-detail" onClick={goDetailedResult} aria-label="詳細結果">
+                <img src={homeResultBtn} alt="詳細結果" />
+              </button>
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   return (
-    <div className="lb-simple-page">
+    <div className="lb-simple-page lb-srt-skin">
       <LBResetStyle />
-      <main className="lb-game-card">
+      <main className="lb-game-card lb-playing-panel">
         <header className="lb-game-top">
           <div>
             <p className="lb-kicker">LB 測驗</p>
@@ -1808,6 +1999,351 @@ function LBResetStyle() {
         }
       }
     
+
+
+      /* SRT-aligned additions: video button below frame, result stars floating above card */
+      .lb-srt-skin {
+        text-align: center;
+        color: #4b2c16;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      .lb-center-shell {
+        width: min(88vw, 1180px);
+        min-height: 100vh;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+        padding: 28px 0;
+        position: relative;
+        z-index: 1;
+      }
+
+      .lb-start-shell,
+      .lb-result-shell {
+        width: min(72vw, 900px);
+      }
+
+      .lb-soft-panel {
+        width: 100%;
+        position: relative;
+        box-sizing: border-box;
+        border: 7px solid #f6a51f;
+        border-radius: 58px;
+        background: linear-gradient(180deg, rgba(255, 252, 225, 0.98), rgba(255, 237, 168, 0.98));
+        box-shadow:
+          0 18px 0 rgba(202, 116, 24, 0.13),
+          0 24px 42px rgba(95, 64, 22, 0.16),
+          inset 0 0 0 8px rgba(255, 255, 255, 0.45),
+          inset 0 0 0 16px rgba(255, 215, 105, 0.20);
+      }
+
+      .lb-soft-panel::before {
+        content: "";
+        position: absolute;
+        inset: 18px;
+        border-radius: 42px;
+        border: 2px dashed rgba(230, 170, 67, 0.42);
+        pointer-events: none;
+      }
+
+      .lb-start-panel,
+      .lb-result-panel {
+        min-height: 520px;
+        padding: 58px 70px 74px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 30px;
+      }
+
+      .lb-game-title {
+        position: relative;
+        z-index: 2;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: min(100%, 420px);
+        padding: 14px 42px 16px;
+        border-radius: 20px;
+        border: 4px solid #e9a33c;
+        background: linear-gradient(180deg, rgba(255, 226, 129, 0.96), rgba(255, 244, 194, 0.98));
+        color: #7a3f16;
+        font-size: clamp(34px, 4vw, 52px);
+        font-weight: 950;
+        line-height: 1.08;
+        letter-spacing: 2px;
+        text-shadow: 0 3px 0 rgba(255, 255, 255, 0.85);
+        box-shadow:
+          0 8px 0 rgba(210, 130, 37, 0.24),
+          0 14px 24px rgba(91, 57, 18, 0.12),
+          inset 0 0 0 5px rgba(255, 255, 255, 0.34);
+      }
+
+      .lb-start-content {
+        position: relative;
+        z-index: 2;
+        width: min(100%, 690px);
+        display: grid;
+        grid-template-columns: minmax(300px, 1fr) 158px;
+        align-items: center;
+        justify-content: center;
+        gap: 44px;
+      }
+
+      .lb-dialog-bubble {
+        min-height: 138px;
+        border: 4px solid #f0c77b;
+        border-radius: 28px;
+        background: linear-gradient(180deg, #ffffff 0%, #fff9e9 100%);
+        color: #6d3717;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 18px 30px;
+        font-size: clamp(26px, 3vw, 38px);
+        line-height: 1.32;
+        font-weight: 900;
+        box-sizing: border-box;
+        position: relative;
+        box-shadow: 0 8px 0 rgba(225, 169, 84, 0.12), inset 0 0 0 5px rgba(255, 235, 174, 0.35);
+      }
+
+      .lb-dialog-bubble::before {
+        content: "";
+        position: absolute;
+        inset: 13px;
+        border-radius: 20px;
+        border: 2px dashed rgba(229, 189, 119, 0.55);
+        pointer-events: none;
+      }
+
+      .lb-dialog-bubble::after {
+        content: "";
+        position: absolute;
+        right: -30px;
+        top: 50%;
+        width: 38px;
+        height: 38px;
+        background: linear-gradient(135deg, #fff 0%, #fff9e9 80%);
+        border-top: 4px solid #f0c77b;
+        border-right: 4px solid #f0c77b;
+        transform: translateY(-50%) rotate(45deg);
+        border-radius: 4px;
+      }
+
+      .lb-round-icon {
+        position: relative;
+        width: 158px;
+        height: 158px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #82d9ff, #48aee8);
+        border: 5px solid rgba(255,255,255,0.92);
+        outline: 3px solid rgba(72, 157, 207, 0.65);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        box-sizing: border-box;
+        padding: 14px;
+        box-shadow: 0 10px 0 rgba(42, 112, 165, 0.20), 0 18px 24px rgba(53, 91, 123, 0.18);
+      }
+
+      .lb-round-icon img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+
+      .lb-forest-button {
+        position: relative;
+        z-index: 2;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        transition: transform 0.14s ease, filter 0.14s ease;
+      }
+
+      .lb-image-button {
+        min-width: 0;
+        min-height: 0;
+        padding: 0;
+      }
+
+      .lb-image-button img {
+        display: block;
+        height: auto;
+        object-fit: contain;
+        filter: drop-shadow(0 8px 0 rgba(112, 78, 25, 0.12)) drop-shadow(0 14px 20px rgba(91, 57, 18, 0.18));
+        transition: transform 0.14s ease, filter 0.14s ease;
+        pointer-events: none;
+      }
+
+      .lb-image-button:hover img {
+        transform: translateY(-3px) scale(1.03);
+        filter: drop-shadow(0 10px 0 rgba(112, 78, 25, 0.10)) drop-shadow(0 18px 24px rgba(91, 57, 18, 0.22)) brightness(1.05);
+      }
+
+      .lb-image-button:active img { transform: translateY(2px) scale(0.99); }
+      .lb-btn-start img { width: clamp(210px, 23vw, 300px); }
+      .lb-btn-skip img { width: clamp(154px, 16vw, 224px); }
+      .lb-btn-home img,
+      .lb-btn-replay img,
+      .lb-btn-detail img { width: clamp(136px, 15vw, 188px); }
+
+      .lb-guided-action {
+        position: relative;
+        z-index: 3;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .lb-mouse-guide {
+        position: absolute;
+        width: clamp(58px, 7vw, 92px);
+        height: auto;
+        object-fit: contain;
+        pointer-events: none;
+        z-index: 4;
+        filter: drop-shadow(0 8px 10px rgba(73, 48, 18, 0.20));
+        animation: lbMouseTap 1.18s ease-in-out infinite;
+      }
+
+      .lb-mouse-on-button { right: -28px; bottom: -22px; }
+
+      .lb-video-panel {
+        width: min(84vw, 1120px);
+        padding: 32px 34px 28px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        overflow: visible;
+      }
+
+      .lb-video-frame {
+        position: relative;
+        z-index: 2;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border-radius: 38px;
+        overflow: hidden;
+        background: rgba(255, 245, 210, 0.82);
+        border: 5px solid rgba(255, 255, 255, 0.72);
+        outline: 3px solid rgba(230, 170, 67, 0.42);
+        box-shadow: inset 0 0 0 8px rgba(255, 220, 120, 0.20), 0 18px 30px rgba(76, 53, 22, 0.15);
+      }
+
+      .lb-video {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+      }
+
+      .lb-guided-skip {
+        position: relative;
+        right: auto;
+        bottom: auto;
+        margin-top: 4px;
+        align-self: center;
+      }
+
+      .lb-result-panel {
+        min-height: 470px;
+        overflow: visible;
+        padding-top: 112px;
+      }
+
+      .lb-cute-stars {
+        position: absolute;
+        left: 50%;
+        top: -95px;
+        z-index: 5;
+        transform: translateX(-50%);
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        gap: clamp(18px, 3.2vw, 48px);
+        pointer-events: none;
+      }
+
+      .lb-cute-star {
+        font-size: clamp(92px, 10vw, 148px);
+        line-height: 1;
+        color: rgba(255, 255, 255, 0.90);
+        -webkit-text-stroke: 6px rgba(255, 255, 255, 0.96);
+        text-shadow: 10px 15px 0 rgba(80, 77, 58, 0.10), 0 18px 20px rgba(71, 69, 50, 0.18);
+        transform: rotate(-8deg) scale(0.94);
+      }
+
+      .lb-cute-star:nth-child(2) {
+        transform: translateY(-48px) scale(1.08);
+      }
+
+      .lb-cute-star:nth-child(3) {
+        transform: rotate(8deg) scale(0.94);
+      }
+
+      .lb-cute-star.is-on {
+        color: #ffd83f;
+        -webkit-text-stroke: 6px rgba(255, 246, 206, 0.98);
+        text-shadow: 8px 12px 0 rgba(213, 159, 37, 0.18), 0 18px 24px rgba(255, 205, 58, 0.26);
+      }
+
+      .lb-result-content { margin: 6px 0 10px; }
+
+      .lb-result-actions {
+        position: relative;
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(12px, 2vw, 26px);
+        flex-wrap: wrap;
+      }
+
+      .lb-playing-panel .lb-game-top { display: none; }
+      .lb-playing-panel .lb-play-board { min-height: 0; height: calc(100% - 104px); }
+      .lb-playing-panel .lb-game-footer { min-height: 82px; }
+
+      @keyframes lbMouseTap {
+        0%, 100% { transform: translate(0, 0) rotate(-6deg) scale(1); }
+        50% { transform: translate(-8px, -8px) rotate(-10deg) scale(1.04); }
+      }
+
+      @media (max-width: 1024px) {
+        .lb-start-shell, .lb-result-shell { width: min(88vw, 860px); }
+        .lb-start-panel, .lb-result-panel { padding-inline: 42px; }
+        .lb-start-content { grid-template-columns: minmax(240px, 1fr) 134px; gap: 30px; }
+        .lb-round-icon { width: 134px; height: 134px; }
+        .lb-cute-stars { top: -76px; }
+        .lb-cute-star { font-size: clamp(82px, 11vw, 126px); }
+        .lb-cute-star:nth-child(2) { transform: translateY(-38px) scale(1.08); }
+      }
+
+      @media (max-width: 768px) {
+        .lb-center-shell { width: min(94vw, 720px); padding: 16px 0; }
+        .lb-start-shell, .lb-result-shell { width: 94vw; }
+        .lb-start-panel, .lb-result-panel { min-height: 0; padding: 34px 24px 54px; border-radius: 40px; }
+        .lb-result-panel { padding-top: 86px; }
+        .lb-start-content, .lb-result-content { grid-template-columns: 1fr; justify-items: center; gap: 18px; }
+        .lb-dialog-bubble::after { display: none; }
+        .lb-round-icon { width: 116px; height: 116px; }
+        .lb-video-panel { width: 94vw; padding: 20px 18px 20px; border-radius: 38px; }
+        .lb-video-frame { border-radius: 26px; }
+        .lb-cute-stars { top: -52px; gap: 12px; }
+        .lb-cute-star { font-size: 78px; -webkit-text-stroke-width: 4px; }
+        .lb-cute-star:nth-child(2) { transform: translateY(-24px) scale(1.05); }
+        .lb-result-actions { gap: 10px; }
+      }
+
     `}</style>
   );
 }

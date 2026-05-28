@@ -60,7 +60,6 @@ export default function ResultPage_CBT() {
             </header>
 
             <section style={styles.taskIntro}>
-              <div style={styles.taskIcon}>🪨</div>
               <div>
                 <h2 style={styles.taskTitle}>孩子剛剛在做什麼？</h2>
                 <p style={styles.taskText}>
@@ -163,7 +162,6 @@ export default function ResultPage_CBT() {
 function EmptyState({ onBack, disabled = false }) {
   return (
     <section style={styles.emptyState}>
-      <div style={styles.taskIcon}>🪨</div>
       <h1 className="cbt-title" style={styles.title}>還沒有足夠的紀錄</h1>
       <p style={styles.taskText}>
         請先完成一次石頭小路測驗或練習。完成後，這裡會用簡單文字告訴家長孩子目前適合怎麼練。
@@ -460,7 +458,6 @@ function buildParentFriendlyResult(historyInput, state = {}, mode = "training") 
     cards: [
       {
         key: "independent",
-        icon: "👣",
         title: "自己記住",
         value: independentSpan > 0 ? `${independentSpan} 步` : "還在熟悉",
         note:
@@ -471,7 +468,6 @@ function buildParentFriendlyResult(historyInput, state = {}, mode = "training") 
       },
       !isTestMode && {
         key: "assisted",
-        icon: "👀",
         title: "提示後完成",
         value: assistedSpan > 0 ? `${assistedSpan} 步` : "暫無資料",
         note:
@@ -481,14 +477,12 @@ function buildParentFriendlyResult(historyInput, state = {}, mode = "training") 
       },
       {
         key: "completion",
-        icon: "🧭",
         title: "路線走對",
         value: completionText,
         note: getCompletionNote(weightedAccuracyPercent),
       },
       {
         key: "next",
-        icon: "🌱",
         title: "下次建議",
         value: `${suggestedSpan} 步開始`,
         note: "先求穩定完成，再慢慢把石頭路加長。",

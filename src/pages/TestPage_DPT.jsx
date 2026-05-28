@@ -786,7 +786,6 @@ export default function TestPage_DPT() {
               <div className="dpt-focus-ring">
                 <img className="dpt-teach-bee" src={asset.bee} alt="中間小蜜蜂" draggable="false" />
               </div>
-              <div className="dpt-eye-line">👀</div>
             </div>
           </div>
         ),
@@ -806,7 +805,6 @@ export default function TestPage_DPT() {
               <span className="dpt-side-label">右</span>
               <img src={asset.items[1]} alt="右邊圖片" draggable="false" />
             </div>
-            <div className="dpt-memory-hint">👀 → 🧠</div>
           </div>
         ),
       },
@@ -824,7 +822,6 @@ export default function TestPage_DPT() {
               <img className="dpt-teach-fly" src={asset.fly} alt="小蒼蠅" draggable="false" />
               <span className="dpt-side-label">左</span>
             </div>
-            <div className="dpt-memory-hint">✨</div>
           </div>
         ),
       },
@@ -1127,13 +1124,6 @@ export default function TestPage_DPT() {
               style={largeFlyStyle}
             />
           )}
-
-          <img
-            className={["dpt-fox", foxHappy ? "is-happy" : ""].join(" ")}
-            src={asset.fox}
-            alt="狐狸夫婦"
-            draggable="false"
-          />
 
           {feedbackSide && (
             <div
@@ -1543,6 +1533,102 @@ const dptInlineCss = `
   .dpt-image-button,
   .dpt-image-button.dpt-btn-skip {
     width: clamp(174px, 50vw, 230px);
+  }
+}
+
+/* ========= 教學卡片邊界修正：所有教學內容都限制在大卡片內 ========= */
+.dpt-rule-card,
+.dpt-soft-panel {
+  overflow: hidden;
+}
+
+.dpt-rule-card--icons {
+  box-sizing: border-box;
+}
+
+.dpt-teaching-head,
+.dpt-icon-flow,
+.dpt-practice-icon-wrap,
+.dpt-mini-scene {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.dpt-icon-flow {
+  width: min(100%, 760px);
+  gap: clamp(14px, 2.8vw, 34px);
+  padding-inline: 8px;
+  overflow: visible;
+}
+
+.dpt-teach-side,
+.dpt-teach-probe,
+.dpt-teach-ghost,
+.dpt-practice-choice {
+  width: clamp(138px, 18vw, 220px);
+  height: clamp(138px, 18vw, 220px);
+  flex: 0 1 auto;
+}
+
+.dpt-practice-icon-wrap {
+  width: min(100%, 640px);
+  gap: clamp(16px, 3vw, 38px);
+  padding-inline: 8px;
+}
+
+@media (max-width: 780px) {
+  .dpt-rule-card {
+    max-height: 94vh;
+    overflow: hidden;
+  }
+
+  .dpt-icon-flow {
+    width: 100%;
+    gap: 10px;
+    min-height: 210px;
+  }
+
+  .dpt-teach-side,
+  .dpt-teach-probe,
+  .dpt-teach-ghost,
+  .dpt-practice-choice {
+    width: clamp(112px, 30vw, 156px);
+    height: clamp(112px, 30vw, 156px);
+    border-width: 4px;
+  }
+
+  .dpt-teach-symbol,
+  .dpt-teach-arrow {
+    font-size: clamp(28px, 8vw, 42px);
+  }
+
+  .dpt-practice-icon-wrap {
+    gap: 12px;
+  }
+}
+
+
+/* ========= 結果頁星星外露：不要被卡片邊界裁切 ========= */
+.dpt-soft-panel.dpt-result-panel {
+  overflow: visible;
+}
+
+.dpt-result-panel .dpt-cute-stars {
+  z-index: 8;
+  pointer-events: none;
+}
+
+.dpt-result-shell {
+  padding-top: clamp(76px, 10vh, 118px);
+}
+
+@media (max-width: 780px) {
+  .dpt-result-shell {
+    padding-top: 72px;
+  }
+
+  .dpt-soft-panel.dpt-result-panel {
+    overflow: visible;
   }
 }
 

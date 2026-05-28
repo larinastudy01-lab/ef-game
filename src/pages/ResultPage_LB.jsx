@@ -7,7 +7,8 @@ import "../styles/GamePage_LB.css";
 
 import backgroundImg from "../asset/LB/background.png";
 import sheepImg from "../asset/LB/sheep.png";
-import homeImg from "../asset/LB/home.png";
+import homeBackBtn from "../asset/home/back.png";
+import homeAgainBtn from "../asset/home/again.png";
 
 /*
   =========================================================
@@ -454,74 +455,101 @@ export default function ResultPage_LB() {
   const finishReason =
     FINISH_REASON_LABELS[rawFinishReason] || rawFinishReason || "測驗完成";
 
+  const mode = payload?.config?.mode || payload?.mode || "test";
+  const retryRoute = mode === "training" ? TRAINING_ROUTE : TEST_ROUTE;
+
   return (
-    <div
-      className="lb-page lb-page-with-bg lb-result-page"
-      style={{ "--lb-bg-image": `url(${backgroundImg})` }}
-    >
-      <main className="lb-result-card">
-        <header className="lb-result-header">
-          <div className="lb-result-title-block">
-            <h1>小羊的氣球路線完成了</h1>
-          </div>
+    <div style={styles.page(backgroundImg)}>
+      <div style={styles.overlay}>
+        <main style={styles.mainCard}>
+          <header style={styles.header}>
+            <p style={styles.modeTag}>{mode === "training" ? "練習結果" : "測驗結果"}</p>
+            <h1 style={styles.title}>氣球小路結果</h1>
+            <p style={styles.subtitle}>
+              這一頁用白話方式幫家長了解：孩子有沒有看懂規則、切換規則，以及作答時是否穩定。
+            </p>
+          </header>
 
-          <div className="lb-result-header-visual">
-            <img
-              src={sheepImg}
-              alt="小羊"
-              className="lb-result-header-sheep"
-              draggable="false"
+          <section style={styles.parentPanel}>
+            <section style={styles.heroCard}>
+              <div style={styles.heroLeft}>
+                <div style={styles.characterBadge}>
+                  <img src={sheepImg} alt="小羊" style={styles.characterImg} draggable="false" />
+                </div>
+
+                <div>
+                  <p style={styles.heroEyebrow}>本次整體狀態</p>
+                  <h2 style={styles.heroTitle}>{getLBOverviewTitle(result?.stars)}</h2>
+                  <p style={styles.heroText}>
+                    {result?.parentSummary || "目前資料不足，建議重新測驗一次。"}
+                  </p>
+                </div>
+              </div>
+
+              <div style={styles.heroRight}>
+                <div style={styles.starRow} aria-label={`${result?.stars || 0} 顆星`}>
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <span
+                      key={index}
+                      style={{
+                        ...styles.star,
+                        ...(index < safeNumber(result?.stars, 0)
+                          ? styles.starActive
+                          : styles.starEmpty),
+                      }}
+                    >
+                      ★
+                    </span>
+                  ))}
+                </div>
+
+                <p style={styles.parentScoreNote}>星星代表本次完成表現</p>
+                <p style={styles.starHint}>請搭配下方觀察重點一起看，不是單一次診斷。</p>
+              </div>
+            </section>
+
+            <section style={styles.quickStats}>
+              <StatCard label="完成題數" value={`${completedTrials}/${totalTrials}`} helper="孩子完成了多少題" />
+              <StatCard label="結束原因" value={finishReason} helper="本次任務如何結束" />
+              <StatCard label="整體正確率" value={formatPercent(clinician?.accuracy)} helper="作答是否看對規則" />
+              <StatCard label="平均反應" value={formatMs(clinician?.avgReactionTime)} helper="作答速度參考" />
+            </section>
+
+            <ParentView
+              result={result}
+              clinician={clinician}
+              parentMetrics={parentMetrics}
             />
-            <img
-              src={homeImg}
-              alt="家"
-              className="lb-result-header-home"
-              draggable="false"
-            />
-          </div>
-        </header>
 
-        <section className="lb-result-meta-row">
-          <MetaPill label="完成題數" value={`${completedTrials}/${totalTrials}`} />
-          <MetaPill label="結束原因" value={finishReason} />
-          <MetaPill
-            label="資料來源"
-            value={trialLogs.length > 0 ? "已接收逐題紀錄" : "尚無逐題紀錄"}
-          />
-        </section>
+            <section style={styles.noteBox}>
+              <h3 style={styles.noteTitle}>給家長的小提醒</h3>
+              <p style={styles.noteText}>
+                這份結果是本次遊戲中的觀察紀錄，可幫助了解孩子在「看線索、切換規則、穩定作答」時的狀況；不代表醫療診斷，建議搭配多次練習或其他任務一起觀察。
+              </p>
+            </section>
+          </section>
 
-        <ParentView
-          result={result}
-          clinician={clinician}
-          parentMetrics={parentMetrics}
-        />
+          <footer style={styles.buttonRow}>
+            <button
+              type="button"
+              style={styles.resultImageButton}
+              onClick={() => handleNavigate(MENU_ROUTE)}
+              aria-label="回到森林"
+            >
+              <img src={homeBackBtn} alt="回到森林" style={styles.imageButtonImg} />
+            </button>
 
-        <footer className="lb-result-bottom-row">
-          <button
-            type="button"
-            className="lb-start-button lb-secondary-button"
-            onClick={() => handleNavigate(MENU_ROUTE)}
-          >
-            返回主頁
-          </button>
-
-          <button
-            type="button"
-            className="lb-start-button lb-dark-button"
-            onClick={() => handleNavigate(TRAINING_ROUTE)}
-          >
-            去練習
-          </button>
-
-          <button
-            type="button"
-            className="lb-start-button"
-            onClick={() => handleNavigate(TEST_ROUTE, { clearCache: true })}
-          >
-            再測一次
-          </button>
-        </footer>
-      </main>
+            <button
+              type="button"
+              style={styles.resultImageButton}
+              onClick={() => handleNavigate(retryRoute, { clearCache: true })}
+              aria-label="再玩一次"
+            >
+              <img src={homeAgainBtn} alt="再玩一次" style={styles.imageButtonImg} />
+            </button>
+          </footer>
+        </main>
+      </div>
     </div>
   );
 }
@@ -530,65 +558,79 @@ function ParentView({ result, clinician, parentMetrics }) {
   const summaryCards = getParentSummaryCards(clinician, parentMetrics);
 
   return (
-    <section className="lb-result-parent-grid">
-      <div className="lb-result-card-section">
-        <h2>能力雷達圖</h2>
+    <>
+      <section style={styles.panel}>
+        <div style={styles.sectionHeaderRow}>
+          <div>
+            <h2 style={styles.sectionTitle}>家長可以這樣看</h2>
+            <p style={styles.parentIntro}>
+              不需要先懂專有名詞，只要看每張卡片的「孩子在做什麼」和「代表什麼」。
+            </p>
+          </div>
+        </div>
 
-        <RadarChart
-          data={[
-            {
-              label: "規則理解",
-              value: safeNumber(parentMetrics.ruleUnderstanding, 0),
-            },
-            {
-              label: "規則切換",
-              value: safeNumber(parentMetrics.cognitiveFlexibility, 0),
-            },
-            {
-              label: "反應速度",
-              value: safeNumber(parentMetrics.processingSpeed, 0),
-            },
-            {
-              label: "穩定度",
-              value: safeNumber(parentMetrics.attentionStability, 0),
-            },
-            {
-              label: "抗干擾",
-              value: safeNumber(parentMetrics.interferenceControl, 0),
-            },
-          ]}
-        />
-
-        <p className="lb-result-chart-note">
-          分數越靠外圈代表表現越穩定。此圖建議搭配下方文字，不單獨作為診斷依據。
-        </p>
-      </div>
-
-      <div className="lb-result-card-section">
-        <h2>家長摘要</h2>
-
-        <p className="lb-result-parent-summary">
-          {result?.parentSummary || "目前資料不足，建議重新測驗一次。"}
-        </p>
-
-        <div className="lb-result-ability-list">
+        <div style={styles.abilityGrid}>
           {summaryCards.map((item) => (
-            <AbilityBar
-              key={item.label}
-              label={item.label}
-              value={item.value}
-              note={item.note}
-            />
+            <AbilityCard key={item.label} item={item} />
           ))}
         </div>
+      </section>
 
-        <div className="lb-result-suggestion-box">
-          <strong>練習建議：</strong>
-          <span>{getParentSuggestion(result, clinician)}</span>
+      <section style={styles.suggestionPanel}>
+        <h2 style={styles.sectionTitle}>下一步建議</h2>
+        <div style={styles.suggestionItem}>
+          <span style={styles.suggestionIcon}>🌱</span>
+          <p style={styles.suggestionText}>{getParentSuggestion(result, clinician)}</p>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function StatCard({ label, value, helper }) {
+  return (
+    <div style={styles.statCard}>
+      <p style={styles.statLabel}>{label}</p>
+      <p style={styles.statValue}>{value}</p>
+      <p style={styles.statHelper}>{helper}</p>
+    </div>
+  );
+}
+
+function AbilityCard({ item }) {
+  const finalValue = clamp(safeNumber(item.value, 0), 0, 100);
+  const tone = finalValue >= 80 ? "good" : finalValue >= 55 ? "normal" : "watch";
+
+  return (
+    <article style={styles.abilityCard}>
+      <div style={styles.abilityTop}>
+        <div style={styles.abilityHeading}>
+          <p style={styles.abilityLabel}>{item.label}</p>
+          <p style={styles.abilityQuestion}>{item.note}</p>
         </div>
       </div>
-    </section>
+
+      <div style={styles.statusPill(tone)}>
+        {finalValue >= 80 ? "表現穩定" : finalValue >= 55 ? "可持續觀察" : "建議加強"}
+      </div>
+
+      <p style={styles.abilityDescription}>目前指標約 {Math.round(finalValue)}%。</p>
+      <p style={styles.abilityMeaning}>{getAbilityMeaning(item.label, finalValue)}</p>
+    </article>
   );
+}
+
+function getAbilityMeaning(label, value) {
+  if (value >= 80) return `${label}目前很穩定，可以逐步增加混合線索或更高難度。`;
+  if (value >= 55) return `${label}已有基礎，建議用短時間、多次練習維持穩定度。`;
+  return `${label}需要更多圖像化提示，先從簡單規則開始練習。`;
+}
+
+function getLBOverviewTitle(stars) {
+  const finalStars = safeNumber(stars, 0);
+  if (finalStars >= 3) return "小羊順利找到氣球路線！";
+  if (finalStars >= 2) return "已經能掌握部分線索";
+  return "可以先從簡單線索慢慢練習";
 }
 
 function ClinicalView({ clinician, trialLogs, result }) {
@@ -757,6 +799,439 @@ function AbilityBar({ label, value, note }) {
     </div>
   );
 }
+
+const toneStyles = {
+  good: {
+    borderColor: "#8fcf8f",
+    backgroundColor: "#f0fff0",
+    color: "#3f7c3f",
+  },
+  normal: {
+    borderColor: "#f4c27a",
+    backgroundColor: "#fff8ed",
+    color: "#9a6324",
+  },
+  watch: {
+    borderColor: "#f2a6a6",
+    backgroundColor: "#fff0f0",
+    color: "#a84d4d",
+  },
+};
+
+const styles = {
+  page: (bgImage) => ({
+    height: "100dvh",
+    width: "100%",
+    backgroundImage: `url(${bgImage})`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    overflow: "hidden",
+  }),
+
+  overlay: {
+    height: "100dvh",
+    width: "100%",
+    background: "rgba(255,255,255,0.22)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: "20px",
+    boxSizing: "border-box",
+    overflow: "hidden",
+  },
+
+  mainCard: {
+    width: "min(1040px, 96vw)",
+    maxHeight: "calc(100dvh - 40px)",
+    backgroundColor: "rgba(255, 248, 235, 0.97)",
+    borderRadius: "34px",
+    padding: "24px 34px 26px",
+    boxShadow: "0 16px 36px rgba(0,0,0,0.14)",
+    boxSizing: "border-box",
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+  },
+
+  header: {
+    textAlign: "center",
+    marginBottom: "14px",
+    flexShrink: 0,
+  },
+
+  modeTag: {
+    display: "inline-block",
+    backgroundColor: "#fff3e8",
+    color: "#a75f28",
+    border: "2px solid #f4a261",
+    borderRadius: "999px",
+    padding: "6px 16px",
+    fontSize: "16px",
+    fontWeight: "900",
+    margin: "0 0 8px",
+  },
+
+  title: {
+    fontSize: "38px",
+    fontWeight: "900",
+    color: "#5c4033",
+    textShadow: "2px 2px 0 #ffffff",
+    margin: "0 0 6px",
+  },
+
+  subtitle: {
+    maxWidth: "760px",
+    margin: "0 auto",
+    fontSize: "18px",
+    color: "#7a4f2b",
+    fontWeight: "800",
+    lineHeight: 1.55,
+  },
+
+  parentPanel: {
+    flex: 1,
+    minHeight: 0,
+    overflowY: "auto",
+    paddingRight: "6px",
+    marginBottom: "18px",
+  },
+
+  heroCard: {
+    backgroundColor: "#fff3e8",
+    borderRadius: "28px",
+    padding: "20px 24px",
+    boxShadow: "0 10px 24px rgba(0,0,0,0.08)",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "stretch",
+    gap: "20px",
+    marginBottom: "16px",
+  },
+
+  heroLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: "18px",
+    textAlign: "left",
+    flex: 1,
+  },
+
+  characterBadge: {
+    width: "92px",
+    height: "92px",
+    borderRadius: "50%",
+    backgroundColor: "#ffffff",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    boxShadow: "0 8px 18px rgba(0,0,0,0.1)",
+    flexShrink: 0,
+    overflow: "hidden",
+  },
+
+  characterImg: {
+    width: "92%",
+    height: "92%",
+    objectFit: "contain",
+  },
+
+  heroEyebrow: {
+    color: "#a75f28",
+    fontSize: "16px",
+    fontWeight: "900",
+    margin: "0 0 5px",
+  },
+
+  heroTitle: {
+    fontSize: "28px",
+    fontWeight: "900",
+    color: "#5c4033",
+    margin: "0 0 8px",
+  },
+
+  heroText: {
+    fontSize: "18px",
+    fontWeight: "800",
+    color: "#7a4f2b",
+    margin: 0,
+    lineHeight: 1.65,
+  },
+
+  heroRight: {
+    width: "220px",
+    textAlign: "center",
+    backgroundColor: "#ffffff",
+    borderRadius: "24px",
+    padding: "16px 14px",
+    boxShadow: "0 8px 18px rgba(0,0,0,0.08)",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+
+  starRow: {
+    display: "flex",
+    justifyContent: "center",
+    gap: "6px",
+    marginBottom: "8px",
+  },
+
+  star: {
+    fontSize: "46px",
+    lineHeight: 1,
+  },
+
+  starActive: {
+    color: "#f6c945",
+    textShadow: "0 4px 8px rgba(0,0,0,0.18)",
+  },
+
+  starEmpty: {
+    color: "#e6d8c8",
+  },
+
+  parentScoreNote: {
+    fontSize: "17px",
+    color: "#5c4033",
+    fontWeight: "900",
+    margin: "0 0 6px",
+  },
+
+  starHint: {
+    fontSize: "13px",
+    color: "#8b5e3c",
+    fontWeight: "800",
+    lineHeight: 1.45,
+    margin: 0,
+  },
+
+  quickStats: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+    gap: "12px",
+    marginBottom: "16px",
+  },
+
+  statCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: "22px",
+    padding: "14px 12px",
+    textAlign: "center",
+    boxShadow: "0 8px 18px rgba(0,0,0,0.07)",
+  },
+
+  statLabel: {
+    fontSize: "15px",
+    color: "#8b5e3c",
+    fontWeight: "900",
+    margin: "0 0 5px",
+  },
+
+  statValue: {
+    fontSize: "25px",
+    color: "#5c4033",
+    fontWeight: "900",
+    margin: "0 0 4px",
+  },
+
+  statHelper: {
+    fontSize: "12px",
+    color: "#8b5e3c",
+    fontWeight: "750",
+    lineHeight: 1.35,
+    margin: 0,
+  },
+
+  panel: {
+    backgroundColor: "rgba(255,255,255,0.9)",
+    borderRadius: "28px",
+    padding: "24px",
+    boxShadow: "0 8px 20px rgba(0,0,0,0.06)",
+    marginBottom: "16px",
+  },
+
+  sectionHeaderRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "16px",
+  },
+
+  sectionTitle: {
+    fontSize: "26px",
+    fontWeight: "900",
+    color: "#5c4033",
+    margin: "0 0 10px",
+  },
+
+  parentIntro: {
+    fontSize: "17px",
+    lineHeight: 1.7,
+    color: "#4d3b2f",
+    fontWeight: "800",
+    margin: "0 0 18px",
+  },
+
+  abilityGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: "14px",
+  },
+
+  abilityCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: "22px",
+    padding: "16px",
+    boxShadow: "0 8px 18px rgba(0,0,0,0.07)",
+  },
+
+  abilityTop: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    marginBottom: "10px",
+  },
+
+  abilityHeading: {
+    flex: 1,
+  },
+
+  abilityLabel: {
+    fontSize: "19px",
+    color: "#5c4033",
+    fontWeight: "900",
+    margin: "0 0 3px",
+  },
+
+  abilityQuestion: {
+    fontSize: "14px",
+    color: "#8b5e3c",
+    fontWeight: "800",
+    margin: 0,
+    lineHeight: 1.4,
+  },
+
+  statusPill: (tone) => ({
+    display: "inline-block",
+    borderRadius: "999px",
+    border: `2px solid ${toneStyles[tone]?.borderColor || toneStyles.normal.borderColor}`,
+    backgroundColor: toneStyles[tone]?.backgroundColor || toneStyles.normal.backgroundColor,
+    color: toneStyles[tone]?.color || toneStyles.normal.color,
+    padding: "5px 12px",
+    fontSize: "15px",
+    fontWeight: "900",
+    marginBottom: "10px",
+  }),
+
+  abilityDescription: {
+    fontSize: "16px",
+    color: "#4d3b2f",
+    fontWeight: "850",
+    lineHeight: 1.6,
+    margin: "0 0 7px",
+  },
+
+  abilityMeaning: {
+    fontSize: "15px",
+    color: "#6e5140",
+    fontWeight: "700",
+    lineHeight: 1.6,
+    margin: 0,
+  },
+
+  suggestionPanel: {
+    backgroundColor: "#fff3e8",
+    borderRadius: "28px",
+    padding: "22px 24px",
+    boxShadow: "0 8px 20px rgba(0,0,0,0.06)",
+    marginBottom: "16px",
+  },
+
+  suggestionItem: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "10px",
+    backgroundColor: "#ffffff",
+    borderRadius: "18px",
+    padding: "12px 14px",
+  },
+
+  suggestionIcon: {
+    fontSize: "22px",
+    lineHeight: 1.3,
+    flexShrink: 0,
+  },
+
+  suggestionText: {
+    fontSize: "16px",
+    color: "#4d3b2f",
+    fontWeight: "800",
+    lineHeight: 1.6,
+    margin: 0,
+  },
+
+  noteBox: {
+    backgroundColor: "#fff8ed",
+    borderRadius: "22px",
+    padding: "18px",
+    border: "2px solid #f1d4b2",
+  },
+
+  noteTitle: {
+    fontSize: "21px",
+    color: "#5c4033",
+    fontWeight: "900",
+    margin: "0 0 10px",
+  },
+
+  noteText: {
+    fontSize: "16px",
+    color: "#4d3b2f",
+    fontWeight: "750",
+    lineHeight: 1.75,
+    margin: 0,
+  },
+
+  buttonRow: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: "20px",
+    flexWrap: "wrap",
+    flexShrink: 0,
+  },
+
+  resultImageButton: {
+    position: "relative",
+    zIndex: 2,
+    width: "clamp(168px, 16vw, 232px)",
+    minWidth: 0,
+    minHeight: 0,
+    padding: 0,
+    border: "none",
+    outline: "none",
+    borderRadius: "18px",
+    background: "transparent",
+    boxShadow: "none",
+    lineHeight: 0,
+    cursor: "pointer",
+    overflow: "visible",
+    transition: "transform 0.14s ease, filter 0.14s ease, opacity 0.14s ease",
+    touchAction: "manipulation",
+  },
+
+  imageButtonImg: {
+    width: "100%",
+    height: "auto",
+    display: "block",
+    pointerEvents: "none",
+    userSelect: "none",
+    WebkitUserDrag: "none",
+    filter: "drop-shadow(0 8px 8px rgba(74, 48, 16, 0.22))",
+  },
+};
 
 function RadarChart({ data }) {
   const size = 310;

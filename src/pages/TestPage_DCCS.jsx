@@ -872,7 +872,6 @@ function TestPage_DCCS() {
             <div className="Dcss-tag">先看顏色</div>
 
             <div className="Dcss-rule-icon-title">
-              <span className="Dcss-eye-icon" aria-hidden="true">👀</span>
               <span className="Dcss-color-dots" aria-hidden="true">
                 <i className="dccs-color-pink" />
                 <i className="dccs-color-blue" />

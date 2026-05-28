@@ -8,6 +8,14 @@ import backgroundImg from "../asset/LB/background.png";
 import sheepImg from "../asset/LB/sheep.png";
 import homeImg from "../asset/LB/home.png";
 import houseNumber01Img from "../asset/LB/house number_01.png";
+import introVideo from "../asset/SRT_start.mp4";
+import endingVideo from "../asset/SRT_start.mp4";
+import homeStartBtn from "../asset/home/start.png";
+import homeSkipBtn from "../asset/home/skip.png";
+import homeBackBtn from "../asset/home/back.png";
+import homeAgainBtn from "../asset/home/again.png";
+import homeResultBtn from "../asset/home/result.png";
+import mouseGuideImg from "../asset/mouse.png";
 
 /*
   =========================================================
@@ -902,6 +910,426 @@ function TrainingInlineStyle() {
         .lb-training-level-grid,
         .lb-training-result-list { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
       }
+
+
+      /* TestPage_LB-aligned start/video/result visual system */
+      .lb-srt-skin {
+        text-align: center;
+        color: #4b2c16;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      .lb-srt-skin::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background:
+          radial-gradient(circle at 52% 9%, rgba(255,255,255,0.22), transparent 28%),
+          linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,239,188,0.10));
+        z-index: 0;
+      }
+
+      .lb-center-shell {
+        width: min(88vw, 1180px);
+        min-height: 100vh;
+        min-height: 100svh;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+        padding: 28px 0;
+        position: relative;
+        z-index: 1;
+      }
+
+      .lb-start-shell,
+      .lb-result-shell,
+      .lb-rule-shell {
+        width: min(72vw, 900px);
+      }
+
+      .lb-soft-panel {
+        width: 100%;
+        position: relative;
+        box-sizing: border-box;
+        border: 7px solid #f6a51f;
+        border-radius: 58px;
+        background: linear-gradient(180deg, rgba(255, 252, 225, 0.98), rgba(255, 237, 168, 0.98));
+        box-shadow:
+          0 18px 0 rgba(202, 116, 24, 0.13),
+          0 24px 42px rgba(95, 64, 22, 0.16),
+          inset 0 0 0 8px rgba(255, 255, 255, 0.45),
+          inset 0 0 0 16px rgba(255, 215, 105, 0.20);
+        overflow: hidden;
+      }
+
+      .lb-soft-panel::before {
+        content: "";
+        position: absolute;
+        inset: 18px;
+        border-radius: 42px;
+        border: 2px dashed rgba(230, 170, 67, 0.42);
+        pointer-events: none;
+      }
+
+      .lb-soft-panel::after {
+        content: "";
+        position: absolute;
+        left: 30px;
+        right: 30px;
+        bottom: 18px;
+        height: 42px;
+        pointer-events: none;
+        background:
+          radial-gradient(circle at 4% 40%, #8bc947 0 13px, transparent 14px),
+          radial-gradient(circle at 8% 15%, #a4da58 0 9px, transparent 10px),
+          radial-gradient(circle at 92% 42%, #8bc947 0 13px, transparent 14px),
+          radial-gradient(circle at 88% 18%, #a4da58 0 9px, transparent 10px);
+        opacity: 0.92;
+      }
+
+      .lb-start-panel,
+      .lb-result-panel,
+      .lb-rule-panel {
+        min-height: 560px;
+        padding: 58px 70px 74px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 30px;
+      }
+
+      .lb-game-title {
+        position: relative;
+        z-index: 2;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: min(100%, 420px);
+        padding: 14px 42px 16px;
+        border-radius: 20px;
+        border: 4px solid #e9a33c;
+        background: linear-gradient(180deg, rgba(255, 226, 129, 0.96), rgba(255, 244, 194, 0.98));
+        color: #7a3f16;
+        font-size: clamp(34px, 4vw, 52px);
+        font-weight: 950;
+        line-height: 1.08;
+        letter-spacing: 2px;
+        text-shadow: 0 3px 0 rgba(255, 255, 255, 0.85);
+        box-shadow:
+          0 8px 0 rgba(210, 130, 37, 0.24),
+          0 14px 24px rgba(91, 57, 18, 0.12),
+          inset 0 0 0 5px rgba(255, 255, 255, 0.34);
+      }
+
+      .lb-game-title::before,
+      .lb-game-title::after {
+        content: "🌿";
+        position: absolute;
+        top: 50%;
+        font-size: 28px;
+        transform: translateY(-50%);
+      }
+      .lb-game-title::before { left: 18px; }
+      .lb-game-title::after { right: 18px; transform: translateY(-50%) scaleX(-1); }
+
+      .lb-start-content {
+        position: relative;
+        z-index: 2;
+        width: min(100%, 690px);
+        display: grid;
+        grid-template-columns: minmax(300px, 1fr) 158px;
+        align-items: center;
+        justify-content: center;
+        gap: 44px;
+      }
+
+      .lb-dialog-bubble {
+        min-height: 138px;
+        border: 4px solid #f0c77b;
+        border-radius: 28px;
+        background: linear-gradient(180deg, #ffffff 0%, #fff9e9 100%);
+        color: #6d3717;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 18px 30px;
+        font-size: clamp(26px, 3vw, 38px);
+        line-height: 1.32;
+        font-weight: 900;
+        box-sizing: border-box;
+        position: relative;
+        box-shadow: 0 8px 0 rgba(225, 169, 84, 0.12), inset 0 0 0 5px rgba(255, 235, 174, 0.35);
+      }
+
+      .lb-dialog-bubble::before {
+        content: "";
+        position: absolute;
+        inset: 13px;
+        border-radius: 20px;
+        border: 2px dashed rgba(229, 189, 119, 0.55);
+        pointer-events: none;
+      }
+
+      .lb-dialog-bubble::after {
+        content: "";
+        position: absolute;
+        right: -30px;
+        top: 50%;
+        width: 38px;
+        height: 38px;
+        background: linear-gradient(135deg, #fff 0%, #fff9e9 80%);
+        border-top: 4px solid #f0c77b;
+        border-right: 4px solid #f0c77b;
+        transform: translateY(-50%) rotate(45deg);
+        border-radius: 4px;
+      }
+
+      .lb-level-bubble {
+        min-height: 160px;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .lb-level-bubble small {
+        display: block;
+        font-size: clamp(28px, 4vw, 46px);
+        line-height: 1.15;
+      }
+
+      .lb-level-desc,
+      .lb-result-suggestion {
+        position: relative;
+        z-index: 3;
+        margin: -8px 0 0;
+        padding: 12px 24px;
+        border-radius: 999px;
+        color: #6b3f14;
+        background: rgba(255, 255, 255, 0.72);
+        font-size: clamp(18px, 1.8vw, 24px);
+        font-weight: 900;
+        box-shadow: 0 8px 18px rgba(86, 60, 22, 0.10);
+      }
+
+      .lb-round-icon {
+        position: relative;
+        width: 158px;
+        height: 158px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #82d9ff, #48aee8);
+        border: 5px solid rgba(255,255,255,0.92);
+        outline: 3px solid rgba(72, 157, 207, 0.65);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        box-sizing: border-box;
+        padding: 14px;
+        box-shadow: 0 10px 0 rgba(42, 112, 165, 0.20), 0 18px 24px rgba(53, 91, 123, 0.18);
+      }
+      .lb-round-icon::after {
+        content: "★";
+        position: absolute;
+        right: 4px;
+        bottom: 2px;
+        color: #ffd948;
+        font-size: 36px;
+        -webkit-text-stroke: 2px #e29b21;
+        text-shadow: 0 3px 0 rgba(139, 96, 20, 0.14);
+      }
+      .lb-round-icon img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+
+      .lb-forest-button {
+        position: relative;
+        z-index: 2;
+        min-width: 220px;
+        min-height: 76px;
+        padding: 12px 36px;
+        border-radius: 24px;
+        border: 4px solid rgba(255,255,255,0.86);
+        outline: 3px solid rgba(54, 133, 54, 0.35);
+        background: linear-gradient(180deg, #7dd15f 0%, #47a640 100%);
+        color: #ffffff;
+        font-family: inherit;
+        font-size: clamp(25px, 2.8vw, 38px);
+        font-weight: 950;
+        line-height: 1.15;
+        letter-spacing: 1px;
+        cursor: pointer;
+        transition: transform 0.14s ease, filter 0.14s ease, box-shadow 0.14s ease, opacity 0.14s ease;
+        box-shadow: 0 8px 0 rgba(52, 126, 43, 0.20), 0 14px 22px rgba(72, 64, 28, 0.16);
+        text-shadow: 0 3px 0 rgba(35, 96, 36, 0.36), 0 0 8px rgba(35, 96, 36, 0.18);
+      }
+
+      .lb-forest-button:hover { transform: translateY(-3px) scale(1.03); filter: brightness(1.04); }
+      .lb-forest-button:active { transform: translateY(2px) scale(0.99); }
+
+      .lb-image-button {
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+        outline: 0;
+        min-width: 0;
+        min-height: 0;
+        padding: 0;
+        border-radius: 0;
+        text-shadow: none;
+      }
+      .lb-image-button img {
+        display: block;
+        height: auto;
+        object-fit: contain;
+        filter: drop-shadow(0 10px 0 rgba(112, 78, 25, 0.12)) drop-shadow(0 16px 24px rgba(91, 57, 18, 0.20));
+        transition: transform 0.14s ease, filter 0.14s ease;
+        pointer-events: none;
+      }
+      .lb-image-button:hover { transform: none; filter: none; }
+      .lb-image-button:hover img { transform: translateY(-3px) scale(1.03); filter: drop-shadow(0 12px 0 rgba(112, 78, 25, 0.10)) drop-shadow(0 20px 26px rgba(91, 57, 18, 0.22)) brightness(1.05); }
+      .lb-image-button:active img { transform: translateY(2px) scale(0.99); }
+      .lb-btn-start img { width: clamp(210px, 23vw, 300px); }
+      .lb-btn-skip img { width: clamp(154px, 16vw, 224px); }
+      .lb-btn-home img,
+      .lb-btn-replay img,
+      .lb-btn-detail img { width: clamp(136px, 15vw, 188px); }
+
+      .lb-guided-action {
+        position: relative;
+        z-index: 3;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .lb-mouse-guide {
+        position: absolute;
+        width: clamp(58px, 7vw, 92px);
+        height: auto;
+        object-fit: contain;
+        pointer-events: none;
+        z-index: 4;
+        filter: drop-shadow(0 8px 10px rgba(73, 48, 18, 0.20));
+        animation: lbMouseTap 1.18s ease-in-out infinite;
+      }
+      .lb-mouse-on-button { right: -28px; bottom: -22px; }
+
+      .lb-video-panel {
+        width: min(84vw, 1020px);
+        padding: 30px 34px 92px;
+      }
+      .lb-video-frame {
+        position: relative;
+        z-index: 2;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border-radius: 38px;
+        overflow: hidden;
+        background: rgba(255, 245, 210, 0.82);
+        border: 5px solid rgba(255, 255, 255, 0.72);
+        outline: 3px solid rgba(230, 170, 67, 0.42);
+        box-shadow: inset 0 0 0 8px rgba(255, 220, 120, 0.20), 0 18px 30px rgba(76, 53, 22, 0.15);
+      }
+      .lb-video {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+      }
+      .lb-guided-skip {
+        position: absolute;
+        right: 70px;
+        bottom: 28px;
+      }
+
+      .lb-cute-stars {
+        position: relative;
+        z-index: 4;
+        display: flex;
+        justify-content: center;
+        gap: clamp(14px, 2vw, 24px);
+        margin-bottom: 2px;
+      }
+      .lb-cute-star {
+        font-size: clamp(58px, 8vw, 112px);
+        line-height: 1;
+        color: rgba(170, 126, 63, 0.25);
+        -webkit-text-stroke: 3px rgba(125, 84, 27, 0.24);
+        text-shadow: 0 8px 0 rgba(113, 81, 26, 0.08);
+        transform: rotate(-5deg) scale(0.92);
+      }
+      .lb-cute-star:nth-child(2) { transform: translateY(-10px) scale(1.05); }
+      .lb-cute-star:nth-child(3) { transform: rotate(5deg) scale(0.92); }
+      .lb-cute-star.is-on {
+        color: #ffd84e;
+        -webkit-text-stroke: 3px #e69a1e;
+        text-shadow: 0 8px 0 rgba(169, 106, 20, 0.15), 0 12px 24px rgba(255, 209, 66, 0.26);
+      }
+      .lb-result-actions {
+        position: relative;
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(12px, 2vw, 26px);
+        flex-wrap: wrap;
+      }
+      .lb-result-content { margin: 2px 0 8px; }
+      .lb-result-metrics {
+        position: relative;
+        z-index: 3;
+        width: min(100%, 720px);
+        margin: -4px 0 0 !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+      }
+
+      .lb-training-page .lb-training-frame {
+        position: relative;
+        z-index: 1;
+      }
+
+      .lb-training-page .lb-training-button {
+        border-radius: 22px !important;
+        border: 4px solid rgba(255,255,255,0.86) !important;
+        outline: 3px solid rgba(54, 133, 54, 0.35) !important;
+        background: linear-gradient(180deg, #7dd15f 0%, #47a640 100%) !important;
+        color: #fff !important;
+        box-shadow: 0 8px 0 rgba(52, 126, 43, 0.20), 0 14px 22px rgba(72, 64, 28, 0.16) !important;
+      }
+
+      @keyframes lbMouseTap {
+        0%, 100% { transform: translate(0, 0) rotate(-6deg) scale(1); }
+        50% { transform: translate(-8px, -8px) rotate(-10deg) scale(1.04); }
+      }
+
+      @media (max-width: 1024px) {
+        .lb-start-shell, .lb-result-shell, .lb-rule-shell { width: min(88vw, 860px); }
+        .lb-start-panel, .lb-result-panel, .lb-rule-panel { padding: 46px 42px 64px; }
+        .lb-start-content { grid-template-columns: minmax(240px, 1fr) 134px; gap: 30px; }
+        .lb-round-icon { width: 134px; height: 134px; }
+        .lb-result-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+      }
+
+      @media (max-width: 768px) {
+        .lb-center-shell { width: min(94vw, 720px); padding: 16px 0; }
+        .lb-start-shell, .lb-result-shell, .lb-rule-shell { width: 94vw; }
+        .lb-start-panel, .lb-result-panel, .lb-rule-panel { min-height: 0; padding: 34px 24px 54px; border-radius: 40px; }
+        .lb-start-content, .lb-result-content { grid-template-columns: 1fr; justify-items: center; gap: 18px; }
+        .lb-dialog-bubble::after { display: none; }
+        .lb-round-icon { width: 116px; height: 116px; }
+        .lb-video-panel { width: 94vw; padding: 20px 18px 78px; border-radius: 38px; }
+        .lb-video-frame { border-radius: 26px; }
+        .lb-guided-skip { right: 38px; bottom: 22px; }
+        .lb-result-actions { gap: 10px; }
+        .lb-result-metrics { grid-template-columns: 1fr !important; }
+      }
+
     `}</style>
   );
 }
@@ -909,7 +1337,7 @@ function TrainingInlineStyle() {
 export default function TrainingPage_LB() {
   const navigate = useNavigate();
 
-  const [phase, setPhase] = useState("menu");
+  const [phase, setPhase] = useState("start");
   const [levelIndex, setLevelIndex] = useState(0);
   const [stepIndex, setStepIndex] = useState(0);
   const [displayItems, setDisplayItems] = useState(() => buildDisplayItems(TRAINING_LEVELS[0]));
@@ -935,6 +1363,8 @@ export default function TrainingPage_LB() {
   const wrongStepCountRef = useRef(0);
   const totalStartedAtRef = useRef(0);
   const clickedPathRef = useRef([]);
+  const introVideoRef = useRef(null);
+  const endingVideoRef = useRef(null);
 
   const currentLevel = TRAINING_LEVELS[levelIndex];
   const currentSequence = useMemo(() => buildSequence(currentLevel), [currentLevel]);
@@ -957,9 +1387,25 @@ export default function TrainingPage_LB() {
     stepRafRef.current = null;
   }
 
+  function pauseVideo(videoRef) {
+    const video = videoRef.current;
+    if (video && !video.paused) video.pause();
+  }
+
+  function pauseAllVideos() {
+    pauseVideo(introVideoRef);
+    pauseVideo(endingVideoRef);
+  }
+
+  function setTrainingPhase(nextPhase) {
+    pauseAllVideos();
+    setPhase(nextPhase);
+  }
+
   useEffect(() => {
     return () => {
       clearTrainingTimers();
+      pauseAllVideos();
     };
   }, []);
 
@@ -1017,20 +1463,30 @@ export default function TrainingPage_LB() {
     logsRef.current = [];
     totalStartedAtRef.current = performance.now();
     sessionStorage.removeItem(SESSION_KEY);
+    setSummary(null);
     resetLevel(startIndex);
-    showLevelIntro(startIndex);
+    setTrainingPhase("introVideo");
+    setFooterMessage("先看動畫，等等開始練習");
+  }
+
+  function handleIntroVideoEnd() {
+    showLevelIntro(0);
+  }
+
+  function handleEndingVideoEnd() {
+    setTrainingPhase("result");
   }
 
   function showLevelIntro(nextIndex) {
     resetLevel(nextIndex);
-    setPhase("levelIntro");
+    setTrainingPhase("levelIntro");
     setFooterMessage("看任務卡，準備練習");
   }
 
   function startCurrentLevel() {
     resetLevel(levelIndex);
     clearTrainingTimers();
-    setPhase("playing");
+    setTrainingPhase("playing");
     setFooterMessage(`找：${getExpectedText(buildSequence(TRAINING_LEVELS[levelIndex])[0])}`);
 
     const level = TRAINING_LEVELS[levelIndex];
@@ -1192,7 +1648,7 @@ export default function TrainingPage_LB() {
   function reviewPathThenNext() {
     clearTrainingTimers();
     setIsLocked(true);
-    setPhase("reviewing");
+    setTrainingPhase("reviewing");
     setWalkingIndex(0);
     setFooterMessage("綿羊奶奶沿著你連好的路走回家");
 
@@ -1274,7 +1730,7 @@ export default function TrainingPage_LB() {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(payload));
     localStorage.setItem(LOCAL_KEY, JSON.stringify(payload));
     setSummary(payload);
-    setPhase("result");
+    setTrainingPhase("endingVideo");
   }
 
   function goResultPage() {
@@ -1282,83 +1738,178 @@ export default function TrainingPage_LB() {
     navigate(RESULT_ROUTE, { state: payload, replace: true });
   }
 
-  if (phase === "menu") {
+  if (phase === "start") {
     return (
-      <div className="lb-page lb-page-with-bg lb-training-card-page" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
+      <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
         <TrainingInlineStyle />
-        <section className="lb-training-card">
-          <h1>綿羊奶奶練習小路</h1>
-          <p>訓練版會有提示、重試、假門牌、記憶門牌與紅藍規則切換。測驗前可以先在這裡練習。</p>
-
-          <div className="lb-training-level-grid">
-            {TRAINING_LEVELS.map((level, index) => (
-              <div key={level.id} className="lb-training-level-card">
-                <strong>{level.id}｜{level.title}</strong>
-                <span>{level.chapter}</span>
-                <span>{level.iconHint}</span>
+        <main className="lb-center-shell lb-start-shell">
+          <section className="lb-soft-panel lb-start-panel" aria-label="LB 訓練開始">
+            <h1 className="lb-game-title">Linking Balloons</h1>
+            <div className="lb-start-content">
+              <div className="lb-dialog-bubble lb-opening-bubble">
+                先跟綿羊奶奶練習找門牌，照順序把小路連回家。
               </div>
-            ))}
-          </div>
+              <div className="lb-round-icon lb-start-avatar">
+                <img src={sheepImg} alt="綿羊奶奶" draggable="false" />
+              </div>
+            </div>
+            <div className="lb-guided-action lb-guided-start">
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-start" onClick={() => startTraining(0)} aria-label="開始訓練">
+                <img src={homeStartBtn} alt="開始" draggable="false" />
+              </button>
+              <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
 
-          <button type="button" className="lb-training-button" onClick={() => startTraining(0)}>
-            開始訓練
-          </button>
-        </section>
+  if (phase === "introVideo") {
+    return (
+      <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
+        <TrainingInlineStyle />
+        <main className="lb-center-shell">
+          <section className="lb-soft-panel lb-video-panel" aria-label="開始動畫">
+            <div className="lb-video-frame">
+              <video
+                ref={introVideoRef}
+                src={introVideo}
+                autoPlay
+                playsInline
+                controls={false}
+                onEnded={handleIntroVideoEnd}
+                className="lb-video"
+              />
+            </div>
+            <div className="lb-guided-action lb-guided-skip">
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleIntroVideoEnd} aria-label="跳過動畫">
+                <img src={homeSkipBtn} alt="跳過動畫" draggable="false" />
+              </button>
+              <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
+            </div>
+          </section>
+        </main>
       </div>
     );
   }
 
   if (phase === "levelIntro") {
     return (
-      <div className="lb-page lb-page-with-bg lb-training-card-page" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
+      <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
         <TrainingInlineStyle />
-        <section className="lb-training-card">
-          <h1>{currentLevel.chapter}</h1>
-          <h2>{currentLevel.id}｜{currentLevel.title}</h2>
-          <p>{currentLevel.ability}</p>
-          <div className="lb-training-hint-card" style={{ margin: "24px 0" }}>
-            {getRuleIcon(currentLevel)}
-          </div>
-          <p>
-            {currentLevel.taskType === TASK_TYPES.MEMORY_PATH
-              ? "先看門牌位置，數字藏起來後再照順序點。"
-              : currentLevel.taskType === TASK_TYPES.DISTRACTOR_DOORS
-                ? "有些是假門牌，不要被問號或多餘數字騙走。"
-                : currentLevel.shuffleAfterSteps
-                  ? "小路走到一半時，門牌可能會換位置。"
-                  : "跟著任務卡上的規則，把綿羊奶奶帶回家。"}
-          </p>
-          <button type="button" className="lb-training-button" onClick={startCurrentLevel}>
-            開始這一關
-          </button>
-        </section>
+        <main className="lb-center-shell lb-rule-shell">
+          <section className="lb-soft-panel lb-rule-panel">
+            <h1 className="lb-game-title">{currentLevel.chapter}</h1>
+            <div className="lb-start-content lb-level-content">
+              <div className="lb-dialog-bubble lb-level-bubble">
+                <span>{currentLevel.id}｜{currentLevel.title}</span>
+                <small>{getRuleIcon(currentLevel)}</small>
+              </div>
+              <div className="lb-round-icon lb-start-avatar">
+                <img src={sheepImg} alt="綿羊奶奶" draggable="false" />
+              </div>
+            </div>
+            <p className="lb-level-desc">
+              {currentLevel.taskType === TASK_TYPES.MEMORY_PATH
+                ? "先看門牌位置，數字藏起來後再照順序點。"
+                : currentLevel.taskType === TASK_TYPES.DISTRACTOR_DOORS
+                  ? "有些是假門牌，不要被問號或多餘數字騙走。"
+                  : currentLevel.shuffleAfterSteps
+                    ? "小路走到一半時，門牌可能會換位置。"
+                    : "跟著任務卡上的規則，把綿羊奶奶帶回家。"}
+            </p>
+            <div className="lb-guided-action lb-guided-start">
+              <button type="button" className="lb-forest-button lb-primary-button" onClick={startCurrentLevel}>
+                開始這一關
+              </button>
+              <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  if (phase === "endingVideo") {
+    return (
+      <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
+        <TrainingInlineStyle />
+        <main className="lb-center-shell">
+          <section className="lb-soft-panel lb-video-panel" aria-label="結束動畫">
+            <div className="lb-video-frame">
+              <video
+                ref={endingVideoRef}
+                src={endingVideo}
+                autoPlay
+                playsInline
+                controls={false}
+                onEnded={handleEndingVideoEnd}
+                className="lb-video"
+              />
+            </div>
+            <div className="lb-guided-action lb-guided-skip">
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleEndingVideoEnd} aria-label="跳過動畫">
+                <img src={homeSkipBtn} alt="跳過動畫" draggable="false" />
+              </button>
+              <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
+            </div>
+          </section>
+        </main>
       </div>
     );
   }
 
   if (phase === "result") {
+    const resultStars = Math.max(1, Math.min(3, Number(summary?.stars || 1)));
+
     return (
-      <div className="lb-page lb-page-with-bg lb-training-card-page" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
+      <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
         <TrainingInlineStyle />
-        <section className="lb-training-card">
-          <h1>訓練完成</h1>
-          <p>星星：{"★".repeat(summary?.stars || 1)}{"☆".repeat(3 - (summary?.stars || 1))}</p>
-          <div className="lb-training-result-list">
-            <div className="lb-training-level-card"><strong>正確率</strong><span>{summary?.accuracy || 0}%</span></div>
-            <div className="lb-training-level-card"><strong>提示次數</strong><span>{summary?.hintCount || 0}</span></div>
-            <div className="lb-training-level-card"><strong>平均反應</strong><span>{summary?.avgReactionTime || 0} ms</span></div>
-            <div className="lb-training-level-card"><strong>建議</strong><span>{summary?.recommendedNextTraining}</span></div>
-          </div>
-          <button type="button" className="lb-training-button" onClick={goResultPage}>
-            查看詳細結果
-          </button>
-        </section>
+        <main className="lb-center-shell lb-result-shell">
+          <section className="lb-soft-panel lb-result-panel" aria-label="訓練結果">
+            <div className="lb-cute-stars" aria-label={`${resultStars} 顆星`}>
+              {[1, 2, 3].map((star) => (
+                <span key={star} className={`lb-cute-star ${star <= resultStars ? "is-on" : ""}`}>★</span>
+              ))}
+            </div>
+            <div className="lb-start-content lb-result-content">
+              <div className="lb-dialog-bubble">
+                訓練完成！你幫綿羊奶奶練習了好多條小路。
+              </div>
+              <div className="lb-round-icon lb-result-icon">
+                <img src={homeImg} alt="LB 訓練圖示" draggable="false" />
+              </div>
+            </div>
+            <div className="lb-training-result-list lb-result-metrics">
+              <div className="lb-training-level-card"><strong>正確率</strong><span>{summary?.accuracy || 0}%</span></div>
+              <div className="lb-training-level-card"><strong>提示次數</strong><span>{summary?.hintCount || 0}</span></div>
+              <div className="lb-training-level-card"><strong>平均反應</strong><span>{summary?.avgReactionTime || 0} ms</span></div>
+            </div>
+            <p className="lb-result-suggestion">{summary?.recommendedNextTraining}</p>
+            <div className="lb-result-actions">
+              <div className="lb-guided-action lb-guided-result-main">
+                <button type="button" className="lb-forest-button lb-image-button lb-btn-home" onClick={() => navigate("/game-menu")} aria-label="回到森林">
+                  <img src={homeBackBtn} alt="回到森林" draggable="false" />
+                </button>
+                <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
+              </div>
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-replay" onClick={() => startTraining(0)} aria-label="再練一次">
+                <img src={homeAgainBtn} alt="再練一次" draggable="false" />
+              </button>
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-detail" onClick={goResultPage} aria-label="詳細結果">
+                <img src={homeResultBtn} alt="詳細結果" draggable="false" />
+              </button>
+            </div>
+          </section>
+        </main>
       </div>
     );
   }
 
+
   return (
-    <div className="lb-page lb-page-with-bg lb-training-page" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
+    <div className="lb-page lb-page-with-bg lb-training-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
       <TrainingInlineStyle />
       <div className="lb-training-frame">
         <header className="lb-training-header">

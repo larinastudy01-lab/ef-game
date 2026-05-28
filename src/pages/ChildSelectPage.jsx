@@ -101,6 +101,44 @@ const formatDateForInput = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const parseLocalDateParts = (value) => {
+  if (!value) return null;
+
+  const match = String(value).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!year || month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+  const localDate = new Date(year, month - 1, day);
+  if (
+    localDate.getFullYear() !== year ||
+    localDate.getMonth() !== month - 1 ||
+    localDate.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return { year, month, day, localDate };
+};
+
+const getAgeFromLocalDate = (value, now = new Date()) => {
+  const birthday = parseLocalDateParts(value);
+  if (!birthday) return "";
+
+  let age = now.getFullYear() - birthday.year;
+  const currentMonth = now.getMonth() + 1;
+  const currentDay = now.getDate();
+
+  if (currentMonth < birthday.month || (currentMonth === birthday.month && currentDay < birthday.day)) {
+    age -= 1;
+  }
+
+  return age >= 0 ? age : "";
+};
+
 const getBirthdayLimits = () => {
   const today = new Date();
   const oldestAllowed = new Date(today);
@@ -113,20 +151,15 @@ const getBirthdayLimits = () => {
 };
 
 const isBirthdayAllowed = (birthdayValue) => {
-  if (!birthdayValue) return false;
-
-  const birthday = new Date(`${birthdayValue}T00:00:00`);
-  if (Number.isNaN(birthday.getTime())) return false;
+  const birthday = parseLocalDateParts(birthdayValue);
+  if (!birthday) return false;
 
   const today = new Date();
-  today.setHours(23, 59, 59, 999);
-  if (birthday > today) return false;
+  const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  if (birthday.localDate > todayOnly) return false;
 
-  let age = today.getFullYear() - birthday.getFullYear();
-  const monthDiff = today.getMonth() - birthday.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthday.getDate())) age -= 1;
-
-  return age >= 0 && age <= MAX_CHILD_AGE;
+  const age = getAgeFromLocalDate(birthdayValue, today);
+  return age !== "" && age >= 0 && age <= MAX_CHILD_AGE;
 };
 
 const shouldClearGameCacheKey = (key, storageType = "session") => {
@@ -175,14 +208,7 @@ const calculateAge = (child) => {
   const rawBirthday = child.birthday || child.birthDate || child.birth_date || child.dob;
   if (!rawBirthday) return "";
 
-  const birthday = new Date(rawBirthday);
-  if (Number.isNaN(birthday.getTime())) return "";
-
-  const today = new Date();
-  let age = today.getFullYear() - birthday.getFullYear();
-  const monthDiff = today.getMonth() - birthday.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthday.getDate())) age -= 1;
-  return age >= 0 ? age : "";
+  return getAgeFromLocalDate(rawBirthday);
 };
 
 const getLastPlayedAt = (child) => {
@@ -278,6 +304,19 @@ const getInitialChildren = () => {
   return normalized;
 };
 
+const mergeCloudPatientsWithLocalCache = (cloudPatients = []) => {
+  const localChildren = safeParse(localStorage.getItem(STORAGE_KEYS.children), []);
+  const normalizedCloud = Array.isArray(cloudPatients) ? cloudPatients.map(normalizeChild) : [];
+  const normalizedLocal = Array.isArray(localChildren) ? localChildren.map(normalizeChild) : [];
+
+  const cloudIds = new Set(normalizedCloud.map((child) => child.childId));
+  const localOnlyChildren = normalizedLocal.filter(
+    (child) => child.syncStatus === "local-only" && !cloudIds.has(child.childId)
+  );
+
+  return [...localOnlyChildren, ...normalizedCloud];
+};
+
 const ChildSelectPage = () => {
   const navigate = useNavigate();
   const [children, setChildren] = useState(getInitialChildren);
@@ -287,7 +326,7 @@ const ChildSelectPage = () => {
   const [formData, setFormData] = useState({
     nickname: "",
     birthday: "",
-    gender: "未設定",
+    gender: "",
     avatarIcon: "fox",
   });
 
@@ -309,9 +348,9 @@ const ChildSelectPage = () => {
         const cloudPatients = await getMyPatients();
         if (ignore) return;
 
-        const normalized = cloudPatients.map(normalizeChild);
-        setChildren(normalized);
-        localStorage.setItem(STORAGE_KEYS.children, JSON.stringify(normalized));
+        const merged = mergeCloudPatientsWithLocalCache(cloudPatients);
+        setChildren(merged);
+        localStorage.setItem(STORAGE_KEYS.children, JSON.stringify(merged));
       } catch (error) {
         console.warn("Supabase 兒童資料讀取失敗，改用本機快取：", error);
       } finally {
@@ -370,6 +409,11 @@ const ChildSelectPage = () => {
       return;
     }
 
+    if (!formData.gender) {
+      setErrorMessage("請選擇兒童性別，方便後續常模與資料欄位一致");
+      return;
+    }
+
     if (!isBirthdayAllowed(formData.birthday)) {
       setErrorMessage(`生日不可晚於今天，且兒童年齡不可大於 ${MAX_CHILD_AGE} 歲`);
       return;
@@ -392,7 +436,7 @@ const ChildSelectPage = () => {
 
       saveChildren(nextChildren);
       saveCurrentChild(newChild);
-      setFormData({ nickname: "", birthday: "", gender: "未設定", avatarIcon: "fox" });
+      setFormData({ nickname: "", birthday: "", gender: "", avatarIcon: "fox" });
       setIsAdding(false);
       navigate("/mode-select", {
         state: {
@@ -428,7 +472,7 @@ const ChildSelectPage = () => {
       const nextChildren = [...children, localChild];
       saveChildren(nextChildren);
       saveCurrentChild(localChild);
-      setFormData({ nickname: "", birthday: "", gender: "未設定", avatarIcon: "fox" });
+      setFormData({ nickname: "", birthday: "", gender: "", avatarIcon: "fox" });
       setIsAdding(false);
       setErrorMessage("目前雲端連線失敗，已先暫存在本機。請確認 Supabase 設定後再重新登入同步。");
       navigate("/mode-select", {
@@ -670,10 +714,12 @@ const ChildSelectPage = () => {
           gap: clamp(24px, 3vw, 38px);
           align-items: stretch;
           margin-top: clamp(24px, 2.8vw, 40px);
-          padding: 2px 10px 18px;
+          padding: 2px 20px 18px;
           overflow-x: auto;
           overflow-y: hidden;
-          scroll-snap-type: x proximity;
+          scroll-snap-type: x mandatory;
+          scroll-padding-inline: 20px;
+          overscroll-behavior-x: contain;
           -webkit-overflow-scrolling: touch;
         }
 
@@ -916,9 +962,13 @@ const ChildSelectPage = () => {
 
         .form-card {
           width: min(620px, 94vw);
-          max-height: 92vh;
-          overflow: auto;
+          max-height: min(92dvh, 760px);
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          -webkit-overflow-scrolling: touch;
           position: relative;
+          display: flex;
+          flex-direction: column;
           padding: clamp(24px, 3.1vw, 40px);
           border-radius: 30px;
           background: rgba(255, 248, 226, 0.98);
@@ -1044,12 +1094,39 @@ const ChildSelectPage = () => {
           .child-board { padding: 28px 22px; }
           .child-header { grid-template-columns: 1fr; }
           .child-count-sign { width: 116px; min-height: 102px; }
-          .child-card-area { padding-inline: 4px; }
+          .child-card-area {
+            padding-inline: 20px;
+            scroll-padding-inline: 20px;
+          }
+          .avatar-picker { gap: 14px; }
           .role-card,
           .add-role-card,
           .empty-role-card {
             flex-basis: clamp(330px, 78vw, 450px);
             width: clamp(330px, 78vw, 450px);
+          }
+        }
+
+        @media (max-width: 860px) and (orientation: portrait) {
+          .form-overlay {
+            place-items: stretch;
+            padding: 0;
+          }
+
+          .form-card {
+            width: 100%;
+            min-height: 100dvh;
+            max-height: none;
+            border-radius: 0;
+            border-width: 0;
+            padding: 78px 22px max(28px, env(safe-area-inset-bottom));
+          }
+
+          .form-close {
+            position: fixed;
+            top: max(14px, env(safe-area-inset-top));
+            right: 14px;
+            z-index: 1;
           }
         }
 
@@ -1067,7 +1144,10 @@ const ChildSelectPage = () => {
           .child-card-area,
           .child-card-list { gap: 14px; }
           .role-actions { gap: 8px; padding: 0 14px 30px; }
-          .avatar-picker { grid-template-columns: repeat(2, 1fr); }
+          .avatar-picker {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 14px;
+          }
           .build-start-img { width: min(286px, 82vw); }
           .child-back-button {
             top: 10px;
@@ -1212,7 +1292,7 @@ const ChildSelectPage = () => {
                 value={formData.gender}
                 onChange={(event) => setFormData((prev) => ({ ...prev, gender: event.target.value }))}
               >
-                <option value="未設定">未設定</option>
+                <option value="" disabled>請選擇</option>
                 <option value="女">女</option>
                 <option value="男">男</option>
                 <option value="其他 / 不透露">其他 / 不透露</option>
