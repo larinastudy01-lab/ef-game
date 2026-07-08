@@ -2,32 +2,60 @@
 
 /*
   =========================================================
-  srtScoring.js
-  Simple Reaction Time / SRT 評分邏輯
+  SRT Scoring
 
-  評分目標：
-  1. 正確率 Accuracy：35 分
-  2. 反應速度 Speed：25 分
-  3. 反應穩定度 Stability：15 分
-  4. 注意力維持 Attention：10 分
-  5. 干擾抑制 Inhibition：10 分
-     - 壞橡實出現時，能不能忍住不點
-  6. 獎勵搜尋 Reward Search：5 分
-     - 金色橡實出現時，能不能成功點到
+  評分項目：
+  1. 正確率 Accuracy：35
+  2. 反應速度 Speed：25
+  3. 反應穩定度 Stability：15
+  4. 注意力維持 Attention：10
+  5. 干擾抑制 Inhibition：10
+  6. 獎勵搜尋 Reward Search：5
 
-  星星保護條件：
-  - 正確率 < 60%：最多 1 星
-  - 漏點 / 逾時率 > 35%：最多 1 星
-  - 壞橡實誤點率 > 40%：最多 2 星
-
-  重要防呆：
-  - 反應時間 < 150ms 視為預期性誤觸雜訊，不納入 RT、誤點、壞橡實懲罰。
-  - attentionDrop 需至少 2 筆有效正確 RT，且前後半皆有資料才計算。
-  - golden / rotten 特殊題型分母需大於 0 才計算比例或扣分。
+  重要規則：
+  - 正式題目與背景誤點紀錄分開。
+  - missed 與 timeout 同一題只計算一次。
+  - 小於 150ms 的反應視為預期性誤觸，不納入 RT。
+  - 壞橡實與金色橡實至少 3 題才納入該分項。
+  - 前中後段至少 15 題才進行長時間注意力分析。
+  - 無有效資料的分項不直接給 0 或滿分，而是以有效分項重新加權。
+  - 相容舊版 correctReject / falseAlarm。
   =========================================================
 */
 
 const MIN_VALID_REACTION_TIME_MS = 150;
+const MIN_SPECIAL_TRIALS = 3;
+const MIN_LONG_ATTENTION_TRIALS = 15;
+const MIN_SCORING_TRIALS = 15;
+const MIN_VALID_RT_COUNT = 8;
+
+const SCORE_WEIGHTS = {
+  accuracy: 35,
+  speed: 25,
+  stability: 15,
+  attention: 10,
+  inhibition: 10,
+  rewardSearch: 5,
+};
+
+const TRIAL_TARGET_TYPES = new Set([
+  "normal",
+  "golden",
+  "rotten",
+  "broken",
+]);
+
+const TRIAL_ACTIONS = new Set([
+  "hit",
+  "correctAvoid",
+  "clickedRotten",
+  "miss",
+  "timeout",
+]);
+
+/* =========================
+   基礎工具
+   ========================= */
 
 function safeArray(value) {
   return Array.isArray(value) ? value : [];
@@ -37,8 +65,75 @@ function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function roundNumber(value, digits = 0) {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
+}
+
+function average(values = []) {
+  const validValues = safeArray(values).filter(isFiniteNumber);
+
+  if (validValues.length === 0) {
+    return null;
+  }
+
+  return (
+    validValues.reduce((sum, value) => sum + value, 0) /
+    validValues.length
+  );
+}
+
+function standardDeviation(values = []) {
+  const validValues = safeArray(values).filter(isFiniteNumber);
+
+  if (validValues.length < 2) {
+    return null;
+  }
+
+  const mean = average(validValues);
+
+  if (mean === null) {
+    return null;
+  }
+
+  const variance =
+    validValues.reduce(
+      (sum, value) => sum + (value - mean) ** 2,
+      0
+    ) / validValues.length;
+
+  return Math.sqrt(variance);
+}
+
+function percentage(part, total) {
+  if (
+    !Number.isFinite(part) ||
+    !Number.isFinite(total) ||
+    total <= 0
+  ) {
+    return 0;
+  }
+
+  return roundNumber((part / total) * 100, 0) ?? 0;
+}
+
+function clamp(value, min, max) {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+
+  return Math.max(min, Math.min(max, value));
+}
+
 function isValidReactionTime(value) {
-  return isFiniteNumber(value) && value >= MIN_VALID_REACTION_TIME_MS;
+  return (
+    isFiniteNumber(value) &&
+    value >= MIN_VALID_REACTION_TIME_MS
+  );
 }
 
 function isAnticipatoryNoise(record) {
@@ -49,226 +144,858 @@ function isAnticipatoryNoise(record) {
   );
 }
 
-function roundNumber(value, digits = 0) {
-  if (value === null || value === undefined || !Number.isFinite(value)) {
-    return null;
+/* =========================
+   紀錄標準化
+   ========================= */
+
+function normalizeTrainingAction(action) {
+  if (action === "correctReject") {
+    return "correctAvoid";
   }
 
-  const factor = 10 ** digits;
-  return Math.round(value * factor) / factor;
-}
-
-function average(numbers) {
-  const validNumbers = safeArray(numbers).filter(isFiniteNumber);
-
-  if (validNumbers.length === 0) return null;
-
-  return validNumbers.reduce((acc, n) => acc + n, 0) / validNumbers.length;
-}
-
-function standardDeviation(numbers) {
-  const validNumbers = safeArray(numbers).filter(isFiniteNumber);
-
-  if (validNumbers.length < 2) return null;
-
-  const mean = average(validNumbers);
-  if (mean === null) return null;
-
-  const variance =
-    validNumbers.reduce((acc, n) => acc + (n - mean) ** 2, 0) /
-    validNumbers.length;
-
-  return Math.sqrt(variance);
-}
-
-function percentage(part, total) {
-  if (!Number.isFinite(part) || !Number.isFinite(total) || total <= 0) {
-    return 0;
+  if (action === "falseAlarm") {
+    return "clickedRotten";
   }
 
-  return roundNumber((part / total) * 100, 0) ?? 0;
+  if (action === "falseClick") {
+    return "backgroundClick";
+  }
+
+  return action || null;
 }
 
-function clamp(value, min, max) {
-  if (!Number.isFinite(value)) return min;
-  return Math.max(min, Math.min(max, value));
+function normalizeTargetType(targetType) {
+  if (targetType === "broken") {
+    return "rotten";
+  }
+
+  return targetType || null;
 }
 
-function clampScore(value, min = 0, max = 100) {
-  if (!Number.isFinite(value)) return min;
-  return Math.max(min, Math.min(max, value));
+function normalizeSrtRecord(record = {}, index = 0) {
+  const trainingAction = normalizeTrainingAction(
+    record.trainingAction
+  );
+
+  const targetType = normalizeTargetType(
+    record.targetType
+  );
+
+  const inferredCorrect =
+    trainingAction === "hit" ||
+    trainingAction === "correctAvoid";
+
+  const inferredMiss =
+    trainingAction === "miss" ||
+    trainingAction === "timeout";
+
+  return {
+    ...record,
+
+    trialIndex:
+      record.trialIndex ??
+      record.trial ??
+      index + 1,
+
+    trainingAction,
+    targetType,
+
+    isCorrect:
+      typeof record.isCorrect === "boolean"
+        ? record.isCorrect
+        : inferredCorrect,
+
+    missed:
+      record.missed === true ||
+      inferredMiss,
+
+    timeout:
+      record.timeout === true ||
+      trainingAction === "timeout",
+
+    clickedRotten:
+      record.clickedRotten === true ||
+      trainingAction === "clickedRotten",
+  };
 }
 
-function isTargetType(record, targetTypes = []) {
-  return targetTypes.includes(record?.targetType);
+function isTrialRecord(record) {
+  if (!record) {
+    return false;
+  }
+
+  return (
+    TRIAL_TARGET_TYPES.has(record.targetType) ||
+    TRIAL_ACTIONS.has(record.trainingAction)
+  );
+}
+
+function isBehaviorRecord(record) {
+  return [
+    "backgroundClick",
+    "repeatedClick",
+  ].includes(record?.trainingAction);
 }
 
 function isRottenRecord(record) {
-  return isTargetType(record, ["rotten", "broken"]);
+  return record?.targetType === "rotten";
+}
+
+function isGoldenRecord(record) {
+  return record?.targetType === "golden";
+}
+
+function isNormalRecord(record) {
+  return record?.targetType === "normal";
+}
+
+function isHitRecord(record) {
+  return (
+    record?.trainingAction === "hit" &&
+    !isAnticipatoryNoise(record)
+  );
+}
+
+function isCorrectAvoidRecord(record) {
+  return (
+    record?.trainingAction === "correctAvoid" &&
+    !isAnticipatoryNoise(record)
+  );
 }
 
 function isClickedRotten(record) {
-  if (!isRottenRecord(record)) return false;
-  if (isAnticipatoryNoise(record)) return false;
+  if (!isRottenRecord(record)) {
+    return false;
+  }
+
+  if (isAnticipatoryNoise(record)) {
+    return false;
+  }
 
   return (
     record?.trainingAction === "clickedRotten" ||
-    record?.clickedRotten === true ||
-    record?.isCorrect === false
+    record?.clickedRotten === true
   );
 }
 
 function isGoldenHit(record) {
-  if (record?.targetType !== "golden") return false;
-  if (isAnticipatoryNoise(record)) return false;
+  if (!isGoldenRecord(record)) {
+    return false;
+  }
 
-  return record?.isCorrect === true || record?.trainingAction === "hit";
+  if (isAnticipatoryNoise(record)) {
+    return false;
+  }
+
+  return (
+    record?.trainingAction === "hit" ||
+    record?.isCorrect === true
+  );
 }
 
-function isActionFalseClick(record) {
-  if (isAnticipatoryNoise(record)) return false;
+/* =========================
+   分段分析
+   ========================= */
 
-  return record?.falseClick === true || record?.trainingAction === "falseClick";
-}
+function splitIntoThirds(records = []) {
+  const safeRecords = safeArray(records);
 
-function splitValidReactionTimesForAttention(validRtRecords) {
-  const validRecords = safeArray(validRtRecords).filter((r) =>
-    isValidReactionTime(r?.reactionTime)
+  if (safeRecords.length === 0) {
+    return {
+      firstThird: [],
+      middleThird: [],
+      lastThird: [],
+    };
+  }
+
+  const firstEnd = Math.ceil(
+    safeRecords.length / 3
   );
 
-  if (validRecords.length < 2) {
+  const secondEnd = Math.ceil(
+    (safeRecords.length * 2) / 3
+  );
+
+  return {
+    firstThird: safeRecords.slice(0, firstEnd),
+    middleThird: safeRecords.slice(
+      firstEnd,
+      secondEnd
+    ),
+    lastThird: safeRecords.slice(secondEnd),
+  };
+}
+
+function summarizeSegment(records = []) {
+  const trialRecords = safeArray(records).filter(
+    isTrialRecord
+  );
+
+  const total = trialRecords.length;
+
+  const hitRecords = trialRecords.filter(
+    isHitRecord
+  );
+
+  const correctAvoidRecords =
+    trialRecords.filter(
+      isCorrectAvoidRecord
+    );
+
+  const missedOrTimeoutRecords =
+    trialRecords.filter(
+      (record) =>
+        record.missed === true ||
+        record.timeout === true
+    );
+
+  const rottenRecords =
+    trialRecords.filter(isRottenRecord);
+
+  const clickedRottenRecords =
+    rottenRecords.filter(isClickedRotten);
+
+  const assistEligibleRecords =
+    trialRecords.filter((record) =>
+      ["normal", "golden"].includes(
+        record.targetType
+      )
+    );
+
+  const assistedRecords =
+    assistEligibleRecords.filter(
+      (record) =>
+        record.assisted === true
+    );
+
+  const validRtRecords =
+    hitRecords.filter((record) =>
+      isValidReactionTime(
+        record.reactionTime
+      )
+    );
+
+  const reactionTimes =
+    validRtRecords.map(
+      (record) => record.reactionTime
+    );
+
+  const avgRT = roundNumber(
+    average(reactionTimes),
+    0
+  );
+
+  const rtStd = roundNumber(
+    standardDeviation(reactionTimes),
+    0
+  );
+
+  const rtCV =
+    avgRT !== null &&
+    avgRT > 0 &&
+    rtStd !== null
+      ? roundNumber(rtStd / avgRT, 2)
+      : null;
+
+  const correctCount =
+    hitRecords.length +
+    correctAvoidRecords.length;
+
+  return {
+    total,
+    correctCount,
+    hitCount: hitRecords.length,
+    correctAvoidCount:
+      correctAvoidRecords.length,
+    missedOrTimeoutCount:
+      missedOrTimeoutRecords.length,
+    rottenTotal: rottenRecords.length,
+    clickedRottenCount:
+      clickedRottenRecords.length,
+    assistedCount:
+      assistedRecords.length,
+    assistEligibleCount:
+      assistEligibleRecords.length,
+    validRTCount:
+      validRtRecords.length,
+
+    accuracyPercent: percentage(
+      correctCount,
+      total
+    ),
+
+    missRate: percentage(
+      missedOrTimeoutRecords.length,
+      total
+    ),
+
+    rottenClickRate:
+      rottenRecords.length > 0
+        ? percentage(
+            clickedRottenRecords.length,
+            rottenRecords.length
+          )
+        : null,
+
+    assistedRate: percentage(
+      assistedRecords.length,
+      assistEligibleRecords.length
+    ),
+
+    avgRT,
+    rtStd,
+    rtCV,
+  };
+}
+
+function buildLongAttentionMetrics(
+  trialRecords = []
+) {
+  const records = safeArray(
+    trialRecords
+  ).filter(isTrialRecord);
+
+  if (
+    records.length <
+    MIN_LONG_ATTENTION_TRIALS
+  ) {
     return {
-      firstHalfRt: [],
-      secondHalfRt: [],
+      firstThird: null,
+      middleThird: null,
+      lastThird: null,
+
+      rtSlowing: null,
+      missIncrease: null,
+      rottenClickIncrease: null,
+      assistedRateIncrease: null,
+
+      attentionDropScore: null,
+      attentionDrop: null,
+
+      dataSufficient: false,
+      reason:
+        `有效題數少於 ${MIN_LONG_ATTENTION_TRIALS} 題，暫不判斷前中後段注意力變化。`,
+    };
+  }
+
+  const {
+    firstThird,
+    middleThird,
+    lastThird,
+  } = splitIntoThirds(records);
+
+  const firstSummary =
+    summarizeSegment(firstThird);
+
+  const middleSummary =
+    summarizeSegment(middleThird);
+
+  const lastSummary =
+    summarizeSegment(lastThird);
+
+  const rtSlowing =
+    firstSummary.avgRT !== null &&
+    lastSummary.avgRT !== null
+      ? lastSummary.avgRT -
+        firstSummary.avgRT
+      : null;
+
+  const missIncrease =
+    lastSummary.missRate -
+    firstSummary.missRate;
+
+  const rottenClickIncrease =
+    (lastSummary.rottenClickRate ?? 0) -
+    (firstSummary.rottenClickRate ?? 0);
+
+  const assistedRateIncrease =
+    lastSummary.assistedRate -
+    firstSummary.assistedRate;
+
+  const rtDropScore =
+    rtSlowing === null
+      ? 0
+      : clamp(
+          rtSlowing / 500,
+          0,
+          1
+        );
+
+  const missDropScore = clamp(
+    missIncrease / 30,
+    0,
+    1
+  );
+
+  const rottenDropScore = clamp(
+    rottenClickIncrease / 30,
+    0,
+    1
+  );
+
+  const assistDropScore = clamp(
+    assistedRateIncrease / 40,
+    0,
+    1
+  );
+
+  const attentionDropScore = Math.round(
+    (
+      rtDropScore * 0.4 +
+      missDropScore * 0.3 +
+      rottenDropScore * 0.15 +
+      assistDropScore * 0.15
+    ) * 100
+  );
+
+  return {
+    firstThird: firstSummary,
+    middleThird: middleSummary,
+    lastThird: lastSummary,
+
+    rtSlowing,
+    missIncrease,
+    rottenClickIncrease,
+    assistedRateIncrease,
+
+    attentionDropScore,
+
+    // 向下相容舊版結果頁
+    attentionDrop:
+      attentionDropScore,
+
+    dataSufficient: true,
+    reason: null,
+  };
+}
+
+function buildHalfAttentionMetrics(
+  validRtRecords = []
+) {
+  const records = safeArray(
+    validRtRecords
+  ).filter((record) =>
+    isValidReactionTime(
+      record?.reactionTime
+    )
+  );
+
+  if (records.length < 2) {
+    return {
       firstHalfAvg: null,
       secondHalfAvg: null,
+      attentionRtSlowingMs: null,
+
+      // 向下相容
       attentionDrop: null,
-      attentionValidCount: validRecords.length,
+
+      firstHalfValidCount: 0,
+      secondHalfValidCount: 0,
+      attentionValidCount:
+        records.length,
       attentionDataSufficient: false,
     };
   }
 
-  const halfIndex = Math.ceil(validRecords.length / 2);
+  const halfIndex = Math.ceil(
+    records.length / 2
+  );
 
-  const firstHalfRt = validRecords
-    .slice(0, halfIndex)
-    .map((r) => r.reactionTime);
+  const firstHalf = records.slice(
+    0,
+    halfIndex
+  );
 
-  const secondHalfRt = validRecords
-    .slice(halfIndex)
-    .map((r) => r.reactionTime);
+  const secondHalf = records.slice(
+    halfIndex
+  );
 
-  if (firstHalfRt.length === 0 || secondHalfRt.length === 0) {
+  if (
+    firstHalf.length === 0 ||
+    secondHalf.length === 0
+  ) {
     return {
-      firstHalfRt,
-      secondHalfRt,
       firstHalfAvg: null,
       secondHalfAvg: null,
+      attentionRtSlowingMs: null,
       attentionDrop: null,
-      attentionValidCount: validRecords.length,
+      firstHalfValidCount:
+        firstHalf.length,
+      secondHalfValidCount:
+        secondHalf.length,
+      attentionValidCount:
+        records.length,
       attentionDataSufficient: false,
     };
   }
 
-  const firstHalfAvg = roundNumber(average(firstHalfRt), 0);
-  const secondHalfAvg = roundNumber(average(secondHalfRt), 0);
+  const firstHalfAvg = roundNumber(
+    average(
+      firstHalf.map(
+        (record) =>
+          record.reactionTime
+      )
+    ),
+    0
+  );
 
-  const attentionDrop =
-    firstHalfAvg !== null && secondHalfAvg !== null
-      ? roundNumber(secondHalfAvg - firstHalfAvg, 0)
+  const secondHalfAvg = roundNumber(
+    average(
+      secondHalf.map(
+        (record) =>
+          record.reactionTime
+      )
+    ),
+    0
+  );
+
+  const attentionRtSlowingMs =
+    firstHalfAvg !== null &&
+    secondHalfAvg !== null
+      ? secondHalfAvg -
+        firstHalfAvg
       : null;
 
   return {
-    firstHalfRt,
-    secondHalfRt,
     firstHalfAvg,
     secondHalfAvg,
-    attentionDrop,
-    attentionValidCount: validRecords.length,
-    attentionDataSufficient: attentionDrop !== null,
+    attentionRtSlowingMs,
+
+    // 向下相容
+    attentionDrop:
+      attentionRtSlowingMs,
+
+    firstHalfValidCount:
+      firstHalf.length,
+    secondHalfValidCount:
+      secondHalf.length,
+    attentionValidCount:
+      records.length,
+    attentionDataSufficient:
+      attentionRtSlowingMs !== null,
   };
 }
 
 /* =========================
-   分數轉換
+   分數換算
    ========================= */
 
-function getAccuracyScore(accuracyRate) {
-  if (!Number.isFinite(accuracyRate)) return 0;
-  return roundNumber(clamp(accuracyRate, 0, 1) * 35, 0) ?? 0;
+function getAccuracyScore(
+  accuracyPercent
+) {
+  if (
+    !Number.isFinite(
+      accuracyPercent
+    )
+  ) {
+    return null;
+  }
+
+  return roundNumber(
+    clamp(
+      accuracyPercent / 100,
+      0,
+      1
+    ) * SCORE_WEIGHTS.accuracy,
+    0
+  );
 }
 
-function getSpeedScore(avgReactionTime) {
-  if (avgReactionTime === null || avgReactionTime === undefined) return 0;
-  if (!Number.isFinite(avgReactionTime)) return 0;
+function getSpeedScore(
+  avgReactionTime
+) {
+  if (
+    avgReactionTime === null ||
+    !Number.isFinite(
+      avgReactionTime
+    )
+  ) {
+    return null;
+  }
 
-  if (avgReactionTime <= 500) return 25;
-  if (avgReactionTime <= 650) return 22;
-  if (avgReactionTime <= 850) return 18;
-  if (avgReactionTime <= 1100) return 13;
-  if (avgReactionTime <= 1400) return 8;
+  if (avgReactionTime <= 500) {
+    return 25;
+  }
+
+  if (avgReactionTime <= 650) {
+    return 22;
+  }
+
+  if (avgReactionTime <= 850) {
+    return 18;
+  }
+
+  if (avgReactionTime <= 1100) {
+    return 13;
+  }
+
+  if (avgReactionTime <= 1400) {
+    return 8;
+  }
 
   return 4;
 }
 
 function getStabilityScore(rtStd) {
-  if (rtStd === null || rtStd === undefined) return 0;
-  if (!Number.isFinite(rtStd)) return 0;
+  if (
+    rtStd === null ||
+    !Number.isFinite(rtStd)
+  ) {
+    return null;
+  }
 
-  if (rtStd <= 120) return 15;
-  if (rtStd <= 180) return 13;
-  if (rtStd <= 260) return 10;
-  if (rtStd <= 400) return 7;
-  if (rtStd <= 600) return 4;
+  if (rtStd <= 120) {
+    return 15;
+  }
+
+  if (rtStd <= 180) {
+    return 13;
+  }
+
+  if (rtStd <= 260) {
+    return 10;
+  }
+
+  if (rtStd <= 400) {
+    return 7;
+  }
+
+  if (rtStd <= 600) {
+    return 4;
+  }
 
   return 2;
 }
 
-function getAttentionScore(attentionDrop) {
-  if (attentionDrop === null || attentionDrop === undefined) return 5;
-  if (!Number.isFinite(attentionDrop)) return 5;
+function getAttentionScore(
+  attentionRtSlowingMs,
+  attentionDataSufficient
+) {
+  if (
+    !attentionDataSufficient ||
+    attentionRtSlowingMs === null ||
+    !Number.isFinite(
+      attentionRtSlowingMs
+    )
+  ) {
+    return null;
+  }
 
-  if (attentionDrop <= 50) return 10;
-  if (attentionDrop <= 120) return 8;
-  if (attentionDrop <= 220) return 6;
-  if (attentionDrop <= 350) return 4;
+  if (
+    attentionRtSlowingMs <= 50
+  ) {
+    return 10;
+  }
+
+  if (
+    attentionRtSlowingMs <= 120
+  ) {
+    return 8;
+  }
+
+  if (
+    attentionRtSlowingMs <= 220
+  ) {
+    return 6;
+  }
+
+  if (
+    attentionRtSlowingMs <= 350
+  ) {
+    return 4;
+  }
 
   return 2;
 }
 
-function getInhibitionScore(rottenClickRate, rottenTotal) {
-  if (!Number.isFinite(rottenTotal) || rottenTotal <= 0) return 10;
-  if (!Number.isFinite(rottenClickRate)) return 10;
+function getInhibitionScore({
+  rottenClickRate,
+  rottenTotal,
+}) {
+  if (
+    rottenTotal <
+    MIN_SPECIAL_TRIALS
+  ) {
+    return null;
+  }
 
-  let score = 10;
+  if (
+    !Number.isFinite(
+      rottenClickRate
+    )
+  ) {
+    return null;
+  }
 
-  if (rottenClickRate > 5) score = 8;
-  if (rottenClickRate > 15) score = 6;
-  if (rottenClickRate > 30) score = 3;
-  if (rottenClickRate > 45) score = 1;
+  if (rottenClickRate <= 5) {
+    return 10;
+  }
 
-  return Math.max(0, score);
-}
+  if (rottenClickRate <= 15) {
+    return 8;
+  }
 
-function getRewardSearchScore(goldenHitRate, goldenTotal) {
-  if (!Number.isFinite(goldenTotal) || goldenTotal <= 0) return 5;
-  if (!Number.isFinite(goldenHitRate)) return 5;
+  if (rottenClickRate <= 30) {
+    return 6;
+  }
 
-  if (goldenHitRate >= 85) return 5;
-  if (goldenHitRate >= 65) return 4;
-  if (goldenHitRate >= 45) return 3;
-  if (goldenHitRate >= 25) return 2;
+  if (rottenClickRate <= 45) {
+    return 3;
+  }
 
   return 1;
 }
 
+function getRewardSearchScore({
+  goldenHitRate,
+  goldenTotal,
+}) {
+  if (
+    goldenTotal <
+    MIN_SPECIAL_TRIALS
+  ) {
+    return null;
+  }
+
+  if (
+    !Number.isFinite(
+      goldenHitRate
+    )
+  ) {
+    return null;
+  }
+
+  if (goldenHitRate >= 85) {
+    return 5;
+  }
+
+  if (goldenHitRate >= 65) {
+    return 4;
+  }
+
+  if (goldenHitRate >= 45) {
+    return 3;
+  }
+
+  if (goldenHitRate >= 25) {
+    return 2;
+  }
+
+  return 1;
+}
+
+function calculateWeightedTotal(
+  breakdown
+) {
+  const items = [
+    {
+      key: "accuracyScore",
+      score:
+        breakdown.accuracyScore,
+      max: SCORE_WEIGHTS.accuracy,
+    },
+    {
+      key: "speedScore",
+      score:
+        breakdown.speedScore,
+      max: SCORE_WEIGHTS.speed,
+    },
+    {
+      key: "stabilityScore",
+      score:
+        breakdown.stabilityScore,
+      max: SCORE_WEIGHTS.stability,
+    },
+    {
+      key: "attentionScore",
+      score:
+        breakdown.attentionScore,
+      max: SCORE_WEIGHTS.attention,
+    },
+    {
+      key: "inhibitionScore",
+      score:
+        breakdown.inhibitionScore,
+      max: SCORE_WEIGHTS.inhibition,
+    },
+    {
+      key: "rewardSearchScore",
+      score:
+        breakdown.rewardSearchScore,
+      max:
+        SCORE_WEIGHTS.rewardSearch,
+    },
+  ];
+
+  const validItems = items.filter(
+    (item) =>
+      Number.isFinite(item.score)
+  );
+
+  const earnedScore =
+    validItems.reduce(
+      (sum, item) =>
+        sum + item.score,
+      0
+    );
+
+  const availableScore =
+    validItems.reduce(
+      (sum, item) =>
+        sum + item.max,
+      0
+    );
+
+  const totalScore =
+    availableScore > 0
+      ? Math.round(
+          (earnedScore /
+            availableScore) *
+            100
+        )
+      : 0;
+
+  return {
+    totalScore: clamp(
+      totalScore,
+      0,
+      100
+    ),
+    earnedScore,
+    availableScore,
+    validScoreKeys:
+      validItems.map(
+        (item) => item.key
+      ),
+    unavailableScoreKeys:
+      items
+        .filter(
+          (item) =>
+            !Number.isFinite(
+              item.score
+            )
+        )
+        .map(
+          (item) => item.key
+        ),
+  };
+}
+
 /* =========================
-   星級與文字
+   星級
    ========================= */
 
-function getBaseStarRating(totalScore) {
-  if (totalScore >= 80) return 3;
-  if (totalScore >= 60) return 2;
+function getBaseStarRating(
+  totalScore
+) {
+  if (totalScore >= 80) {
+    return 3;
+  }
+
+  if (totalScore >= 60) {
+    return 2;
+  }
+
   return 1;
 }
 
@@ -277,38 +1004,114 @@ function getStarGuards({
   missRate,
   rottenClickRate,
   rottenTotal,
+  assistedRate,
+  scoringDataSufficient,
 }) {
   let maxStars = 3;
   const reasons = [];
 
-  if (Number.isFinite(accuracyPercent) && accuracyPercent < 60) {
-    maxStars = Math.min(maxStars, 1);
-    reasons.push("accuracy_below_60");
-  }
+  if (!scoringDataSufficient) {
+    maxStars = Math.min(
+      maxStars,
+      2
+    );
 
-  if (Number.isFinite(missRate) && missRate > 35) {
-    maxStars = Math.min(maxStars, 1);
-    reasons.push("miss_rate_above_35");
+    reasons.push(
+      "scoring_data_insufficient"
+    );
   }
 
   if (
-    rottenTotal > 0 &&
-    Number.isFinite(rottenClickRate) &&
-    rottenClickRate > 40
+    Number.isFinite(
+      accuracyPercent
+    ) &&
+    accuracyPercent < 60
   ) {
-    maxStars = Math.min(maxStars, 2);
-    reasons.push("rotten_click_rate_above_40");
+    maxStars = Math.min(
+      maxStars,
+      1
+    );
+
+    reasons.push(
+      "accuracy_below_60"
+    );
   }
 
-  return { maxStars, reasons };
+  if (
+    Number.isFinite(missRate) &&
+    missRate > 35
+  ) {
+    maxStars = Math.min(
+      maxStars,
+      1
+    );
+
+    reasons.push(
+      "miss_rate_above_35"
+    );
+  }
+
+  if (
+    rottenTotal >=
+      MIN_SPECIAL_TRIALS &&
+    Number.isFinite(
+      rottenClickRate
+    ) &&
+    rottenClickRate > 40
+  ) {
+    maxStars = Math.min(
+      maxStars,
+      2
+    );
+
+    reasons.push(
+      "rotten_click_rate_above_40"
+    );
+  }
+
+  if (
+    Number.isFinite(
+      assistedRate
+    ) &&
+    assistedRate > 40
+  ) {
+    maxStars = Math.min(
+      maxStars,
+      2
+    );
+
+    reasons.push(
+      "assisted_rate_above_40"
+    );
+  }
+
+  return {
+    maxStars,
+    reasons,
+  };
 }
 
-function getStarRating(totalScore, guards = {}) {
-  const baseStars = getBaseStarRating(totalScore);
-  const maxStars = guards.maxStars || 3;
+function getStarRating(
+  totalScore,
+  guards
+) {
+  const baseStars =
+    getBaseStarRating(
+      totalScore
+    );
 
-  return Math.max(1, Math.min(baseStars, maxStars));
+  return Math.max(
+    1,
+    Math.min(
+      baseStars,
+      guards?.maxStars ?? 3
+    )
+  );
 }
+
+/* =========================
+   文字說明
+   ========================= */
 
 function getChildMessage(stars) {
   if (stars === 3) {
@@ -322,516 +1125,528 @@ function getChildMessage(stars) {
   return "沒關係！慢慢來，多玩幾次會越來越熟悉！";
 }
 
-function getAccuracyLevel(accuracyPercent) {
-  if (accuracyPercent >= 85) return "表現良好";
-  if (accuracyPercent >= 65) return "尚可";
+function getAccuracyLevel(
+  accuracyPercent
+) {
+  if (accuracyPercent >= 85) {
+    return "表現良好";
+  }
+
+  if (accuracyPercent >= 65) {
+    return "尚可";
+  }
+
   return "需要加強";
 }
 
-function getSpeedLevel(avgReactionTime) {
-  if (avgReactionTime === null) return "資料不足";
-  if (avgReactionTime <= 650) return "反應快速";
-  if (avgReactionTime <= 850) return "反應穩定";
-  if (avgReactionTime <= 1100) return "反應稍慢";
+function getSpeedLevel(
+  avgReactionTime
+) {
+  if (
+    avgReactionTime === null
+  ) {
+    return "資料不足";
+  }
+
+  if (
+    avgReactionTime <= 650
+  ) {
+    return "反應快速";
+  }
+
+  if (
+    avgReactionTime <= 850
+  ) {
+    return "反應穩定";
+  }
+
+  if (
+    avgReactionTime <= 1100
+  ) {
+    return "反應稍慢";
+  }
 
   return "反應偏慢";
 }
 
 function getStabilityLevel(rtStd) {
-  if (rtStd === null) return "資料不足";
-  if (rtStd <= 180) return "反應穩定";
-  if (rtStd <= 350) return "略有波動";
+  if (rtStd === null) {
+    return "資料不足";
+  }
 
-  return "反應不穩定";
+  if (rtStd <= 180) {
+    return "反應穩定";
+  }
+
+  if (rtStd <= 350) {
+    return "略有波動";
+  }
+
+  return "反應波動較大";
 }
 
-function getAttentionLevel(attentionDrop) {
-  if (attentionDrop === null) return "資料不足";
-  if (attentionDrop <= 120) return "注意力維持良好";
-  if (attentionDrop <= 300) return "後段略有變慢";
+function getAttentionLevel({
+  attentionRtSlowingMs,
+  attentionDataSufficient,
+}) {
+  if (
+    !attentionDataSufficient ||
+    attentionRtSlowingMs === null
+  ) {
+    return "資料不足";
+  }
+
+  if (
+    attentionRtSlowingMs <= 120
+  ) {
+    return "注意力維持良好";
+  }
+
+  if (
+    attentionRtSlowingMs <= 300
+  ) {
+    return "後段略有變慢";
+  }
 
   return "後段明顯變慢";
 }
 
-function getInhibitionLevel(rottenClickRate, rottenTotal) {
-  if (!rottenTotal || rottenTotal <= 0) return "本關未出現壞橡實";
-  if (rottenClickRate <= 15) return "抑制控制穩定";
-  if (rottenClickRate <= 30) return "偶爾衝動點擊";
+function getInhibitionLevel({
+  rottenClickRate,
+  rottenTotal,
+}) {
+  if (rottenTotal === 0) {
+    return "本次未出現壞橡實";
+  }
+
+  if (
+    rottenTotal <
+    MIN_SPECIAL_TRIALS
+  ) {
+    return "壞橡實題數不足";
+  }
+
+  if (
+    rottenClickRate <= 15
+  ) {
+    return "抑制控制穩定";
+  }
+
+  if (
+    rottenClickRate <= 30
+  ) {
+    return "偶爾衝動點擊";
+  }
 
   return "容易受到壞橡實干擾";
 }
 
-function getRewardSearchLevel(goldenHitRate, goldenTotal) {
-  if (!goldenTotal || goldenTotal <= 0) return "本關未出現金色橡實";
-  if (goldenHitRate >= 75) return "能注意到獎勵目標";
-  if (goldenHitRate >= 45) return "偶爾漏掉獎勵目標";
+function getRewardSearchLevel({
+  goldenHitRate,
+  goldenTotal,
+}) {
+  if (goldenTotal === 0) {
+    return "本次未出現金色橡實";
+  }
+
+  if (
+    goldenTotal <
+    MIN_SPECIAL_TRIALS
+  ) {
+    return "金色橡實題數不足";
+  }
+
+  if (
+    goldenHitRate >= 75
+  ) {
+    return "能注意到獎勵目標";
+  }
+
+  if (
+    goldenHitRate >= 45
+  ) {
+    return "偶爾漏掉獎勵目標";
+  }
 
   return "較容易漏掉獎勵目標";
 }
 
-/* =========================
-   主要評分函式
-   ========================= */
+function getAssistLevel(
+  assistedRate,
+  assistEligibleCount
+) {
+  if (
+    assistEligibleCount <= 0
+  ) {
+    return "資料不足";
+  }
 
-export function calculateSrtScore(inputRecords = []) {
-  const records = safeArray(inputRecords);
-  const totalTrials = records.length;
+  if (assistedRate <= 15) {
+    return "很少需要提醒";
+  }
 
-  const correctRecords = records.filter((r) => r?.isCorrect === true);
+  if (assistedRate <= 35) {
+    return "偶爾需要提醒";
+  }
 
-  const wrongRecords = records.filter(
-    (r) =>
-      r?.isCorrect === false &&
-      r?.timeout !== true &&
-      r?.missed !== true &&
-      !isAnticipatoryNoise(r)
-  );
+  return "較常需要提醒";
+}
 
-  const timeoutRecords = records.filter((r) => r?.timeout === true);
-  const missedRecords = records.filter((r) => r?.missed === true);
-  const anticipatoryNoiseRecords = records.filter(isAnticipatoryNoise);
-  const falseClickRecords = records.filter(isActionFalseClick);
+function getRtCvLevel(rtCV) {
+  if (rtCV === null) {
+    return "資料不足";
+  }
 
-  const correctCount = correctRecords.length;
-  const wrongCount = wrongRecords.length;
-  const timeoutCount = timeoutRecords.length;
-  const missedCount = missedRecords.length;
-  const anticipatoryNoiseCount = anticipatoryNoiseRecords.length;
-  const falseClickCount = falseClickRecords.length;
+  if (rtCV <= 0.25) {
+    return "反應穩定";
+  }
 
-  const accuracyRate = totalTrials > 0 ? correctCount / totalTrials : 0;
-  const accuracyPercent = percentage(correctCount, totalTrials);
-  const missRate = percentage(missedCount + timeoutCount, totalTrials);
-  const falseClickRate = percentage(falseClickCount, totalTrials);
+  if (rtCV <= 0.4) {
+    return "稍有波動";
+  }
 
-  const validCorrectRtRecords = correctRecords.filter((r) =>
-    isValidReactionTime(r?.reactionTime)
-  );
-
-  const correctReactionTimes = validCorrectRtRecords.map((r) => r.reactionTime);
-  const avgReactionTime = roundNumber(average(correctReactionTimes), 0);
-  const rtStd = roundNumber(standardDeviation(correctReactionTimes), 0);
-
-  const {
-    firstHalfRt,
-    secondHalfRt,
-    firstHalfAvg,
-    secondHalfAvg,
-    attentionDrop,
-    attentionValidCount,
-    attentionDataSufficient,
-  } = splitValidReactionTimesForAttention(validCorrectRtRecords);
-
-  const normalRecords = records.filter((r) => r.targetType === "normal");
-  const goldenRecords = records.filter((r) => r.targetType === "golden");
-  const rottenRecords = records.filter(isRottenRecord);
-
-  const normalCorrectCount = normalRecords.filter((r) => r.isCorrect).length;
-  const goldenCorrectCount = goldenRecords.filter(isGoldenHit).length;
-
-  const rottenCorrectCount = rottenRecords.filter(
-    (r) => r.isCorrect === true && !isAnticipatoryNoise(r)
-  ).length;
-
-  const normalAccuracy = percentage(normalCorrectCount, normalRecords.length);
-  const goldenAccuracy = percentage(goldenCorrectCount, goldenRecords.length);
-  const rottenAccuracy = percentage(rottenCorrectCount, rottenRecords.length);
-
-  const goldenTotal = goldenRecords.length;
-  const goldenHitCount =
-    goldenTotal > 0 ? goldenRecords.filter(isGoldenHit).length : 0;
-  const goldenMissCount =
-    goldenTotal > 0 ? Math.max(0, goldenTotal - goldenHitCount) : 0;
-  const goldenHitRate =
-    goldenTotal > 0 ? percentage(goldenHitCount, goldenTotal) : 0;
-
-  const rottenTotal = rottenRecords.length;
-  const clickedRottenCount =
-    rottenTotal > 0 ? rottenRecords.filter(isClickedRotten).length : 0;
-  const rottenAvoidedCount =
-    rottenTotal > 0 ? Math.max(0, rottenTotal - clickedRottenCount) : 0;
-  const rottenClickRate =
-    rottenTotal > 0 ? percentage(clickedRottenCount, rottenTotal) : 0;
-  const rottenAvoidRate =
-    rottenTotal > 0 ? percentage(rottenAvoidedCount, rottenTotal) : 0;
-
-  const accuracyScore = getAccuracyScore(accuracyRate);
-  const speedScore = getSpeedScore(avgReactionTime);
-  const stabilityScore = getStabilityScore(rtStd);
-  const attentionScore = getAttentionScore(attentionDrop);
-  const inhibitionScore = Math.max(
-    0,
-    getInhibitionScore(rottenClickRate, rottenTotal)
-  );
-  const rewardSearchScore = getRewardSearchScore(goldenHitRate, goldenTotal);
-
-  const totalScore = clampScore(
-    roundNumber(
-      accuracyScore +
-        speedScore +
-        stabilityScore +
-        attentionScore +
-        inhibitionScore +
-        rewardSearchScore,
-      0
-    ) ?? 0,
-    0,
-    100
-  );
-
-  const starGuards = getStarGuards({
-    accuracyPercent,
-    missRate,
-    rottenClickRate,
-    rottenTotal,
-  });
-
-  const stars = getStarRating(totalScore, starGuards);
-
-  const parentAbilityScores = {
-    responseAccuracy: accuracyPercent,
-    reactionSpeed: roundNumber((speedScore / 25) * 100, 0),
-    responseStability: roundNumber((stabilityScore / 15) * 100, 0),
-    attentionMaintenance: roundNumber((attentionScore / 10) * 100, 0),
-    inhibitionControl: roundNumber((inhibitionScore / 10) * 100, 0),
-    rewardSearch: roundNumber((rewardSearchScore / 5) * 100, 0),
-  };
-
-  const distractorMetrics = {
-    goldenTotal,
-    goldenHitCount,
-    goldenMissCount,
-    goldenHitRate,
-    rottenTotal,
-    clickedRottenCount,
-    rottenAvoidedCount,
-    rottenClickRate,
-    rottenAvoidRate,
-  };
-
-  return {
-    taskName: "Simple Reaction Time",
-    taskCode: "SRT",
-    mode: "test",
-
-    totalScore,
-    stars,
-    baseStars: getBaseStarRating(totalScore),
-    starGuards,
-
-    summary: {
-      totalTrials,
-      correctCount,
-      wrongCount,
-      timeoutCount,
-      missedCount,
-      falseClickCount,
-      anticipatoryNoiseCount,
-
-      accuracyRate,
-      accuracyPercent,
-      missRate,
-      falseClickRate,
-
-      avgReactionTime,
-      rtStd,
-      firstHalfAvg,
-      secondHalfAvg,
-      attentionDrop,
-      attentionValidCount,
-      attentionDataSufficient,
-      firstHalfValidCount: firstHalfRt.length,
-      secondHalfValidCount: secondHalfRt.length,
-
-      normalAccuracy,
-      goldenAccuracy,
-      brokenAccuracy: rottenAccuracy,
-      rottenAccuracy,
-
-      ...distractorMetrics,
-    },
-
-    scoreBreakdown: {
-      accuracyScore,
-      speedScore,
-      stabilityScore,
-      attentionScore,
-      inhibitionScore,
-      rewardSearchScore,
-    },
-
-    childView: {
-      stars,
-      message: getChildMessage(stars),
-      shortLabel:
-        stars === 3 ? "表現很棒" : stars === 2 ? "表現不錯" : "繼續加油",
-    },
-
-    parentView: {
-      abilityScores: parentAbilityScores,
-      indicators: [
-        {
-          key: "responseAccuracy",
-          label: "反應正確性",
-          value: parentAbilityScores.responseAccuracy,
-          level: getAccuracyLevel(accuracyPercent),
-          description: "觀察孩子是否能在目標出現後，正確完成點擊反應。",
-        },
-        {
-          key: "reactionSpeed",
-          label: "反應速度",
-          value: parentAbilityScores.reactionSpeed,
-          level: getSpeedLevel(avgReactionTime),
-          description: "觀察孩子看到目標後，能多快做出點擊反應。",
-        },
-        {
-          key: "responseStability",
-          label: "反應穩定度",
-          value: parentAbilityScores.responseStability,
-          level: getStabilityLevel(rtStd),
-          description: "觀察孩子每一題的反應是否穩定，是否忽快忽慢。",
-        },
-        {
-          key: "attentionMaintenance",
-          label: "注意力維持",
-          value: parentAbilityScores.attentionMaintenance,
-          level: getAttentionLevel(attentionDrop),
-          description: "觀察孩子後半段是否出現反應變慢或專注力下降。",
-        },
-        {
-          key: "inhibitionControl",
-          label: "干擾抑制",
-          value: parentAbilityScores.inhibitionControl,
-          level: getInhibitionLevel(rottenClickRate, rottenTotal),
-          description: "觀察孩子看到壞橡實時，是否能先辨認並忍住不點。",
-        },
-        {
-          key: "rewardSearch",
-          label: "獎勵目標搜尋",
-          value: parentAbilityScores.rewardSearch,
-          level: getRewardSearchLevel(goldenHitRate, goldenTotal),
-          description: "觀察孩子是否能注意到金色橡實，並成功完成點擊。",
-        },
-      ],
-      plainLanguageSummary: buildParentSummary({
-        accuracyPercent,
-        avgReactionTime,
-        rtStd,
-        attentionDrop,
-        missRate,
-        goldenTotal,
-        goldenHitRate,
-        rottenTotal,
-        rottenClickRate,
-        attentionDataSufficient,
-      }),
-    },
-
-    clinicalView: {
-      totalTrials,
-      correctCount,
-      wrongCount,
-      timeoutCount,
-      missedCount,
-      falseClickCount,
-      anticipatoryNoiseCount,
-
-      accuracyPercent,
-      missRate,
-      falseClickRate,
-
-      avgReactionTime,
-      rtStd,
-      firstHalfAvg,
-      secondHalfAvg,
-      attentionDrop,
-      attentionValidCount,
-      attentionDataSufficient,
-      firstHalfValidCount: firstHalfRt.length,
-      secondHalfValidCount: secondHalfRt.length,
-
-      normalAccuracy,
-      goldenAccuracy,
-      brokenAccuracy: rottenAccuracy,
-      rottenAccuracy,
-
-      ...distractorMetrics,
-
-      interpretationFlags: buildClinicalFlags({
-        accuracyPercent,
-        avgReactionTime,
-        rtStd,
-        attentionDrop,
-        attentionDataSufficient,
-        attentionValidCount,
-        timeoutCount,
-        missedCount,
-        falseClickCount,
-        anticipatoryNoiseCount,
-        totalTrials,
-        goldenTotal,
-        goldenHitRate,
-        rottenTotal,
-        rottenClickRate,
-      }),
-
-      records,
-    },
-
-    records,
-    generatedAt: new Date().toISOString(),
-  };
+  return "反應波動較大";
 }
 
 function buildParentSummary({
   accuracyPercent,
   avgReactionTime,
   rtStd,
-  attentionDrop,
+  attentionRtSlowingMs,
+  attentionDataSufficient,
   missRate,
+  assistedRate,
+  assistEligibleCount,
+  rtCV,
+  unassistedAvgReactionTime,
   goldenTotal,
   goldenHitRate,
   rottenTotal,
   rottenClickRate,
-  attentionDataSufficient,
+  scoringDataSufficient,
 }) {
-  const accuracyText =
-    accuracyPercent >= 85
-      ? "孩子大多能在目標出現後正確完成點擊。"
-      : accuracyPercent >= 65
-      ? "孩子可以完成部分反應，但偶爾會漏點或點錯。"
-      : "孩子在目標出現後的正確反應仍需要更多練習。";
+  const messages = [];
 
-  const speedText =
+  if (!scoringDataSufficient) {
+    messages.push(
+      "本次有效題數或反應時間資料較少，結果建議搭配後續多次紀錄一起觀察。"
+    );
+  }
+
+  if (accuracyPercent >= 85) {
+    messages.push(
+      "孩子大多能在目標出現後正確完成反應。"
+    );
+  } else if (
+    accuracyPercent >= 65
+  ) {
+    messages.push(
+      "孩子可以完成多數反應，但偶爾會漏答或點錯。"
+    );
+  } else {
+    messages.push(
+      "孩子本次正確反應較少，建議先確認規則理解並降低任務負荷。"
+    );
+  }
+
+  if (
     avgReactionTime === null
-      ? "目前有效反應時間資料不足。"
-      : avgReactionTime <= 650
-      ? "反應速度整體很快。"
-      : avgReactionTime <= 850
-      ? "反應速度大致穩定。"
-      : "反應速度較慢，可能需要更多時間注意到目標。";
+  ) {
+    messages.push(
+      "目前有效反應時間資料不足。"
+    );
+  } else if (
+    avgReactionTime <= 650
+  ) {
+    messages.push(
+      "本次反應速度較快。"
+    );
+  } else if (
+    avgReactionTime <= 850
+  ) {
+    messages.push(
+      "本次反應速度大致穩定。"
+    );
+  } else {
+    messages.push(
+      "本次反應速度較慢，可能需要更多時間注意到目標。"
+    );
+  }
 
-  const stabilityText =
-    rtStd === null
-      ? "目前反應穩定度資料不足。"
-      : rtStd <= 180
-      ? "每題反應時間相當穩定。"
-      : rtStd <= 350
-      ? "反應時間略有波動。"
-      : "反應時間變化較大，代表注意力穩定度可以再觀察。";
+  if (rtStd === null) {
+    messages.push(
+      "目前無法完整判斷反應穩定度。"
+    );
+  } else if (rtStd <= 180) {
+    messages.push(
+      "每題反應時間相當穩定。"
+    );
+  } else if (rtStd <= 350) {
+    messages.push(
+      "反應時間稍有波動。"
+    );
+  } else {
+    messages.push(
+      "反應時間變化較大，建議搭配後續紀錄持續觀察。"
+    );
+  }
 
-  const attentionText =
-    !attentionDataSufficient || attentionDrop === null
-      ? "目前有效題數不足，無法完整比較前後段注意力變化。"
-      : attentionDrop <= 120
-      ? "前後段表現差異不大，注意力維持良好。"
-      : attentionDrop <= 300
-      ? "後半段反應略有變慢，可能出現些微疲勞。"
-      : "後半段反應明顯變慢，建議觀察是否有專注力下降。";
+  if (
+    !attentionDataSufficient ||
+    attentionRtSlowingMs === null
+  ) {
+    messages.push(
+      "目前有效反應資料不足，暫不比較前後段注意力變化。"
+    );
+  } else if (
+    attentionRtSlowingMs <= 120
+  ) {
+    messages.push(
+      "前後段反應差異不大，注意力維持大致穩定。"
+    );
+  } else if (
+    attentionRtSlowingMs <= 300
+  ) {
+    messages.push(
+      "後半段反應稍微變慢，可能與疲勞或當下注意力波動有關。"
+    );
+  } else {
+    messages.push(
+      "後半段反應明顯變慢，建議縮短時間或安排短暫休息。"
+    );
+  }
 
-  const missText =
-    missRate >= 25
-      ? "另外，漏點或逾時比例偏高，可能需要確認孩子是否理解規則或是否容易分心。"
-      : "";
+  if (missRate >= 25) {
+    messages.push(
+      "本次漏答或逾時比例偏高，建議確認孩子是否理解規則，或目前速度是否過快。"
+    );
+  }
 
-  const inhibitionText =
-    rottenTotal > 0 && rottenClickRate >= 35
-      ? "在壞橡實出現時，孩子較容易衝動點擊，後續可降低干擾比例並練習先看清楚再點。"
-      : rottenTotal > 0
-      ? "孩子在壞橡實出現時大致能維持抑制控制。"
-      : "";
+  if (
+    assistEligibleCount > 0 &&
+    assistedRate >= 40
+  ) {
+    messages.push(
+      "本次較常需要提示，可先保留低干擾提醒並維持目前難度。"
+    );
+  } else if (
+    assistEligibleCount > 0 &&
+    assistedRate >= 20
+  ) {
+    messages.push(
+      "本次偶爾需要提示，但多數題目仍可自行完成。"
+    );
+  }
 
-  const rewardText =
-    goldenTotal > 0 && goldenHitRate < 50
-      ? "金色橡實的命中率較低，代表獎勵目標搜尋可以再練習。"
-      : goldenTotal > 0
-      ? "孩子能注意到金色橡實並完成點擊。"
-      : "";
+  if (
+    rtCV !== null &&
+    rtCV > 0.4
+  ) {
+    messages.push(
+      "反應時間波動較大，建議搭配多次紀錄一起觀察。"
+    );
+  }
 
-  return `${accuracyText}${speedText}${stabilityText}${attentionText}${missText}${inhibitionText}${rewardText}`;
+  if (
+    unassistedAvgReactionTime !==
+      null &&
+    assistedRate > 0
+  ) {
+    messages.push(
+      `未提示題目的平均反應約 ${(unassistedAvgReactionTime / 1000).toFixed(2)} 秒。`
+    );
+  }
+
+  if (
+    rottenTotal >=
+      MIN_SPECIAL_TRIALS
+  ) {
+    if (
+      rottenClickRate >= 35
+    ) {
+      messages.push(
+        "壞橡實誤點率較高，後續可先降低干擾比例，練習看清楚再點。"
+      );
+    } else {
+      messages.push(
+        "孩子本次大致能控制自己，不會持續點擊壞橡實。"
+      );
+    }
+  }
+
+  if (
+    goldenTotal >=
+      MIN_SPECIAL_TRIALS
+  ) {
+    if (goldenHitRate < 50) {
+      messages.push(
+        "金色橡實命中率較低，可繼續練習獎勵目標搜尋。"
+      );
+    } else {
+      messages.push(
+        "孩子能注意到多數金色橡實並完成點擊。"
+      );
+    }
+  }
+
+  return messages
+    .filter(Boolean)
+    .join(" ");
 }
+
+/* =========================
+   臨床旗標
+   ========================= */
 
 function buildClinicalFlags({
   accuracyPercent,
   avgReactionTime,
   rtStd,
-  attentionDrop,
+  rtCV,
+  attentionRtSlowingMs,
   attentionDataSufficient,
-  attentionValidCount,
-  timeoutCount,
-  missedCount,
-  falseClickCount,
+  assistedRate,
+  assistEligibleCount,
+  missedOrTimeoutCount,
+  backgroundClickCount,
+  repeatedClickCount,
   anticipatoryNoiseCount,
   totalTrials,
-  goldenTotal,
-  goldenHitRate,
   rottenTotal,
   rottenClickRate,
+  goldenTotal,
+  goldenHitRate,
+  scoringDataSufficient,
 }) {
   const flags = [];
+
+  if (!scoringDataSufficient) {
+    flags.push({
+      type: "scoring_data_insufficient",
+      level: "notice",
+      message:
+        "有效題數或有效反應時間不足，總分與能力解讀應搭配後續紀錄。",
+    });
+  }
 
   if (accuracyPercent < 60) {
     flags.push({
       type: "accuracy_low",
       level: "warning",
-      message: "整體正確率偏低，建議觀察是否理解規則或是否有注意力維持困難。",
+      message:
+        "整體正確率偏低，建議確認規則理解、任務速度及注意力狀態。",
     });
   }
 
-  if (avgReactionTime !== null && avgReactionTime > 1100) {
+  if (
+    avgReactionTime !== null &&
+    avgReactionTime > 1100
+  ) {
     flags.push({
       type: "reaction_slow",
       level: "notice",
-      message: "平均反應時間偏慢，可能表示目標偵測或動作反應速度較慢。",
+      message:
+        "平均反應時間偏慢，可能與目標偵測、動作反應或當下狀態有關。",
     });
   }
 
-  if (rtStd !== null && rtStd > 350) {
+  if (
+    rtStd !== null &&
+    rtStd > 350
+  ) {
     flags.push({
       type: "stability_low",
       level: "notice",
-      message: "反應時間變異較大，可能代表注意力穩定度不足或反應節奏不穩。",
+      message:
+        "反應時間變異較大，建議觀察反應節奏與注意力穩定度。",
     });
   }
 
-  if (!attentionDataSufficient && attentionValidCount < 2) {
+  if (
+    rtCV !== null &&
+    rtCV > 0.4
+  ) {
+    flags.push({
+      type: "rt_cv_high",
+      level: "notice",
+      message:
+        "反應時間變異係數偏高，代表反應速度波動較大。",
+    });
+  }
+
+  if (
+    assistEligibleCount > 0 &&
+    assistedRate > 40
+  ) {
+    flags.push({
+      type: "assisted_rate_high",
+      level: "notice",
+      message:
+        "提示比例偏高，代表本次較常需要低干擾提醒。",
+    });
+  }
+
+  if (!attentionDataSufficient) {
     flags.push({
       type: "attention_data_insufficient",
       level: "notice",
       message:
-        "有效正確反應時間少於 2 筆，未計算前後半注意力下降值以避免零除或 NaN。",
+        "有效反應時間不足，未完整判斷前後半注意力變化。",
     });
   }
 
-  if (attentionDrop !== null && attentionDrop > 300) {
+  if (
+    attentionRtSlowingMs !==
+      null &&
+    attentionRtSlowingMs > 300
+  ) {
     flags.push({
       type: "attention_drop",
       level: "warning",
-      message: "後半段反應明顯變慢，可能代表疲勞或持續注意力下降。",
+      message:
+        "後半段反應明顯變慢，建議觀察疲勞或持續注意力變化。",
     });
   }
 
-  if (totalTrials > 0 && timeoutCount / totalTrials >= 0.2) {
-    flags.push({
-      type: "timeout_high",
-      level: "warning",
-      message: "逾時比例偏高，建議確認孩子是否理解任務或反應時間限制是否過短。",
-    });
-  }
-
-  if (totalTrials > 0 && missedCount / totalTrials >= 0.2) {
+  if (
+    totalTrials > 0 &&
+    missedOrTimeoutCount /
+      totalTrials >=
+      0.2
+  ) {
     flags.push({
       type: "miss_high",
       level: "warning",
-      message: "漏點比例偏高，可能表示孩子沒有注意到目標或容易分心。",
+      message:
+        "漏答或逾時比例偏高，建議確認規則理解與反應時間設定。",
     });
   }
 
-  if (totalTrials > 0 && falseClickCount / totalTrials >= 0.2) {
+  if (
+    totalTrials > 0 &&
+    backgroundClickCount /
+      totalTrials >=
+      0.2
+  ) {
     flags.push({
-      type: "false_click_high",
+      type: "background_click_high",
       level: "notice",
-      message: "誤點比例偏高，可能表示衝動點擊或尚未穩定掌握規則。",
+      message:
+        "空白區域點擊比例偏高，可能有衝動點擊或操作定位不穩。",
+    });
+  }
+
+  if (
+    totalTrials > 0 &&
+    repeatedClickCount /
+      totalTrials >=
+      0.1
+  ) {
+    flags.push({
+      type: "repeated_click_high",
+      level: "notice",
+      message:
+        "重複點擊次數偏高，建議確認觸控事件、操作習慣或衝動反應。",
     });
   }
 
@@ -840,23 +1655,33 @@ function buildClinicalFlags({
       type: "anticipatory_noise_filtered",
       level: "notice",
       message:
-        "已過濾小於 150ms 的預期性誤觸雜訊，避免污染反應時間與壞橡實懲罰。",
+        "已排除小於 150ms 的預期性誤觸，避免污染反應時間統計。",
     });
   }
 
-  if (rottenTotal > 0 && rottenClickRate >= 35) {
+  if (
+    rottenTotal >=
+      MIN_SPECIAL_TRIALS &&
+    rottenClickRate >= 35
+  ) {
     flags.push({
       type: "inhibition_control_low",
       level: "warning",
-      message: "壞橡實誤點率偏高，可能表示干擾抑制或衝動控制較不穩定。",
+      message:
+        "壞橡實誤點率偏高，建議觀察干擾抑制與衝動控制表現。",
     });
   }
 
-  if (goldenTotal >= 3 && goldenHitRate < 50) {
+  if (
+    goldenTotal >=
+      MIN_SPECIAL_TRIALS &&
+    goldenHitRate < 50
+  ) {
     flags.push({
-      type: "reward_attention_low",
+      type: "reward_search_low",
       level: "notice",
-      message: "金色橡實命中率偏低，可能表示獎勵目標搜尋或視覺注意分配較不穩定。",
+      message:
+        "金色橡實命中率偏低，可觀察獎勵目標搜尋與視覺注意分配。",
     });
   }
 
@@ -864,12 +1689,1042 @@ function buildClinicalFlags({
     flags.push({
       type: "normal",
       level: "normal",
-      message: "目前未看到明顯異常旗標，可搭配其他 EF 任務一起解讀。",
+      message:
+        "本次未出現明顯異常旗標，建議搭配多次紀錄與其他任務一起解讀。",
     });
   }
 
   return flags;
 }
+
+/* =========================
+   主要評分函式
+   ========================= */
+
+export function calculateSrtScore(
+  inputRecords = [],
+  options = {}
+) {
+  const {
+    mode = "test",
+    baselineAvgRT = null,
+    deviceType = null,
+  } = options;
+
+  const allRecords = safeArray(
+    inputRecords
+  ).map(normalizeSrtRecord);
+
+  const trialRecords =
+    allRecords.filter(isTrialRecord);
+
+  const behaviorRecords =
+    allRecords.filter(isBehaviorRecord);
+
+  const totalTrials =
+    trialRecords.length;
+
+  const hitRecords =
+    trialRecords.filter(isHitRecord);
+
+  const correctAvoidRecords =
+    trialRecords.filter(
+      isCorrectAvoidRecord
+    );
+
+  const correctRecords = [
+    ...hitRecords,
+    ...correctAvoidRecords,
+  ];
+
+  const wrongRecords =
+    trialRecords.filter(
+      (record) =>
+        record.isCorrect === false &&
+        record.missed !== true &&
+        record.timeout !== true &&
+        !isAnticipatoryNoise(
+          record
+        )
+    );
+
+  const timeoutRecords =
+    trialRecords.filter(
+      (record) =>
+        record.timeout === true
+    );
+
+  const missedRecords =
+    trialRecords.filter(
+      (record) =>
+        record.missed === true
+    );
+
+  const missedOrTimeoutRecords =
+    trialRecords.filter(
+      (record) =>
+        record.missed === true ||
+        record.timeout === true
+    );
+
+  const anticipatoryNoiseRecords =
+    trialRecords.filter(
+      isAnticipatoryNoise
+    );
+
+  const backgroundClickRecords =
+    allRecords.filter(
+      (record) =>
+        record.trainingAction ===
+        "backgroundClick"
+    );
+
+  const repeatedClickRecords =
+    allRecords.filter(
+      (record) =>
+        record.trainingAction ===
+        "repeatedClick"
+    );
+
+  const assistEligibleRecords =
+    trialRecords.filter((record) =>
+      ["normal", "golden"].includes(
+        record.targetType
+      )
+    );
+
+  const assistedRecords =
+    assistEligibleRecords.filter(
+      (record) =>
+        record.assisted === true
+    );
+
+  const unassistedEligibleRecords =
+    assistEligibleRecords.filter(
+      (record) =>
+        record.assisted !== true
+    );
+
+  const unassistedCorrectRecords =
+    unassistedEligibleRecords.filter(
+      isHitRecord
+    );
+
+  const validCorrectRtRecords =
+    hitRecords.filter((record) =>
+      isValidReactionTime(
+        record.reactionTime
+      )
+    );
+
+  const correctReactionTimes =
+    validCorrectRtRecords.map(
+      (record) =>
+        record.reactionTime
+    );
+
+  const avgReactionTime =
+    roundNumber(
+      average(
+        correctReactionTimes
+      ),
+      0
+    );
+
+  const rtStd = roundNumber(
+    standardDeviation(
+      correctReactionTimes
+    ),
+    0
+  );
+
+  const rtCV =
+    avgReactionTime !== null &&
+    avgReactionTime > 0 &&
+    rtStd !== null
+      ? roundNumber(
+          rtStd /
+            avgReactionTime,
+          2
+        )
+      : null;
+
+  const unassistedCorrectRtRecords =
+    unassistedCorrectRecords.filter(
+      (record) =>
+        isValidReactionTime(
+          record.reactionTime
+        )
+    );
+
+  const assistedCorrectRtRecords =
+    assistedRecords.filter(
+      (record) =>
+        isHitRecord(record) &&
+        isValidReactionTime(
+          record.reactionTime
+        )
+    );
+
+  const unassistedAvgReactionTime =
+    roundNumber(
+      average(
+        unassistedCorrectRtRecords.map(
+          (record) =>
+            record.reactionTime
+        )
+      ),
+      0
+    );
+
+  const assistedAvgReactionTime =
+    roundNumber(
+      average(
+        assistedCorrectRtRecords.map(
+          (record) =>
+            record.reactionTime
+        )
+      ),
+      0
+    );
+
+  const correctCount =
+    correctRecords.length;
+
+  const wrongCount =
+    wrongRecords.length;
+
+  const timeoutCount =
+    timeoutRecords.length;
+
+  const missedCount =
+    missedRecords.length;
+
+  const missedOrTimeoutCount =
+    missedOrTimeoutRecords.length;
+
+  const anticipatoryNoiseCount =
+    anticipatoryNoiseRecords.length;
+
+  const backgroundClickCount =
+    backgroundClickRecords.length;
+
+  const repeatedClickCount =
+    repeatedClickRecords.length;
+
+  const falseClickCount =
+    backgroundClickCount +
+    repeatedClickCount;
+
+  const assistedCount =
+    assistedRecords.length;
+
+  const assistEligibleCount =
+    assistEligibleRecords.length;
+
+  const accuracyRate =
+    totalTrials > 0
+      ? correctCount /
+        totalTrials
+      : 0;
+
+  const accuracyPercent =
+    percentage(
+      correctCount,
+      totalTrials
+    );
+
+  const missRate = percentage(
+    missedOrTimeoutCount,
+    totalTrials
+  );
+
+  const falseClickRate =
+    percentage(
+      falseClickCount,
+      totalTrials
+    );
+
+  const backgroundClickRate =
+    percentage(
+      backgroundClickCount,
+      totalTrials
+    );
+
+  const repeatedClickRate =
+    percentage(
+      repeatedClickCount,
+      totalTrials
+    );
+
+  const assistedRate =
+    percentage(
+      assistedCount,
+      assistEligibleCount
+    );
+
+  const unassistedAccuracy =
+    percentage(
+      unassistedCorrectRecords.length,
+      unassistedEligibleRecords.length
+    );
+
+  const normalRecords =
+    trialRecords.filter(
+      isNormalRecord
+    );
+
+  const goldenRecords =
+    trialRecords.filter(
+      isGoldenRecord
+    );
+
+  const rottenRecords =
+    trialRecords.filter(
+      isRottenRecord
+    );
+
+  const normalCorrectCount =
+    normalRecords.filter(
+      isHitRecord
+    ).length;
+
+  const goldenHitCount =
+    goldenRecords.filter(
+      isGoldenHit
+    ).length;
+
+  const goldenTotal =
+    goldenRecords.length;
+
+  const goldenMissCount =
+    Math.max(
+      0,
+      goldenTotal -
+        goldenHitCount
+    );
+
+  const goldenHitRate =
+    goldenTotal > 0
+      ? percentage(
+          goldenHitCount,
+          goldenTotal
+        )
+      : null;
+
+  const clickedRottenCount =
+    rottenRecords.filter(
+      isClickedRotten
+    ).length;
+
+  const rottenTotal =
+    rottenRecords.length;
+
+  const rottenAvoidedCount =
+    Math.max(
+      0,
+      rottenTotal -
+        clickedRottenCount
+    );
+
+  const rottenClickRate =
+    rottenTotal > 0
+      ? percentage(
+          clickedRottenCount,
+          rottenTotal
+        )
+      : null;
+
+  const rottenAvoidRate =
+    rottenTotal > 0
+      ? percentage(
+          rottenAvoidedCount,
+          rottenTotal
+        )
+      : null;
+
+  const normalAccuracy =
+    percentage(
+      normalCorrectCount,
+      normalRecords.length
+    );
+
+  const goldenAccuracy =
+    goldenHitRate ?? 0;
+
+  const rottenAccuracy =
+    rottenAvoidRate ?? 0;
+
+  const halfAttentionMetrics =
+    buildHalfAttentionMetrics(
+      validCorrectRtRecords
+    );
+
+  const longAttentionMetrics =
+    buildLongAttentionMetrics(
+      trialRecords
+    );
+
+  const inhibitionDataSufficient =
+    rottenTotal >=
+    MIN_SPECIAL_TRIALS;
+
+  const rewardDataSufficient =
+    goldenTotal >=
+    MIN_SPECIAL_TRIALS;
+
+  const scoringDataSufficient =
+    totalTrials >=
+      MIN_SCORING_TRIALS &&
+    validCorrectRtRecords.length >=
+      MIN_VALID_RT_COUNT;
+
+  const accuracyScore =
+    getAccuracyScore(
+      accuracyPercent
+    );
+
+  const speedScore =
+    getSpeedScore(
+      avgReactionTime
+    );
+
+  const stabilityScore =
+    getStabilityScore(rtStd);
+
+  const attentionScore =
+    getAttentionScore(
+      halfAttentionMetrics
+        .attentionRtSlowingMs,
+      halfAttentionMetrics
+        .attentionDataSufficient
+    );
+
+  const inhibitionScore =
+    getInhibitionScore({
+      rottenClickRate,
+      rottenTotal,
+    });
+
+  const rewardSearchScore =
+    getRewardSearchScore({
+      goldenHitRate,
+      goldenTotal,
+    });
+
+  const scoreBreakdown = {
+    accuracyScore,
+    speedScore,
+    stabilityScore,
+    attentionScore,
+    inhibitionScore,
+    rewardSearchScore,
+  };
+
+  const weightedScore =
+    calculateWeightedTotal(
+      scoreBreakdown
+    );
+
+  const totalScore =
+    weightedScore.totalScore;
+
+  const starGuards =
+    getStarGuards({
+      accuracyPercent,
+      missRate,
+      rottenClickRate,
+      rottenTotal,
+      assistedRate,
+      scoringDataSufficient,
+    });
+
+  const stars = getStarRating(
+    totalScore,
+    starGuards
+  );
+
+  const relativeRtChange =
+    Number.isFinite(
+      baselineAvgRT
+    ) &&
+    baselineAvgRT > 0 &&
+    avgReactionTime !== null
+      ? roundNumber(
+          (
+            (avgReactionTime -
+              baselineAvgRT) /
+            baselineAvgRT
+          ) * 100,
+          0
+        )
+      : null;
+
+  const dataQuality = {
+    totalRecords:
+      allRecords.length,
+    totalTrials,
+    behaviorRecordCount:
+      behaviorRecords.length,
+
+    validRTCount:
+      validCorrectRtRecords.length,
+
+    anticipatoryNoiseCount,
+
+    scoringDataSufficient,
+
+    attentionDataSufficient:
+      halfAttentionMetrics
+        .attentionDataSufficient,
+
+    longAttentionDataSufficient:
+      longAttentionMetrics
+        .dataSufficient,
+
+    inhibitionDataSufficient,
+    rewardDataSufficient,
+
+    minValidReactionTime:
+      MIN_VALID_REACTION_TIME_MS,
+
+    minScoringTrials:
+      MIN_SCORING_TRIALS,
+
+    minValidRtCount:
+      MIN_VALID_RT_COUNT,
+
+    minSpecialTrials:
+      MIN_SPECIAL_TRIALS,
+  };
+
+  const distractorMetrics = {
+    goldenTotal,
+    goldenHitCount,
+    goldenMissCount,
+    goldenHitRate,
+
+    rottenTotal,
+    clickedRottenCount,
+    rottenAvoidedCount,
+    rottenClickRate,
+    rottenAvoidRate,
+
+    inhibitionDataSufficient,
+    rewardDataSufficient,
+  };
+
+  const parentAbilityScores = {
+    responseAccuracy:
+      accuracyPercent,
+
+    reactionSpeed:
+      speedScore === null
+        ? null
+        : roundNumber(
+            (
+              speedScore /
+              SCORE_WEIGHTS.speed
+            ) * 100,
+            0
+          ),
+
+    responseStability:
+      stabilityScore === null
+        ? null
+        : roundNumber(
+            (
+              stabilityScore /
+              SCORE_WEIGHTS.stability
+            ) * 100,
+            0
+          ),
+
+    attentionMaintenance:
+      attentionScore === null
+        ? null
+        : roundNumber(
+            (
+              attentionScore /
+              SCORE_WEIGHTS.attention
+            ) * 100,
+            0
+          ),
+
+    inhibitionControl:
+      inhibitionScore === null
+        ? null
+        : roundNumber(
+            (
+              inhibitionScore /
+              SCORE_WEIGHTS.inhibition
+            ) * 100,
+            0
+          ),
+
+    rewardSearch:
+      rewardSearchScore === null
+        ? null
+        : roundNumber(
+            (
+              rewardSearchScore /
+              SCORE_WEIGHTS.rewardSearch
+            ) * 100,
+            0
+          ),
+  };
+
+  const parentSummary =
+    buildParentSummary({
+      accuracyPercent,
+      avgReactionTime,
+      rtStd,
+
+      attentionRtSlowingMs:
+        halfAttentionMetrics
+          .attentionRtSlowingMs,
+
+      attentionDataSufficient:
+        halfAttentionMetrics
+          .attentionDataSufficient,
+
+      missRate,
+      assistedRate,
+      assistEligibleCount,
+      rtCV,
+      unassistedAvgReactionTime,
+
+      goldenTotal,
+      goldenHitRate:
+        goldenHitRate ?? 0,
+
+      rottenTotal,
+      rottenClickRate:
+        rottenClickRate ?? 0,
+
+      scoringDataSufficient,
+    });
+
+  const interpretationFlags =
+    buildClinicalFlags({
+      accuracyPercent,
+      avgReactionTime,
+      rtStd,
+      rtCV,
+
+      attentionRtSlowingMs:
+        halfAttentionMetrics
+          .attentionRtSlowingMs,
+
+      attentionDataSufficient:
+        halfAttentionMetrics
+          .attentionDataSufficient,
+
+      assistedRate,
+      assistEligibleCount,
+
+      missedOrTimeoutCount,
+      backgroundClickCount,
+      repeatedClickCount,
+      anticipatoryNoiseCount,
+      totalTrials,
+
+      rottenTotal,
+      rottenClickRate:
+        rottenClickRate ?? 0,
+
+      goldenTotal,
+      goldenHitRate:
+        goldenHitRate ?? 0,
+
+      scoringDataSufficient,
+    });
+
+  return {
+    taskName:
+      "Simple Reaction Time",
+
+    taskCode: "SRT",
+    mode,
+
+    totalScore,
+    stars,
+
+    baseStars:
+      getBaseStarRating(
+        totalScore
+      ),
+
+    starGuards,
+    dataQuality,
+
+    scoreMeta: {
+      earnedScore:
+        weightedScore.earnedScore,
+
+      availableScore:
+        weightedScore.availableScore,
+
+      validScoreKeys:
+        weightedScore.validScoreKeys,
+
+      unavailableScoreKeys:
+        weightedScore.unavailableScoreKeys,
+
+      normalizedTo100: true,
+    },
+
+    summary: {
+      totalTrials,
+      correctCount,
+      wrongCount,
+
+      timeoutCount,
+      missedCount,
+      missedOrTimeoutCount,
+
+      falseClickCount,
+      backgroundClickCount,
+      repeatedClickCount,
+
+      anticipatoryNoiseCount,
+
+      accuracyRate,
+      accuracyPercent,
+      missRate,
+
+      falseClickRate,
+      backgroundClickRate,
+      repeatedClickRate,
+
+      assistedCount,
+      assistEligibleCount,
+      assistedRate,
+
+      unassistedCorrectCount:
+        unassistedCorrectRecords.length,
+
+      unassistedAccuracy,
+
+      avgReactionTime,
+      unassistedAvgReactionTime,
+      assistedAvgReactionTime,
+
+      rtStd,
+      rtCV,
+
+      firstHalfAvg:
+        halfAttentionMetrics
+          .firstHalfAvg,
+
+      secondHalfAvg:
+        halfAttentionMetrics
+          .secondHalfAvg,
+
+      attentionRtSlowingMs:
+        halfAttentionMetrics
+          .attentionRtSlowingMs,
+
+      // 向下相容舊版 ResultPage
+      attentionDrop:
+        halfAttentionMetrics
+          .attentionRtSlowingMs,
+
+      attentionValidCount:
+        halfAttentionMetrics
+          .attentionValidCount,
+
+      attentionDataSufficient:
+        halfAttentionMetrics
+          .attentionDataSufficient,
+
+      firstHalfValidCount:
+        halfAttentionMetrics
+          .firstHalfValidCount,
+
+      secondHalfValidCount:
+        halfAttentionMetrics
+          .secondHalfValidCount,
+
+      longAttentionMetrics,
+
+      normalAccuracy,
+      goldenAccuracy,
+
+      brokenAccuracy:
+        rottenAccuracy,
+
+      rottenAccuracy,
+
+      relativeRtChange,
+      baselineAvgRT,
+      deviceType,
+
+      ...distractorMetrics,
+    },
+
+    scoreBreakdown,
+
+    childView: {
+      stars,
+
+      message:
+        getChildMessage(stars),
+
+      shortLabel:
+        stars === 3
+          ? "表現很棒"
+          : stars === 2
+          ? "表現不錯"
+          : "繼續加油",
+
+      dataSufficient:
+        scoringDataSufficient,
+    },
+
+    parentView: {
+      abilityScores:
+        parentAbilityScores,
+
+      indicators: [
+        {
+          key:
+            "responseAccuracy",
+          label:
+            "反應正確性",
+          value:
+            parentAbilityScores
+              .responseAccuracy,
+          level:
+            getAccuracyLevel(
+              accuracyPercent
+            ),
+          description:
+            "觀察目標出現後，是否能正確完成點擊或避開壞橡實。",
+        },
+        {
+          key:
+            "reactionSpeed",
+          label:
+            "反應速度",
+          value:
+            parentAbilityScores
+              .reactionSpeed,
+          level:
+            getSpeedLevel(
+              avgReactionTime
+            ),
+          description:
+            "觀察看到目標後，需要多久做出反應。",
+        },
+        {
+          key:
+            "responseStability",
+          label:
+            "反應穩定度",
+          value:
+            parentAbilityScores
+              .responseStability,
+          level:
+            getStabilityLevel(
+              rtStd
+            ),
+          description:
+            "觀察不同題目的反應時間是否穩定。",
+        },
+        {
+          key:
+            "assistNeed",
+          label:
+            "提示需求",
+          value:
+            assistEligibleCount > 0
+              ? assistedRate
+              : null,
+          level:
+            getAssistLevel(
+              assistedRate,
+              assistEligibleCount
+            ),
+          description:
+            "觀察普通與金色橡實題目是否需要提示協助。",
+        },
+        {
+          key:
+            "rtCV",
+          label:
+            "反應波動",
+          value:
+            rtCV === null
+              ? null
+              : roundNumber(
+                  rtCV * 100,
+                  0
+                ),
+          level:
+            getRtCvLevel(rtCV),
+          description:
+            "反應時間變異係數越高，代表反應越不穩定。",
+        },
+        {
+          key:
+            "attentionMaintenance",
+          label:
+            "注意力維持",
+          value:
+            parentAbilityScores
+              .attentionMaintenance,
+          level:
+            getAttentionLevel({
+              attentionRtSlowingMs:
+                halfAttentionMetrics
+                  .attentionRtSlowingMs,
+              attentionDataSufficient:
+                halfAttentionMetrics
+                  .attentionDataSufficient,
+            }),
+          description:
+            "觀察後半段是否出現反應變慢。",
+        },
+        {
+          key:
+            "inhibitionControl",
+          label:
+            "干擾抑制",
+          value:
+            parentAbilityScores
+              .inhibitionControl,
+          level:
+            getInhibitionLevel({
+              rottenClickRate:
+                rottenClickRate ??
+                0,
+              rottenTotal,
+            }),
+          description:
+            "觀察看到壞橡實時，是否能忍住不點。",
+        },
+        {
+          key:
+            "rewardSearch",
+          label:
+            "獎勵目標搜尋",
+          value:
+            parentAbilityScores
+              .rewardSearch,
+          level:
+            getRewardSearchLevel({
+              goldenHitRate:
+                goldenHitRate ??
+                0,
+              goldenTotal,
+            }),
+          description:
+            "觀察是否能注意到金色橡實並完成點擊。",
+        },
+      ],
+
+      plainLanguageSummary:
+        parentSummary,
+
+      dataQuality,
+    },
+
+    clinicalView: {
+      totalTrials,
+      correctCount,
+      wrongCount,
+
+      timeoutCount,
+      missedCount,
+      missedOrTimeoutCount,
+
+      falseClickCount,
+      backgroundClickCount,
+      repeatedClickCount,
+
+      anticipatoryNoiseCount,
+
+      accuracyPercent,
+      missRate,
+
+      falseClickRate,
+      backgroundClickRate,
+      repeatedClickRate,
+
+      assistedCount,
+      assistEligibleCount,
+      assistedRate,
+
+      unassistedAccuracy,
+
+      avgReactionTime,
+      unassistedAvgReactionTime,
+      assistedAvgReactionTime,
+
+      rtStd,
+      rtCV,
+
+      firstHalfAvg:
+        halfAttentionMetrics
+          .firstHalfAvg,
+
+      secondHalfAvg:
+        halfAttentionMetrics
+          .secondHalfAvg,
+
+      attentionRtSlowingMs:
+        halfAttentionMetrics
+          .attentionRtSlowingMs,
+
+      attentionDrop:
+        halfAttentionMetrics
+          .attentionRtSlowingMs,
+
+      attentionValidCount:
+        halfAttentionMetrics
+          .attentionValidCount,
+
+      attentionDataSufficient:
+        halfAttentionMetrics
+          .attentionDataSufficient,
+
+      longAttentionMetrics,
+
+      normalAccuracy,
+      goldenAccuracy,
+
+      brokenAccuracy:
+        rottenAccuracy,
+
+      rottenAccuracy,
+
+      relativeRtChange,
+      baselineAvgRT,
+      deviceType,
+
+      ...distractorMetrics,
+
+      dataQuality,
+      interpretationFlags,
+
+      records: allRecords,
+      trialRecords,
+      behaviorRecords,
+    },
+
+    records: allRecords,
+    trialRecords,
+    behaviorRecords,
+
+    generatedAt:
+      new Date().toISOString(),
+  };
+}
+
+/* =========================
+   舊版星級函式相容
+   ========================= */
 
 export function calculateSRTStar({
   hitRate = 0,
@@ -881,76 +2736,164 @@ export function calculateSRTStar({
   hitCount = 0,
   missCount = 0,
   falseClickCount = 0,
+  assistedCount = 0,
   reactionTimes = [],
 }) {
-  const validReactionTimes = safeArray(reactionTimes).filter(
-    isValidReactionTime
-  );
+  const validReactionTimes =
+    safeArray(
+      reactionTimes
+    ).filter(
+      isValidReactionTime
+    );
 
-  const attentionFromReactionTimes = splitValidReactionTimesForAttention(
-    validReactionTimes.map((reactionTime) => ({ reactionTime }))
-  );
+  const attentionRtSlowingMs =
+    Number.isFinite(
+      firstHalfAvg
+    ) &&
+    Number.isFinite(
+      secondHalfAvg
+    )
+      ? secondHalfAvg -
+        firstHalfAvg
+      : null;
 
-  const attentionDrop =
-    firstHalfAvg !== null &&
-    secondHalfAvg !== null &&
-    Number.isFinite(firstHalfAvg) &&
-    Number.isFinite(secondHalfAvg)
-      ? roundNumber(secondHalfAvg - firstHalfAvg, 0)
-      : attentionFromReactionTimes.attentionDrop;
+  const accuracyScore =
+    getAccuracyScore(hitRate);
 
-  const accuracyRate = Number.isFinite(hitRate) ? hitRate / 100 : 0;
+  const speedScore =
+    getSpeedScore(avgRT);
 
-  const accuracyScore = getAccuracyScore(accuracyRate);
-  const speedScore = getSpeedScore(avgRT);
-  const stabilityScore = getStabilityScore(stdRT);
-  const attentionScore = getAttentionScore(attentionDrop);
+  const stabilityScore =
+    getStabilityScore(stdRT);
 
-  const inhibitionScore = 10;
-  const rewardSearchScore = 5;
+  const attentionScore =
+    getAttentionScore(
+      attentionRtSlowingMs,
+      attentionRtSlowingMs !== null
+    );
 
-  const totalScore = clampScore(
-    roundNumber(
-      accuracyScore +
-        speedScore +
-        stabilityScore +
-        attentionScore +
-        inhibitionScore +
-        rewardSearchScore,
-      0
-    ) ?? 0,
-    0,
-    100
-  );
+  const weightedScore =
+    calculateWeightedTotal({
+      accuracyScore,
+      speedScore,
+      stabilityScore,
+      attentionScore,
 
-  const missRate = percentage(missCount, totalTrials);
+      // 舊版函式沒有特殊題資料
+      inhibitionScore: null,
+      rewardSearchScore: null,
+    });
 
-  const starGuards = getStarGuards({
-    accuracyPercent: roundNumber(hitRate, 0) ?? 0,
-    missRate,
-    rottenClickRate: 0,
-    rottenTotal: 0,
-  });
+  const missRate =
+    percentage(
+      missCount,
+      totalTrials
+    );
 
-  const stars = getStarRating(totalScore, starGuards);
+  const assistedRate =
+    percentage(
+      assistedCount,
+      totalTrials
+    );
+
+  const scoringDataSufficient =
+    totalTrials >=
+      MIN_SCORING_TRIALS &&
+    validReactionTimes.length >=
+      MIN_VALID_RT_COUNT;
+
+  const starGuards =
+    getStarGuards({
+      accuracyPercent:
+        hitRate,
+
+      missRate,
+
+      rottenClickRate: null,
+      rottenTotal: 0,
+
+      assistedRate,
+
+      scoringDataSufficient,
+    });
+
+  const stars =
+    getStarRating(
+      weightedScore.totalScore,
+      starGuards
+    );
 
   return {
     star: stars,
     stars,
-    baseStars: getBaseStarRating(totalScore),
+
+    baseStars:
+      getBaseStarRating(
+        weightedScore.totalScore
+      ),
+
     starGuards,
-    level: stars === 3 ? "表現很好" : stars === 2 ? "表現不錯" : "需再練習",
-    feedback: getChildMessage(stars),
-    totalScore,
-    attentionDrop: roundNumber(attentionDrop, 0),
+
+    level:
+      stars === 3
+        ? "表現很好"
+        : stars === 2
+        ? "表現不錯"
+        : "需再練習",
+
+    feedback:
+      getChildMessage(stars),
+
+    totalScore:
+      weightedScore.totalScore,
+
+    attentionDrop:
+      attentionRtSlowingMs,
+
+    attentionRtSlowingMs,
 
     parentMetrics: {
-      accuracy: roundNumber(hitRate, 0),
-      speed: roundNumber((speedScore / 25) * 100, 0),
-      stability: roundNumber((stabilityScore / 15) * 100, 0),
-      attention: roundNumber((attentionScore / 10) * 100, 0),
-      inhibition: roundNumber((inhibitionScore / 10) * 100, 0),
-      rewardSearch: roundNumber((rewardSearchScore / 5) * 100, 0),
+      accuracy:
+        roundNumber(
+          hitRate,
+          0
+        ),
+
+      speed:
+        speedScore === null
+          ? null
+          : roundNumber(
+              (
+                speedScore /
+                SCORE_WEIGHTS.speed
+              ) * 100,
+              0
+            ),
+
+      stability:
+        stabilityScore === null
+          ? null
+          : roundNumber(
+              (
+                stabilityScore /
+                SCORE_WEIGHTS.stability
+              ) * 100,
+              0
+            ),
+
+      attention:
+        attentionScore === null
+          ? null
+          : roundNumber(
+              (
+                attentionScore /
+                SCORE_WEIGHTS.attention
+              ) * 100,
+              0
+            ),
+
+      inhibition: null,
+      rewardSearch: null,
     },
 
     clinicalMetrics: {
@@ -958,43 +2901,109 @@ export function calculateSRTStar({
       hitCount,
       missCount,
       falseClickCount,
+      assistedCount,
+      assistedRate,
       hitRate,
       avgRT,
       stdRT,
       firstHalfAvg,
       secondHalfAvg,
-      attentionDrop: roundNumber(attentionDrop, 0),
-      attentionValidCount: attentionFromReactionTimes.attentionValidCount,
-      attentionDataSufficient:
-        attentionFromReactionTimes.attentionDataSufficient,
-      reactionTimes: validReactionTimes,
+      attentionDrop:
+        attentionRtSlowingMs,
+      attentionRtSlowingMs,
+      scoringDataSufficient,
+      reactionTimes:
+        validReactionTimes,
     },
   };
 }
 
-export function getStoredSrtResult() {
+/* =========================
+   localStorage
+   ========================= */
+
+export function getStoredSrtResult(
+  options = {}
+) {
   try {
-    const raw = localStorage.getItem("srtTestResult");
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw);
-
-    if (Array.isArray(parsed)) {
-      return calculateSrtScore(parsed);
+    if (
+      typeof localStorage ===
+      "undefined"
+    ) {
+      return null;
     }
 
-    if (Array.isArray(parsed.records)) {
+    const raw =
+      localStorage.getItem(
+        "srtTestResult"
+      );
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed =
+      JSON.parse(raw);
+
+    if (Array.isArray(parsed)) {
+      return calculateSrtScore(
+        parsed,
+        options
+      );
+    }
+
+    const storedRecords =
+      parsed.records ||
+      parsed.trialRecords ||
+      parsed.resultRecords;
+
+    if (
+      Array.isArray(
+        storedRecords
+      )
+    ) {
       return {
         ...parsed,
-        scoring: calculateSrtScore(parsed.records),
+
+        scoring:
+          calculateSrtScore(
+            storedRecords,
+            {
+              mode:
+                parsed.mode ||
+                options.mode ||
+                "test",
+
+              baselineAvgRT:
+                options.baselineAvgRT,
+
+              deviceType:
+                options.deviceType,
+            }
+          ),
       };
+    }
+
+    if (parsed.scoring) {
+      return parsed;
     }
 
     return null;
   } catch (error) {
-    console.error("讀取 SRT 測驗結果失敗：", error);
+    console.error(
+      "讀取 SRT 結果失敗：",
+      error
+    );
+
     return null;
   }
 }
+
+export {
+  MIN_VALID_REACTION_TIME_MS,
+  MIN_SPECIAL_TRIALS,
+  MIN_LONG_ATTENTION_TRIALS,
+  normalizeSrtRecord,
+};
 
 export default calculateSrtScore;

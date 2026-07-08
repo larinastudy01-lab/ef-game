@@ -1,15 +1,48 @@
-// src/pages/TrainingPage_LB.jsx
-
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/GamePage_LB.css";
+import { saveUnifiedResult } from "../utils/resultManager";
+import {
+  analyzeAndSaveLBTraining,
+  getLBInitialTrainingConfig,
+} from "../ai/lbTrainingAnalyzer";
 
 import backgroundImg from "../asset/LB/background.png";
 import sheepImg from "../asset/LB/sheep.png";
 import homeImg from "../asset/LB/home.png";
-import houseNumber01Img from "../asset/LB/house number_01.png";
-import introVideo from "../asset/SRT_start.mp4";
-import endingVideo from "../asset/SRT_start.mp4";
+import red01Img from "../asset/LB/red_01.png";
+import red02Img from "../asset/LB/red_02.png";
+import red03Img from "../asset/LB/red_03.png";
+import red04Img from "../asset/LB/red_04.png";
+import red05Img from "../asset/LB/red_05.png";
+import red06Img from "../asset/LB/red_06.png";
+import red07Img from "../asset/LB/red_07.png";
+import red08Img from "../asset/LB/red_08.png";
+import red09Img from "../asset/LB/red_09.png";
+import red10Img from "../asset/LB/red_10.png";
+import blue01Img from "../asset/LB/blue_01.png";
+import blue02Img from "../asset/LB/blue_02.png";
+import blue03Img from "../asset/LB/blue_03.png";
+import blue04Img from "../asset/LB/blue_04.png";
+import blue05Img from "../asset/LB/blue_05.png";
+import blue06Img from "../asset/LB/blue_06.png";
+import blue07Img from "../asset/LB/blue_07.png";
+import blue08Img from "../asset/LB/blue_08.png";
+import blue09Img from "../asset/LB/blue_09.png";
+import blue10Img from "../asset/LB/blue_10.png";
+import green01Img from "../asset/LB/green_01.png";
+import green02Img from "../asset/LB/green_02.png";
+import green03Img from "../asset/LB/green_03.png";
+import green04Img from "../asset/LB/green_04.png";
+import green05Img from "../asset/LB/green_05.png";
+import green06Img from "../asset/LB/green_06.png";
+import green07Img from "../asset/LB/green_07.png";
+import green08Img from "../asset/LB/green_08.png";
+import green09Img from "../asset/LB/green_09.png";
+import green10Img from "../asset/LB/green_10.png";
+import introVideo from "../asset/mp4/LB_start.mp4";
+import stepVideo from "../asset/mp4/LB_step.mp4";
+import endingVideo from "../asset/mp4/LB_end.mp4";
 import homeStartBtn from "../asset/home/start.png";
 import homeSkipBtn from "../asset/home/skip.png";
 import homeBackBtn from "../asset/home/back.png";
@@ -17,26 +50,49 @@ import homeAgainBtn from "../asset/home/again.png";
 import homeResultBtn from "../asset/home/result.png";
 import mouseGuideImg from "../asset/mouse.png";
 
-/*
-  =========================================================
-  TrainingPage_LB.jsx
-  Linking Balloons｜綿羊奶奶回家小路訓練頁（初版）
-
-  訓練版設計重點：
-  - 與 TestPage_LB.jsx 使用同一套 LB 素材與門牌互動。
-  - 訓練版允許提示、重試、任務變體與溫和錯誤回饋。
-  - 初版包含 12 個小關卡：順序、倒序、紅藍規則、混合任務。
-  - taskType 支援：guidePath / findSequence / memoryPath / distractorDoors / ruleSwitch / mixedMission。
-  - 訓練資料存入 sessionStorage: LB_TRAINING_RESULT 與 localStorage: lbTrainingResult。
-  - 修正過關判定：用 nextCompleted.length 即時計算，避免 React state 非同步造成跳關。
-  - 修正 RT 起點：引導結束、門牌解鎖並完成畫面繪製後才重設 stepStartTimeRef。
-  - 所有提示、錯誤鎖定、預覽、回顧動畫 timer 都集中 useRef 管理並在跳關/卸載時清除。
-  =========================================================
-*/
-
 const RESULT_ROUTE = "/result-lb";
 const SESSION_KEY = "LB_TRAINING_RESULT";
 const LOCAL_KEY = "lbTrainingResult";
+const COMPLETED_LEVELS_STORAGE_KEY = "ef_game_completed_training_levels";
+const LB_STAGE_STAR_STORAGE_KEY = "ef_game_training_stage_stars";
+const TRAINING_TOTAL_ROUNDS = 1;
+
+const clampNumber = (value, min, max) => {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return min;
+  return Math.min(max, Math.max(min, number));
+};
+
+const clampStarCount = (value) => {
+  const stars = Number(value);
+  if (!Number.isFinite(stars)) return 1;
+  return Math.min(3, Math.max(1, Math.round(stars)));
+};
+
+const safeParse = (value, fallback = null) => {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const getQueryValue = (search, key) => {
+  const params = new URLSearchParams(search || "");
+  return params.get(key);
+};
+
+const DOORPLATE_IMAGES = {
+  red: [red01Img, red02Img, red03Img, red04Img, red05Img, red06Img, red07Img, red08Img, red09Img, red10Img],
+  blue: [blue01Img, blue02Img, blue03Img, blue04Img, blue05Img, blue06Img, blue07Img, blue08Img, blue09Img, blue10Img],
+  green: [green01Img, green02Img, green03Img, green04Img, green05Img, green06Img, green07Img, green08Img, green09Img, green10Img],
+};
+
+function getDoorplateImage(color, number) {
+  const imageColor = color === "red" || color === "blue" ? color : "green";
+  const safeNumber = Math.min(10, Math.max(1, Number(number) || 1));
+  return DOORPLATE_IMAGES[imageColor][safeNumber - 1];
+}
 
 const TRAINING_CONFIG = {
   mode: "training",
@@ -64,47 +120,47 @@ const RULE_TYPES = {
 };
 
 const DOORPLATE_POSITIONS_5 = [
-  { x: 22, y: 64, r: -5 },
-  { x: 38, y: 45, r: 4 },
-  { x: 52, y: 65, r: -3 },
-  { x: 66, y: 44, r: 5 },
-  { x: 80, y: 62, r: -4 },
+  { x: 18, y: 68, r: -4 },
+  { x: 34, y: 55, r: 3 },
+  { x: 50, y: 66, r: -3 },
+  { x: 66, y: 53, r: 4 },
+  { x: 82, y: 64, r: -4 },
 ];
 
 const DOORPLATE_POSITIONS_10 = [
-  { x: 23, y: 64, r: -5 },
-  { x: 34, y: 49, r: 4 },
-  { x: 46, y: 66, r: -3 },
-  { x: 58, y: 50, r: 5 },
-  { x: 70, y: 63, r: -4 },
-  { x: 79, y: 48, r: 4 },
-  { x: 24, y: 34, r: 3 },
-  { x: 40, y: 25, r: -4 },
-  { x: 60, y: 29, r: 4 },
-  { x: 76, y: 33, r: -3 },
+  { x: 12, y: 68, r: -4 },
+  { x: 22, y: 55, r: 3 },
+  { x: 32, y: 66, r: -3 },
+  { x: 42, y: 53, r: 4 },
+  { x: 52, y: 64, r: -4 },
+  { x: 62, y: 51, r: 3 },
+  { x: 72, y: 62, r: -3 },
+  { x: 80, y: 49, r: 4 },
+  { x: 87, y: 36, r: -3 },
+  { x: 91, y: 54, r: 3 },
 ];
 
 const DOORPLATE_POSITIONS_20 = [
-  { x: 21, y: 65, r: -5 },
-  { x: 31, y: 53, r: 4 },
-  { x: 41, y: 67, r: -3 },
-  { x: 51, y: 54, r: 5 },
-  { x: 61, y: 66, r: -5 },
-  { x: 71, y: 52, r: 4 },
-  { x: 80, y: 63, r: -4 },
-  { x: 78, y: 40, r: 5 },
-  { x: 20, y: 43, r: 3 },
-  { x: 29, y: 30, r: -4 },
-  { x: 39, y: 41, r: 4 },
-  { x: 49, y: 28, r: -3 },
-  { x: 59, y: 40, r: 5 },
-  { x: 69, y: 30, r: -4 },
-  { x: 79, y: 27, r: 2 },
-  { x: 27, y: 74, r: 3 },
-  { x: 47, y: 76, r: -2 },
-  { x: 67, y: 74, r: 4 },
-  { x: 36, y: 20, r: 2 },
-  { x: 64, y: 20, r: -2 },
+  { x: 10, y: 30, r: -4 },
+  { x: 19, y: 28, r: 3 },
+  { x: 28, y: 30, r: -3 },
+  { x: 37, y: 28, r: 4 },
+  { x: 46, y: 30, r: -4 },
+  { x: 55, y: 28, r: 3 },
+  { x: 64, y: 30, r: -3 },
+  { x: 73, y: 28, r: 4 },
+  { x: 82, y: 31, r: -3 },
+  { x: 90, y: 40, r: 3 },
+  { x: 82, y: 49, r: -4 },
+  { x: 73, y: 47, r: 3 },
+  { x: 64, y: 49, r: -3 },
+  { x: 55, y: 47, r: 4 },
+  { x: 46, y: 49, r: -4 },
+  { x: 37, y: 47, r: 3 },
+  { x: 28, y: 53, r: -3 },
+  { x: 46, y: 66, r: 4 },
+  { x: 66, y: 66, r: -3 },
+  { x: 86, y: 70, r: 3 },
 ];
 
 const HOME_PATH_POINT = {
@@ -157,16 +213,15 @@ const TRAINING_LEVELS = [
   {
     id: "1-4",
     chapter: "數字小路",
-    title: "避開假門牌",
+    title: "完整數字小路",
     ruleType: RULE_TYPES.FORWARD,
-    taskType: TASK_TYPES.DISTRACTOR_DOORS,
+    taskType: TASK_TYPES.FIND_SEQUENCE,
     maxNumber: 10,
     sequenceLength: 10,
-    distractorCount: 4,
     hintMode: "afterWrong",
     hintAfterWrong: 2,
-    iconHint: "1 → 10  ✕ ?",
-    ability: "抑制控制、視覺辨識",
+    iconHint: "1 → 10",
+    ability: "持續注意、順序搜尋",
   },
   {
     id: "2-1",
@@ -253,7 +308,6 @@ const TRAINING_LEVELS = [
     maxNumber: 5,
     reverseNumbers: true,
     sequenceLength: 10,
-    distractorCount: 2,
     hintMode: "afterWrong",
     hintAfterWrong: 2,
     iconHint: "紅5 → 藍5 → 紅4",
@@ -267,7 +321,6 @@ const TRAINING_LEVELS = [
     taskType: TASK_TYPES.MIXED_MISSION,
     maxNumber: 6,
     sequenceLength: 12,
-    distractorCount: 4,
     shuffleAfterSteps: [4, 8],
     hintMode: "afterWrong",
     hintAfterWrong: 2,
@@ -276,9 +329,118 @@ const TRAINING_LEVELS = [
   },
 ];
 
-function shuffleItems(items) {
-  return [...items].sort(() => Math.random() - 0.5);
+const MAX_LEVEL_PER_GAME = TRAINING_LEVELS.length;
+
+function hasExplicitTrainingLevel(location) {
+  const state = location?.state || {};
+  const search = location?.search || "";
+
+  return Boolean(
+    state.trainingLevel ??
+      state.level ??
+      getQueryValue(search, "level") ??
+      getQueryValue(search, "trainingLevel")
+  );
 }
+
+function applyAdaptiveConfigToLevel(level, adaptiveConfig = {}) {
+  if (!level) return level;
+
+  const nextLevel = { ...level };
+
+  if (adaptiveConfig.hintMode) {
+    nextLevel.hintMode = adaptiveConfig.hintMode;
+  }
+
+  if (Number.isFinite(Number(adaptiveConfig.hintDelayMs))) {
+    nextLevel.hintDelayMs = Number(adaptiveConfig.hintDelayMs);
+  }
+
+  if (Number.isFinite(Number(adaptiveConfig.hintAfterWrong))) {
+    nextLevel.hintAfterWrong = Number(adaptiveConfig.hintAfterWrong);
+  }
+
+  if (Number.isFinite(Number(adaptiveConfig.previewMs))) {
+    nextLevel.previewMs = Number(adaptiveConfig.previewMs);
+  }
+
+  // 低難度時關閉換位干擾；高難度且原關卡允許時保留換位。
+  if (adaptiveConfig.enablePositionShuffle === false) {
+    nextLevel.shuffleAfterSteps = [];
+  }
+
+  return nextLevel;
+}
+
+const getTrainingStageInfo = (location) => {
+  const state = location?.state || {};
+  const search = location?.search || "";
+  const levelFromRoute =
+    state.trainingLevel ??
+    state.level ??
+    getQueryValue(search, "level") ??
+    getQueryValue(search, "trainingLevel");
+
+  const level = clampNumber(levelFromRoute || 1, 1, MAX_LEVEL_PER_GAME);
+  const stageId =
+    state.trainingStageId ||
+    state.stageId ||
+    getQueryValue(search, "stage") ||
+    getQueryValue(search, "trainingStageId") ||
+    `lb-L${level}`;
+
+  return {
+    level,
+    stageId,
+    order: Number(state.trainingOrder || getQueryValue(search, "order") || level),
+    total: Number(state.trainingTotal || getQueryValue(search, "total") || MAX_LEVEL_PER_GAME),
+    todayKey: state.todayKey || getQueryValue(search, "todayKey") || "",
+    abilityLabel: state.abilityLabel || "彈性",
+  };
+};
+
+const saveTrainingStageProgress = ({ stageId, level, stars, finalResult, completed = false }) => {
+  const safeStars = clampStarCount(stars);
+  const resultMap = safeParse(localStorage.getItem("ef_game_training_stage_results"), {});
+  const normalizedResultMap =
+    resultMap && typeof resultMap === "object" && !Array.isArray(resultMap) ? resultMap : {};
+  const nextResultMap = {
+    ...normalizedResultMap,
+    [completed ? stageId : `${stageId}_latestAttempt`]: finalResult,
+  };
+
+  localStorage.setItem("ef_game_training_stage_results", JSON.stringify(nextResultMap));
+
+  if (!completed) {
+    window.dispatchEvent(new Event("storage"));
+    return;
+  }
+
+  const completedLevels = safeParse(localStorage.getItem(COMPLETED_LEVELS_STORAGE_KEY), []);
+  const nextCompletedLevels = Array.isArray(completedLevels)
+    ? [...new Set([...completedLevels, stageId, `lb-${level}`])]
+    : [stageId, `lb-${level}`];
+
+  localStorage.setItem(COMPLETED_LEVELS_STORAGE_KEY, JSON.stringify(nextCompletedLevels));
+  localStorage.setItem(`ef_game_${stageId}_completed`, "true");
+  localStorage.setItem(`ef_game_${stageId}_stars`, String(safeStars));
+  localStorage.setItem(`ef_game_lb_level_${level}_completed`, "true");
+  localStorage.setItem(`ef_game_lb_level_${level}_stars`, String(safeStars));
+  localStorage.setItem(`training_lb_level_${level}_completed`, "true");
+  localStorage.setItem(`training_lb_level_${level}_stars`, String(safeStars));
+  localStorage.setItem(`lb_training_level_${level}_completed`, "true");
+  localStorage.setItem(`lb_training_level_${level}_stars`, String(safeStars));
+
+  const starMap = safeParse(localStorage.getItem(LB_STAGE_STAR_STORAGE_KEY), {});
+  const nextStarMap = {
+    ...(starMap && typeof starMap === "object" && !Array.isArray(starMap) ? starMap : {}),
+    [stageId]: { stars: safeStars, gameId: "lb", level, updatedAt: new Date().toISOString() },
+    [`lb-${level}`]: safeStars,
+  };
+  localStorage.setItem(LB_STAGE_STAR_STORAGE_KEY, JSON.stringify(nextStarMap));
+
+  window.dispatchEvent(new Event("storage"));
+};
 
 function getPositionsForCount(count) {
   if (count <= 5) return DOORPLATE_POSITIONS_5;
@@ -286,11 +448,29 @@ function getPositionsForCount(count) {
   return DOORPLATE_POSITIONS_20;
 }
 
-function withDoorplateMeta(items, positions) {
+function withDoorplateMeta(items, positions, sequence = []) {
+  const positionByKey = new Map();
+  let nextPositionIndex = 0;
+
+  sequence.forEach((sequenceItem) => {
+    if (!sequenceItem?.key || positionByKey.has(sequenceItem.key)) return;
+    positionByKey.set(
+      sequenceItem.key,
+      positions[nextPositionIndex % positions.length]
+    );
+    nextPositionIndex += 1;
+  });
+
+  items.forEach((item) => {
+    if (!item?.key || positionByKey.has(item.key)) return;
+    positionByKey.set(item.key, positions[nextPositionIndex % positions.length]);
+    nextPositionIndex += 1;
+  });
+
   return items.map((item, index) => ({
     ...item,
-    plateImg: houseNumber01Img,
-    position: positions[index % positions.length],
+    plateImg: getDoorplateImage(item.color, item.number),
+    position: positionByKey.get(item.key) || positions[index % positions.length],
   }));
 }
 
@@ -370,17 +550,7 @@ function buildDisplayItems(level) {
     }).flat();
   }
 
-  const distractors = Array.from({ length: level.distractorCount || 0 }, (_, index) => ({
-    key: `fake-${level.id}-${index + 1}`,
-    number: index % 2 === 0 ? "?" : level.maxNumber + index + 1,
-    color: "fake",
-    label: index % 2 === 0 ? "?" : `${level.maxNumber + index + 1}`,
-    expectedColor: null,
-    isDistractor: true,
-  }));
-
-  const items = shuffleItems([...baseItems, ...distractors]);
-  return withDoorplateMeta(items, getPositionsForCount(items.length));
+  return withDoorplateMeta(baseItems, getPositionsForCount(baseItems.length), sequence);
 }
 
 function getExpectedText(expectedItem) {
@@ -422,10 +592,16 @@ function getWrongType(clickedItem, expectedItem) {
   return "sequenceError";
 }
 
-function summarizeLogs(logs) {
-  const correctLogs = logs.filter((log) => log.isCorrect);
-  const wrongLogs = logs.filter((log) => !log.isCorrect);
-  const hintCount = logs.filter((log) => log.hintShown).length;
+function summarizeLogs(logs, options = {}) {
+  const safeLogs = Array.isArray(logs) ? logs : [];
+  const correctLogs = safeLogs.filter((log) => log.isCorrect);
+  const wrongLogs = safeLogs.filter((log) => !log.isCorrect);
+  const hintCount = safeLogs.filter((log) => log.hintShown).length;
+  const expectedSteps = Math.max(0, Number(options.expectedSteps) || 0);
+  const completedSteps = Math.min(correctLogs.length, expectedSteps || correctLogs.length);
+  const completionRate = expectedSteps
+    ? Math.round((completedSteps / expectedSteps) * 100)
+    : (safeLogs.length ? 100 : 0);
   const reactionTimes = correctLogs.map((log) => log.rt).filter((rt) => typeof rt === "number" && rt > 0);
   const avgReactionTime = reactionTimes.length
     ? Math.round(reactionTimes.reduce((sum, rt) => sum + rt, 0) / reactionTimes.length)
@@ -437,12 +613,18 @@ function summarizeLogs(logs) {
     return acc;
   }, {});
 
-  const accuracy = logs.length ? Math.round((correctLogs.length / logs.length) * 100) : 0;
-  const stars = accuracy >= 85 ? 3 : accuracy >= 60 ? 2 : 1;
+  const accuracy = safeLogs.length ? Math.round((correctLogs.length / safeLogs.length) * 100) : 0;
+  const score = Math.round((accuracy * 0.65) + (completionRate * 0.35));
+  const stars = completionRate >= 100 && score >= 85 ? 3 : completionRate >= 60 && score >= 60 ? 2 : 1;
 
   return {
     accuracy,
+    completionRate,
+    completedSteps,
+    expectedSteps,
+    score,
     stars,
+    completed: expectedSteps > 0 && completedSteps >= expectedSteps,
     correctTrials: correctLogs.length,
     wrongTrials: wrongLogs.length,
     hintCount,
@@ -461,7 +643,7 @@ function DoorplateButton({
   memoryHidden,
   onClick,
 }) {
-  const numberText = memoryHidden && !completed && !activeHint ? "" : item.label;
+  const hidePlateNumber = memoryHidden && !completed && !activeHint;
 
   return (
     <button
@@ -496,8 +678,12 @@ function DoorplateButton({
       }}
       aria-label={`${item.color === "red" ? "紅色" : item.color === "blue" ? "藍色" : "門牌"}${item.label}`}
     >
-      <img src={item.plateImg} alt="" className="lb-doorplate-art" draggable="false" aria-hidden="true" />
-      <span className="lb-doorplate-number">{numberText}</span>
+      <img
+        src={item.plateImg}
+        alt={`${item.color === "red" ? "紅色" : item.color === "blue" ? "藍色" : "綠色"}${item.label}號門牌`}
+        className={`lb-doorplate-art ${hidePlateNumber ? "lb-doorplate-art-hidden" : ""}`}
+        draggable="false"
+      />
     </button>
   );
 }
@@ -511,6 +697,7 @@ function LBPathOverlay({ points, active = true }) {
 
   return (
     <svg className="lb-connect-line-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <polyline className="lb-connect-line-outline" points={polylinePoints} />
       <polyline className={active ? "lb-connect-line lb-connect-line-active" : "lb-connect-line"} points={polylinePoints} />
     </svg>
   );
@@ -731,6 +918,11 @@ function TrainingInlineStyle() {
         filter: drop-shadow(0 10px 8px rgba(89, 58, 22, 0.18));
       }
 
+      .lb-doorplate-art-hidden {
+        opacity: 0.18 !important;
+        filter: grayscale(1) brightness(1.35) !important;
+      }
+
       .lb-doorplate-number {
         position: absolute !important;
         left: 50% !important;
@@ -775,19 +967,29 @@ function TrainingInlineStyle() {
         overflow: visible !important;
       }
 
-      .lb-connect-line {
+      .lb-connect-line-outline {
         fill: none !important;
-        stroke: rgba(123, 78, 34, 0.72) !important;
-        stroke-width: 3.4 !important;
+        stroke: rgba(255, 255, 232, 0.95) !important;
+        stroke-width: 9.4 !important;
         stroke-linecap: round !important;
         stroke-linejoin: round !important;
         vector-effect: non-scaling-stroke;
-        filter: drop-shadow(0 3px 4px rgba(94, 63, 28, 0.22));
+        filter: drop-shadow(0 4px 5px rgba(62, 42, 18, 0.34));
+      }
+
+      .lb-connect-line {
+        fill: none !important;
+        stroke: rgba(255, 137, 38, 0.98) !important;
+        stroke-width: 5.4 !important;
+        stroke-linecap: round !important;
+        stroke-linejoin: round !important;
+        vector-effect: non-scaling-stroke;
+        filter: drop-shadow(0 0 5px rgba(255, 218, 82, 0.70));
       }
 
       .lb-connect-line-active {
-        stroke: rgba(92, 58, 24, 0.86) !important;
-        stroke-width: 4.2 !important;
+        stroke: rgba(255, 91, 36, 1) !important;
+        stroke-width: 6.4 !important;
       }
 
       .lb-walking-person {
@@ -905,7 +1107,12 @@ function TrainingInlineStyle() {
         .lb-training-header p { font-size: clamp(14px, 3.3vw, 18px) !important; margin-top: 4px !important; }
         .lb-floating-doorplate-layer { inset: 22px 30px 26px 30px !important; }
         .lb-doorplate-art { width: clamp(52px, 8.4vw, 82px) !important; }
-        .lb-doorplate-number { font-size: clamp(18px, 3vw, 29px) !important; }
+        .lb-doorplate-art-hidden {
+        opacity: 0.18 !important;
+        filter: grayscale(1) brightness(1.35) !important;
+      }
+
+      .lb-doorplate-number { font-size: clamp(18px, 3vw, 29px) !important; }
         .lb-map-home-img { width: clamp(66px, 11vw, 98px) !important; }
         .lb-training-level-grid,
         .lb-training-result-list { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
@@ -1244,8 +1451,10 @@ function TrainingInlineStyle() {
       }
       .lb-guided-skip {
         position: absolute;
-        right: 70px;
+        left: 50%;
+        right: auto;
         bottom: 28px;
+        transform: translateX(-50%);
       }
 
       .lb-cute-stars {
@@ -1280,7 +1489,16 @@ function TrainingInlineStyle() {
         gap: clamp(12px, 2vw, 26px);
         flex-wrap: wrap;
       }
-      .lb-result-content { margin: 2px 0 8px; }
+      .lb-result-content { margin: 8px 0 18px; }
+      .lb-result-panel {
+        min-height: 500px;
+        gap: 24px;
+        padding-top: 42px;
+        padding-bottom: 58px;
+      }
+      .lb-result-panel .lb-result-actions {
+        margin-top: 8px;
+      }
       .lb-result-metrics {
         position: relative;
         z-index: 3;
@@ -1301,6 +1519,53 @@ function TrainingInlineStyle() {
         background: linear-gradient(180deg, #7dd15f 0%, #47a640 100%) !important;
         color: #fff !important;
         box-shadow: 0 8px 0 rgba(52, 126, 43, 0.20), 0 14px 22px rgba(72, 64, 28, 0.16) !important;
+      }
+
+      /* 簡化訓練畫面：移除上方進度條與下方提示，只保留遊戲區與正下方完成按鈕 */
+      .lb-training-simple-frame {
+        position: relative;
+        width: 100vw;
+        height: 100svh;
+        padding: 0;
+        box-sizing: border-box;
+        display: grid;
+        grid-template-rows: minmax(0, 1fr);
+        z-index: 1;
+      }
+
+      .lb-training-simple-play {
+        position: relative;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .lb-training-simple-play .lb-floating-doorplate-layer {
+        inset: 28px 34px 96px;
+      }
+
+      .lb-training-simple-bottom {
+        position: fixed;
+        left: 50%;
+        bottom: clamp(14px, 2.4vh, 28px);
+        transform: translateX(-50%);
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+      }
+
+      .lb-training-simple-finish {
+        min-width: clamp(168px, 15vw, 230px) !important;
+        min-height: clamp(56px, 6.2vh, 76px) !important;
+        padding: 10px 28px !important;
+        border-radius: 24px !important;
+        pointer-events: auto;
+      }
+
+      @media (max-width: 760px) {
+        .lb-training-simple-play .lb-floating-doorplate-layer { inset: 18px 12px 92px; }
+        .lb-training-simple-bottom { bottom: 12px; }
       }
 
       @keyframes lbMouseTap {
@@ -1325,7 +1590,7 @@ function TrainingInlineStyle() {
         .lb-round-icon { width: 116px; height: 116px; }
         .lb-video-panel { width: 94vw; padding: 20px 18px 78px; border-radius: 38px; }
         .lb-video-frame { border-radius: 26px; }
-        .lb-guided-skip { right: 38px; bottom: 22px; }
+        .lb-guided-skip { left: 50%; right: auto; bottom: 22px; transform: translateX(-50%); }
         .lb-result-actions { gap: 10px; }
         .lb-result-metrics { grid-template-columns: 1fr !important; }
       }
@@ -1336,23 +1601,39 @@ function TrainingInlineStyle() {
 
 export default function TrainingPage_LB() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const trainingStage = getTrainingStageInfo(location);
+  const stageLevelIndex = clampNumber(trainingStage.level, 1, TRAINING_LEVELS.length) - 1;
+  const adaptiveInitial = useMemo(() => getLBInitialTrainingConfig(), []);
+  const adaptiveStartIndex = hasExplicitTrainingLevel(location)
+    ? stageLevelIndex
+    : clampNumber(
+        adaptiveInitial?.recommendedLevelIndex ?? stageLevelIndex,
+        0,
+        TRAINING_LEVELS.length - 1
+      );
+  const stageLevel = applyAdaptiveConfigToLevel(
+    TRAINING_LEVELS[adaptiveStartIndex],
+    adaptiveInitial?.trainingConfig
+  );
 
   const [phase, setPhase] = useState("start");
-  const [levelIndex, setLevelIndex] = useState(0);
+  const [levelIndex, setLevelIndex] = useState(adaptiveStartIndex);
   const [stepIndex, setStepIndex] = useState(0);
-  const [displayItems, setDisplayItems] = useState(() => buildDisplayItems(TRAINING_LEVELS[0]));
+  const [displayItems, setDisplayItems] = useState(() => buildDisplayItems(stageLevel));
   const [completedKeys, setCompletedKeys] = useState([]);
   const [clickedPath, setClickedPath] = useState([]);
   const [wrongKey, setWrongKey] = useState(null);
   const [correctGlowKey, setCorrectGlowKey] = useState(null);
   const [hintKey, setHintKey] = useState(null);
   const [isLocked, setIsLocked] = useState(false);
-  const [footerMessage, setFooterMessage] = useState("先選一條小路開始練習");
+  const [, setFooterMessage] = useState("先選一條小路開始練習");
   const [memoryHidden, setMemoryHidden] = useState(false);
   const [walkingIndex, setWalkingIndex] = useState(0);
   const [summary, setSummary] = useState(null);
 
   const delayTimerRef = useRef(null);
+  const wrongFlashTimerRef = useRef(null);
   const hintTimerRef = useRef(null);
   const previewTimerRef = useRef(null);
   const stepRafRef = useRef(null);
@@ -1360,19 +1641,38 @@ export default function TrainingPage_LB() {
   const reviewEndTimerRef = useRef(null);
   const stepStartTimeRef = useRef(0);
   const logsRef = useRef([]);
+  const completedKeysRef = useRef([]);
   const wrongStepCountRef = useRef(0);
   const totalStartedAtRef = useRef(0);
   const clickedPathRef = useRef([]);
   const introVideoRef = useRef(null);
+  const stepVideoRef = useRef(null);
   const endingVideoRef = useRef(null);
 
-  const currentLevel = TRAINING_LEVELS[levelIndex];
+  const currentLevel = useMemo(
+    () =>
+      applyAdaptiveConfigToLevel(
+        TRAINING_LEVELS[levelIndex],
+        adaptiveInitial?.trainingConfig
+      ),
+    [levelIndex, adaptiveInitial]
+  );
   const currentSequence = useMemo(() => buildSequence(currentLevel), [currentLevel]);
+  const adaptiveDifficultyLevel = clampNumber(
+    adaptiveInitial?.difficultyLevel ?? 3,
+    1,
+    5
+  );
+  const adaptiveDifficulty = adaptiveInitial?.difficulty || "normal";
+  const activeFeedbackConfig = {
+    ...TRAINING_CONFIG,
+    ...(adaptiveInitial?.trainingConfig || {}),
+  };
   const expectedItem = currentSequence[stepIndex] || null;
-  const progressText = `${levelIndex + 1} / ${TRAINING_LEVELS.length}`;
 
   function clearTrainingTimers() {
     clearTimeout(delayTimerRef.current);
+    clearTimeout(wrongFlashTimerRef.current);
     clearTimeout(hintTimerRef.current);
     clearTimeout(previewTimerRef.current);
     clearTimeout(reviewEndTimerRef.current);
@@ -1380,6 +1680,7 @@ export default function TrainingPage_LB() {
     cancelAnimationFrame(stepRafRef.current);
 
     delayTimerRef.current = null;
+    wrongFlashTimerRef.current = null;
     hintTimerRef.current = null;
     previewTimerRef.current = null;
     reviewEndTimerRef.current = null;
@@ -1394,6 +1695,7 @@ export default function TrainingPage_LB() {
 
   function pauseAllVideos() {
     pauseVideo(introVideoRef);
+    pauseVideo(stepVideoRef);
     pauseVideo(endingVideoRef);
   }
 
@@ -1441,13 +1743,17 @@ export default function TrainingPage_LB() {
   }, [phase, levelIndex, stepIndex, expectedItem, currentLevel, isLocked]);
 
   function resetLevel(nextLevelIndex) {
-    const level = TRAINING_LEVELS[nextLevelIndex];
+    const level = applyAdaptiveConfigToLevel(
+      TRAINING_LEVELS[nextLevelIndex],
+      adaptiveInitial?.trainingConfig
+    );
     clearTrainingTimers();
 
     setLevelIndex(nextLevelIndex);
     setStepIndex(0);
     setDisplayItems(buildDisplayItems(level));
     setCompletedKeys([]);
+    completedKeysRef.current = [];
     setClickedPath([]);
     clickedPathRef.current = [];
     setWrongKey(null);
@@ -1459,7 +1765,7 @@ export default function TrainingPage_LB() {
     wrongStepCountRef.current = 0;
   }
 
-  function startTraining(startIndex = 0) {
+  function startTraining(startIndex = stageLevelIndex) {
     logsRef.current = [];
     totalStartedAtRef.current = performance.now();
     sessionStorage.removeItem(SESSION_KEY);
@@ -1470,26 +1776,29 @@ export default function TrainingPage_LB() {
   }
 
   function handleIntroVideoEnd() {
-    showLevelIntro(0);
+    setTrainingPhase("stepVideo");
+    setFooterMessage("看看這一關要怎麼玩");
+  }
+
+  function handleStepVideoEnd() {
+    startCurrentLevel();
   }
 
   function handleEndingVideoEnd() {
     setTrainingPhase("result");
   }
 
-  function showLevelIntro(nextIndex) {
-    resetLevel(nextIndex);
-    setTrainingPhase("levelIntro");
-    setFooterMessage("看任務卡，準備練習");
-  }
 
   function startCurrentLevel() {
     resetLevel(levelIndex);
     clearTrainingTimers();
     setTrainingPhase("playing");
-    setFooterMessage(`找：${getExpectedText(buildSequence(TRAINING_LEVELS[levelIndex])[0])}`);
+    const level = applyAdaptiveConfigToLevel(
+      TRAINING_LEVELS[levelIndex],
+      adaptiveInitial?.trainingConfig
+    );
+    setFooterMessage(`找：${getExpectedText(buildSequence(level)[0])}`);
 
-    const level = TRAINING_LEVELS[levelIndex];
     if (level.taskType === TASK_TYPES.MEMORY_PATH) {
       setHintKey(null);
       setMemoryHidden(false);
@@ -1508,7 +1817,9 @@ export default function TrainingPage_LB() {
       task: "LB",
       gameId: "LB",
       mode: TRAINING_CONFIG.mode,
-      difficulty: TRAINING_CONFIG.difficulty,
+      difficulty: adaptiveDifficulty,
+      difficultyLevel: adaptiveDifficultyLevel,
+      difficultyLabel: adaptiveInitial?.difficultyLabel || "普通",
       abilityType: "flexibility",
 
       levelId: currentLevel.id,
@@ -1516,6 +1827,11 @@ export default function TrainingPage_LB() {
       levelTitle: currentLevel.title,
       taskType: currentLevel.taskType,
       ruleType: currentLevel.ruleType,
+      isSwitch: currentLevel.ruleType === RULE_TYPES.RED_BLUE || currentLevel.ruleType === RULE_TYPES.BLUE_RED,
+      hasInterference:
+        currentLevel.taskType === TASK_TYPES.DISTRACTOR_DOORS ||
+        currentLevel.taskType === TASK_TYPES.MIXED_MISSION ||
+        Boolean(currentLevel.shuffleAfterSteps?.length),
       ability: currentLevel.ability,
       trialId: `${currentLevel.id}-${stepIndex + 1}`,
       stepInLevel: stepIndex + 1,
@@ -1568,6 +1884,7 @@ export default function TrainingPage_LB() {
 
     clearTimeout(hintTimerRef.current);
     clearTimeout(delayTimerRef.current);
+    clearTimeout(wrongFlashTimerRef.current);
     setIsLocked(true);
 
     const reactionTime = Math.max(0, Math.round(performance.now() - stepStartTimeRef.current));
@@ -1588,11 +1905,13 @@ export default function TrainingPage_LB() {
     if (correct) {
       wrongStepCountRef.current = 0;
       setCorrectGlowKey(item.key);
+      setWrongKey(null);
       setHintKey(null);
 
       // 過關判定改用本次點擊後即時計算出的 nextCompleted.length，
       // 避免依賴 React 非同步 state 導致混合任務或記憶隱藏關卡判定錯位。
-      const nextCompleted = [...completedKeys, item.key];
+      const nextCompleted = [...completedKeysRef.current, item.key];
+      completedKeysRef.current = nextCompleted;
       setCompletedKeys(nextCompleted);
 
       const isLastStep = nextCompleted.length >= currentSequence.length;
@@ -1611,13 +1930,15 @@ export default function TrainingPage_LB() {
 
         const nextStep = nextCompleted.length;
         if (currentLevel.shuffleAfterSteps?.includes(nextStep)) {
-          setDisplayItems((prev) => withDoorplateMeta(shuffleItems(prev), getPositionsForCount(prev.length)));
-          setFooterMessage("門牌換位置了，重新找找看");
+          setDisplayItems((prev) =>
+            withDoorplateMeta(prev, getPositionsForCount(prev.length), currentSequence)
+          );
+          setFooterMessage("門牌位置已整理，繼續照順序找");
         }
 
         setStepIndex(nextStep);
         setIsLocked(false);
-      }, TRAINING_CONFIG.feedbackDelayCorrectMs);
+      }, activeFeedbackConfig.feedbackDelayCorrectMs);
       return;
     }
 
@@ -1639,10 +1960,12 @@ export default function TrainingPage_LB() {
       setHintKey(expectedItem.key);
     }
 
-    delayTimerRef.current = setTimeout(() => {
+    // 誤點後不前進、不把錯誤門牌設為完成，並立即解鎖讓孩子可以重新點選。
+    setIsLocked(false);
+    wrongFlashTimerRef.current = setTimeout(() => {
       setWrongKey(null);
-      setIsLocked(false);
-    }, TRAINING_CONFIG.feedbackDelayWrongMs);
+      wrongFlashTimerRef.current = null;
+    }, activeFeedbackConfig.feedbackDelayWrongMs);
   }
 
   function reviewPathThenNext() {
@@ -1663,40 +1986,54 @@ export default function TrainingPage_LB() {
         reviewIntervalRef.current = null;
 
         reviewEndTimerRef.current = setTimeout(() => {
-          if (levelIndex >= TRAINING_LEVELS.length - 1) {
-            finishTraining();
-          } else {
-            showLevelIntro(levelIndex + 1);
-          }
+          finishTraining();
         }, 620);
       }
-    }, TRAINING_CONFIG.reviewStepMs);
+    }, activeFeedbackConfig.reviewStepMs || TRAINING_CONFIG.reviewStepMs);
   }
 
   function skipToNextLevel() {
-    clearTrainingTimers();
-    if (levelIndex >= TRAINING_LEVELS.length - 1) {
-      finishTraining();
+    const completedStepCount = completedKeysRef.current.length;
+
+    if (completedStepCount < currentSequence.length) {
+      setHintKey(expectedItem?.key || null);
+      setFooterMessage(
+        expectedItem
+          ? `還沒完成，下一個請找：${getExpectedText(expectedItem)}`
+          : "還沒完成這條小路"
+      );
       return;
     }
-    showLevelIntro(levelIndex + 1);
+
+    if (clickedPathRef.current.length > 0 && phase !== "reviewing") {
+      reviewPathThenNext();
+      return;
+    }
+
+    clearTrainingTimers();
+    finishTraining();
   }
 
   function finishTraining() {
     clearTrainingTimers();
 
     const finalLogs = logsRef.current;
-    const resultSummary = summarizeLogs(finalLogs);
+    const expectedStepCount = currentSequence.length;
+    const completedStepCount = finalLogs.filter((log) => log.levelId === currentLevel.id && log.isCorrect).length;
+    const isLevelCompleted = expectedStepCount > 0 && completedStepCount >= expectedStepCount;
+    const finishReason = isLevelCompleted ? "completed" : "manualIncomplete";
+    const resultSummary = summarizeLogs(finalLogs, { expectedSteps: expectedStepCount });
 
-    const levelSummaries = TRAINING_LEVELS.map((level) => {
+    const levelSummaries = [currentLevel].map((level) => {
       const levelLogs = finalLogs.filter((log) => log.levelId === level.id);
+      const levelExpectedSteps = buildSequence(level).length;
       return {
         levelId: level.id,
         chapter: level.chapter,
         title: level.title,
         taskType: level.taskType,
         ability: level.ability,
-        ...summarizeLogs(levelLogs),
+        ...summarizeLogs(levelLogs, { expectedSteps: levelExpectedSteps }),
       };
     });
 
@@ -1704,31 +2041,79 @@ export default function TrainingPage_LB() {
       .filter((item) => item.correctTrials + item.wrongTrials > 0)
       .sort((a, b) => a.accuracy - b.accuracy || b.hintCount - a.hintCount)[0];
 
+    const adaptiveAnalysis = analyzeAndSaveLBTraining({
+      records: finalLogs,
+      currentDifficulty: adaptiveDifficultyLevel,
+      currentLevelIndex: levelIndex,
+      maximumLevelIndex: TRAINING_LEVELS.length - 1,
+      completed: isLevelCompleted,
+      finishReason,
+    });
+
     const payload = {
       task: "LB",
       gameId: "LB",
       taskName: "Linking Balloons Training",
       mode: TRAINING_CONFIG.mode,
-      difficulty: TRAINING_CONFIG.difficulty,
+      difficulty: adaptiveDifficulty,
+      difficultyLevel: adaptiveDifficultyLevel,
+      difficultyLabel: adaptiveInitial?.difficultyLabel || "普通",
+      nextDifficulty: adaptiveAnalysis.nextDifficulty,
+      nextDifficultyLevel: adaptiveAnalysis.nextDifficultyLevel,
+      nextDifficultyLabel: adaptiveAnalysis.nextDifficultyLabel,
       abilityType: "flexibility",
-      totalLevels: TRAINING_LEVELS.length,
-      completedLevels: levelSummaries.filter((item) => item.correctTrials > 0).length,
+      stageId: trainingStage.stageId,
+      trainingLevel: trainingStage.level,
+      trainingOrder: trainingStage.order,
+      trainingTotal: trainingStage.total || TRAINING_LEVELS.length,
+      totalRounds: TRAINING_TOTAL_ROUNDS,
+      totalLevels: 1,
+      completedLevels: levelSummaries.filter((item) => item.completed).length,
       totalPlayTime: Math.round(performance.now() - totalStartedAtRef.current),
       ...resultSummary,
-      score: resultSummary.accuracy,
+      completed: isLevelCompleted,
+      finishReason,
+      score: resultSummary.score,
       levelSummaries,
       weakestLevel,
-      recommendedNextTraining: weakestLevel
-        ? `下次可以多練「${weakestLevel.chapter}：${weakestLevel.title}」。`
-        : "下次可以從數字小路開始暖身。",
+      recommendedNextTraining:
+        adaptiveAnalysis?.reason ||
+        (weakestLevel
+          ? `下次可以多練「${weakestLevel.chapter}：${weakestLevel.title}」。`
+          : "下次可以從數字小路開始暖身。"),
+      adaptiveSource: adaptiveInitial?.source || "default",
+      adaptiveAnalysis,
+      nextTrainingConfig: adaptiveAnalysis.nextTrainingConfig,
+      recommendedLevelRange: adaptiveAnalysis.recommendedLevelRange,
+      nextLevelIndex: adaptiveAnalysis.nextLevelIndex,
+      supportSuggestions: adaptiveAnalysis.supportSuggestions,
       logs: finalLogs,
       trialLogs: finalLogs,
-      config: TRAINING_CONFIG,
+      config: activeFeedbackConfig,
+      adaptiveConfig: adaptiveInitial,
       finishedAt: new Date().toISOString(),
     };
 
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(payload));
     localStorage.setItem(LOCAL_KEY, JSON.stringify(payload));
+    localStorage.setItem("latestLBTrainingResult", JSON.stringify(payload));
+    saveTrainingStageProgress({
+      stageId: trainingStage.stageId,
+      level: trainingStage.level,
+      stars: resultSummary.stars,
+      finalResult: payload,
+      completed: isLevelCompleted,
+    });
+
+    saveUnifiedResult({
+      rawResult: payload,
+      gameId: "LB",
+      mode: TRAINING_CONFIG.mode,
+      difficulty: adaptiveDifficulty,
+      route: "/training-linking-balloons",
+      visibleRoles: ["child", "parent", "clinician"],
+    });
+
     setSummary(payload);
     setTrainingPhase("endingVideo");
   }
@@ -1747,14 +2132,14 @@ export default function TrainingPage_LB() {
             <h1 className="lb-game-title">Linking Balloons</h1>
             <div className="lb-start-content">
               <div className="lb-dialog-bubble lb-opening-bubble">
-                先跟綿羊奶奶練習找門牌，照順序把小路連回家。
+                先跟綿羊奶奶練習這一關的小路，照順序把小路連回家。
               </div>
               <div className="lb-round-icon lb-start-avatar">
                 <img src={sheepImg} alt="綿羊奶奶" draggable="false" />
               </div>
             </div>
             <div className="lb-guided-action lb-guided-start">
-              <button type="button" className="lb-forest-button lb-image-button lb-btn-start" onClick={() => startTraining(0)} aria-label="開始訓練">
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-start" onClick={() => startTraining(adaptiveStartIndex)} aria-label="開始訓練">
                 <img src={homeStartBtn} alt="開始" draggable="false" />
               </button>
               <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
@@ -1794,34 +2179,26 @@ export default function TrainingPage_LB() {
     );
   }
 
-  if (phase === "levelIntro") {
+  if (phase === "stepVideo") {
     return (
       <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
         <TrainingInlineStyle />
-        <main className="lb-center-shell lb-rule-shell">
-          <section className="lb-soft-panel lb-rule-panel">
-            <h1 className="lb-game-title">{currentLevel.chapter}</h1>
-            <div className="lb-start-content lb-level-content">
-              <div className="lb-dialog-bubble lb-level-bubble">
-                <span>{currentLevel.id}｜{currentLevel.title}</span>
-                <small>{getRuleIcon(currentLevel)}</small>
-              </div>
-              <div className="lb-round-icon lb-start-avatar">
-                <img src={sheepImg} alt="綿羊奶奶" draggable="false" />
-              </div>
+        <main className="lb-center-shell">
+          <section className="lb-soft-panel lb-video-panel" aria-label="步驟說明動畫">
+            <div className="lb-video-frame">
+              <video
+                ref={stepVideoRef}
+                src={stepVideo}
+                autoPlay
+                playsInline
+                controls={false}
+                onEnded={handleStepVideoEnd}
+                className="lb-video"
+              />
             </div>
-            <p className="lb-level-desc">
-              {currentLevel.taskType === TASK_TYPES.MEMORY_PATH
-                ? "先看門牌位置，數字藏起來後再照順序點。"
-                : currentLevel.taskType === TASK_TYPES.DISTRACTOR_DOORS
-                  ? "有些是假門牌，不要被問號或多餘數字騙走。"
-                  : currentLevel.shuffleAfterSteps
-                    ? "小路走到一半時，門牌可能會換位置。"
-                    : "跟著任務卡上的規則，把綿羊奶奶帶回家。"}
-            </p>
-            <div className="lb-guided-action lb-guided-start">
-              <button type="button" className="lb-forest-button lb-primary-button" onClick={startCurrentLevel}>
-                開始這一關
+            <div className="lb-guided-action lb-guided-skip">
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleStepVideoEnd} aria-label="跳過步驟說明">
+                <img src={homeSkipBtn} alt="跳過步驟說明" draggable="false" />
               </button>
               <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
             </div>
@@ -1830,6 +2207,7 @@ export default function TrainingPage_LB() {
       </div>
     );
   }
+
 
   if (phase === "endingVideo") {
     return (
@@ -1875,26 +2253,17 @@ export default function TrainingPage_LB() {
             </div>
             <div className="lb-start-content lb-result-content">
               <div className="lb-dialog-bubble">
-                訓練完成！你幫綿羊奶奶練習了好多條小路。
+                訓練完成！你幫綿羊奶奶完成這一關的小路。
               </div>
               <div className="lb-round-icon lb-result-icon">
                 <img src={homeImg} alt="LB 訓練圖示" draggable="false" />
               </div>
             </div>
-            <div className="lb-training-result-list lb-result-metrics">
-              <div className="lb-training-level-card"><strong>正確率</strong><span>{summary?.accuracy || 0}%</span></div>
-              <div className="lb-training-level-card"><strong>提示次數</strong><span>{summary?.hintCount || 0}</span></div>
-              <div className="lb-training-level-card"><strong>平均反應</strong><span>{summary?.avgReactionTime || 0} ms</span></div>
-            </div>
-            <p className="lb-result-suggestion">{summary?.recommendedNextTraining}</p>
             <div className="lb-result-actions">
-              <div className="lb-guided-action lb-guided-result-main">
-                <button type="button" className="lb-forest-button lb-image-button lb-btn-home" onClick={() => navigate("/game-menu")} aria-label="回到森林">
-                  <img src={homeBackBtn} alt="回到森林" draggable="false" />
-                </button>
-                <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
-              </div>
-              <button type="button" className="lb-forest-button lb-image-button lb-btn-replay" onClick={() => startTraining(0)} aria-label="再練一次">
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-home" onClick={() => navigate("/game-menu")} aria-label="回到森林">
+                <img src={homeBackBtn} alt="回到森林" draggable="false" />
+              </button>
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-replay" onClick={() => startTraining(adaptiveStartIndex)} aria-label="再練一次">
                 <img src={homeAgainBtn} alt="再練一次" draggable="false" />
               </button>
               <button type="button" className="lb-forest-button lb-image-button lb-btn-detail" onClick={goResultPage} aria-label="詳細結果">
@@ -1911,65 +2280,31 @@ export default function TrainingPage_LB() {
   return (
     <div className="lb-page lb-page-with-bg lb-training-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
       <TrainingInlineStyle />
-      <div className="lb-training-frame">
-        <header className="lb-training-header">
-          <h1>{currentLevel.title}</h1>
-          <p>{currentLevel.chapter}｜{progressText}</p>
-          <div className="lb-training-progress" aria-label="訓練進度">
-            {TRAINING_LEVELS.map((level, index) => (
-              <span
-                key={level.id}
-                className={[
-                  "lb-training-dot",
-                  index === levelIndex ? "lb-training-dot-active" : "",
-                  index < levelIndex ? "lb-training-dot-done" : "",
-                ].filter(Boolean).join(" ")}
+      <div className="lb-training-simple-frame">
+        <main className="lb-training-simple-play" onClick={handleBlankClick}>
+          <div className="lb-floating-doorplate-layer" aria-label="訓練門牌遊戲區">
+            <LBPathOverlay points={clickedPath} active={phase === "reviewing"} />
+            <img src={homeImg} alt="小屋" className="lb-map-home-img" draggable="false" />
+            {phase === "reviewing" && <WalkingPerson point={clickedPath[walkingIndex]} />}
+            {displayItems.map((item) => (
+              <DoorplateButton
+                key={item.key}
+                item={item}
+                disabled={isLocked || phase === "reviewing"}
+                completed={completedKeys.includes(item.key)}
+                activeWrong={wrongKey === item.key}
+                activeCorrect={correctGlowKey === item.key}
+                activeHint={hintKey === item.key}
+                memoryHidden={memoryHidden}
+                onClick={handleDoorplateClick}
               />
             ))}
           </div>
-        </header>
-
-        <div className="lb-training-hint-card" aria-label="任務卡">
-          {getRuleIcon(currentLevel)}
-        </div>
-
-        <aside className="lb-training-helper-card">
-          <div className="lb-training-helper-row">
-            <img src={sheepImg} alt="綿羊奶奶" className="lb-training-mini-sheep" draggable="false" />
-            <p>看任務卡，照規則找下一個門牌。</p>
-          </div>
-          <div className="lb-training-next">
-            {expectedItem ? `下一個：${getExpectedText(expectedItem)}` : "完成"}
-          </div>
-        </aside>
-
-        <main className="lb-play-area" onClick={handleBlankClick}>
-          <div className="lb-sky lb-number-sky">
-            <div className="lb-floating-doorplate-layer" aria-label="訓練門牌遊戲區">
-              <LBPathOverlay points={clickedPath} active={phase === "reviewing"} />
-              <img src={homeImg} alt="小屋" className="lb-map-home-img" draggable="false" />
-              {phase === "reviewing" && <WalkingPerson point={clickedPath[walkingIndex]} />}
-              {displayItems.map((item) => (
-                <DoorplateButton
-                  key={item.key}
-                  item={item}
-                  disabled={isLocked || phase === "reviewing"}
-                  completed={completedKeys.includes(item.key)}
-                  activeWrong={wrongKey === item.key}
-                  activeCorrect={correctGlowKey === item.key}
-                  activeHint={hintKey === item.key}
-                  memoryHidden={memoryHidden}
-                  onClick={handleDoorplateClick}
-                />
-              ))}
-            </div>
-          </div>
         </main>
 
-        <footer className="lb-training-footer">
-          <p className="lb-training-message">{footerMessage}</p>
-          <button type="button" className="lb-training-button" onClick={skipToNextLevel}>
-            下一關
+        <footer className="lb-training-simple-bottom">
+          <button type="button" className="lb-forest-button lb-training-simple-finish" onClick={skipToNextLevel}>
+            完成作答
           </button>
         </footer>
       </div>

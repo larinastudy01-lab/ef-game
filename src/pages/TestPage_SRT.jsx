@@ -1,24 +1,25 @@
-// src/pages/TestPage_SRT.jsx
-
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import bgImg from "../asset/SRT_testbackground.png";
 import normalImg from "../asset/acorn.png";
+import goldenImg from "../asset/golden_acorn.png";
+import rottenImg from "../asset/rotten_acorn.png";
 import levelIcon from "../asset/SRT_icon.png";
 import startAvatar from "../asset/avatar/bear.png";
-import tutorialAvatar from "../asset/avatar/chicken.png";
-import introVideo from "../asset/SRT_start.mp4";
-import endingVideo from "../asset/SRT_start.mp4";
+import introVideo from "../asset/mp4/SRT_start.mp4";
+import tutorialVideo from "../asset/mp4/SRT_step.mp4";
+import endingVideo from "../asset/mp4/SRT_end.mp4";
 import homeStartBtn from "../asset/home/start.png";
 import homeSkipBtn from "../asset/home/skip.png";
+import homeNextBtn from "../asset/home/next.png";
 import homeBackBtn from "../asset/home/back.png";
-import homeAgainBtn from "../asset/home/again.png";
 import homeResultBtn from "../asset/home/result.png";
-import mouseGuideImg from "../asset/mouse.png";
+import mouseImg from "../asset/mouse.png";
 
-import ResultPage_SRT from "./ResultPage_SRT";
+import SrtResultPage from "./ResultPage_SRT";
 import { calculateSrtScore } from "../utils/srtScoring";
+import { saveUnifiedResult } from "../utils/resultManager";
 
 import { createGameResult } from "../ai/gameResultTemplate";
 import { analyzePerformance } from "../ai/performanceAnalyzer";
@@ -26,17 +27,48 @@ import { analyzeErrors } from "../ai/errorAnalyzer";
 import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
 
-const TOTAL_TRIALS = 60;
-const ITEM_VISIBLE_TIME = 1000;
-const MIN_NEXT_DELAY = 420;
-const MAX_NEXT_DELAY = 850;
+const TEST_DURATION_MS = 300000; // 5 分鐘正式測驗
+const MAX_TRIALS = 180; // 保護上限，主要結束條件仍是時間到
+const ITEM_VISIBLE_TIME = 1200;
+const MIN_NEXT_DELAY = 900;
+const MAX_NEXT_DELAY = 1600;
 const ITEM_SIZE = 118;
+const TEST_PAGE_ROUTE = "/test-map";
+
+const TEST_TYPE_BLOCK = [
+  "normal",
+  "normal",
+  "normal",
+  "normal",
+  "normal",
+  "normal",
+  "normal",
+  "golden",
+  "rotten",
+  "rotten",
+];
 
 const targetTypes = {
   normal: {
     key: "normal",
     label: "普通橡實",
     img: normalImg,
+    shouldClick: true,
+    score: 3,
+  },
+  golden: {
+    key: "golden",
+    label: "金色橡實",
+    img: goldenImg,
+    shouldClick: true,
+    score: 4,
+  },
+  rotten: {
+    key: "rotten",
+    label: "壞橡實",
+    img: rottenImg,
+    shouldClick: false,
+    score: -3,
   },
 };
 
@@ -47,8 +79,9 @@ const TestPage_SRT = () => {
   const [item, setItem] = useState(null);
   const [effect, setEffect] = useState(null);
   const [trialRecords, setTrialRecords] = useState([]);
-  const [tutorialReady, setTutorialReady] = useState(false);
   const [showDetailedResult, setShowDetailedResult] = useState(false);
+  const [idleFlashId, setIdleFlashId] = useState(null);
+  const [finalResult, setFinalResult] = useState(null);
 
   const phaseRef = useRef("start");
   const trialRecordsRef = useRef([]);
@@ -60,12 +93,27 @@ const TestPage_SRT = () => {
   const falseClickCountInCurrentTrialRef = useRef(0);
   const repeatedClickCountInCurrentTrialRef = useRef(0);
   const lastBlankClickTimeRef = useRef(null);
+  const lastActionTimeRef = useRef(Date.now());
+  const consecutiveMissRef = useRef(0);
+  const promptedTrialRef = useRef(false);
+  const promptTypeRef = useRef(null);
+  const promptShownAtRef = useRef(null);
+  const promptEventsRef = useRef([]);
+  const targetQueueRef = useRef([]);
+  const recentTargetTypesRef = useRef([]);
+  const finishingRef = useRef(false);
+  const testStartedAtRef = useRef(null);
+  const completionReasonRef = useRef("time_up");
 
   const itemTimeoutRef = useRef(null);
   const nextTrialTimeoutRef = useRef(null);
   const effectTimeoutRef = useRef(null);
+  const testTimerRef = useRef(null);
+  const idleCheckRef = useRef(null);
+  const idleFlashTimeoutRef = useRef(null);
   const spawnAnimationFrameRef = useRef(null);
   const introVideoRef = useRef(null);
+  const tutorialVideoRef = useRef(null);
   const endingVideoRef = useRef(null);
 
   const pauseVideo = (videoRef) => {
@@ -77,6 +125,7 @@ const TestPage_SRT = () => {
 
   const pauseAllVideos = () => {
     pauseVideo(introVideoRef);
+    pauseVideo(tutorialVideoRef);
     pauseVideo(endingVideoRef);
   };
 
@@ -90,11 +139,17 @@ const TestPage_SRT = () => {
     if (itemTimeoutRef.current) clearTimeout(itemTimeoutRef.current);
     if (nextTrialTimeoutRef.current) clearTimeout(nextTrialTimeoutRef.current);
     if (effectTimeoutRef.current) clearTimeout(effectTimeoutRef.current);
+    if (testTimerRef.current) clearTimeout(testTimerRef.current);
+    if (idleCheckRef.current) clearInterval(idleCheckRef.current);
+    if (idleFlashTimeoutRef.current) clearTimeout(idleFlashTimeoutRef.current);
     if (spawnAnimationFrameRef.current) cancelAnimationFrame(spawnAnimationFrameRef.current);
 
     itemTimeoutRef.current = null;
     nextTrialTimeoutRef.current = null;
     effectTimeoutRef.current = null;
+    testTimerRef.current = null;
+    idleCheckRef.current = null;
+    idleFlashTimeoutRef.current = null;
     spawnAnimationFrameRef.current = null;
   };
 
@@ -105,13 +160,12 @@ const TestPage_SRT = () => {
     };
   }, []);
 
-  const resetTest = () => {
+  const resetRuntimeState = () => {
     clearAllTimers();
     setItem(null);
     setEffect(null);
+    setIdleFlashId(null);
     setTrialRecords([]);
-    setTutorialReady(false);
-
     trialRecordsRef.current = [];
     currentTrialRef.current = 0;
     spawnTimeRef.current = null;
@@ -121,14 +175,102 @@ const TestPage_SRT = () => {
     falseClickCountInCurrentTrialRef.current = 0;
     repeatedClickCountInCurrentTrialRef.current = 0;
     lastBlankClickTimeRef.current = null;
+    lastActionTimeRef.current = Date.now();
+    consecutiveMissRef.current = 0;
+    promptedTrialRef.current = false;
+    promptTypeRef.current = null;
+    promptShownAtRef.current = null;
+    promptEventsRef.current = [];
+    targetQueueRef.current = [];
+    recentTargetTypesRef.current = [];
+    finishingRef.current = false;
+    testStartedAtRef.current = null;
+    completionReasonRef.current = "time_up";
+  };
 
-    localStorage.removeItem("srtTestResult");
+  const resetTest = () => {
+    resetRuntimeState();
+    setFinalResult(null);
+    const childId = getCurrentChildProfile()?.childId;
+    if (childId) localStorage.removeItem(`srtTestResult_${childId}`);
   };
 
   const addTrialRecord = (record) => {
     const nextRecords = [...trialRecordsRef.current, record];
     trialRecordsRef.current = nextRecords;
     setTrialRecords(nextRecords);
+  };
+
+  const shuffleArray = (array) => {
+    const next = [...array];
+
+    for (let index = next.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
+    }
+
+    return next;
+  };
+
+  const getNextTargetType = () => {
+    if (targetQueueRef.current.length === 0) {
+      let nextBlock = shuffleArray(TEST_TYPE_BLOCK);
+      const lastType = recentTargetTypesRef.current.at(-1);
+
+      if (lastType === "rotten" && nextBlock[0] === "rotten") {
+        const swapIndex = nextBlock.findIndex((type) => type !== "rotten");
+        if (swapIndex > 0) {
+          [nextBlock[0], nextBlock[swapIndex]] = [nextBlock[swapIndex], nextBlock[0]];
+        }
+      }
+
+      targetQueueRef.current = nextBlock;
+    }
+
+    const nextType = targetQueueRef.current.shift() || "normal";
+    recentTargetTypesRef.current = [...recentTargetTypesRef.current, nextType].slice(-12);
+
+    return nextType;
+  };
+
+  const clearCurrentPrompt = () => {
+    promptedTrialRef.current = false;
+    promptTypeRef.current = null;
+    promptShownAtRef.current = null;
+  };
+
+  const triggerIdleFlash = (reason = "idle") => {
+    if (phaseRef.current !== "playing") return;
+    if (idleFlashTimeoutRef.current) return;
+
+    const now = Date.now();
+    const currentItem = currentItemRef.current;
+
+    promptEventsRef.current = [
+      ...promptEventsRef.current,
+      {
+        type: "idleFlash",
+        reason,
+        timestamp: now,
+        trialIndex: currentItem?.trialIndex ?? null,
+      },
+    ];
+
+    if (currentItem && !trialLockedRef.current) {
+      promptedTrialRef.current = true;
+      promptTypeRef.current = "idleFlash";
+      promptShownAtRef.current =
+        typeof spawnTimeRef.current === "number"
+          ? Math.round(performance.now() - spawnTimeRef.current)
+          : null;
+    }
+
+    setIdleFlashId(now);
+
+    idleFlashTimeoutRef.current = setTimeout(() => {
+      setIdleFlashId(null);
+      idleFlashTimeoutRef.current = null;
+    }, 900);
   };
 
   const handleStart = () => {
@@ -138,36 +280,96 @@ const TestPage_SRT = () => {
   };
 
   const handleIntroEnd = () => {
-    setTutorialReady(false);
-    setGamePhase("rule");
+    setGamePhase("step");
   };
 
-  const handleTutorialClick = () => {
-    setTutorialReady(true);
-    setEffect({ x: 66, y: 50 });
-    if (effectTimeoutRef.current) clearTimeout(effectTimeoutRef.current);
-    effectTimeoutRef.current = setTimeout(() => setEffect(null), 420);
-  };
-
-  const handleRuleConfirm = () => {
-    if (!tutorialReady) return;
+  const handleTutorialVideoEnd = () => {
     startTest();
   };
 
-  const getCurrentChildId = () => {
+  const safeParseStorage = (key, fallback = null) => {
     try {
-      const selectedChild = JSON.parse(localStorage.getItem("selectedChild") || "null");
-      return selectedChild?.childId || selectedChild?.id || "unknown-child";
+      const value = localStorage.getItem(key);
+      return value ? JSON.parse(value) : fallback;
     } catch (error) {
-      return "unknown-child";
+      return fallback;
     }
   };
 
+  const getCurrentChildProfile = () => {
+    const currentChild = safeParseStorage("currentChild", null);
+    const selectedChild = safeParseStorage("selectedChild", null);
+    const currentChildId = localStorage.getItem("currentChildId") || localStorage.getItem("selectedChildId");
+
+    const child = currentChild || selectedChild || {};
+    return {
+      ...child,
+      childId: child?.childId || child?.id || currentChildId || null,
+      id: child?.id || child?.childId || currentChildId || null,
+      name: child?.name || child?.nickname || child?.full_name || "",
+      nickname: child?.nickname || child?.name || child?.full_name || "",
+    };
+  };
+
+  const getCurrentChildId = () => getCurrentChildProfile()?.childId || null;
+
+  const getResultStorageKey = (childId = getCurrentChildId()) =>
+    childId ? `srtTestResult_${childId}` : null;
+
+  const buildDataQuality = (records, completionReason) => {
+    const validTrialCount = records.length;
+    const timeoutCount = records.filter((record) => record.timeout === true).length;
+    const invalidClickCount = records.reduce(
+      (sum, record) => sum + (Number(record.falseClickCount) || 0),
+      0
+    );
+    const hintCount = records.filter((record) => record.assisted === true).length;
+    const timeoutRate = validTrialCount > 0 ? timeoutCount / validTrialCount : 1;
+    const invalidClickRate = validTrialCount > 0 ? invalidClickCount / validTrialCount : 0;
+    const hintRate = validTrialCount > 0 ? hintCount / validTrialCount : 0;
+    const warnings = [];
+
+    if (validTrialCount < 30) warnings.push("有效題數不足");
+    if (timeoutRate >= 0.25) warnings.push("逾時比例偏高");
+    if (invalidClickRate >= 0.2) warnings.push("背景點擊比例偏高");
+    if (hintRate >= 0.2) warnings.push("中性提醒介入比例偏高");
+    if (completionReason !== "time_up") warnings.push("測驗未依預定時間正常結束");
+
+    const status =
+      validTrialCount < 20 || completionReason === "aborted"
+        ? "insufficient"
+        : warnings.length > 0
+          ? "usable_with_caution"
+          : "valid";
+
+    return {
+      status,
+      validTrialCount,
+      timeoutRate: Number(timeoutRate.toFixed(4)),
+      invalidClickRate: Number(invalidClickRate.toFixed(4)),
+      hintRate: Number(hintRate.toFixed(4)),
+      warnings,
+    };
+  };
+
+  const saveResultToLocalStorage = (resultPayload, childId) => {
+    const resultKey = getResultStorageKey(childId);
+
+    try {
+      if (resultKey) localStorage.setItem(resultKey, JSON.stringify(resultPayload));
+      localStorage.setItem("srtTestResult", JSON.stringify(resultPayload)); // 舊版結果頁相容
+    } catch (error) {
+      console.error("SRT 本機結果保存失敗：", error);
+    }
+
+    return resultKey;
+  };
+
   const buildSrtAiResult = (records, scoring) => {
-    const totalTrials = records.length || TOTAL_TRIALS;
+    const totalTrials = records.length || MAX_TRIALS;
     const correctTrials = records.filter((record) => record.isCorrect === true).length;
     const reactionTimes = records
-      .filter((record) => record.isCorrect === true && typeof record.reactionTime === "number")
+      .filter((record) => record.action === "hit" && typeof record.reactionTime === "number")
       .map((record) => record.reactionTime);
 
     const firstHalfRecords = records.slice(0, Math.floor(records.length / 2));
@@ -187,7 +389,7 @@ const TestPage_SRT = () => {
     const errorTypes = {
       miss: records.filter((record) => record.missed === true).length,
       randomClick: records.reduce((sum, record) => sum + (Number(record.falseClickCount) || (record.falseClick ? 1 : 0)), 0),
-      wrongTarget: 0,
+      wrongTarget: records.filter((record) => (record.action === "clickedRotten" || record.action === "falseAlarm")).length,
       repeatedClick: records.reduce((sum, record) => sum + (Number(record.repeatedClickCount) || 0), 0),
       timeout: records.filter((record) => record.timeout === true).length,
       sequenceError: 0,
@@ -227,11 +429,20 @@ const TestPage_SRT = () => {
       stars: scoring?.stars ?? performanceResult.stars,
       accuracy: performanceResult.accuracy,
       avgReactionTime: performanceResult.avgReactionTime,
-      totalPlayTime: Math.round((TOTAL_TRIALS * ITEM_VISIBLE_TIME) / 1000),
+      totalPlayTime: Math.round(TEST_DURATION_MS / 1000),
       errorTypes,
       fatigueLevel,
       attemptCount: 1,
     });
+
+    const goldenTotal = records.filter((record) => record.targetType === "golden").length;
+    const goldenHitCount = records.filter(
+      (record) => record.targetType === "golden" && record.action === "hit"
+    ).length;
+    const rottenTotal = records.filter((record) => record.targetType === "rotten").length;
+    const clickedRottenCount = records.filter(
+      (record) => (record.action === "clickedRotten" || record.action === "falseAlarm")
+    ).length;
 
     return {
       gameResult,
@@ -240,37 +451,132 @@ const TestPage_SRT = () => {
       fatigueLevel,
       recommendedDifficulty,
       errorTypes,
+      distractorMetrics: {
+        normalTotal: records.filter((record) => record.targetType === "normal").length,
+        normalHitCount: records.filter(
+          (record) => record.targetType === "normal" && record.action === "hit"
+        ).length,
+        goldenTotal,
+        goldenHitCount,
+        goldenHitRate: goldenTotal > 0 ? Math.round((goldenHitCount / goldenTotal) * 100) : null,
+        rottenTotal,
+        clickedRottenCount,
+        rottenFalseAlarmRate: rottenTotal > 0 ? Math.round((clickedRottenCount / rottenTotal) * 100) : null,
+        inhibitionAccuracy: rottenTotal > 0 ? Math.round(((rottenTotal - clickedRottenCount) / rottenTotal) * 100) : null,
+      },
+      promptEvents: promptEventsRef.current,
       parentSummary: performanceResult.parentSummary,
     };
   };
 
-  const finishTest = () => {
+  const finishTest = async (completionReason = completionReasonRef.current || "time_up") => {
+    if (finishingRef.current) return;
     if (phaseRef.current === "ending" || phaseRef.current === "result") return;
 
+    const childProfile = getCurrentChildProfile();
+    if (!childProfile?.childId) {
+      navigate("/child-select", { replace: true });
+      return;
+    }
+
+    finishingRef.current = true;
+    completionReasonRef.current = completionReason;
     clearAllTimers();
     setItem(null);
     setEffect(null);
+    setIdleFlashId(null);
     currentItemRef.current = null;
     spawnTimeRef.current = null;
     trialLockedRef.current = false;
     falseClickInCurrentTrialRef.current = false;
+    clearCurrentPrompt();
 
     const records = trialRecordsRef.current;
     const scoring = calculateSrtScore(records);
     const aiAnalysis = buildSrtAiResult(records, scoring);
+    const finishedAtMs = Date.now();
+    const startedAtMs = testStartedAtRef.current || finishedAtMs;
+    const durationMs = Math.max(0, finishedAtMs - startedAtMs);
+    const startedAt = new Date(startedAtMs).toISOString();
+    const finishedAt = new Date(finishedAtMs).toISOString();
 
+    const dataQuality = buildDataQuality(records, completionReason);
+
+    const resultId = `SRT-${childProfile.childId}-${finishedAtMs}`;
     const resultPayload = {
+      resultId,
+      schemaVersion: "1.0.0",
       taskName: "Simple Reaction Time",
       taskCode: "SRT",
+      gameId: "SRT",
+      gameName: "橡實反應任務",
+      abilityType: "inhibition",
+      abilityLabel: "抑制控制",
       mode: "test",
-      totalTrials: TOTAL_TRIALS,
+      difficulty: "normal",
+      childId: childProfile.childId,
+      childName: childProfile.nickname || childProfile.name || "",
+      startedAt,
+      finishedAt,
+      durationMs,
+      plannedDurationMs: TEST_DURATION_MS,
+      completionReason,
+      status: completionReason === "aborted" ? "aborted" : "completed",
+      totalTrials: records.length,
+      maxTrials: MAX_TRIALS,
+      promptEvents: promptEventsRef.current,
+      promptCount: promptEventsRef.current.length,
+      correctCount: records.filter((record) => record.isCorrect === true).length,
+      errorCount: records.filter((record) => record.isCorrect !== true).length,
+      score: scoring?.totalScore ?? 0,
+      stars: scoring?.stars ?? 0,
+      accuracy:
+        scoring?.summary?.accuracyPercent ??
+        scoring?.parentMetrics?.accuracy ??
+        aiAnalysis?.performanceResult?.accuracy ??
+        0,
+      avgReactionTime:
+        scoring?.summary?.avgReactionTime ??
+        scoring?.clinicalMetrics?.avgRT ??
+        aiAnalysis?.performanceResult?.avgReactionTime ??
+        0,
+      rtStd: scoring?.summary?.rtStd ?? null,
+      rtCV: scoring?.summary?.rtCV ?? null,
+      assistedRate: scoring?.summary?.assistedRate ?? 0,
+      longAttentionMetrics: scoring?.summary?.longAttentionMetrics ?? null,
+      distractorMetrics: aiAnalysis?.distractorMetrics,
+      trials: records,
       records,
+      metrics: scoring?.summary ?? {},
+      summary: scoring?.parentMetrics ?? {},
       scoring,
+      analysis: aiAnalysis,
       aiAnalysis,
-      generatedAt: new Date().toISOString(),
+      dataQuality,
+      syncStatus: "pending",
+      generatedAt: finishedAt,
     };
 
-    localStorage.setItem("srtTestResult", JSON.stringify(resultPayload));
+    saveResultToLocalStorage(resultPayload, childProfile.childId);
+    setFinalResult(resultPayload);
+
+    try {
+      await saveUnifiedResult({
+        rawResult: resultPayload,
+        gameId: "SRT",
+        mode: "test",
+        difficulty: "normal",
+        child: childProfile,
+        route: "/test-srt",
+        visibleRoles: ["child", "parent", "clinician"],
+      });
+      resultPayload.syncStatus = "synced";
+      saveResultToLocalStorage(resultPayload, childProfile.childId);
+      setFinalResult({ ...resultPayload });
+    } catch (error) {
+      console.error("SRT 雲端同步失敗，結果已保留在本機：", error);
+    }
+
     setGamePhase("ending");
   };
 
@@ -308,22 +614,34 @@ const TestPage_SRT = () => {
   };
 
   const startTest = () => {
-    clearAllTimers();
-    setTrialRecords([]);
-    trialRecordsRef.current = [];
-    setItem(null);
-    setEffect(null);
-    currentTrialRef.current = 0;
-    spawnTimeRef.current = null;
-    currentItemRef.current = null;
-    trialLockedRef.current = false;
-    falseClickInCurrentTrialRef.current = false;
-    falseClickCountInCurrentTrialRef.current = 0;
-    repeatedClickCountInCurrentTrialRef.current = 0;
-    lastBlankClickTimeRef.current = null;
+    const childProfile = getCurrentChildProfile();
+    if (!childProfile?.childId) {
+      navigate("/child-select", { replace: true });
+      return;
+    }
+
+    resetRuntimeState();
+    setFinalResult(null);
+    testStartedAtRef.current = Date.now();
     setShowDetailedResult(false);
 
     setGamePhase("playing");
+
+    testTimerRef.current = setTimeout(() => {
+      completionReasonRef.current = "time_up";
+      finishTest("time_up");
+    }, TEST_DURATION_MS);
+
+    idleCheckRef.current = setInterval(() => {
+      if (phaseRef.current !== "playing") return;
+
+      const idleDuration = Date.now() - lastActionTimeRef.current;
+
+      if (idleDuration >= 10000) {
+        triggerIdleFlash("idle_10s");
+        lastActionTimeRef.current = Date.now();
+      }
+    }, 1000);
 
     scheduleNextTrial(getRandomDelay());
   };
@@ -340,8 +658,9 @@ const TestPage_SRT = () => {
       spawnAnimationFrameRef.current = null;
     }
 
-    if (currentTrialRef.current >= TOTAL_TRIALS) {
-      finishTest();
+    if (currentTrialRef.current >= MAX_TRIALS) {
+      completionReasonRef.current = "safety_limit";
+      finishTest("safety_limit");
       return;
     }
 
@@ -349,7 +668,8 @@ const TestPage_SRT = () => {
     currentTrialRef.current = nextTrial;
 
     const position = getRandomPosition();
-    const targetType = "normal";
+    const targetType = getNextTargetType();
+    const typeConfig = targetTypes[targetType] || targetTypes.normal;
 
     const newItem = {
       id: `${Date.now()}-${nextTrial}`,
@@ -357,8 +677,10 @@ const TestPage_SRT = () => {
       x: position.x,
       y: position.y,
       targetType,
-      img: targetTypes[targetType].img,
-      label: targetTypes[targetType].label,
+      shouldClick: typeConfig.shouldClick,
+      scoreValue: typeConfig.score,
+      img: typeConfig.img,
+      label: typeConfig.label,
     };
 
     trialLockedRef.current = false;
@@ -366,6 +688,7 @@ const TestPage_SRT = () => {
     falseClickCountInCurrentTrialRef.current = 0;
     repeatedClickCountInCurrentTrialRef.current = 0;
     lastBlankClickTimeRef.current = null;
+    clearCurrentPrompt();
     currentItemRef.current = newItem;
     spawnTimeRef.current = null;
 
@@ -395,20 +718,39 @@ const TestPage_SRT = () => {
     trialLockedRef.current = true;
     itemTimeoutRef.current = null;
 
+    const isNoGo = targetItem.shouldClick === false || targetItem.targetType === "rotten";
+    const wasPrompted = promptedTrialRef.current;
+    const assistType = promptTypeRef.current;
+    const assistShownAt = promptShownAtRef.current;
+
     addTrialRecord({
       trialIndex: targetItem.trialIndex,
-      isCorrect: false,
+      isCorrect: isNoGo,
       reactionTime: null,
-      timeout: true,
-      missed: true,
+      timeout: !isNoGo,
+      missed: !isNoGo,
       falseClick: falseClickInCurrentTrialRef.current,
       falseClickCount: falseClickCountInCurrentTrialRef.current,
       repeatedClickCount: repeatedClickCountInCurrentTrialRef.current,
       targetType: targetItem.targetType || "normal",
+      action: isNoGo ? "correctAvoid" : "miss",
+      trainingAction: isNoGo ? "correctAvoid" : "miss",
+      legacyAction: isNoGo ? "correctReject" : "miss",
+      scoreValue: isNoGo ? 1 : 0,
+      assisted: wasPrompted,
+      assistType: wasPrompted ? assistType : null,
+      assistShownAt: wasPrompted ? assistShownAt : null,
+      reactionAfterAssist: null,
       positionX: targetItem.x,
       positionY: targetItem.y,
       timestamp: Date.now(),
     });
+
+    if (isNoGo) {
+      consecutiveMissRef.current = 0;
+    } else {
+      consecutiveMissRef.current += 1;
+    }
 
     setItem(null);
     currentItemRef.current = null;
@@ -417,6 +759,7 @@ const TestPage_SRT = () => {
     falseClickCountInCurrentTrialRef.current = 0;
     repeatedClickCountInCurrentTrialRef.current = 0;
     lastBlankClickTimeRef.current = null;
+    clearCurrentPrompt();
 
     scheduleNextTrial();
   };
@@ -439,10 +782,18 @@ const TestPage_SRT = () => {
     }
 
     const reactionTime = Math.round(performance.now() - spawnTimeRef.current);
+    const isNoGo = targetItem.shouldClick === false || targetItem.targetType === "rotten";
+    const wasPrompted = promptedTrialRef.current;
+    const assistType = promptTypeRef.current;
+    const assistShownAt = promptShownAtRef.current;
+    const reactionAfterAssist =
+      wasPrompted && typeof assistShownAt === "number"
+        ? Math.max(0, reactionTime - assistShownAt)
+        : null;
 
     addTrialRecord({
       trialIndex: targetItem.trialIndex,
-      isCorrect: true,
+      isCorrect: !isNoGo,
       reactionTime,
       timeout: false,
       missed: false,
@@ -450,12 +801,29 @@ const TestPage_SRT = () => {
       falseClickCount: falseClickCountInCurrentTrialRef.current,
       repeatedClickCount: repeatedClickCountInCurrentTrialRef.current,
       targetType: targetItem.targetType || "normal",
+      action: isNoGo ? "clickedRotten" : "hit",
+      trainingAction: isNoGo ? "clickedRotten" : "hit",
+      legacyAction: isNoGo ? "falseAlarm" : "hit",
+      clickedRotten: isNoGo,
+      scoreValue: targetItem.scoreValue ?? (isNoGo ? -3 : 3),
+      assisted: wasPrompted,
+      assistType: wasPrompted ? assistType : null,
+      assistShownAt: wasPrompted ? assistShownAt : null,
+      reactionAfterAssist,
       positionX: targetItem.x,
       positionY: targetItem.y,
       timestamp: Date.now(),
     });
 
-    setEffect({ x: targetItem.x, y: targetItem.y });
+    if (isNoGo) {
+      consecutiveMissRef.current += 1;
+    } else {
+      consecutiveMissRef.current = 0;
+    }
+
+    lastActionTimeRef.current = Date.now();
+
+    setEffect({ x: targetItem.x, y: targetItem.y, type: isNoGo ? "penalty" : "correct" });
     setItem(null);
     currentItemRef.current = null;
     spawnTimeRef.current = null;
@@ -463,6 +831,7 @@ const TestPage_SRT = () => {
     falseClickCountInCurrentTrialRef.current = 0;
     repeatedClickCountInCurrentTrialRef.current = 0;
     lastBlankClickTimeRef.current = null;
+    clearCurrentPrompt();
 
     if (effectTimeoutRef.current) clearTimeout(effectTimeoutRef.current);
     effectTimeoutRef.current = setTimeout(() => setEffect(null), 360);
@@ -472,7 +841,13 @@ const TestPage_SRT = () => {
 
   const handleGameAreaClick = () => {
     if (phaseRef.current !== "playing") return;
-    if (!currentItemRef.current) return;
+
+    lastActionTimeRef.current = Date.now();
+
+    if (!currentItemRef.current) {
+      return;
+    }
+
     if (trialLockedRef.current) return;
 
     const now = performance.now();
@@ -486,7 +861,7 @@ const TestPage_SRT = () => {
     lastBlankClickTimeRef.current = now;
   };
 
-  const score = useMemo(() => trialRecords.filter((record) => record.isCorrect === true).length, [trialRecords]);
+  const score = useMemo(() => trialRecords.filter((record) => record.action === "hit").length, [trialRecords]);
 
   const rtRecords = useMemo(() => {
     return trialRecords
@@ -503,14 +878,26 @@ const TestPage_SRT = () => {
     return trialRecords.filter((record) => record.missed === true || record.timeout === true).length;
   }, [trialRecords]);
 
+  const storedResult = useMemo(() => {
+    if (finalResult) return finalResult;
+
+    const resultKey = getResultStorageKey();
+    return safeParseStorage(
+      resultKey,
+      safeParseStorage("srtTestResult", null)
+    );
+  }, [phase, showDetailedResult, finalResult]);
+
   const resultStars = useMemo(() => {
     try {
-      const scoring = JSON.parse(localStorage.getItem("srtTestResult") || "{}").scoring;
-      return Math.max(1, Math.min(3, Number(scoring?.stars) || 1));
+      return Math.max(
+        1,
+        Math.min(3, Number(storedResult?.scoring?.stars ?? storedResult?.stars) || 1)
+      );
     } catch (error) {
       return 1;
     }
-  }, [phase]);
+  }, [storedResult]);
 
   return (
     <div
@@ -538,7 +925,7 @@ const TestPage_SRT = () => {
               <button type="button" className="srt-forest-button srt-image-button srt-btn-start" onClick={handleStart} aria-label="進入遊戲">
                 <img src={homeStartBtn} alt="進入遊戲" />
               </button>
-              <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+              <img className="srt-mouse-guide srt-mouse-on-button" src={mouseImg} alt="" aria-hidden="true" />
             </div>
           </section>
         </main>
@@ -558,70 +945,49 @@ const TestPage_SRT = () => {
                 className="srt-video"
               />
             </div>
-            <div className="srt-guided-action srt-guided-skip">
-              <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={handleIntroEnd} aria-label="跳過動畫">
-                <img src={homeSkipBtn} alt="跳過動畫" />
-              </button>
-              <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+            <div className="srt-step-actions">
+              <div className="srt-guided-action srt-guided-skip">
+                <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={handleIntroEnd} aria-label="跳過動畫">
+                  <img src={homeSkipBtn} alt="跳過動畫" />
+                </button>
+              </div>
+              <div className="srt-guided-action srt-guided-next">
+                <button type="button" className="srt-forest-button srt-image-button srt-btn-next" onClick={handleIntroEnd} aria-label="下一步">
+                  <img src={homeNextBtn} alt="下一步" />
+                </button>
+                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseImg} alt="" aria-hidden="true" />
+              </div>
             </div>
           </section>
         </main>
       )}
 
-      {phase === "rule" && (
+      {phase === "step" && (
         <main className="srt-center-shell">
-          <section className="srt-soft-panel srt-tutorial-panel" aria-label="互動前導教學">
-            <div
-              className="srt-tutorial-scene"
-              style={{
-                backgroundImage: `
-                  linear-gradient(rgba(255, 255, 255, 0.24), rgba(255, 247, 216, 0.16)),
-                  url(${bgImg})
-                `,
-              }}
-            >
-              <div className="srt-tutorial-grid">
-                <div className="srt-avatar-guide">
-                  <img src={tutorialAvatar} alt="小雞頭像" />
-                </div>
-
-                <div className="srt-rule-steps" aria-label="遊戲規則說明">
-                  <div className="srt-guide-bubble srt-guide-main">看到橡實</div>
-                  <div className="srt-guide-arrow" aria-hidden="true" />
-                  <div className="srt-guide-bubble srt-guide-wait">沒有橡實就等一下</div>
-                </div>
-
-                <div className="srt-tutorial-practice">
-                  <button
-                    type="button"
-                    className={`srt-practice-acorn ${tutorialReady ? "is-ready" : ""}`}
-                    onClick={handleTutorialClick}
-                    aria-label="點一下橡實練習"
-                  >
-                    <img src={normalImg} alt="橡實" />
-                  </button>
-                  {!tutorialReady && (
-                    <img className="srt-mouse-guide srt-mouse-on-acorn" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
-                  )}
-                  <div className="srt-tap-hint">{tutorialReady ? "很好！可以開始囉" : "輕輕點一下"}</div>
-                  {effect && <div className="srt-test-effect srt-demo-effect" />}
-                </div>
-              </div>
+          <section className="srt-soft-panel srt-video-panel" aria-label="步驟教學影片">
+            <div className="srt-video-frame">
+              <video
+                ref={tutorialVideoRef}
+                src={tutorialVideo}
+                autoPlay
+                playsInline
+                controls={false}
+                onEnded={handleTutorialVideoEnd}
+                className="srt-video"
+              />
             </div>
-
-            <div className={`srt-guided-action srt-guided-start ${tutorialReady ? "is-active" : "is-disabled"}`}>
-              <button
-                type="button"
-                className="srt-forest-button srt-image-button srt-btn-start"
-                onClick={handleRuleConfirm}
-                disabled={!tutorialReady}
-                aria-label="進入遊戲"
-              >
-                <img src={homeStartBtn} alt="進入遊戲" />
-              </button>
-              {tutorialReady && (
-                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
-              )}
+            <div className="srt-step-actions">
+              <div className="srt-guided-action srt-guided-skip">
+                <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={startTest} aria-label="跳過動畫">
+                  <img src={homeSkipBtn} alt="跳過動畫" />
+                </button>
+              </div>
+              <div className="srt-guided-action srt-guided-next">
+                <button type="button" className="srt-forest-button srt-image-button srt-btn-next" onClick={startTest} aria-label="下一步">
+                  <img src={homeNextBtn} alt="下一步" />
+                </button>
+                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseImg} alt="" aria-hidden="true" />
+              </div>
             </div>
           </section>
         </main>
@@ -629,7 +995,7 @@ const TestPage_SRT = () => {
 
       {phase === "playing" && (
         <main className="srt-play-page">
-          <div className="srt-test-game-area" onClick={handleGameAreaClick}>
+          <div className={`srt-test-game-area ${idleFlashId ? "srt-idle-flash" : ""}`} onClick={handleGameAreaClick}>
             {item && (
               <img
                 src={item.img || normalImg}
@@ -641,7 +1007,7 @@ const TestPage_SRT = () => {
               />
             )}
 
-            {effect && <div className="srt-test-effect" style={{ left: `${effect.x}%`, top: `${effect.y}%` }} />}
+            {effect && <div className={`srt-test-effect ${effect.type === "penalty" ? "is-penalty" : ""}`} style={{ left: `${effect.x}%`, top: `${effect.y}%` }} />}
           </div>
         </main>
       )}
@@ -664,7 +1030,6 @@ const TestPage_SRT = () => {
               <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={handleEndingVideoEnd} aria-label="跳過動畫">
                 <img src={homeSkipBtn} alt="跳過動畫" />
               </button>
-              <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
             </div>
           </section>
         </main>
@@ -688,14 +1053,11 @@ const TestPage_SRT = () => {
 
             <div className="srt-result-actions">
               <div className="srt-guided-action srt-guided-result-main">
-                <button type="button" className="srt-forest-button srt-image-button srt-btn-home" onClick={() => navigate("/test-map")} aria-label="回到森林">
+                <button type="button" className="srt-forest-button srt-image-button srt-btn-home" onClick={() => navigate(TEST_PAGE_ROUTE)} aria-label="回到森林">
                   <img src={homeBackBtn} alt="回到森林" />
                 </button>
-                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseImg} alt="" aria-hidden="true" />
               </div>
-              <button type="button" className="srt-forest-button srt-image-button srt-btn-replay" onClick={handleStart} aria-label="再玩一次">
-                <img src={homeAgainBtn} alt="再玩一次" />
-              </button>
               <button type="button" className="srt-forest-button srt-image-button srt-btn-detail" onClick={() => setShowDetailedResult(true)} aria-label="詳細結果">
                 <img src={homeResultBtn} alt="詳細結果" />
               </button>
@@ -705,17 +1067,18 @@ const TestPage_SRT = () => {
       )}
 
       {phase === "result" && showDetailedResult && (
-        <ResultPage_SRT
+        <SrtResultPage
           mode="test"
-          score={score}
+          score={storedResult?.score ?? score}
           avgRT={avgRT}
           rtRecords={rtRecords}
           trialRecords={trialRecords}
-          totalSpawn={TOTAL_TRIALS}
+          totalSpawn={storedResult?.totalTrials ?? (trialRecords.length || MAX_TRIALS)}
           missCount={missCount}
-          aiAnalysis={JSON.parse(localStorage.getItem("srtTestResult") || "{}").aiAnalysis}
-          onRestart={handleStart}
-          onBackToMenu={() => navigate("/test-map")}
+          summaryData={storedResult?.summary ?? {}}
+          starResult={storedResult?.scoring ?? null}
+          aiAnalysis={storedResult?.aiAnalysis ?? null}
+          onBackToMenu={() => navigate(TEST_PAGE_ROUTE)}
         />
       )}
     </div>
@@ -1003,7 +1366,8 @@ const testPageCss = `
 .srt-btn-home,
 .srt-btn-replay,
 .srt-btn-detail,
-.srt-btn-skip {
+.srt-btn-skip,
+.srt-btn-next {
   border: 4px solid rgba(255,255,255,0.86);
   outline: 3px solid #5d9d32;
   background: linear-gradient(180deg, #b9f235 0%, #77c927 48%, #4e9a23 100%);
@@ -1054,7 +1418,8 @@ const testPageCss = `
 .srt-image-button.srt-btn-home,
 .srt-image-button.srt-btn-replay,
 .srt-image-button.srt-btn-detail,
-.srt-image-button.srt-btn-skip {
+.srt-image-button.srt-btn-skip,
+.srt-image-button.srt-btn-next {
   min-width: 0;
   min-height: 0;
   border: none;
@@ -1095,8 +1460,20 @@ const testPageCss = `
   filter: grayscale(0.35) drop-shadow(0 6px 6px rgba(74, 48, 16, 0.16));
 }
 
-.srt-btn-skip.srt-image-button {
+.srt-btn-skip.srt-image-button,
+.srt-btn-next.srt-image-button {
   width: clamp(198px, 19vw, 266px);
+}
+
+.srt-step-actions {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: clamp(18px, 3vw, 34px);
+  position: relative;
+  z-index: 2;
 }
 
 .srt-mouse-guide {
@@ -1359,6 +1736,23 @@ const testPageCss = `
   background: radial-gradient(circle at 50% 45%, rgba(255,255,255,0.04), transparent 35%);
 }
 
+.srt-idle-flash::after {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  border-radius: 32px;
+  pointer-events: none;
+  z-index: 4;
+  box-shadow: inset 0 0 40px rgba(255, 230, 120, 0.64);
+  animation: srt-idle-flash 0.9s ease-out forwards;
+}
+
+@keyframes srt-idle-flash {
+  0% { opacity: 0; }
+  35% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 .srt-test-item {
   position: absolute;
   cursor: pointer;
@@ -1400,6 +1794,15 @@ const testPageCss = `
   background: rgba(255, 245, 158, 0.18);
   box-shadow: 0 0 22px rgba(255, 204, 48, 0.55);
   animation: srt-test-effect-pop 0.42s ease-out forwards;
+}
+
+.srt-test-effect.is-penalty {
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.86) 0 10%, rgba(255, 138, 120, 0.72) 11% 35%, rgba(255, 70, 50, 0.16) 60%, rgba(255, 70, 50, 0) 72%);
+  box-shadow:
+    0 0 0 7px rgba(255, 108, 87, 0.16),
+    0 0 24px rgba(255, 96, 70, 0.52),
+    0 0 44px rgba(209, 58, 38, 0.26);
 }
 
 @keyframes srt-test-effect-pop {
@@ -1939,7 +2342,8 @@ const testPageCss = `
     padding: 0;
   }
 
-  .srt-btn-skip.srt-image-button {
+  .srt-btn-skip.srt-image-button,
+  .srt-btn-next.srt-image-button {
     width: min(74vw, 214px);
   }
 

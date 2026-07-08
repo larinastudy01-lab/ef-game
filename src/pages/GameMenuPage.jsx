@@ -4,29 +4,34 @@ import { supabase } from "../lib/supabaseClient";
 import "../styles/GameMenuPage.css";
 
 import gameMapBackground from "../asset/GameMap.png";
-import testIcon from "../asset/test_icon.png";
-import setIcon from "../asset/Set_icon.png";
-import honeyIcon from "../asset/Honey.png";
 import mousePointer from "../asset/mouse.png";
-import profileStoneIcon from "../asset/stone.png";
-import logoutTrainingIcon from "../asset/training.png";
-import completionVideo from "../asset/SRT_start.mp4";
+import completionVideo from "../asset/mp4/start.mp4";
 
 import chickenAvatar from "../asset/avatar/chicken.png";
+import starAsset from "../asset/home/icon/一星_no_bg.png";
+import honeycombAsset from "../asset/honeycomb_no_bg.png";
+import honeyAsset from "../asset/Honey.png";
+import pawLockedAsset from "../asset/home/icon/關卡 灰_no_bg.png";
+import pawActiveAsset from "../asset/home/icon/關卡 黃_no_bg.png";
+import pawDoneAsset from "../asset/home/icon/關卡 綠_no_bg.png";
 import srtIcon from "../asset/SRT_icon.png";
 import pmIcon from "../asset/PM_icon.png";
 import cbtIcon from "../asset/CBT_icon.png";
 import dptIcon from "../asset/DPT_icon.png";
 import dccsIcon from "../asset/DCCS_icon.png";
 import lbIcon from "../asset/LB_icon.png";
+import storyIcon from "../asset/home/story.png";
+import testIcon from "../asset/home/test.png";
+import goalIcon from "../asset/home/goal.png";
+import avatarHomeImg from "../asset/home/avatar_home.png";
 
-const COMPLETED_GAMES_STORAGE_KEY = "ef_game_completed_games";
 const COMPLETED_LEVELS_STORAGE_KEY = "ef_game_completed_training_levels";
 const COMPLETION_VIDEO_SEEN_KEY = "ef_game_today_training_completion_video_seen";
 const DEFAULT_TRAINING_MINUTES = 15;
 const MAX_LEVEL_PER_GAME = 5;
 const HONEY_MISSION_STORAGE_KEY = "ef_game_honey_mission_progress";
 const DAILY_TRAINING_SECONDS_STORAGE_KEY = "ef_game_today_training_seconds";
+const CURRENT_CHILD_STORAGE_KEYS = ["currentChild", "selectedChild", "currentPatient", "selectedPatient"];
 
 const HONEY_MISSION_CONFIGS = [
   { round: 1, requiredDays: 3, requiredStars: 50, dailyStarCap: 18, resetAfterDays: 3 },
@@ -50,19 +55,15 @@ const LEVEL_COPY = {
   5: "小高手",
 };
 
+const PAGE_SIZE = 6;
+
 const FULL_ROUTE_POINTS = [
-  { x: 24, y: 72 },
-  { x: 33, y: 66 },
-  { x: 44, y: 60 },
-  { x: 56, y: 54 },
-  { x: 69, y: 48 },
-  { x: 82, y: 43 },
-  { x: 88, y: 52 },
-  { x: 80, y: 62 },
-  { x: 68, y: 69 },
-  { x: 55, y: 75 },
-  { x: 67, y: 80 },
-  { x: 80, y: 70 },
+  { x: 11, y: 78 },
+  { x: 25, y: 68 },
+  { x: 39, y: 61 },
+  { x: 54, y: 58 },
+  { x: 70, y: 64 },
+  { x: 84, y: 64 },
 ];
 
 const safeParse = (value, fallback = null) => {
@@ -78,6 +79,16 @@ const readJsonArray = (key) => {
   return Array.isArray(value) ? value : [];
 };
 
+const readSelectedChild = () => {
+  if (typeof window === "undefined") return null;
+
+  for (const key of CURRENT_CHILD_STORAGE_KEYS) {
+    const value = safeParse(localStorage.getItem(key), null);
+    if (value && typeof value === "object" && !Array.isArray(value)) return value;
+  }
+
+  return null;
+};
 
 const getDailyTrainingSecondsKey = (todayKey) => `${DAILY_TRAINING_SECONDS_STORAGE_KEY}_${todayKey}`;
 
@@ -354,17 +365,14 @@ const getSelectedTrainingGames = (settings, trainingGames) => {
 };
 
 const getPlannedStageCount = (minutes, selectedAbilityCount, maxCount) => {
-  let count = 8;
+  let count = 15;
 
-  if (minutes <= 8) count = 4;
-  else if (minutes <= 12) count = 5;
-  else if (minutes <= 18) count = 7;
-  else if (minutes <= 24) count = 9;
-  else if (minutes <= 35) count = 10;
-  else count = 12;
+  if (minutes <= 8) count = 6;
+  else if (minutes <= 12) count = 12;
+  else count = 15;
 
-  const minimum = Math.max(3, selectedAbilityCount * 2);
-  return Math.min(Math.max(count, minimum), maxCount, FULL_ROUTE_POINTS.length);
+  const minimum = Math.max(PAGE_SIZE, selectedAbilityCount * 2);
+  return Math.min(Math.max(count, minimum), maxCount);
 };
 
 const pickRoutePoints = (count) => {
@@ -390,18 +398,6 @@ const createCurvedRoutePath = (points) => {
   }, "");
 };
 
-const isGameCompletedFromStorage = (gameId) => {
-  const completedGames = readJsonArray(COMPLETED_GAMES_STORAGE_KEY);
-
-  return (
-    completedGames.includes(gameId) ||
-    localStorage.getItem(`ef_game_${gameId}_completed`) === "true" ||
-    localStorage.getItem(`ef_game_${gameId}_training_completed`) === "true" ||
-    localStorage.getItem(`training_${gameId}_completed`) === "true" ||
-    localStorage.getItem(`${gameId}_training_completed`) === "true"
-  );
-};
-
 const isTrainingStageCompletedFromStorage = (stage) => {
   const completedLevels = readJsonArray(COMPLETED_LEVELS_STORAGE_KEY);
 
@@ -412,8 +408,7 @@ const isTrainingStageCompletedFromStorage = (stage) => {
     localStorage.getItem(`ef_game_${stage.stageId}_completed`) === "true" ||
     localStorage.getItem(`ef_game_${stage.gameId}_level_${stage.level}_completed`) === "true" ||
     localStorage.getItem(`training_${stage.gameId}_level_${stage.level}_completed`) === "true" ||
-    localStorage.getItem(`${stage.gameId}_training_level_${stage.level}_completed`) === "true" ||
-    isGameCompletedFromStorage(stage.gameId)
+    localStorage.getItem(`${stage.gameId}_training_level_${stage.level}_completed`) === "true"
   );
 };
 
@@ -483,8 +478,9 @@ const getTrainingStageStarsFromStorage = (stage, completed) => {
 function GameMenuPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [showTestPanel, setShowTestPanel] = useState(false);
   const [showCompletionVideo, setShowCompletionVideo] = useState(false);
+  const [showStoryVideo, setShowStoryVideo] = useState(false);
+  const [showProfilePanel, setShowProfilePanel] = useState(false);
   const [lockedHintStageId, setLockedHintStageId] = useState(null);
   const [userProfileName, setUserProfileName] = useState("小冒險家");
   const [completedStageIds, setCompletedStageIds] = useState([]);
@@ -497,6 +493,10 @@ function GameMenuPage() {
     earnedStarsToday: 0,
     completedCountToday: 0,
   }));
+
+  useEffect(() => {
+    setShowStoryVideo(true);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -512,7 +512,11 @@ function GameMenuPage() {
         }
 
         const metadata = user.user_metadata || {};
+        const selectedChild = readSelectedChild();
         const displayName =
+          selectedChild?.nickname ||
+          selectedChild?.name ||
+          selectedChild?.full_name ||
           metadata.username ||
           metadata.name ||
           metadata.full_name ||
@@ -520,7 +524,9 @@ function GameMenuPage() {
           user.email?.split("@")[0] ||
           "小冒險家";
 
-        if (isMounted) setUserProfileName(displayName);
+        if (isMounted) {
+          setUserProfileName(displayName);
+        }
       } catch {
         if (isMounted) navigate("/login", { replace: true });
       }
@@ -737,7 +743,7 @@ function GameMenuPage() {
     return dailyTrainingStages.reduce((stateMap, stage, index) => {
       const completed = completedStageIds.includes(stage.stageId);
       const previousCompleted =
-        index === 0 || completedStageIds.includes(dailyTrainingStages[index - 1].stageId);
+        index === 0 || dailyTrainingStages.slice(0, index).every((item) => completedStageIds.includes(item.stageId));
       const unlocked = completed || previousCompleted;
 
       stateMap[stage.stageId] = {
@@ -751,25 +757,59 @@ function GameMenuPage() {
     }, {});
   }, [completedStageIds, dailyTrainingStages, stageStarMap]);
 
-  const visibleRoutePoints = useMemo(
-    () => dailyTrainingStages.map((stage) => ({ x: stage.mapX, y: stage.mapY })),
-    [dailyTrainingStages]
-  );
-  const routePath = createCurvedRoutePath(visibleRoutePoints);
   const currentStage = useMemo(
     () => dailyTrainingStages.find((stage) => stageStateMap[stage.stageId]?.active) || dailyTrainingStages.find((stage) => stageStateMap[stage.stageId]?.unlocked) || dailyTrainingStages[0],
     [dailyTrainingStages, stageStateMap]
   );
+
+  const currentPageIndex = useMemo(() => {
+    if (!dailyTrainingStages.length) return 0;
+
+    const firstIncompleteIndex = dailyTrainingStages.findIndex((stage) => !stageStateMap[stage.stageId]?.completed);
+    const targetIndex = firstIncompleteIndex >= 0 ? firstIncompleteIndex : dailyTrainingStages.length - 1;
+    return Math.floor(targetIndex / PAGE_SIZE);
+  }, [dailyTrainingStages, stageStateMap]);
+
+  const visibleDailyStages = useMemo(() => {
+    const pageStartIndex = currentPageIndex * PAGE_SIZE;
+    return dailyTrainingStages.slice(pageStartIndex, pageStartIndex + PAGE_SIZE).map((stage, index) => {
+      const point = FULL_ROUTE_POINTS[index] || FULL_ROUTE_POINTS[FULL_ROUTE_POINTS.length - 1];
+      return {
+        ...stage,
+        mapX: point.x,
+        mapY: point.y,
+      };
+    });
+  }, [currentPageIndex, dailyTrainingStages]);
+
+  const visibleRoutePoints = useMemo(
+    () => visibleDailyStages.map((stage) => ({ x: stage.mapX, y: stage.mapY })),
+    [visibleDailyStages]
+  );
+  const routePath = createCurvedRoutePath(visibleRoutePoints);
+
+  const earnedStarsTotal = useMemo(() => {
+    return dailyTrainingStages.reduce((sum, stage) => {
+      const stageState = stageStateMap[stage.stageId] || {};
+      return sum + clampStarCount(stageState.stars);
+    }, 0);
+  }, [dailyTrainingStages, stageStateMap]);
+
+  const maxStarsTotal = Math.max(30, dailyTrainingStages.length * 3);
 
   const closeCompletionVideo = () => {
     localStorage.setItem(`${COMPLETION_VIDEO_SEEN_KEY}_${todayKey}`, "true");
     setShowCompletionVideo(false);
   };
 
-  const openParentResult = () => {
-    navigate("/result-pa", {
+  const closeStoryVideo = () => {
+    setShowStoryVideo(false);
+  };
+
+  const openTestMap = () => {
+    navigate("/test-map", {
       state: {
-        fromTrainingMap: true,
+        fromGameMenu: true,
         todayKey,
       },
     });
@@ -784,8 +824,15 @@ function GameMenuPage() {
   }, []);
 
   const handleTrainingStageClick = (stage) => {
+    const stageIndex = dailyTrainingStages.findIndex((item) => item.stageId === stage.stageId);
+    const previousStagePassed =
+      stageIndex <= 0 ||
+      dailyTrainingStages
+        .slice(0, stageIndex)
+        .every((item) => stageStateMap[item.stageId]?.completed);
     const stageState = stageStateMap[stage.stageId];
-    if (!stageState?.unlocked) {
+
+    if (!stageState?.unlocked || !previousStagePassed) {
       setLockedHintStageId(stage.stageId);
 
       if (lockedHintTimeoutRef.current) {
@@ -842,7 +889,7 @@ function GameMenuPage() {
           min-height: 100vh;
           overflow: hidden;
           font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
-          color: #3f2d1c;
+          color: #4a3017;
           background: #8fd8f5;
         }
 
@@ -852,9 +899,7 @@ function GameMenuPage() {
           width: 100vw;
           height: 100vh;
           overflow: hidden;
-          background-image:
-            linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(54, 112, 54, 0.12)),
-            var(--game-map-bg);
+          background-image: var(--game-map-bg);
           background-size: cover;
           background-position: center center;
           background-repeat: no-repeat;
@@ -866,10 +911,7 @@ function GameMenuPage() {
           position: absolute;
           inset: 0;
           z-index: 0;
-          background:
-            radial-gradient(circle at 20% 18%, rgba(255, 247, 188, 0.28), transparent 18%),
-            radial-gradient(circle at 82% 20%, rgba(255, 255, 255, 0.22), transparent 20%),
-            linear-gradient(180deg, rgba(30, 103, 66, 0.03), rgba(31, 89, 45, 0.14));
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(42, 101, 47, 0.06));
           pointer-events: none;
         }
 
@@ -880,309 +922,512 @@ function GameMenuPage() {
           pointer-events: none;
         }
 
-        .training-left-panel {
-          position: absolute;
-          left: max(22px, env(safe-area-inset-left));
-          top: max(22px, env(safe-area-inset-top));
-          z-index: 12;
-          display: flex;
-          align-items: flex-start;
-          gap: 10px;
+        .map-home-button,
+        .map-player-button,
+        .map-setting-button,
+        .map-story-button,
+        .medical-reminder-card,
+        .map-bottom-button,
+        .badge-panel-button,
+        .training-stage-node {
           pointer-events: auto;
         }
 
-        .training-back-button,
-        .training-parent-button,
-        .training-avatar-button,
-        .training-profile-actions button {
-          min-height: 44px;
-          border: 0;
-          border-radius: 999px;
-          font-weight: 950;
-          cursor: pointer;
-          transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
-        }
-
-        .training-back-button:hover,
-        .training-parent-button:hover,
-        .training-round-button:hover,
-        .training-avatar-button:hover,
-        .training-profile-actions button:hover {
-          transform: translateY(-1px);
-          filter: brightness(1.04);
-        }
-
-        .training-back-button {
-          width: clamp(58px, 5.2vw, 76px);
-          height: clamp(58px, 5.2vw, 76px);
-          min-height: 0;
-          padding: 0;
-          display: grid;
-          place-items: center;
-          border: 6px solid #ffd669;
-          color: #7b5228;
-          font-size: clamp(2rem, 3vw, 2.8rem);
-          line-height: 1;
-          background: radial-gradient(circle at 35% 25%, #fff6c6 0 28%, #ffd867 29% 68%, #edb042 69% 100%);
-          box-shadow: inset 0 -8px 0 rgba(143, 86, 18, 0.18), 0 10px 18px rgba(58, 91, 48, 0.22);
-        }
-
-        .training-profile-card {
-          position: fixed;
-          left: max(26px, env(safe-area-inset-left));
-          bottom: max(28px, env(safe-area-inset-bottom));
-          z-index: 10;
-          width: clamp(170px, 15vw, 220px);
-          min-width: 0;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 9px;
-          padding: clamp(12px, 1.2vw, 16px);
-          border: 0;
-          border-radius: 24px;
-          background: rgba(255, 249, 224, 0.94);
-          box-shadow: 0 14px 24px rgba(53, 84, 42, 0.2), inset 0 -5px 0 rgba(162, 119, 55, 0.12);
-          backdrop-filter: blur(8px);
-        }
-
-        .training-profile-avatar {
-          width: clamp(92px, 9vw, 128px);
-          height: clamp(92px, 9vw, 128px);
-          display: grid;
-          place-items: center;
-          border: 4px solid #ffd56a;
+        .map-home-button {
+          position: absolute;
+          left: max(22px, env(safe-area-inset-left));
+          top: max(18px, env(safe-area-inset-top));
+          z-index: 20;
+          width: clamp(74px, 5.5vw, 98px);
+          height: clamp(74px, 5.5vw, 98px);
+          border: 6px solid #f8d577;
           border-radius: 50%;
-          background: linear-gradient(180deg, #fff9cf, #fff1a9);
-          overflow: hidden;
-          box-shadow: 0 10px 18px rgba(95, 70, 31, 0.18), inset 0 -4px 0 rgba(156, 99, 22, 0.1);
+          display: grid;
+          place-items: center;
+          background: linear-gradient(180deg, #fff8d7 0%, #ffe7a2 58%, #efbf56 100%);
+          color: #9a5f11;
+          font-size: clamp(2.1rem, 3vw, 3rem);
+          box-shadow: inset 0 -7px 0 rgba(143, 85, 16, 0.18), 0 10px 20px rgba(68, 79, 38, 0.24);
+          cursor: pointer;
         }
 
-        .training-profile-avatar img {
+        .map-top-progress {
+          position: absolute;
+          top: max(22px, env(safe-area-inset-top));
+          left: 50%;
+          z-index: 18;
+          width: min(640px, 36vw);
+          height: clamp(76px, 5.8vw, 104px);
+          padding: 12px 28px;
+          display: grid;
+          grid-template-columns: clamp(58px, 4.5vw, 78px) 1fr clamp(58px, 4.5vw, 78px);
+          align-items: center;
+          gap: 18px;
+          border: 5px solid rgba(255, 240, 174, 0.98);
+          border-radius: 34px;
+          background: linear-gradient(180deg, rgba(255, 251, 222, 0.97), rgba(255, 225, 151, 0.94));
+          box-shadow: inset 0 -6px 0 rgba(151, 96, 24, 0.12), 0 12px 22px rgba(55, 78, 42, 0.18);
+          transform: translateX(-50%);
+          pointer-events: auto;
+        }
+
+        .map-progress-star,
+        .map-progress-gift {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          filter: drop-shadow(0 5px 5px rgba(116, 73, 17, 0.2));
+        }
+
+        .map-progress-gift {
+          font-size: clamp(2.4rem, 3.6vw, 4rem);
+          display: grid;
+          place-items: center;
+        }
+
+        .map-progress-track {
+          height: clamp(30px, 2.4vw, 42px);
+          padding: 4px;
+          border-radius: 999px;
+          background: linear-gradient(180deg, #ffe19c, #a45e1b);
+          box-shadow: inset 0 3px 6px rgba(72, 42, 10, 0.32), 0 3px 0 rgba(255, 255, 255, 0.62);
+          overflow: hidden;
+          position: relative;
+        }
+
+        .map-progress-fill {
+          position: absolute;
+          inset: 4px auto 4px 4px;
+          width: var(--star-progress);
+          border-radius: 999px;
+          background: linear-gradient(180deg, #fff07b, #f6be26 52%, #c47a20);
+          box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.45), inset 0 -4px 0 rgba(104, 56, 13, 0.15);
+          transition: width 0.3s ease;
+        }
+
+        .map-progress-text {
+          position: absolute;
+          inset: 0;
+          display: grid;
+          place-items: center;
+          font-size: clamp(1.1rem, 1.6vw, 1.65rem);
+          font-weight: 1000;
+          color: #fff8d4;
+          text-shadow: -2px 0 #7e4b19, 0 2px #7e4b19, 2px 0 #7e4b19, 0 -2px #7e4b19;
+          letter-spacing: 1px;
+        }
+
+        .map-title-board {
+          position: absolute;
+          top: clamp(122px, 11vw, 170px);
+          left: 50%;
+          z-index: 13;
+          width: min(590px, 34vw);
+          text-align: center;
+          transform: translateX(-50%);
+          pointer-events: none;
+        }
+
+        .map-title-wood {
+          min-height: clamp(58px, 4.8vw, 82px);
+          display: grid;
+          place-items: center;
+          border: 5px solid rgba(132, 82, 31, 0.28);
+          border-radius: 18px;
+          background:
+            radial-gradient(circle at 8% 18%, rgba(76, 137, 33, 0.95) 0 9px, transparent 10px),
+            radial-gradient(circle at 92% 18%, rgba(76, 137, 33, 0.95) 0 9px, transparent 10px),
+            linear-gradient(180deg, #c8842c 0%, #a45e1d 52%, #7b4319 100%);
+          box-shadow: inset 0 4px 0 rgba(255, 214, 129, 0.38), inset 0 -5px 0 rgba(82, 43, 17, 0.22), 0 10px 16px rgba(50, 69, 35, 0.2);
+        }
+
+        .map-title-wood h1 {
+          margin: 0;
+          color: #fffdf0;
+          font-size: clamp(2rem, 3vw, 3.2rem);
+          font-weight: 1000;
+          letter-spacing: 0.06em;
+          text-shadow: -3px 0 #7d4516, 0 3px #7d4516, 3px 0 #7d4516, 0 -3px #7d4516, 0 6px 0 rgba(104, 54, 14, 0.25);
+        }
+
+        .map-title-subtitle {
+          margin: -4px auto 0;
+          width: 88%;
+          padding: 12px 18px 16px;
+          border-radius: 0 0 28px 28px;
+          background: rgba(255, 242, 201, 0.94);
+          color: #8b4c18;
+          font-size: clamp(1rem, 1.35vw, 1.35rem);
+          font-weight: 950;
+          box-shadow: inset 0 -5px 0 rgba(135, 80, 20, 0.1), 0 8px 14px rgba(64, 67, 37, 0.14);
+        }
+
+        .map-player-button {
+          position: absolute;
+          right: max(24px, env(safe-area-inset-right));
+          top: max(22px, env(safe-area-inset-top));
+          z-index: 20;
+          min-width: clamp(180px, 14vw, 260px);
+          height: clamp(66px, 5.2vw, 90px);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 14px;
+          padding: 8px 18px 8px 12px;
+          border: 5px solid #f6d071;
+          border-radius: 999px;
+          background: linear-gradient(180deg, #fff8d8, #ffd98a);
+          box-shadow: inset 0 -6px 0 rgba(137, 80, 18, 0.14), 0 10px 18px rgba(53, 72, 42, 0.2);
+          color: #7b4317;
+          cursor: pointer;
+        }
+
+        .map-player-avatar {
+          width: clamp(46px, 3.7vw, 64px);
+          height: clamp(46px, 3.7vw, 64px);
+          border-radius: 50%;
+          display: grid;
+          place-items: center;
+          background: #fff0a4;
+          overflow: hidden;
+          box-shadow: inset 0 -4px 0 rgba(146, 86, 18, 0.14);
+        }
+
+        .map-player-avatar img {
           width: 92%;
           height: 92%;
           object-fit: contain;
         }
 
-        .training-profile-card h1 {
-          margin: 0;
-          max-width: 100%;
-          font-size: clamp(0.9rem, 1.1vw, 1rem);
-          font-weight: 950;
-          color: #6c4c2a;
+        .map-player-name {
+          flex: 1;
+          min-width: 0;
+          font-size: clamp(1.05rem, 1.4vw, 1.45rem);
+          font-weight: 1000;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
 
-        .training-avatar-button {
-          display: none;
+        .map-player-caret {
+          font-size: 1.5rem;
+          color: #a65d13;
         }
 
-        .training-profile-actions {
-          width: 100%;
+
+
+        .map-setting-button {
+          position: absolute;
+          right: max(34px, env(safe-area-inset-right));
+          top: clamp(116px, 9vw, 132px);
+          z-index: 19;
+          width: clamp(72px, 5.2vw, 96px);
+          min-height: clamp(72px, 5.2vw, 96px);
+          border: 5px solid #f7d677;
+          border-radius: 28px;
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 7px;
+          place-items: center;
+          gap: 2px;
+          background: linear-gradient(180deg, #fff9d8, #ffd98b);
+          color: #754719;
+          font-weight: 1000;
+          box-shadow: inset 0 -6px 0 rgba(137, 80, 18, 0.14), 0 10px 18px rgba(53, 72, 42, 0.2);
+          cursor: pointer;
         }
 
-        .training-profile-actions button {
-          min-height: clamp(40px, 3.5vw, 48px);
-          padding: 5px 6px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 4px;
-          border: 3px solid rgba(255, 255, 255, 0.88);
-          border-radius: 15px;
-          background: linear-gradient(180deg, #fff0a9, #f6c158);
-          color: #654522;
-          font-size: clamp(0.72rem, 0.9vw, 0.86rem);
-          font-weight: 950;
-          box-shadow: inset 0 -4px 0 rgba(148, 86, 18, 0.16), 0 6px 12px rgba(72, 78, 36, 0.16);
+        .map-setting-button span:first-child {
+          font-size: clamp(1.9rem, 2.5vw, 2.7rem);
+          line-height: 1;
         }
 
-        .training-profile-actions button:last-child {
-          background: linear-gradient(180deg, #ffd09d, #ee9d45);
+        .map-setting-button span:last-child {
+          font-size: clamp(0.82rem, 0.95vw, 1rem);
         }
 
-        .training-profile-action-icon {
-          width: clamp(22px, 2vw, 28px);
-          height: clamp(22px, 2vw, 28px);
-          object-fit: contain;
-          flex: 0 0 auto;
-        }
-
-        .training-badge-card {
-          position: fixed;
-          left: max(18px, env(safe-area-inset-left));
-          bottom: max(18px, env(safe-area-inset-bottom));
-          z-index: 9;
-          width: min(270px, 25vw);
-          padding: 12px;
-          border: 4px solid rgba(255, 255, 255, 0.82);
-          border-radius: 24px;
-          background: rgba(255, 250, 223, 0.84);
-          box-shadow: 0 14px 26px rgba(53, 84, 42, 0.18), inset 0 -5px 0 rgba(162, 119, 55, 0.1);
-          backdrop-filter: blur(8px);
-          pointer-events: auto;
-        }
-
-        .training-badge-header,
-        .training-badge-card h2,
-        .training-badge-list {
-          display: none;
-        }
-
-        .training-plan-summary {
-          margin: 0;
-          padding: 8px 10px;
-          border-radius: 16px;
-          background: rgba(255, 241, 185, 0.82);
-          color: #6a5138;
-          font-size: 0.86rem;
-          font-weight: 950;
-          line-height: 1.35;
+        .profile-modal-card {
+          width: min(90vw, 520px);
+          padding: 30px;
+          border: 6px solid #f6d071;
+          border-radius: 34px;
+          background: linear-gradient(180deg, rgba(255, 250, 224, 0.98), rgba(255, 229, 167, 0.98));
+          color: #6f3f16;
+          box-shadow: inset 0 -8px 0 rgba(137, 80, 18, 0.12), 0 24px 60px rgba(85, 60, 20, 0.28);
+          position: relative;
           text-align: center;
         }
 
-        .honey-progress-card {
-          position: absolute;
-          top: max(20px, env(safe-area-inset-top));
-          left: 50%;
-          z-index: 13;
-          width: min(610px, 46vw);
-          min-height: 106px;
-          padding: 18px 28px;
+        .profile-modal-avatar {
+          width: 112px;
+          height: 112px;
+          margin: 0 auto 12px;
+          border-radius: 50%;
           display: grid;
-          grid-template-columns: clamp(70px, 5.8vw, 96px) 1fr;
-          align-items: center;
-          gap: clamp(20px, 3vw, 42px);
-          border: 0;
-          border-radius: 34px;
-          background: rgba(255, 249, 226, 0.95);
-          box-shadow: 0 15px 28px rgba(53, 84, 42, 0.2), inset 0 -6px 0 rgba(162, 119, 55, 0.1);
-          transform: translateX(-50%);
-          pointer-events: auto;
-          backdrop-filter: blur(8px);
+          place-items: center;
+          background: #fff0a4;
+          box-shadow: inset 0 -6px 0 rgba(146, 86, 18, 0.14), 0 10px 18px rgba(86, 64, 28, 0.18);
+          overflow: hidden;
         }
 
-        .honey-progress-icon {
-          width: 100%;
-          height: auto;
+        .profile-modal-avatar img {
+          width: 92%;
+          height: 92%;
           object-fit: contain;
-          filter: drop-shadow(0 8px 10px rgba(123, 77, 17, 0.18));
         }
 
-        .honey-progress-content {
-          min-width: 0;
+        .profile-modal-card h2 {
+          margin: 0 0 8px;
+          font-size: clamp(1.8rem, 2.8vw, 2.5rem);
+          font-weight: 1000;
+        }
+
+        .profile-modal-name {
+          margin: 0 0 18px;
+          font-size: clamp(1.35rem, 2vw, 1.8rem);
+          font-weight: 1000;
+          color: #8a4e19;
+        }
+
+        .profile-stat-grid {
           display: grid;
-          gap: 8px;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 12px;
+          margin-top: 18px;
         }
 
-        .honey-progress-header {
+        .profile-stat-card {
+          padding: 14px 10px;
+          border-radius: 22px;
+          background: rgba(255, 255, 255, 0.58);
+          box-shadow: inset 0 -4px 0 rgba(137, 80, 18, 0.08);
+        }
+
+        .profile-stat-card strong {
+          display: block;
+          font-size: 1.45rem;
+          color: #fff;
+          text-shadow: -2px 0 #8b5518, 0 2px #8b5518, 2px 0 #8b5518, 0 -2px #8b5518;
+        }
+
+        .profile-stat-card span {
+          display: block;
+          margin-top: 4px;
+          font-weight: 900;
+        }
+
+        .map-story-button {
+          position: absolute;
+          right: max(34px, env(safe-area-inset-right));
+          top: clamp(218px, 15vw, 244px);
+          z-index: 17;
+          width: clamp(78px, 5.5vw, 104px);
+          min-height: clamp(78px, 5.5vw, 104px);
+          border: 5px solid #f7d677;
+          border-radius: 30px;
+          display: grid;
+          place-items: center;
+          gap: 2px;
+          background: linear-gradient(180deg, #fff9d8, #ffd98b);
+          color: #754719;
+          font-weight: 1000;
+          box-shadow: inset 0 -6px 0 rgba(137, 80, 18, 0.14), 0 10px 18px rgba(53, 72, 42, 0.2);
+          cursor: pointer;
+        }
+
+        .map-story-button span:first-child {
+          font-size: clamp(1.8rem, 2.6vw, 2.8rem);
+          line-height: 1;
+        }
+
+        .map-story-button span:last-child {
+          font-size: clamp(0.86rem, 1.05vw, 1.05rem);
+        }
+
+        .medical-reminder-card {
+          position: absolute;
+          left: max(28px, env(safe-area-inset-left));
+          top: clamp(126px, 13vh, 170px);
+          z-index: 18;
+          width: min(330px, 26vw);
+          padding: 16px 18px;
+          border: 5px solid #f6d071;
+          border-radius: 26px;
+          background: linear-gradient(180deg, rgba(255, 250, 224, 0.97), rgba(255, 225, 151, 0.95));
+          color: #704018;
+          box-shadow: inset 0 -6px 0 rgba(137, 80, 18, 0.12), 0 12px 22px rgba(55, 78, 42, 0.2);
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .medical-reminder-card h2 {
+          margin: 0 0 8px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 12px;
+          gap: 10px;
+          font-size: clamp(1.05rem, 1.35vw, 1.4rem);
+          font-weight: 1000;
         }
 
-        .honey-progress-title {
-          color: #6c4c2a;
-          font-size: clamp(0.9rem, 1.05vw, 1rem);
-          font-weight: 950;
-          white-space: nowrap;
-        }
-
-        .honey-progress-count {
-          padding: 4px 10px;
+        .medical-reminder-badge {
+          min-width: 28px;
+          height: 28px;
+          padding: 0 8px;
           border-radius: 999px;
-          background: rgba(255, 226, 126, 0.72);
-          color: #7a4d16;
-          font-size: clamp(0.72rem, 0.9vw, 0.86rem);
-          font-weight: 950;
-          white-space: nowrap;
+          display: inline-grid;
+          place-items: center;
+          background: #e45c3f;
+          color: #fff;
+          font-size: 0.95rem;
+          box-shadow: 0 4px 8px rgba(109, 53, 20, 0.18);
         }
 
-        .honey-progress-subtext {
+        .medical-reminder-empty,
+        .medical-reminder-error {
           margin: 0;
-          color: #72583b;
-          font-size: clamp(0.72rem, 0.9vw, 0.84rem);
-          font-weight: 850;
-          line-height: 1.25;
+          font-size: 0.95rem;
+          line-height: 1.45;
+          font-weight: 800;
         }
 
-        .honey-progress-track {
-          position: relative;
-          height: clamp(24px, 2.2vw, 34px);
+        .medical-reminder-error {
+          color: #a2472e;
+        }
+
+        .medical-reminder-preview {
+          display: grid;
+          gap: 7px;
+        }
+
+        .medical-reminder-preview-item {
+          min-width: 0;
+          padding: 8px 10px;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.58);
+          box-shadow: inset 0 -3px 0 rgba(137, 80, 18, 0.08);
+        }
+
+        .medical-reminder-preview-item strong {
+          display: block;
+          font-size: 0.95rem;
+          font-weight: 1000;
           overflow: hidden;
-          border: 4px solid rgba(218, 218, 218, 0.95);
-          border-radius: 999px;
-          background: #fff;
-          box-shadow: inset 0 3px 6px rgba(85, 73, 53, 0.18), 0 2px 0 rgba(255, 255, 255, 0.88);
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
-        .honey-progress-track::after {
-          content: "";
+        .medical-reminder-preview-item span {
+          display: block;
+          margin-top: 3px;
+          font-size: 0.82rem;
+          font-weight: 800;
+          color: #8c5a26;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .medical-reminder-modal-card {
+          width: min(92vw, 660px);
+          max-height: 82vh;
+          overflow: auto;
+          padding: 30px;
+          border: 6px solid #f6d071;
+          border-radius: 34px;
+          background: linear-gradient(180deg, rgba(255, 250, 224, 0.98), rgba(255, 229, 167, 0.98));
+          color: #6f3f16;
+          box-shadow: inset 0 -8px 0 rgba(137, 80, 18, 0.12), 0 24px 60px rgba(85, 60, 20, 0.28);
+          position: relative;
+        }
+
+        .medical-reminder-modal-card h2 {
+          margin: 0 0 16px;
+          text-align: center;
+          font-size: clamp(1.8rem, 2.8vw, 2.5rem);
+          font-weight: 1000;
+        }
+
+        .medical-reminder-list {
+          display: grid;
+          gap: 14px;
+        }
+
+        .medical-reminder-list-item {
+          padding: 16px 18px;
+          border-radius: 24px;
+          background: rgba(255, 255, 255, 0.62);
+          box-shadow: inset 0 -4px 0 rgba(137, 80, 18, 0.08);
+        }
+
+        .medical-reminder-list-header {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 8px;
+          font-weight: 1000;
+        }
+
+        .medical-reminder-list-message {
+          margin: 0;
+          color: #704018;
+          font-size: 1rem;
+          font-weight: 800;
+          line-height: 1.65;
+          white-space: pre-wrap;
+        }
+
+        .medical-reminder-list-meta {
+          margin-top: 10px;
+          display: flex;
+          justify-content: space-between;
+          gap: 10px;
+          color: #8c5a26;
+          font-size: 0.9rem;
+          font-weight: 900;
+        }
+
+        .map-sign-board {
           position: absolute;
-          inset: 3px;
-          border-radius: inherit;
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), transparent 58%);
+          right: 16%;
+          top: 43%;
+          z-index: 6;
+          padding: 14px 34px;
+          border-radius: 8px;
+          background: linear-gradient(180deg, #e7b564, #c78536);
+          color: #5b3212;
+          font-size: clamp(1rem, 1.25vw, 1.35rem);
+          font-weight: 1000;
+          transform: rotate(-4deg);
+          box-shadow: inset 0 4px 0 rgba(255, 222, 149, 0.35), inset 0 -4px 0 rgba(91, 45, 12, 0.18), 0 8px 12px rgba(51, 68, 37, 0.22);
           pointer-events: none;
         }
 
-        .honey-progress-fill {
-          width: var(--honey-progress);
-          height: 100%;
-          border-radius: inherit;
-          background: linear-gradient(180deg, #ffc760, #f7a42a 58%, #df7e18);
-          box-shadow: inset 0 -4px 0 rgba(138, 75, 14, 0.14), 0 0 14px rgba(255, 187, 61, 0.38);
-          transition: width 0.32s ease;
-        }
-
-        .training-right-tools {
+        .map-carrot-bubble {
           position: absolute;
-          right: max(18px, env(safe-area-inset-right));
-          top: max(18px, env(safe-area-inset-top));
-          z-index: 12;
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          gap: 10px;
-          pointer-events: auto;
-        }
-
-        .training-parent-button {
-          color: #fff;
-          min-height: 44px;
-          padding: 0 17px;
-          background: linear-gradient(180deg, #78caff, #3685dd);
-          box-shadow: inset 0 -5px 0 rgba(0, 0, 0, 0.16), 0 9px 16px rgba(40, 95, 48, 0.2);
-        }
-
-        .training-icon-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 10px;
-        }
-
-        .training-round-button {
-          width: clamp(54px, 4.5vw, 70px);
-          height: clamp(54px, 4.5vw, 70px);
+          left: 57%;
+          top: 38%;
+          z-index: 8;
+          width: clamp(96px, 7vw, 140px);
+          height: clamp(70px, 5.1vw, 100px);
           display: grid;
           place-items: center;
-          border: 4px solid #ffd25f;
-          border-radius: 50%;
-          background: #fff3ba;
-          box-shadow: inset 0 -5px 0 rgba(160, 100, 20, 0.14), 0 9px 16px rgba(53, 84, 42, 0.18);
-          cursor: pointer;
-          transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
+          border-radius: 26px;
+          background: rgba(255, 255, 255, 0.92);
+          box-shadow: 0 8px 16px rgba(66, 82, 49, 0.18);
+          pointer-events: none;
         }
 
-        .training-round-button img {
-          width: 72%;
-          height: 72%;
-          object-fit: contain;
+        .map-carrot-bubble::after {
+          content: "";
+          position: absolute;
+          left: 22px;
+          bottom: -12px;
+          border-width: 14px 12px 0 0;
+          border-style: solid;
+          border-color: rgba(255, 255, 255, 0.92) transparent transparent transparent;
+        }
+
+        .map-carrot-bubble span {
+          font-size: clamp(2.4rem, 3.6vw, 4.2rem);
         }
 
         .training-route-svg {
@@ -1192,7 +1437,7 @@ function GameMenuPage() {
           width: 100%;
           height: 100%;
           pointer-events: none;
-          filter: drop-shadow(0 7px 7px rgba(56, 79, 40, 0.16));
+          filter: drop-shadow(0 6px 6px rgba(74, 65, 38, 0.18));
         }
 
         .training-route-shadow,
@@ -1204,272 +1449,297 @@ function GameMenuPage() {
         }
 
         .training-route-shadow {
-          stroke: rgba(96, 65, 35, 0.42);
-          stroke-width: 7.2;
+          stroke: rgba(75, 51, 28, 0.34);
+          stroke-width: 6;
+          stroke-dasharray: 1 5;
         }
 
         .training-route-main {
-          stroke: rgba(239, 202, 126, 0.9);
-          stroke-width: 5.4;
+          stroke: rgba(236, 185, 93, 0.74);
+          stroke-width: 4;
+          stroke-dasharray: 1 5;
         }
 
         .training-route-leaves {
-          stroke: rgba(255, 248, 210, 0.8);
-          stroke-width: 1.7;
-          stroke-dasharray: 1 6;
+          display: none;
         }
 
         .training-stage-node {
           position: absolute;
           left: var(--node-x);
           top: var(--node-y);
-          z-index: 5;
-          width: clamp(66px, 5.8vw, 88px);
-          height: clamp(66px, 5.8vw, 88px);
+          z-index: 10;
+          width: clamp(118px, 8.2vw, 164px);
+          min-height: clamp(142px, 9.2vw, 182px);
           transform: translate(-50%, -50%);
           border: 0;
           background: transparent;
           cursor: pointer;
           display: grid;
-          place-items: center;
+          justify-items: center;
+          align-content: start;
           padding: 0;
-          pointer-events: auto;
-          transition: transform 0.16s ease;
+          transition: transform 0.16s ease, filter 0.16s ease;
         }
 
         .training-stage-node:hover,
         .training-stage-node:focus-visible {
           transform: translate(-50%, -50%) scale(1.045);
           outline: none;
+          filter: drop-shadow(0 0 14px rgba(255, 233, 90, 0.55));
         }
 
         .training-stage-node.is-locked {
           cursor: not-allowed;
         }
 
-        .training-stage-node.is-shaking .training-stage-circle {
+        .training-stage-node.is-shaking .training-stage-paw {
           animation: lockedShake 0.42s ease-in-out;
         }
 
-        .training-stage-circle {
+        .training-stage-paw-wrap {
           position: relative;
-          width: clamp(62px, 5.4vw, 82px);
-          height: clamp(62px, 5.4vw, 82px);
+          width: clamp(108px, 7.4vw, 150px);
+          height: clamp(92px, 6.2vw, 126px);
           display: grid;
           place-items: center;
-          border: 5px solid rgba(255, 246, 205, 0.96);
-          border-radius: 50%;
-          background:
-            radial-gradient(circle at 38% 24%, rgba(255, 255, 255, 0.68) 0 15%, transparent 16%),
-            radial-gradient(circle at 50% 42%, #ffc56b 0 38%, #c47a34 39% 72%, #7a4c2d 73% 100%);
-          box-shadow: inset 0 -9px 0 rgba(80, 42, 18, 0.18), 0 11px 18px rgba(54, 78, 36, 0.25);
-          transition: filter 0.16s ease, box-shadow 0.16s ease;
         }
 
-        .training-stage-node.is-completed .training-stage-circle {
-          background:
-            radial-gradient(circle at 38% 24%, rgba(255, 255, 255, 0.7) 0 15%, transparent 16%),
-            radial-gradient(circle at 50% 42%, #98ef72 0 38%, #43b95a 39% 72%, #24733c 73% 100%);
-        }
-
-        .training-stage-node.is-active .training-stage-circle {
-          background:
-            radial-gradient(circle at 38% 24%, rgba(255, 255, 255, 0.72) 0 15%, transparent 16%),
-            radial-gradient(circle at 50% 42%, #ffe071 0 38%, #ffad3f 39% 72%, #da6a22 73% 100%);
-          animation: trainingActiveGlow 1.7s ease-in-out infinite;
-        }
-
-        .training-stage-node.is-locked .training-stage-circle {
-          filter: grayscale(0.72) saturate(0.62) brightness(0.9);
-          opacity: 0.88;
-        }
-
-        .training-stage-node:hover .training-stage-circle,
-        .training-stage-node:focus-visible .training-stage-circle {
-          box-shadow: inset 0 -9px 0 rgba(80, 42, 18, 0.18), 0 12px 18px rgba(54, 78, 36, 0.25), 0 0 0 8px rgba(255, 244, 159, 0.34), 0 0 22px rgba(255, 235, 98, 0.54);
-        }
-
-        .training-stage-number {
-          display: none;
-          position: absolute;
-          top: -9px;
-          left: -7px;
-          z-index: 4;
-          min-width: 27px;
-          height: 27px;
-          display: grid;
-          place-items: center;
-          padding: 0 6px;
-          border: 3px solid rgba(255, 250, 219, 0.96);
-          border-radius: 999px;
-          background: linear-gradient(180deg, #fff9c8, #f5c75d);
-          color: #6e421e;
-          font-size: 0.82rem;
-          font-weight: 1000;
-          box-shadow: 0 5px 10px rgba(72, 78, 36, 0.2);
-        }
-
-        .training-stage-icon-wrap {
-          display: grid;
-          place-items: center;
-          width: 62%;
-          height: 62%;
-          border-radius: 50%;
-          background: rgba(255, 255, 255, 0.42);
-          overflow: hidden;
-          box-shadow: inset 0 -3px 0 rgba(111, 81, 32, 0.08);
-        }
-
-        .training-stage-icon-wrap img {
+        .training-stage-paw {
           width: 100%;
           height: 100%;
           object-fit: contain;
-          display: block;
-        }
-
-        .training-stage-lock {
-          position: absolute;
-          right: -5px;
-          bottom: 12px;
-          z-index: 5;
-          width: 28px;
-          height: 28px;
-          display: grid;
-          place-items: center;
-          border-radius: 50%;
-          background: #fff6ce;
-          box-shadow: 0 5px 10px rgba(72, 78, 36, 0.2);
-          font-size: 0.98rem;
-        }
-
-        .training-stage-stars {
-          position: absolute;
-          left: 50%;
-          bottom: clamp(-21px, -1.55vw, -15px);
-          z-index: 6;
-          min-width: 66px;
-          min-height: 24px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 1px;
-          padding: 2px 8px 3px;
-          border: 3px solid rgba(255, 250, 219, 0.98);
-          border-radius: 999px;
-          background: linear-gradient(180deg, rgba(255, 246, 189, 0.98), rgba(247, 189, 71, 0.96));
-          box-shadow: inset 0 -3px 0 rgba(146, 88, 21, 0.14), 0 7px 11px rgba(58, 82, 35, 0.18);
-          color: #ffe05d;
-          font-size: clamp(0.78rem, 1.1vw, 1rem);
-          line-height: 1;
-          text-shadow: -1px 0 #7c4b16, 0 1px #7c4b16, 1px 0 #7c4b16, 0 -1px #7c4b16, 0 0 3px rgba(110, 65, 14, 0.55);
-          transform: translateX(-50%);
+          filter: drop-shadow(0 9px 8px rgba(70, 76, 43, 0.24));
+          user-select: none;
           pointer-events: none;
         }
 
-        .training-stage-stars.is-empty {
-          color: rgba(255, 255, 255, 0.75);
-          background: rgba(115, 92, 56, 0.28);
-          border-color: rgba(255, 255, 255, 0.7);
-          text-shadow: 0 1px 0 rgba(68, 51, 30, 0.34);
+        .training-stage-number {
+          position: absolute;
+          left: 50%;
+          top: 55%;
+          transform: translate(-50%, -50%);
+          z-index: 2;
+          color: #ffffff;
+          font-size: clamp(2.5rem, 3.2vw, 4rem);
+          font-weight: 1000;
+          line-height: 1;
+          text-shadow: -3px 0 rgba(62, 62, 49, 0.55), 0 3px rgba(62, 62, 49, 0.55), 3px 0 rgba(62, 62, 49, 0.55), 0 -3px rgba(62, 62, 49, 0.55), 0 5px 0 rgba(80, 54, 22, 0.18);
+        }
+
+        .training-stage-node.is-active .training-stage-number {
+          color: #fff9dc;
+          text-shadow: -3px 0 #9b6818, 0 3px #9b6818, 3px 0 #9b6818, 0 -3px #9b6818, 0 5px 0 rgba(111, 65, 12, 0.22);
+        }
+
+        .training-stage-stars {
+          margin-top: -2px;
+          min-height: 42px;
+          display: flex;
+          justify-content: center;
+          gap: 7px;
+        }
+
+        .training-stage-stars img {
+          width: clamp(36px, 2.6vw, 50px);
+          height: clamp(36px, 2.6vw, 50px);
+          object-fit: contain;
+          filter: drop-shadow(0 4px 3px rgba(73, 62, 32, 0.24));
+        }
+
+        .training-stage-stars .empty-star {
+          filter: grayscale(1) opacity(0.62) drop-shadow(0 3px 2px rgba(73, 62, 32, 0.18));
         }
 
         .training-stage-node.is-completed .training-stage-stars {
           animation: trainingStarPop 0.36s ease-out both;
         }
 
-        .current-stage-companion {
+        .map-mouse-guide {
           position: absolute;
-          left: calc(var(--node-x) + 4.5%);
-          top: calc(var(--node-y) + 6%);
-          z-index: 8;
-          width: clamp(48px, 4.8vw, 72px);
-          transform: translate(-50%, -50%) rotate(-18deg);
-          display: grid;
-          justify-items: center;
-          pointer-events: none;
-          animation: mouseTapHint 1.25s ease-in-out infinite;
-        }
-
-        .current-stage-companion img {
-          width: 100%;
+          left: var(--mouse-x);
+          top: var(--mouse-y);
+          z-index: 14;
+          width: clamp(58px, 4.2vw, 82px);
           height: auto;
-          object-fit: contain;
-          filter: drop-shadow(0 8px 10px rgba(50, 72, 35, 0.25));
+          transform: translate(24px, -108px) rotate(-12deg);
+          filter: drop-shadow(0 9px 8px rgba(50, 43, 28, 0.28));
+          pointer-events: none;
+          animation: mouseGuideTap 1.15s ease-in-out infinite;
         }
 
-        .current-stage-companion span {
-          display: none;
-        }
-
-        .training-helper-card {
-          display: none;
+        .training-stage-lock {
           position: absolute;
           left: 50%;
-          bottom: max(16px, env(safe-area-inset-bottom));
-          z-index: 8;
-          width: min(390px, 36vw);
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 11px 14px;
-          border: 4px solid rgba(255, 255, 255, 0.86);
-          border-radius: 26px;
-          background: rgba(255, 250, 223, 0.88);
-          box-shadow: 0 14px 26px rgba(53, 84, 42, 0.18), inset 0 -5px 0 rgba(162, 119, 55, 0.1);
+          bottom: -6px;
+          z-index: 4;
           transform: translateX(-50%);
-          backdrop-filter: blur(8px);
+          font-size: clamp(1.3rem, 2vw, 2rem);
+          filter: drop-shadow(0 4px 3px rgba(58, 53, 39, 0.25));
+        }
+
+        .current-stage-companion,
+        .training-helper-card,
+        .training-left-panel,
+        .training-profile-card,
+        .training-badge-card,
+        .training-right-tools,
+        .honey-progress-card {
+          display: none !important;
+        }
+
+        .map-bottom-nav {
+          position: absolute;
+          left: max(60px, env(safe-area-inset-left));
+          bottom: max(22px, env(safe-area-inset-bottom));
+          z-index: 18;
+          display: flex;
+          gap: clamp(18px, 2vw, 34px);
           pointer-events: auto;
         }
 
-        .training-helper-avatar-frame {
-          width: 56px;
-          height: 56px;
-          flex: 0 0 auto;
+        .map-bottom-button {
+          width: clamp(140px, 10vw, 190px);
+          min-height: clamp(78px, 5.6vw, 104px);
           display: grid;
           place-items: center;
-          border: 4px solid #fff7bf;
-          border-radius: 18px;
-          background: #fff8d9;
-          overflow: hidden;
-          box-shadow: inset 0 -4px 0 rgba(165, 112, 35, 0.12), 0 6px 10px rgba(82, 61, 28, 0.14);
+          gap: 2px;
+          padding: 8px 18px;
+          border: 5px solid #f6d071;
+          border-radius: 28px;
+          background: linear-gradient(180deg, #fff9da, #ffe1a0);
+          color: #7d4618;
+          font-size: clamp(1rem, 1.25vw, 1.3rem);
+          font-weight: 1000;
+          box-shadow: inset 0 -7px 0 rgba(137, 80, 18, 0.13), 0 10px 18px rgba(47, 70, 42, 0.22);
+          cursor: pointer;
         }
 
-        .training-helper-avatar-frame img {
-          width: 100%;
-          height: 100%;
+        .map-bottom-button span:first-child {
+          font-size: clamp(2rem, 2.9vw, 3.2rem);
+          line-height: 1;
+        }
+
+        .map-bottom-button.avatar-room-menu-button {
+          width: clamp(140px, 10vw, 190px);
+          padding: 6px 12px;
+        }
+
+        .avatar-room-menu-icon {
+          width: clamp(88px, 6.4vw, 122px);
+          height: clamp(88px, 6.4vw, 122px);
+          object-fit: contain;
+          display: block;
+          pointer-events: none;
+          user-select: none;
+          -webkit-user-drag: none;
+        }
+
+        .homey-menu-icon {
+          width: clamp(88px, 6.4vw, 122px);
+          height: clamp(88px, 6.4vw, 122px);
+          object-fit: contain;
+          filter: drop-shadow(0 7px 7px rgba(64, 46, 20, 0.2));
+          user-select: none;
+          pointer-events: none;
+        }
+
+        .story-homey-icon {
+          width: clamp(86px, 6.1vw, 118px);
+          height: clamp(86px, 6.1vw, 118px);
+        }
+
+        .bottom-homey-icon {
+          width: clamp(104px, 7.6vw, 148px);
+          height: clamp(104px, 7.6vw, 148px);
+        }
+
+        .map-treasure-card {
+          position: absolute;
+          right: max(34px, env(safe-area-inset-right));
+          bottom: max(24px, env(safe-area-inset-bottom));
+          z-index: 18;
+          min-width: clamp(300px, 18vw, 390px);
+          min-height: clamp(82px, 6vw, 112px);
+          display: grid;
+          grid-template-columns: clamp(92px, 6.5vw, 128px) 1fr;
+          align-items: center;
+          gap: 16px;
+          padding: 8px 22px 8px 14px;
+          border: 5px solid #f3c766;
+          border-radius: 28px;
+          background: linear-gradient(180deg, #ffeba7, #e8ad58);
+          color: #714018;
+          box-shadow: inset 0 -7px 0 rgba(137, 80, 18, 0.13), 0 10px 18px rgba(47, 70, 42, 0.22);
+          cursor: pointer;
+        }
+
+        .map-treasure-chest {
+          font-size: clamp(3rem, 5vw, 5.2rem);
+          line-height: 1;
+          filter: drop-shadow(0 8px 6px rgba(70, 58, 35, 0.22));
+        }
+
+        .map-treasure-text strong {
+          display: block;
+          font-size: clamp(1.15rem, 1.45vw, 1.55rem);
+          font-weight: 1000;
+        }
+
+        .map-treasure-count {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-top: 3px;
+          font-size: clamp(1.25rem, 1.8vw, 1.9rem);
+          font-weight: 1000;
+          color: #ffffff;
+          text-shadow: -2px 0 #8b5518, 0 2px #8b5518, 2px 0 #8b5518, 0 -2px #8b5518;
+        }
+
+        .map-treasure-count img {
+          width: clamp(34px, 2.4vw, 46px);
+          height: clamp(34px, 2.4vw, 46px);
           object-fit: contain;
         }
 
-        .training-helper-card h2 {
-          margin: 0;
-          font-size: 1rem;
+
+        /* homey icon borderless override */
+        .map-story-button,
+        .map-bottom-button {
+          border: 0;
+          background: transparent;
+          box-shadow: none;
+          padding: 0;
+          border-radius: 0;
+          min-height: auto;
+          width: auto;
+          display: grid;
+          place-items: center;
         }
 
-        .training-helper-card p {
-          margin: 2px 0 0;
-          color: #6a5138;
-          font-size: 0.85rem;
-          line-height: 1.35;
-          font-weight: 850;
+        .map-story-button {
+          width: clamp(94px, 6.8vw, 130px);
+          min-height: clamp(94px, 6.8vw, 130px);
+        }
+
+        .map-bottom-button {
+          width: clamp(116px, 8.2vw, 160px);
+          min-height: clamp(116px, 8.2vw, 160px);
+        }
+
+        .map-story-button:hover,
+        .map-story-button:focus-visible,
+        .map-bottom-button:hover,
+        .map-bottom-button:focus-visible {
+          transform: scale(1.06);
+          outline: none;
+          filter: drop-shadow(0 8px 12px rgba(72, 58, 26, 0.18));
         }
 
         @keyframes trainingStarPop {
-          0% { transform: translateX(-50%) scale(0.72); opacity: 0; }
-          100% { transform: translateX(-50%) scale(1); opacity: 1; }
-        }
-
-        @keyframes trainingActiveGlow {
-          0%, 100% {
-            box-shadow: inset 0 -9px 0 rgba(80, 42, 18, 0.18), 0 11px 18px rgba(54, 78, 36, 0.25), 0 0 0 0 rgba(255, 226, 92, 0.44);
-          }
-          50% {
-            box-shadow: inset 0 -9px 0 rgba(80, 42, 18, 0.18), 0 11px 18px rgba(54, 78, 36, 0.25), 0 0 0 14px rgba(255, 226, 92, 0);
-          }
-        }
-
-        @keyframes companionFloat {
-          0%, 100% { transform: translate(-50%, -50%) translateY(0); }
-          50% { transform: translate(-50%, -50%) translateY(-6px); }
+          0% { transform: scale(0.72); opacity: 0; }
+          100% { transform: scale(1); opacity: 1; }
         }
 
         @keyframes lockedShake {
@@ -1480,277 +1750,152 @@ function GameMenuPage() {
           80% { transform: translateX(3px); }
         }
 
-        @keyframes mouseTapHint {
-          0%, 100% { transform: translate(-50%, -50%) rotate(-18deg) scale(1); }
-          48% { transform: translate(-50%, -50%) rotate(-18deg) scale(0.9); }
-          70% { transform: translate(-50%, -50%) rotate(-18deg) scale(1.06); }
+        @keyframes mouseGuideTap {
+          0%, 100% { transform: translate(24px, -108px) rotate(-12deg) scale(1); }
+          50% { transform: translate(8px, -88px) rotate(-12deg) scale(0.94); }
         }
 
         @media (max-width: 1180px), (max-height: 760px) {
-          .training-stage-node {
-            width: clamp(58px, 5.1vw, 76px);
-            height: clamp(58px, 5.1vw, 76px);
-          }
-
-          .training-stage-circle {
-            width: clamp(56px, 4.9vw, 72px);
-            height: clamp(56px, 4.9vw, 72px);
-            border-width: 4px;
-          }
-
-          .honey-progress-card {
-            width: min(530px, 46vw);
-          }
-
-          .training-badge-card {
-            width: 230px;
-          }
-
-          .training-helper-card {
-            width: min(350px, 34vw);
-          }
+          .map-title-board { top: 118px; width: min(500px, 38vw); }
+          .map-title-wood h1 { font-size: clamp(1.7rem, 2.6vw, 2.6rem); }
+          .map-title-subtitle { font-size: 0.98rem; padding: 9px 12px 12px; }
+          .training-stage-node { width: clamp(96px, 7.4vw, 132px); min-height: 132px; }
+          .training-stage-paw-wrap { width: clamp(92px, 6.8vw, 124px); height: clamp(78px, 5.8vw, 104px); }
+          .training-stage-number { font-size: clamp(2rem, 2.8vw, 3.2rem); }
+          .training-stage-stars img { width: 34px; height: 34px; }
         }
 
         @media (max-width: 900px) {
-          .training-map-layout {
-            overflow-y: auto;
-            pointer-events: auto;
+          .training-map-layout { overflow: hidden; }
+          .map-top-progress { width: min(470px, 54vw); left: 52%; }
+          .map-title-board { width: min(430px, 52vw); }
+          .map-player-button { min-width: 140px; }
+          .map-player-name { max-width: 90px; }
+          .map-setting-button { top: 92px; right: 18px; }
+          .map-story-button { top: 174px; }
+          .medical-reminder-card { top: 154px; left: 14px; width: min(270px, 36vw); padding: 12px 14px; }
+          .map-bottom-nav { left: 14px; gap: 10px; }
+          .map-bottom-button { width: 96px; min-height: 74px; border-radius: 20px; font-size: 0.86rem; }
+          .map-treasure-card { min-width: 210px; grid-template-columns: 72px 1fr; }
+        }
+
+        @media (max-width: 640px) {
+          .map-home-button { width: 58px; height: 58px; border-width: 4px; font-size: 1.8rem; }
+          .map-top-progress { top: 12px; left: 58%; width: 54vw; height: 58px; padding: 7px 12px; grid-template-columns: 38px 1fr 38px; gap: 8px; border-radius: 22px; }
+          .map-progress-track { height: 28px; }
+          .map-title-board { top: 82px; width: 62vw; }
+          .map-title-wood { min-height: 46px; border-radius: 14px; }
+          .map-title-wood h1 { font-size: 1.25rem; }
+          .map-title-subtitle { width: 92%; font-size: 0.76rem; padding: 7px 8px 9px; }
+          .map-player-button { right: 8px; top: 12px; min-width: 92px; height: 54px; padding: 6px; border-width: 4px; }
+          .map-player-avatar { width: 38px; height: 38px; }
+          .map-player-name { display: none; }
+          .map-setting-button { right: 10px; top: 74px; width: 58px; min-height: 58px; border-radius: 18px; border-width: 4px; }
+          .map-setting-button span:last-child { display: none; }
+          .map-story-button { right: 10px; top: 136px; width: 58px; min-height: 58px; border-radius: 18px; }
+          .map-story-button span:last-child { display: none; }
+          .medical-reminder-card { left: 10px; top: auto; bottom: 112px; width: min(270px, 68vw); padding: 10px 12px; border-width: 4px; }
+          .medical-reminder-card h2 { font-size: 0.95rem; margin-bottom: 5px; }
+          .medical-reminder-preview-item { display: none; }
+        }
+
+
+        @media (max-width: 900px) {
+          .map-bottom-button {
+            width: clamp(92px, 13vw, 124px);
+            min-height: clamp(92px, 13vw, 124px);
+            border: 0;
+            background: transparent;
+            box-shadow: none;
+            padding: 0;
           }
 
-          .training-left-panel {
-            top: 10px;
-            left: 10px;
-          }
-
-          .training-profile-card {
-            width: 140px;
-            left: 10px;
-            bottom: 10px;
-            border-radius: 20px;
-            padding: 10px;
-          }
-
-          .training-profile-avatar {
-            width: 78px;
-            height: 78px;
-          }
-
-          .training-profile-card h1 {
-            display: none;
-          }
-
-          .training-profile-actions button {
-            min-height: 34px;
-            font-size: 0;
-          }
-
-          .training-badge-card {
-            display: none;
-          }
-
-          .training-right-tools {
-            top: 10px;
-            right: 10px;
-          }
-
-          .training-helper-card {
-            left: 10px;
-            right: 10px;
-            bottom: 10px;
-            width: auto;
-            max-width: 420px;
-            transform: none;
-          }
-
-          .honey-progress-card {
-            top: 66px;
-            width: calc(100vw - 24px);
-          }
-
-          .current-stage-companion {
-            width: 58px;
+          .bottom-homey-icon {
+            width: clamp(88px, 12vw, 116px);
+            height: clamp(88px, 12vw, 116px);
           }
         }
 
         @media (max-width: 640px) {
-          .training-back-button,
-          .training-parent-button {
-            min-height: 38px;
-            padding: 0 12px;
-            font-size: 0.82rem;
+          .map-story-button {
+            width: 78px;
+            min-height: 78px;
+            border: 0;
+            background: transparent;
+            box-shadow: none;
+            padding: 0;
           }
 
-          .training-icon-actions {
-            gap: 6px;
+          .story-homey-icon {
+            width: 76px;
+            height: 76px;
           }
 
-          .training-round-button {
-            width: 46px;
-            height: 46px;
-            border-width: 3px;
+          .map-bottom-button {
+            width: 82px;
+            min-height: 82px;
+            border: 0;
+            background: transparent;
+            box-shadow: none;
+            padding: 0;
           }
 
-          .honey-progress-card {
-            top: 58px;
-            width: calc(100vw - 18px);
-            padding: 8px 10px 10px;
-            border-radius: 22px;
-          }
-
-          .honey-progress-header {
-            gap: 8px;
-          }
-
-          .honey-progress-title {
-            font-size: 0.86rem;
-          }
-
-          .honey-progress-count {
-            font-size: 0.74rem;
-            padding: 4px 7px;
-          }
-
-          .honey-progress-subtext {
-            font-size: 0.72rem;
-          }
-
-          .training-helper-card {
-            display: none;
-          }
-
-          .training-stage-node {
-            width: 56px;
-            height: 56px;
-          }
-
-          .training-stage-circle {
-            width: 54px;
-            height: 54px;
-            border-width: 3px;
-          }
-
-          .training-stage-number {
-            min-width: 23px;
-            height: 23px;
-            font-size: 0.72rem;
-          }
-
-          .training-stage-stars {
-            min-width: 54px;
-            font-size: 0.7rem;
-            bottom: -17px;
-          }
-
-          .current-stage-companion {
-            width: 46px;
+          .bottom-homey-icon {
+            width: 80px;
+            height: 80px;
           }
         }
 
-        .training-stage-number,
-        .training-helper-card {
-          display: none !important;
-        }
       `}</style>
 
       <section
         className="training-stage-bg"
         style={{ "--game-map-bg": `url(${gameMapBackground})` }}
-        aria-label="森林訓練地圖"
+        aria-label={`森林訓練地圖，第 ${currentPageIndex + 1} 頁，${selectedTrainingLabel}，今日練習 ${formatTrainingDuration(todayTrainingSeconds)}，蜂蜜任務 ${honeyProgress.totalStars} 顆星`}
       >
         <div className="training-map-layout">
-          <aside className="training-left-panel" aria-label="個人資料與徽章">
-            <button
-              type="button"
-              className="training-back-button"
-              onClick={() => navigate("/mode-select")}
-              aria-label="返回"
-            >
-              ‹
-            </button>
-
-            <section className="training-profile-card">
-              <span className="training-profile-avatar">
-                <img src={chickenAvatar} alt="目前頭像" />
-              </span>
-              <h1>{userProfileName}</h1>
-              <button type="button" className="training-avatar-button" onClick={() => navigate("/child-select")}>
-                選擇頭像
-              </button>
-              <div className="training-profile-actions">
-                <button type="button" onClick={() => navigate("/add-patient")} aria-label="查看個人檔案">
-                  <img className="training-profile-action-icon" src={profileStoneIcon} alt="" />
-                  <span>查看檔案</span>
-                </button>
-                <button type="button" onClick={async () => { await supabase.auth.signOut(); navigate("/"); }} aria-label="登出">
-                  <img className="training-profile-action-icon" src={logoutTrainingIcon} alt="" />
-                  <span>登出</span>
-                </button>
-              </div>
-            </section>
-
-            <section className="training-badge-card">
-              <div className="training-badge-header">
-                <span>徽章成就</span>
-                <b>2 / 5</b>
-              </div>
-              <h2>我的徽章牆</h2>
-              <p className="training-plan-summary">{trainingMinutes} 分鐘 · {selectedTrainingLabel}</p>
-              <div className="training-badge-list">
-                <article className="training-badge-item"><img src={cbtIcon} alt="" />森林新手</article>
-                <article className="training-badge-item"><img src={srtIcon} alt="" />專注小幫手</article>
-                <article className="training-badge-item locked"><img src={dptIcon} alt="" />反應小松鼠</article>
-                <article className="training-badge-item locked"><img src={pmIcon} alt="" />記憶收藏家</article>
-                <article className="training-badge-item locked"><img src={dccsIcon} alt="" />規則小隊長</article>
-              </div>
-            </section>
-          </aside>
-
-          <section className="honey-progress-card" aria-label="蜂蜜進度">
-            <img className="honey-progress-icon" src={honeyIcon} alt="蜂蜜" />
-            <div className="honey-progress-content">
-              <div className="honey-progress-header">
-                <span className="honey-progress-title">蜂蜜任務</span>
-                <span className="honey-progress-count">{honeyProgress.totalStars} / {honeyProgress.requiredStars} 顆</span>
-              </div>
-              <div className="honey-progress-track" role="progressbar" aria-valuenow={honeyProgress.progressPercent} aria-valuemin="0" aria-valuemax="100">
-                <div className="honey-progress-fill" style={{ "--honey-progress": `${honeyProgress.progressPercent}%` }} />
-              </div>
-              <p className="honey-progress-subtext">今日練習 {formatTrainingDuration(todayTrainingSeconds)} · 有效天數 {honeyProgress.effectiveDays} / {honeyProgress.requiredDays} 天</p>
-            </div>
-          </section>
-
-          <aside className="training-right-tools" aria-label="功能按鈕">
-            <button type="button" className="training-parent-button" onClick={openParentResult}>
-              給大人看結果
-            </button>
-
-            <div className="training-icon-actions">
-              <button
-                type="button"
-                className="training-round-button"
-                onClick={() => setShowTestPanel(true)}
-                aria-label="打開測驗選單"
-              >
-                <img src={testIcon} alt="" />
-              </button>
-              <button
-                type="button"
-                className="training-round-button"
-                onClick={() => navigate("/settings")}
-                aria-label="設定"
-              >
-                <img src={setIcon} alt="" />
-              </button>
-            </div>
-          </aside>
-
           <svg className="training-route-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
             <path className="training-route-shadow" d={routePath} />
             <path className="training-route-main" d={routePath} />
             <path className="training-route-leaves" d={routePath} />
           </svg>
 
-          {dailyTrainingStages.map((stage) => {
+          <button
+            type="button"
+            className="map-home-button"
+            onClick={() => navigate("/mode-select")}
+            aria-label="回首頁"
+          >
+            🏠
+          </button>
+
+          <section className="map-top-progress" aria-label="蜂巢收集進度">
+            <img className="map-progress-star" src={honeycombAsset} alt="蜂巢" />
+            <div className="map-progress-track" role="progressbar" aria-valuenow={earnedStarsTotal} aria-valuemin="0" aria-valuemax={maxStarsTotal}>
+              <div className="map-progress-fill" style={{ "--star-progress": `${Math.min(100, Math.round((earnedStarsTotal / maxStarsTotal) * 100))}%` }} />
+              <span className="map-progress-text">{earnedStarsTotal} / {maxStarsTotal}</span>
+            </div>
+            <img className="map-progress-gift" src={honeyAsset} alt="蜂蜜" />
+          </section>
+
+          <button type="button" className="map-player-button" onClick={() => setShowProfilePanel(true)} aria-label="開啟個人資料">
+            <span className="map-player-avatar" aria-hidden="true">
+              <img src={chickenAvatar} alt="" />
+            </span>
+            <span className="map-player-name">{userProfileName}</span>
+            <span className="map-player-caret" aria-hidden="true">›</span>
+          </button>
+
+          <button type="button" className="map-setting-button" onClick={() => navigate("/settings")} aria-label="開啟設定">
+            <span aria-hidden="true">⚙️</span>
+            <span>設定</span>
+          </button>
+
+          <button type="button" className="map-story-button" onClick={() => setShowStoryVideo(true)} aria-label="播放故事影片">
+            <img className="homey-menu-icon story-homey-icon" src={storyIcon} alt="" aria-hidden="true" />
+          </button>
+
+          {visibleDailyStages.map((stage) => {
             const stageState = stageStateMap[stage.stageId] || {};
             const stateClass = stageState.completed
               ? "is-completed"
@@ -1759,7 +1904,7 @@ function GameMenuPage() {
                 : "is-locked";
 
             const starCount = clampStarCount(stageState.stars);
-            const starText = "★".repeat(starCount);
+            const pawAsset = stageState.completed ? pawDoneAsset : stageState.active ? pawActiveAsset : pawLockedAsset;
 
             return (
               <button
@@ -1770,42 +1915,60 @@ function GameMenuPage() {
                 aria-label={`${stage.title} 第 ${stage.level} 關，${stageState.unlocked ? "進入訓練" : "尚未解鎖"}${starCount > 0 ? `，已得到 ${starCount} 顆星` : ""}`}
                 style={{ "--node-x": `${stage.mapX}%`, "--node-y": `${stage.mapY}%` }}
               >
-                <span className="training-stage-circle">
+                <span className="training-stage-paw-wrap">
+                  <img className="training-stage-paw" src={pawAsset} alt="" />
                   <span className="training-stage-number" aria-hidden="true">{stage.globalOrder}</span>
-                  <span className="training-stage-icon-wrap" aria-hidden="true">
-                    <img src={stage.icon} alt="" />
-                  </span>
                   {!stageState.unlocked && <span className="training-stage-lock" aria-hidden="true">🔒</span>}
-                  <span className={`training-stage-stars ${starCount === 0 ? "is-empty" : ""}`} aria-hidden="true">
-                    {starCount > 0 ? starText : "☆ ☆ ☆"}
-                  </span>
+                </span>
+                <span className="training-stage-stars" aria-hidden="true">
+                  {[0, 1, 2].map((index) => (
+                    <img
+                      key={`${stage.stageId}-star-${index}`}
+                      src={starAsset}
+                      alt=""
+                      className={index < starCount ? "" : "empty-star"}
+                    />
+                  ))}
                 </span>
               </button>
             );
           })}
 
-          {currentStage && (
-            <div
-              className="current-stage-companion"
-              style={{ "--node-x": `${currentStage.mapX}%`, "--node-y": `${currentStage.mapY}%` }}
+          {currentStage && stageStateMap[currentStage.stageId]?.active && visibleDailyStages.some((stage) => stage.stageId === currentStage.stageId) && (
+            <img
+              className="map-mouse-guide"
+              src={mousePointer}
+              alt=""
               aria-hidden="true"
-            >
-              <img src={mousePointer} alt="" />
-              <span>點這裡</span>
-            </div>
+              style={{
+                "--mouse-x": `${visibleDailyStages.find((stage) => stage.stageId === currentStage.stageId)?.mapX || currentStage.mapX}%`,
+                "--mouse-y": `${visibleDailyStages.find((stage) => stage.stageId === currentStage.stageId)?.mapY || currentStage.mapY}%`,
+              }}
+            />
           )}
 
-          <aside className="training-helper-card">
-            <span className="training-helper-avatar-frame">
-              <img src={chickenAvatar} alt="皮皮" />
-            </span>
-            <div>
-              <h2>皮皮在等你</h2>
-              <p>點亮亮圈圈，沿著小路繼續前進！</p>
-            </div>
-          </aside>
-        </div>
-      </section>
+          <nav className="map-bottom-nav" aria-label="地圖功能">
+            <button type="button" className="map-bottom-button" onClick={openTestMap} aria-label="進入測驗">
+              <img className="homey-menu-icon bottom-homey-icon" src={testIcon} alt="" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="map-bottom-button"
+              onClick={() => navigate("/achievement")}
+              aria-label="查看成就"
+            >
+              <img className="homey-menu-icon bottom-homey-icon" src={goalIcon} alt="" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="map-bottom-button avatar-room-menu-button"
+              onClick={() => navigate("/avatar-room", { state: { from: "/game-menu" } })}
+              aria-label="進入角色小屋"
+            >
+              <img className="avatar-room-menu-icon" src={avatarHomeImg} alt="" aria-hidden="true" draggable={false} />
+            </button>
+          </nav>
+        </div>      </section>
 
       {showCompletionVideo && (
         <div className="modal-backdrop completion-video-backdrop">
@@ -1851,37 +2014,79 @@ function GameMenuPage() {
         </div>
       )}
 
-      {showTestPanel && (
-        <div className="modal-backdrop" onClick={() => setShowTestPanel(false)}>
-          <section className="test-panel" onClick={(event) => event.stopPropagation()}>
-            <button
-              type="button"
-              className="modal-close"
-              onClick={() => setShowTestPanel(false)}
-              aria-label="關閉測驗選單"
-            >
+      {showStoryVideo && (
+        <div className="modal-backdrop completion-video-backdrop" onClick={closeStoryVideo}>
+          <section
+            className="completion-video-panel"
+            aria-label="故事影片"
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              position: "relative",
+              width: "min(86vw, 920px)",
+              maxHeight: "86vh",
+              padding: "22px",
+              borderRadius: "28px",
+              background: "rgba(255, 250, 228, 0.96)",
+              boxShadow: "0 24px 60px rgba(85, 60, 20, 0.28)",
+            }}
+          >
+            <button type="button" className="modal-close" onClick={closeStoryVideo} aria-label="關閉故事影片">
               ×
             </button>
-            <img className="test-panel-icon" src={testIcon} alt="" />
-            <h2>選擇測驗</h2>
-            <p>地圖是今日訓練；正式測驗從這裡開始。</p>
+            <video
+              className="completion-video"
+              src={completionVideo}
+              autoPlay
+              controls
+              playsInline
+              onEnded={closeStoryVideo}
+              style={{
+                display: "block",
+                width: "100%",
+                maxHeight: "76vh",
+                borderRadius: "20px",
+                objectFit: "contain",
+                background: "#000",
+              }}
+            />
+          </section>
+        </div>
+      )}
 
-            <div className="test-choice-grid">
-              {trainingGames.map((game) => (
-                <button
-                  key={game.id}
-                  type="button"
-                  onClick={() => navigate(game.testPath)}
-                >
-                  <img src={game.icon} alt="" />
-                  <strong>{game.shortName}</strong>
-                  <span>{game.title}</span>
-                </button>
-              ))}
+      {showProfilePanel && (
+        <div className="modal-backdrop" onClick={() => setShowProfilePanel(false)}>
+          <section className="profile-modal-card" onClick={(event) => event.stopPropagation()} aria-label="個人資料">
+            <button type="button" className="modal-close" onClick={() => setShowProfilePanel(false)} aria-label="關閉個人資料">
+              ×
+            </button>
+            <div className="profile-modal-avatar" aria-hidden="true">
+              <img src={chickenAvatar} alt="" />
+            </div>
+            <h2>個人資料</h2>
+            <p className="profile-modal-name">{userProfileName}</p>
+            <div className="profile-stat-grid" aria-label="今日進度">
+              <div className="profile-stat-card">
+                <strong>{earnedStarsTotal}</strong>
+                <span>今日星星</span>
+              </div>
+              <div className="profile-stat-card">
+                <strong>{completedStageIds.length}</strong>
+                <span>完成關卡</span>
+              </div>
+              <div className="profile-stat-card">
+                <strong>{formatTrainingDuration(todayTrainingSeconds)}</strong>
+                <span>練習時間</span>
+              </div>
+              <div className="profile-stat-card">
+                <strong>{honeyProgress.round}</strong>
+                <span>蜂蜜任務</span>
+              </div>
             </div>
           </section>
         </div>
       )}
+
+
     </main>
   );
 }

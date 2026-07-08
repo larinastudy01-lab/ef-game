@@ -7,6 +7,8 @@ import cbtIcon from "../asset/CBT_icon.png";
 import dptIcon from "../asset/DPT_icon.png";
 import dccsIcon from "../asset/DCCS_icon.png";
 import lbIcon from "../asset/LB_icon.png";
+import mouseGuide from "../asset/mouse.png";
+import resetIcon from "../asset/home/remove.png";
 import "../styles/TestMapPage.css";
 
 /**
@@ -15,7 +17,7 @@ import "../styles/TestMapPage.css";
  * 幼兒版森林測驗地圖：
  * - 全螢幕 GameMap.png 背景
  * - 測驗固定順序，避免孩子亂跳未解鎖關卡
- * - 關卡使用 asset 裡的圖片 icon + 簡短文字，不顯示大量測驗說明
+ * - 關卡使用 asset 裡的大圖片 icon，不在 icon 下方顯示文字
  * - hover / focus 只讓關卡圓圈微微發光，不做大位移
  * - 移除「出發第 1 關 / 開始第一關」大型按鈕，讓孩子直接點目前發光關卡
  */
@@ -28,8 +30,8 @@ const TEST_GAMES = [
     childText: "找橡實",
     route: "/test-srt",
     icon: srtIcon,
-    x: 9,
-    y: 56,
+    x: 8.2,
+    y: 62.4,
   },
   {
     gameId: "PM",
@@ -38,8 +40,8 @@ const TEST_GAMES = [
     childText: "記圖片",
     route: "/test-picture-memory",
     icon: pmIcon,
-    x: 25,
-    y: 61,
+    x: 24.8,
+    y: 65.1,
   },
   {
     gameId: "CBT",
@@ -48,8 +50,8 @@ const TEST_GAMES = [
     childText: "走石橋",
     route: "/test-cbt",
     icon: cbtIcon,
-    x: 43,
-    y: 54,
+    x: 43.8,
+    y: 55.1,
   },
   {
     gameId: "DPT",
@@ -58,8 +60,8 @@ const TEST_GAMES = [
     childText: "找小蟲",
     route: "/test-dot-probe",
     icon: dptIcon,
-    x: 56,
-    y: 48,
+    x: 56.4,
+    y: 49.7,
   },
   {
     gameId: "DCCS",
@@ -68,8 +70,8 @@ const TEST_GAMES = [
     childText: "換規則",
     route: "/test-dccs",
     icon: dccsIcon,
-    x: 73,
-    y: 45,
+    x: 74.5,
+    y: 45.0,
   },
   {
     gameId: "LB",
@@ -78,8 +80,8 @@ const TEST_GAMES = [
     childText: "排路標",
     route: "/test-linking-balloons",
     icon: lbIcon,
-    x: 89,
-    y: 39,
+    x: 90.6,
+    y: 36.8,
   },
 ];
 
@@ -326,6 +328,8 @@ const createTestFlow = ({ child, startIndex = 0, mode = "full" }) => {
   };
 };
 
+const MAP_PATH_D = "M 2.8 62.6 C 10.5 60.4, 17.1 64.3, 24.8 65.1 C 33.8 66.0, 37.6 60.0, 43.8 55.1 C 49.0 50.9, 52.6 49.4, 56.4 49.7 C 64.3 50.4, 68.2 46.6, 74.5 45.0 C 81.5 43.2, 85.0 38.9, 92.5 36.7";
+
 const ForestLeaf = ({ x, y, rotate = 0 }) => (
   <g transform={`translate(${x} ${y}) rotate(${rotate})`}>
     <ellipse cx="0" cy="0" rx="1.1" ry="0.5" fill="rgba(89, 152, 68, 0.72)" />
@@ -343,6 +347,7 @@ const TestMapPage = () => {
   const location = useLocation();
   const child = location.state?.child || getCurrentChild();
   const [resultModal, setResultModal] = useState(null);
+  const [resetVersion, setResetVersion] = useState(0);
 
   const gamesWithStatus = useMemo(() => {
     const aiRecommendedIds = getAiRecommendedGameIds();
@@ -367,10 +372,10 @@ const TestMapPage = () => {
       const isCompleted = Boolean(game.result) || game.isPassedByStars;
       const isSequentiallyAvailable = index <= activeIndex;
       const isUnlockedByPreviousStars = index === 0 || Boolean(previousGame?.isPassedByStars || previousGame?.result);
-      const isUnlocked = isCompleted || isSequentiallyAvailable || isUnlockedByPreviousStars || game.isAiRecommended;
+      const isUnlocked = isCompleted || isSequentiallyAvailable || isUnlockedByPreviousStars;
       const isActive = !isCompleted && isUnlocked;
       const isLocked = !isUnlocked;
-      const status = isCompleted ? "completed" : game.isAiRecommended ? "recommended" : isActive ? "active" : "locked";
+      const status = isCompleted ? "completed" : isActive && game.isAiRecommended ? "recommended" : isActive ? "active" : "locked";
 
       return {
         ...game,
@@ -390,9 +395,10 @@ const TestMapPage = () => {
                 : "尚未解鎖",
       };
     });
-  }, []);
+  }, [resetVersion]);
 
   const completedCount = gamesWithStatus.filter((game) => game.isCompleted).length;
+  const guideGame = gamesWithStatus.find((game) => game.isActive) || null;
 
   const startTest = (game, mode = "single") => {
     if (!game || game.isLocked) return;
@@ -419,6 +425,49 @@ const TestMapPage = () => {
         isAiRecommended: game.isAiRecommended,
       },
     });
+  };
+
+  const resetAllTests = () => {
+    TEST_GAMES.forEach((game) => {
+      localStorage.removeItem(STORAGE_KEYS.result(game.gameId));
+      localStorage.removeItem(STORAGE_KEYS.trainingSummary(game.gameId));
+      localStorage.removeItem(STORAGE_KEYS.stars(game.gameId));
+      sessionStorage.removeItem(STORAGE_KEYS.result(game.gameId));
+      sessionStorage.removeItem(STORAGE_KEYS.trainingSummary(game.gameId));
+      sessionStorage.removeItem(STORAGE_KEYS.stars(game.gameId));
+
+      (LEGACY_RESULT_KEYS[game.gameId] || []).forEach((key) => {
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+      });
+
+      (LEGACY_STAR_KEYS[game.gameId] || []).forEach((key) => {
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+      });
+    });
+
+    [
+      STORAGE_KEYS.latestResults,
+      STORAGE_KEYS.aiRecommendation,
+      STORAGE_KEYS.testFlow,
+      "latestResults",
+      "latestTestResults",
+      "parentLatestResults",
+      "aiRecommendation",
+      "aiDifficultyRecommendation",
+      "recommendedDifficulty",
+      "trainingRecommendation",
+      "currentAIRecommendation",
+      "latestRecommendation",
+      "currentTestFlow",
+    ].forEach((key) => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    });
+
+    setResetVersion((value) => value + 1);
+    setResultModal(null);
   };
 
   const closeResultModal = () => setResultModal(null);
@@ -496,9 +545,9 @@ const TestMapPage = () => {
           left: max(12px, env(safe-area-inset-left));
           right: max(12px, env(safe-area-inset-right));
           z-index: 8;
-          display: grid;
-          grid-template-columns: auto 1fr auto;
-          align-items: start;
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
           gap: 10px;
           pointer-events: none;
         }
@@ -512,15 +561,14 @@ const TestMapPage = () => {
         }
 
         .kid-map-back,
-        .kid-map-title-pill,
         .kid-map-right-tools,
         .kid-map-progress,
-        .kid-map-parent {
+        .kid-map-parent,
+        .kid-map-reset {
           pointer-events: auto;
         }
 
         .kid-map-right-tools {
-          justify-self: end;
           display: flex;
           flex-direction: column;
           align-items: flex-end;
@@ -528,11 +576,12 @@ const TestMapPage = () => {
         }
 
         .kid-map-back,
-        .kid-map-parent {
+        .kid-map-parent,
+        .kid-map-reset {
           border: 0;
           cursor: pointer;
           font-weight: 950;
-          transition: filter 0.16s ease, box-shadow 0.16s ease;
+          transition: filter 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
         }
 
         .kid-map-back {
@@ -545,54 +594,6 @@ const TestMapPage = () => {
           white-space: nowrap;
         }
 
-        .kid-map-title-pill {
-          justify-self: center;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          min-width: min(470px, 46vw);
-          padding: 10px 18px;
-          border: 3px solid rgba(255, 255, 255, 0.86);
-          border-radius: 999px;
-          background: rgba(255, 250, 223, 0.85);
-          box-shadow: 0 12px 24px rgba(60, 87, 42, 0.18), inset 0 -4px 0 rgba(183, 139, 63, 0.12);
-          backdrop-filter: blur(8px);
-        }
-
-        .kid-map-title-icon {
-          width: 38px;
-          height: 38px;
-          flex: 0 0 auto;
-          display: grid;
-          place-items: center;
-          border-radius: 50%;
-          background: #fff4a8;
-          box-shadow: inset 0 -4px 0 rgba(174, 119, 39, 0.14);
-          font-size: 1.35rem;
-        }
-
-        .kid-map-title-text {
-          min-width: 0;
-        }
-
-        .kid-map-title-text p {
-          margin: 0;
-          color: #4d9c49;
-          font-size: 0.76rem;
-          font-weight: 950;
-          letter-spacing: 0.12em;
-        }
-
-        .kid-map-title-text h1 {
-          margin: 2px 0 0;
-          color: #4a331f;
-          font-size: clamp(1rem, 1.8vw, 1.48rem);
-          line-height: 1.12;
-          font-weight: 950;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
 
         .kid-map-progress {
           min-height: 50px;
@@ -612,44 +613,6 @@ const TestMapPage = () => {
           font-size: 1.3rem;
         }
 
-        .kid-map-story-card {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          width: min(310px, 31vw);
-          padding: 12px 14px;
-          border: 4px solid rgba(255, 255, 255, 0.86);
-          border-radius: 26px;
-          background: rgba(255, 250, 223, 0.88);
-          box-shadow: 0 14px 26px rgba(53, 84, 42, 0.2), inset 0 -5px 0 rgba(162, 119, 55, 0.1);
-          backdrop-filter: blur(8px);
-        }
-
-        .kid-map-story-character {
-          width: 54px;
-          height: 54px;
-          flex: 0 0 auto;
-          display: grid;
-          place-items: center;
-          border-radius: 50%;
-          background: linear-gradient(180deg, #fff2a2, #ffc65b);
-          box-shadow: inset 0 -5px 0 rgba(147, 88, 26, 0.18);
-          font-size: 2rem;
-        }
-
-        .kid-map-story-card h2 {
-          margin: 0;
-          font-size: 1.04rem;
-          color: #4a331f;
-        }
-
-        .kid-map-story-card p {
-          margin: 2px 0 0;
-          color: #6a5138;
-          font-size: 0.9rem;
-          line-height: 1.35;
-          font-weight: 850;
-        }
 
         .kid-map-parent {
           min-height: 48px;
@@ -659,6 +622,25 @@ const TestMapPage = () => {
           font-size: 1rem;
           background: linear-gradient(180deg, #78caff, #3685dd);
           box-shadow: inset 0 -5px 0 rgba(0, 0, 0, 0.18), 0 10px 18px rgba(51, 80, 41, 0.23);
+        }
+
+        .kid-map-reset {
+          width: 72px;
+          height: 72px;
+          padding: 0;
+          border-radius: 20;
+          display: grid;
+          place-items: center;
+          background: transparent;
+          box-shadow: none;
+        }
+
+        .kid-map-reset img {
+          width: 180%;
+          height: 180%;
+          object-fit: contain;
+          display: block;
+          filter: drop-shadow(0 8px 10px rgba(51, 80, 41, 0.22));
         }
 
         .kid-map-path-svg {
@@ -671,21 +653,41 @@ const TestMapPage = () => {
           filter: drop-shadow(0 8px 8px rgba(55, 76, 34, 0.16));
         }
 
+        .kid-map-path-base {
+          stroke: rgba(92, 116, 57, 0.32);
+          stroke-width: 8.8;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+
+        .kid-map-path-inner {
+          stroke: rgba(210, 222, 145, 0.46);
+          stroke-width: 4.8;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+
+        .kid-map-path-dots {
+          stroke: rgba(64, 133, 61, 0.38);
+          stroke-width: 9.6;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+          stroke-dasharray: 0.75 8.2;
+        }
+
         .kid-level-node {
           position: absolute;
           left: var(--node-x);
           top: var(--node-y);
           z-index: 5;
-          width: clamp(76px, 7.2vw, 104px);
-          min-height: clamp(96px, 8.9vw, 126px);
+          width: clamp(92px, 8.6vw, 130px);
+          height: clamp(92px, 8.6vw, 130px);
           transform: translate(-50%, -50%);
           border: 0;
           background: transparent;
           cursor: pointer;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 5px;
+          display: grid;
+          place-items: center;
           padding: 0;
         }
 
@@ -695,17 +697,17 @@ const TestMapPage = () => {
 
         .kid-level-circle {
           position: relative;
-          width: clamp(64px, 6.3vw, 88px);
-          height: clamp(64px, 6.3vw, 88px);
+          width: clamp(86px, 7.6vw, 118px);
+          height: clamp(86px, 7.6vw, 118px);
           border-radius: 50%;
           display: grid;
           place-items: center;
-          border: 5px solid rgba(255, 246, 205, 0.96);
+          border: 7px solid rgba(190, 190, 190, 0.95);
           background:
             radial-gradient(circle at 45% 38%, rgba(255,255,255,0.42) 0 12%, transparent 13%),
-            radial-gradient(circle, #f7d286 0 30%, #bd7941 31% 54%, #875231 55% 100%);
-          box-shadow: inset 0 -8px 0 rgba(75, 39, 16, 0.16), 0 12px 18px rgba(49, 75, 37, 0.24);
-          transition: box-shadow 0.18s ease, filter 0.18s ease;
+            radial-gradient(circle, #f8f8f8 0 30%, #d4d4d4 31% 54%, #a5a5a5 55% 100%);
+          box-shadow: inset 0 -9px 0 rgba(75, 39, 16, 0.12), 0 14px 22px rgba(49, 75, 37, 0.26);
+          transition: box-shadow 0.18s ease, filter 0.18s ease, border-color 0.18s ease;
         }
 
         .kid-level-circle::before,
@@ -731,33 +733,28 @@ const TestMapPage = () => {
         }
 
         .kid-level-node.active .kid-level-circle {
-          border-color: #fff7b7;
+          border-color: rgba(196, 196, 196, 0.98);
           background:
             radial-gradient(circle at 45% 38%, rgba(255,255,255,0.5) 0 12%, transparent 13%),
-            radial-gradient(circle, #ffdfa0 0 30%, #ff9b43 31% 58%, #d35b1f 59% 100%);
+            radial-gradient(circle, #ffffff 0 30%, #d9d9d9 31% 58%, #9d9d9d 59% 100%);
           animation: kidSoftGlow 1.45s ease-in-out infinite;
         }
 
         .kid-level-node.recommended .kid-level-circle {
-          border-color: #fff7c5;
+          border-color: rgba(196, 196, 196, 0.98);
           background:
             radial-gradient(circle at 45% 38%, rgba(255,255,255,0.5) 0 12%, transparent 13%),
-            radial-gradient(circle, #dff7ff 0 30%, #62c8ff 31% 58%, #2f7ad8 59% 100%);
+            radial-gradient(circle, #ffffff 0 30%, #d9d9d9 31% 58%, #9d9d9d 59% 100%);
           animation: kidAiGlow 1.3s ease-in-out infinite;
         }
 
-        .kid-level-node.recommended .kid-level-caption {
-          color: #25517c;
-          background: rgba(230, 248, 255, 0.94);
-        }
-
         .kid-level-node.locked .kid-level-circle {
-          border-color: rgba(245, 245, 245, 0.88);
+          border-color: rgba(176, 176, 176, 0.96);
           background:
             radial-gradient(circle at 45% 38%, rgba(255,255,255,0.28) 0 12%, transparent 13%),
-            radial-gradient(circle, #d9d9d9 0 30%, #a1a1a1 31% 58%, #707070 59% 100%);
-          filter: grayscale(0.36);
-          opacity: 0.82;
+            radial-gradient(circle, #eeeeee 0 30%, #bdbdbd 31% 58%, #7c7c7c 59% 100%);
+          filter: grayscale(0.55);
+          opacity: 0.88;
         }
 
         .kid-level-main-icon {
@@ -765,17 +762,17 @@ const TestMapPage = () => {
           z-index: 1;
           display: grid;
           place-items: center;
-          width: clamp(42px, 4.3vw, 58px);
-          height: clamp(42px, 4.3vw, 58px);
+          width: clamp(58px, 5.6vw, 82px);
+          height: clamp(58px, 5.6vw, 82px);
           border-radius: 50%;
-          background: rgba(255, 255, 255, 0.42);
+          background: rgba(255, 255, 255, 0.5);
           overflow: hidden;
           box-shadow: inset 0 -3px 0 rgba(113, 70, 30, 0.12);
         }
 
         .kid-level-main-icon img {
-          width: 92%;
-          height: 92%;
+          width: 104%;
+          height: 104%;
           object-fit: contain;
           display: block;
         }
@@ -796,50 +793,59 @@ const TestMapPage = () => {
           font-weight: 950;
         }
 
-        .kid-level-caption {
-          max-width: 118px;
-          padding: 5px 10px;
-          border: 2px solid rgba(255, 255, 255, 0.75);
-          border-radius: 999px;
-          background: rgba(255, 249, 221, 0.92);
-          color: #4f3721;
-          font-size: 0.78rem;
-          font-weight: 950;
-          line-height: 1.15;
-          box-shadow: 0 6px 12px rgba(58, 91, 48, 0.14);
-          white-space: nowrap;
+        .kid-mouse-guide {
+          position: absolute;
+          left: var(--mouse-x);
+          top: var(--mouse-y);
+          z-index: 7;
+          width: clamp(54px, 5.4vw, 84px);
+          height: auto;
+          transform: translate(-8%, -110%);
+          pointer-events: none;
+          filter: drop-shadow(0 10px 10px rgba(46, 67, 32, 0.28));
+          animation: kidMousePoint 1.15s ease-in-out infinite;
         }
 
         .kid-level-node:not(:disabled):hover .kid-level-circle,
         .kid-level-node:not(:disabled):focus-visible .kid-level-circle {
           box-shadow:
-            inset 0 -8px 0 rgba(75, 39, 16, 0.16),
-            0 12px 18px rgba(49, 75, 37, 0.24),
+            inset 0 -9px 0 rgba(75, 39, 16, 0.12),
+            0 14px 22px rgba(49, 75, 37, 0.26),
             0 0 0 8px rgba(255, 244, 156, 0.35),
             0 0 24px rgba(255, 243, 128, 0.62);
           filter: brightness(1.04);
         }
 
         .kid-map-back:hover,
-        .kid-map-parent:hover {
+        .kid-map-parent:hover,
+        .kid-map-reset:hover {
           filter: brightness(1.04);
         }
 
         @keyframes kidSoftGlow {
           0%, 100% {
-            box-shadow: inset 0 -8px 0 rgba(75, 39, 16, 0.16), 0 12px 18px rgba(49, 75, 37, 0.24), 0 0 0 0 rgba(255, 226, 92, 0.42);
+            box-shadow: inset 0 -9px 0 rgba(75, 39, 16, 0.12), 0 14px 22px rgba(49, 75, 37, 0.26), 0 0 0 0 rgba(255, 226, 92, 0.42);
           }
           50% {
-            box-shadow: inset 0 -8px 0 rgba(75, 39, 16, 0.16), 0 12px 18px rgba(49, 75, 37, 0.24), 0 0 0 12px rgba(255, 226, 92, 0);
+            box-shadow: inset 0 -9px 0 rgba(75, 39, 16, 0.12), 0 14px 22px rgba(49, 75, 37, 0.26), 0 0 0 12px rgba(255, 226, 92, 0);
           }
         }
 
         @keyframes kidAiGlow {
           0%, 100% {
-            box-shadow: inset 0 -8px 0 rgba(20, 58, 96, 0.16), 0 12px 18px rgba(49, 75, 37, 0.24), 0 0 0 0 rgba(116, 210, 255, 0.44);
+            box-shadow: inset 0 -9px 0 rgba(75, 39, 16, 0.12), 0 14px 22px rgba(49, 75, 37, 0.26), 0 0 0 0 rgba(116, 210, 255, 0.44);
           }
           50% {
-            box-shadow: inset 0 -8px 0 rgba(20, 58, 96, 0.16), 0 12px 18px rgba(49, 75, 37, 0.24), 0 0 0 13px rgba(116, 210, 255, 0);
+            box-shadow: inset 0 -9px 0 rgba(75, 39, 16, 0.12), 0 14px 22px rgba(49, 75, 37, 0.26), 0 0 0 13px rgba(116, 210, 255, 0);
+          }
+        }
+
+        @keyframes kidMousePoint {
+          0%, 100% {
+            transform: translate(-8%, -110%) rotate(-6deg) scale(1);
+          }
+          50% {
+            transform: translate(-2%, -122%) rotate(-10deg) scale(1.05);
           }
         }
 
@@ -898,19 +904,11 @@ const TestMapPage = () => {
 
         @media (max-width: 920px) {
           .kid-map-topbar {
-            grid-template-columns: auto 1fr;
             gap: 8px;
           }
 
-          .kid-map-title-pill {
-            min-width: 0;
-            justify-self: stretch;
-            padding: 8px 12px;
-          }
 
           .kid-map-right-tools {
-            grid-column: 1 / -1;
-            justify-self: end;
             flex-direction: row;
             align-items: center;
           }
@@ -920,10 +918,6 @@ const TestMapPage = () => {
             padding: 0 14px;
           }
 
-          .kid-map-story-card {
-            width: min(292px, calc(100vw - 32px));
-            padding: 10px 12px;
-          }
         }
 
         @media (max-width: 640px) {
@@ -943,21 +937,7 @@ const TestMapPage = () => {
             font-size: 0.86rem;
           }
 
-          .kid-map-title-icon {
-            display: none;
-          }
 
-          .kid-map-title-text h1 {
-            font-size: 0.96rem;
-          }
-
-          .kid-map-title-text p {
-            font-size: 0.68rem;
-          }
-
-          .kid-map-story-card {
-            display: none;
-          }
 
           .kid-map-parent {
             min-height: 46px;
@@ -966,13 +946,37 @@ const TestMapPage = () => {
           }
 
           .kid-level-node {
-            width: 66px;
-            min-height: 82px;
+            width: 74px;
+            height: 74px;
           }
 
-          .kid-level-caption {
-            font-size: 0.66rem;
-            padding: 4px 7px;
+          .kid-level-circle {
+            width: 70px;
+            height: 70px;
+            border-width: 5px;
+          }
+
+          .kid-level-main-icon {
+            width: 48px;
+            height: 48px;
+          }
+
+          .kid-level-status {
+            width: 24px;
+            height: 24px;
+            right: -7px;
+            top: -7px;
+            font-size: 0.78rem;
+          }
+
+          .kid-map-reset {
+            width: 62px;
+            height: 62px;
+            padding: 0;
+          }
+
+          .kid-mouse-guide {
+            width: 48px;
           }
         }
       `}</style>
@@ -992,21 +996,6 @@ const TestMapPage = () => {
               ← 返回
             </button>
 
-            <aside className="kid-map-story-card">
-              <span className="kid-map-story-character" aria-hidden="true">🐥</span>
-              <div>
-                <h2>皮皮在等你</h2>
-                <p>點發光的圓圈，沿著小路完成森林任務！</p>
-              </div>
-            </aside>
-          </div>
-
-          <div className="kid-map-title-pill">
-            <span className="kid-map-title-icon" aria-hidden="true">🐥</span>
-            <div className="kid-map-title-text">
-              <p>森林任務</p>
-              <h1>{child?.name || child?.nickname || "小冒險家"}，跟著小路出發！</h1>
-            </div>
           </div>
 
           <div className="kid-map-right-tools">
@@ -1016,6 +1005,16 @@ const TestMapPage = () => {
               <span>/ 6</span>
             </div>
 
+            <button
+              type="button"
+              className="kid-map-reset"
+              onClick={resetAllTests}
+              aria-label="重新測驗"
+              title="重新測驗"
+            >
+              <img src={resetIcon} alt="" draggable="false" />
+            </button>
+
             <button type="button" className="kid-map-parent" onClick={openParentResult}>
               給大人看結果
             </button>
@@ -1023,45 +1022,25 @@ const TestMapPage = () => {
         </header>
 
         <svg className="kid-map-path-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-          <path
-            d="M 6 58 C 14 55, 17 60, 25 61 C 33 62, 37 58, 43 54 C 49 50, 51 47, 56 48 C 64 49, 67 45, 73 45 C 80 45, 84 41, 91 39"
-            fill="none"
-            stroke="rgba(103, 70, 39, 0.48)"
-            strokeWidth="7.8"
-            strokeLinecap="round"
-          />
-          <path
-            d="M 6 58 C 14 55, 17 60, 25 61 C 33 62, 37 58, 43 54 C 49 50, 51 47, 56 48 C 64 49, 67 45, 73 45 C 80 45, 84 41, 91 39"
-            fill="none"
-            stroke="rgba(255, 232, 164, 0.64)"
-            strokeWidth="4.2"
-            strokeLinecap="round"
-            strokeDasharray="1.4 3.5"
-          />
-          <path
-            d="M 6 58 C 14 55, 17 60, 25 61 C 33 62, 37 58, 43 54 C 49 50, 51 47, 56 48 C 64 49, 67 45, 73 45 C 80 45, 84 41, 91 39"
-            fill="none"
-            stroke="rgba(63, 130, 55, 0.32)"
-            strokeWidth="10.5"
-            strokeLinecap="round"
-            strokeDasharray="0.8 7.8"
-          />
+          <path d={MAP_PATH_D} fill="none" className="kid-map-path-base" />
+          <path d={MAP_PATH_D} fill="none" className="kid-map-path-inner" />
+          <path d={MAP_PATH_D} fill="none" className="kid-map-path-dots" />
 
-          <ForestLeaf x={17} y={57} rotate={-22} />
-          <ForestLeaf x={22} y={61} rotate={16} />
-          <ForestLeaf x={35} y={59} rotate={-8} />
-          <ForestLeaf x={48} y={51} rotate={25} />
-          <ForestLeaf x={61} y={48} rotate={-18} />
-          <ForestLeaf x={69} y={45} rotate={12} />
-          <ForestLeaf x={82} y={42} rotate={-20} />
+          <ForestLeaf x={17} y={63.5} rotate={-22} />
+          <ForestLeaf x={22} y={65.4} rotate={16} />
+          <ForestLeaf x={35} y={61.3} rotate={-8} />
+          <ForestLeaf x={49} y={51.6} rotate={25} />
+          <ForestLeaf x={62} y={49.2} rotate={-18} />
+          <ForestLeaf x={70} y={46.3} rotate={12} />
+          <ForestLeaf x={84} y={40.4} rotate={-20} />
         </svg>
 
         {gamesWithStatus.map((game) => {
-          const statusIcon = game.isCompleted ? "✓" : game.isAiRecommended ? "AI" : game.isActive ? "▶" : "🔒";
+          const statusIcon = game.isCompleted ? "✓" : game.status === "recommended" ? "AI" : game.isActive ? "▶" : "🔒";
           const actionLabel = game.isCompleted
             ? "已完成，可重新開始"
-            : game.isAiRecommended
-              ? "AI 建議解鎖，可以開始"
+            : game.status === "recommended"
+              ? "AI 建議挑戰，可以開始"
               : game.isActive
                 ? "可以開始"
                 : "尚未解鎖";
@@ -1083,11 +1062,20 @@ const TestMapPage = () => {
                 </span>
                 <span className="kid-level-status" aria-hidden="true">{statusIcon}</span>
               </span>
-
-              <span className="kid-level-caption">{game.childText}</span>
             </button>
           );
         })}
+
+        {guideGame && (
+          <img
+            className="kid-mouse-guide"
+            src={mouseGuide}
+            alt=""
+            aria-hidden="true"
+            draggable="false"
+            style={{ "--mouse-x": `${guideGame.x}%`, "--mouse-y": `${guideGame.y}%` }}
+          />
+        )}
 
         {resultModal && (
           <div

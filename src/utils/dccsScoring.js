@@ -1,542 +1,74 @@
 // src/utils/dccsScoring.js
 
 /**
- * DCCS 評分邏輯
+ * DCCS 評分模組
  * Dimensional Change Card Sort
  *
- * 更新重點：
- * 1. 支援新版訓練 10 階難度。
- * 2. 將「衣服/種類正確率」typeAccuracy 與「切換後正確率」postSwitchAccuracy 分開。
- * 3. 舊規則干擾只在真正干擾題 isInterferenceTrial 中計算。
- * 4. 訓練分數依關卡類型使用不同權重。
- * 5. 家長端保留白話指標，醫療端保留細部數據。
- * 6. 對反應時間 CV 與切換後固著錯誤加入防呆。
+ * 支援：
+ * 1. 正式測驗模式
+ * 2. 十階訓練模式
+ * 3. TestPage_DCCS / TrainingPage_DCCS 不同欄位格式
+ * 4. 顏色規則、種類規則、切換後表現、干擾抑制
+ * 5. 固著錯誤、第一次答對率、反應時間與穩定度
+ * 6. 兒童端、家長端、醫療端結果
+ * 7. NaN、零除、題數不足、無效 RT 與缺失欄位防護
  */
 
-function safeDivide(numerator, denominator) {
-  if (!denominator || denominator <= 0) return 0;
-  return numerator / denominator;
-}
-
-function clamp(value, min = 0, max = 100) {
-  if (typeof value !== "number" || Number.isNaN(value)) return min;
-  return Math.min(max, Math.max(min, value));
-}
-
-function safeNumber(value, fallback = 0) {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function normalizeRatio(value) {
-  if (typeof value !== "number" || Number.isNaN(value)) return 0;
-  return value > 1 ? clamp(value, 0, 100) / 100 : clamp(value, 0, 1);
-}
-
-function toPercent(value) {
-  if (typeof value !== "number" || Number.isNaN(value)) return 0;
-  return Math.round(normalizeRatio(value) * 100);
-}
-
-function filterValidReactionTimes(reactionTimes = []) {
-  if (!Array.isArray(reactionTimes)) return [];
-
-  return reactionTimes.filter(
-    (time) => typeof time === "number" && Number.isFinite(time) && time > 0
-  );
-}
-
-function average(numbers) {
-  const validNumbers = filterValidReactionTimes(numbers);
-
-  if (validNumbers.length === 0) return 0;
-
-  return Math.round(
-    validNumbers.reduce((sum, n) => sum + n, 0) / validNumbers.length
-  );
-}
-
-function standardDeviation(numbers) {
-  const validNumbers = filterValidReactionTimes(numbers);
-
-  if (validNumbers.length <= 1) return 0;
-
-  const avg = validNumbers.reduce((sum, n) => sum + n, 0) / validNumbers.length;
-  const variance =
-    validNumbers.reduce((sum, n) => sum + Math.pow(n - avg, 2), 0) /
-    validNumbers.length;
-
-  return Math.round(Math.sqrt(variance));
-}
-
-/**
- * 反應時間變異係數 CV = SD / Mean。
- * 有效 RT 少於 2 筆時不計算 CV，避免全超時或單筆 RT 造成 NaN / Infinity。
- */
-function getReactionTimeCv(reactionTimes = []) {
-  const validTimes = filterValidReactionTimes(reactionTimes);
-
-  if (validTimes.length <= 1) {
-    return {
-      cv: 0,
-      validCount: validTimes.length,
-      isReliable: false,
-    };
-  }
-
-  const mean =
-    validTimes.reduce((sum, time) => sum + time, 0) / validTimes.length;
-
-  if (!Number.isFinite(mean) || mean <= 0) {
-    return {
-      cv: 0,
-      validCount: validTimes.length,
-      isReliable: false,
-    };
-  }
-
-  const sd = standardDeviation(validTimes);
-  const cv = sd / mean;
-
-  return {
-    cv: Number.isFinite(cv) ? cv : 0,
-    validCount: validTimes.length,
-    isReliable: true,
-  };
-}
-
-/**
- * DCCS 不建議過度重視速度，反應時間只作為輔助指標。
- */
-function getReactionTimeScore(avgReactionTime) {
-  if (!avgReactionTime || avgReactionTime <= 0) return 60;
-
-  if (avgReactionTime <= 2000) return 100;
-  if (avgReactionTime <= 3500) return 85;
-  if (avgReactionTime <= 5000) return 70;
-  if (avgReactionTime <= 7000) return 55;
-
-  return 40;
-}
-
-function getResponseStabilityScore(reactionTimes = [], avgReactionTime = 0) {
-  const validTimes = filterValidReactionTimes(reactionTimes);
-
-  if (validTimes.length === 0) return 60;
-
-  const rtScore = getReactionTimeScore(avgReactionTime);
-  const sd = standardDeviation(validTimes);
-  const { cv, isReliable } = getReactionTimeCv(validTimes);
-
-  let stabilityScore = 100;
-
-  if (validTimes.length <= 1 || !isReliable) {
-    stabilityScore = 60;
-  } else if (cv <= 0.2 && sd <= 500) {
-    stabilityScore = 100;
-  } else if (cv <= 0.35 && sd <= 1000) {
-    stabilityScore = 85;
-  } else if (cv <= 0.5 && sd <= 1800) {
-    stabilityScore = 70;
-  } else if (cv <= 0.7 && sd <= 2500) {
-    stabilityScore = 55;
-  } else {
-    stabilityScore = 40;
-  }
-
-  return Math.round(rtScore * 0.4 + stabilityScore * 0.6);
-}
-
-function getReactionTimeLevel(avgReactionTime) {
-  if (!avgReactionTime || avgReactionTime <= 0) {
-    return {
-      level: "未取得",
-      description: "本次沒有取得有效反應時間資料。",
-    };
-  }
-
-  if (avgReactionTime <= 2000) {
-    return {
-      level: "快速",
-      description: "孩子能在短時間內完成規則判斷與分類反應。",
-    };
-  }
-
-  if (avgReactionTime <= 3500) {
-    return {
-      level: "穩定",
-      description: "孩子的作答速度大致穩定，能完成規則判斷。",
-    };
-  }
-
-  if (avgReactionTime <= 5000) {
-    return {
-      level: "稍慢",
-      description: "孩子可能需要更多時間理解規則或確認答案。",
-    };
-  }
-
-  if (avgReactionTime <= 7000) {
-    return {
-      level: "偏慢",
-      description: "孩子在分類前可能需要較長時間思考，建議搭配練習觀察。",
-    };
-  }
-
-  return {
-    level: "明顯偏慢",
-    description: "孩子完成分類所需時間較長，可能需要更多規則提示與操作練習。",
-  };
-}
-
-function isColorPhase(trial) {
-  return Boolean(
-    trial?.phase === "color_test" ||
-      trial?.phase === "color" ||
-      trial?.rule === "color" ||
-      trial?.currentRule === "color"
-  );
-}
-
-function isTypePhase(trial) {
-  return Boolean(
-    trial?.phase === "type_test" ||
-      trial?.phase === "shape_test" ||
-      trial?.phase === "type" ||
-      trial?.phase === "shape" ||
-      trial?.rule === "type" ||
-      trial?.rule === "shape" ||
-      trial?.currentRule === "type" ||
-      trial?.currentRule === "shape"
-  );
-}
-
-function hasExplicitPostSwitchFlag(trial) {
-  if (!trial) return false;
-
-  if (typeof trial.wasAfterRuleSwitch === "boolean") {
-    return trial.wasAfterRuleSwitch;
-  }
-
-  if (typeof trial.isPostSwitch === "boolean") {
-    return trial.isPostSwitch;
-  }
-
-  if (typeof trial.afterSwitch === "boolean") {
-    return trial.afterSwitch;
-  }
-
-  return Boolean(
-    trial.phase === "post_switch" ||
-      trial.phase === "type_after_switch" ||
-      trial.phase === "shape_after_switch"
-  );
-}
-
-function getTrialRule(trial) {
-  if (isColorPhase(trial)) return "color";
-  if (isTypePhase(trial)) return "type";
-  return null;
-}
-
-function isInterferenceTrial(trial) {
-  if (!trial) return false;
-
-  return Boolean(
-    trial.isInterferenceTrial ||
-      trial.interferenceTrial ||
-      trial.phase === "interference" ||
-      trial.trialType === "interference"
-  );
-}
-
-function isFormalTrial(trial) {
-  if (!trial) return false;
-
-  if (trial.isPractice) return false;
-  if (trial.phase === "instruction") return false;
-  if (trial.phase === "tutorial") return false;
-  if (trial.phase === "rule_switch") return false;
-
-  return (
-    isColorPhase(trial) ||
-    isTypePhase(trial) ||
-    typeof trial.isCorrect === "boolean"
-  );
-}
-
-/**
- * 嚴格的「切換後」時序判定。
- * type_test / shape_test 只能代表目前規則，不再單獨等於已切換。
- */
-function buildSwitchTimeline(trialLogs = []) {
-  const formalEntries = [];
-  let previousRule = null;
-  let hasSwitched = false;
-
-  trialLogs.forEach((trial) => {
-    if (!trial) return;
-
-    if (
-      trial.phase === "rule_switch" ||
-      trial.trialType === "rule_switch" ||
-      trial.isRuleSwitch === true
-    ) {
-      hasSwitched = true;
-      return;
-    }
-
-    if (!isFormalTrial(trial)) return;
-
-    const currentRule = getTrialRule(trial);
-
-    if (previousRule && currentRule && previousRule !== currentRule) {
-      hasSwitched = true;
-    }
-
-    const explicitPostSwitch = hasExplicitPostSwitchFlag(trial);
-    const effectiveHasSwitched = hasSwitched || explicitPostSwitch;
-
-    formalEntries.push({
-      trial,
-      hasSwitched: effectiveHasSwitched,
-      isPostSwitch: effectiveHasSwitched,
-    });
-
-    if (currentRule) previousRule = currentRule;
-  });
-
-  return formalEntries;
-}
-
-function isPostSwitchEntry(entry) {
-  return Boolean(entry?.hasSwitched && entry?.isPostSwitch);
-}
-
-function isFirstTryCorrect(trial) {
-  if (!trial || !trial.isCorrect) return false;
-
-  if (typeof trial.attemptCount === "number") {
-    return trial.attemptCount <= 1;
-  }
-
-  if (typeof trial.isFirstTry === "boolean") {
-    return trial.isFirstTry;
-  }
-
-  if (typeof trial.firstTryCorrect === "boolean") {
-    return trial.firstTryCorrect;
-  }
-
-  return true;
-}
-
-function isOldRuleError(trial) {
-  if (!trial) return false;
-
-  return Boolean(
-    trial.isPerseverativeError ||
-      trial.isOldRuleInterference ||
-      trial.oldRuleError ||
-      trial.errorType === "perseverative" ||
-      trial.errorType === "old_rule"
-  );
-}
-
-function getBestStreak(trials = []) {
-  let best = 0;
-  let current = 0;
-
-  trials.forEach((trial) => {
-    if (trial.isCorrect) {
-      current += 1;
-      best = Math.max(best, current);
-    } else {
-      current = 0;
-    }
-  });
-
-  return best;
-}
-
-function analyzeTrialLogs(trialLogs = []) {
-  const timelineEntries = Array.isArray(trialLogs)
-    ? buildSwitchTimeline(trialLogs)
-    : [];
-
-  const formalTrials = timelineEntries.map((entry) => entry.trial);
-
-  const colorTrials = formalTrials.filter(isColorPhase);
-  const typeTrials = formalTrials.filter(isTypePhase);
-  const postSwitchTrials = timelineEntries
-    .filter(isPostSwitchEntry)
-    .map((entry) => entry.trial);
-
-  const interferenceTrials = formalTrials.filter(isInterferenceTrial);
-
-  const correctTrials = formalTrials.filter((trial) => trial.isCorrect);
-  const colorCorrectTrials = colorTrials.filter((trial) => trial.isCorrect);
-  const typeCorrectTrials = typeTrials.filter((trial) => trial.isCorrect);
-  const postSwitchCorrectTrials = postSwitchTrials.filter(
-    (trial) => trial.isCorrect
-  );
-  const interferenceCorrectTrials = interferenceTrials.filter(
-    (trial) => trial.isCorrect
-  );
-
-  const firstTryCorrectTrials = formalTrials.filter(isFirstTryCorrect);
-
-  /**
-   * 固著錯誤只允許在「已切換後」統計。
-   * 如果有明確干擾題，則只在切換後 + 干擾題 + old rule error 時計入。
-   * 若舊資料沒有 interference 標記，才退回切換後 old rule error。
-   */
-  const perseverativeErrors = postSwitchTrials.filter(
-    (trial) => isInterferenceTrial(trial) && isOldRuleError(trial)
-  ).length;
-
-  const legacyPerseverativeErrors =
-    postSwitchTrials.filter(isOldRuleError).length;
-
-  const effectivePerseverativeErrors =
-    interferenceTrials.length > 0
-      ? perseverativeErrors
-      : legacyPerseverativeErrors;
-
-  const totalTrials = formalTrials.length;
-  const correctCount = correctTrials.length;
-
-  const accuracy = safeDivide(correctCount, totalTrials);
-  const colorAccuracy = safeDivide(
-    colorCorrectTrials.length,
-    colorTrials.length
-  );
-  const typeAccuracy = safeDivide(typeCorrectTrials.length, typeTrials.length);
-  const postSwitchAccuracy = safeDivide(
-    postSwitchCorrectTrials.length,
-    postSwitchTrials.length
-  );
-  const interferenceAccuracy = safeDivide(
-    interferenceCorrectTrials.length,
-    interferenceTrials.length
-  );
-  const firstTryAccuracy = safeDivide(firstTryCorrectTrials.length, totalTrials);
-
-  const reactionTimes = filterValidReactionTimes(
-    formalTrials.map((trial) => trial.reactionTime)
-  );
-  const colorReactionTimes = filterValidReactionTimes(
-    colorTrials.map((trial) => trial.reactionTime)
-  );
-  const typeReactionTimes = filterValidReactionTimes(
-    typeTrials.map((trial) => trial.reactionTime)
-  );
-  const postSwitchReactionTimes = filterValidReactionTimes(
-    postSwitchTrials.map((trial) => trial.reactionTime)
-  );
-
-  const avgReactionTime = average(reactionTimes);
-  const colorAvgReactionTime = average(colorReactionTimes);
-  const typeAvgReactionTime = average(typeReactionTimes);
-  const postSwitchAvgReactionTime = average(postSwitchReactionTimes);
-
-  const reactionTimeCvResult = getReactionTimeCv(reactionTimes);
-  const colorReactionTimeCvResult = getReactionTimeCv(colorReactionTimes);
-  const typeReactionTimeCvResult = getReactionTimeCv(typeReactionTimes);
-  const postSwitchReactionTimeCvResult = getReactionTimeCv(
-    postSwitchReactionTimes
-  );
-
-  const perseverativeErrorRate = safeDivide(
-    effectivePerseverativeErrors,
-    interferenceTrials.length > 0
-      ? interferenceTrials.length
-      : postSwitchTrials.length
-  );
-
-  const interferenceControl = clamp(1 - perseverativeErrorRate, 0, 1);
-
-  const rtDifferenceAfterSwitch =
-    colorAvgReactionTime > 0 && postSwitchAvgReactionTime > 0
-      ? postSwitchAvgReactionTime - colorAvgReactionTime
-      : 0;
-
-  const responseStabilityScore = getResponseStabilityScore(
-    reactionTimes,
-    avgReactionTime
-  );
-
-  return {
-    totalTrials,
-    correctCount,
-
-    colorTrials: colorTrials.length,
-    typeTrials: typeTrials.length,
-    postSwitchTrials: postSwitchTrials.length,
-    switchTrials: postSwitchTrials.length,
-    interferenceTrials: interferenceTrials.length,
-
-    accuracy,
-    colorAccuracy,
-    typeAccuracy,
-    postSwitchAccuracy,
-    switchAccuracy: postSwitchAccuracy,
-    interferenceAccuracy,
-    firstTryAccuracy,
-
-    perseverativeErrors: effectivePerseverativeErrors,
-    perseverativeErrorRate,
-    interferenceControl,
-
-    avgReactionTime,
-    colorAvgReactionTime,
-    typeAvgReactionTime,
-    postSwitchAvgReactionTime,
-    switchAvgReactionTime: postSwitchAvgReactionTime,
-    rtDifferenceAfterSwitch,
-    responseStabilityScore,
-
-    reactionTimeCv: reactionTimeCvResult.cv,
-    reactionTimeValidCount: reactionTimeCvResult.validCount,
-    reactionTimeCvReliable: reactionTimeCvResult.isReliable,
-    colorReactionTimeCv: colorReactionTimeCvResult.cv,
-    typeReactionTimeCv: typeReactionTimeCvResult.cv,
-    postSwitchReactionTimeCv: postSwitchReactionTimeCvResult.cv,
-
-    bestStreak: getBestStreak(formalTrials),
-    reactionTimes,
-  };
-}
+const DEFAULT_STABILITY_SCORE = 55;
+const DEFAULT_MISSING_RT_SCORE = 55;
+
+const DCCS_DIFFICULTY_ORDER = [
+  "colorIntro",
+  "colorStable",
+  "typeIntro",
+  "typeStable",
+  "switchClear",
+  "switchEarly",
+  "switchMaintain",
+  "lowInterference",
+  "highInterference",
+  "testLike",
+];
 
 const DCCS_LEVEL_SCORING = {
   colorIntro: {
+    level: 1,
     label: "第 1 階",
     title: "看顏色",
-    starRule: "singleRule",
+    category: "singleRule",
     abilityFocus: "colorRule",
+    starRule: "singleRule",
+    minimumTrials: 3,
     weights: {
-      accuracy: 0.7,
+      colorAccuracy: 0.7,
       firstTryAccuracy: 0.2,
       responseStability: 0.1,
     },
   },
 
   colorStable: {
+    level: 2,
     label: "第 2 階",
     title: "顏色穩定",
-    starRule: "singleRule",
+    category: "singleRule",
     abilityFocus: "colorRule",
+    starRule: "singleRule",
+    minimumTrials: 4,
     weights: {
-      accuracy: 0.65,
+      colorAccuracy: 0.65,
       firstTryAccuracy: 0.25,
       responseStability: 0.1,
     },
   },
 
   typeIntro: {
+    level: 3,
     label: "第 3 階",
     title: "看衣服",
-    starRule: "singleRule",
+    category: "singleRule",
     abilityFocus: "typeRule",
+    starRule: "singleRule",
+    minimumTrials: 3,
     weights: {
       typeAccuracy: 0.7,
       firstTryAccuracy: 0.2,
@@ -545,10 +77,13 @@ const DCCS_LEVEL_SCORING = {
   },
 
   typeStable: {
+    level: 4,
     label: "第 4 階",
     title: "衣服穩定",
-    starRule: "singleRule",
+    category: "singleRule",
     abilityFocus: "typeRule",
+    starRule: "singleRule",
+    minimumTrials: 4,
     weights: {
       typeAccuracy: 0.65,
       firstTryAccuracy: 0.25,
@@ -557,90 +92,263 @@ const DCCS_LEVEL_SCORING = {
   },
 
   switchClear: {
+    level: 5,
     label: "第 5 階",
     title: "明確換規則",
-    starRule: "clearSwitch",
+    category: "switch",
     abilityFocus: "ruleSwitch",
+    starRule: "clearSwitch",
+    minimumTrials: 4,
     weights: {
       postSwitchAccuracy: 0.45,
       accuracy: 0.25,
-      firstTryAccuracy: 0.15,
-      interferenceControl: 0.15,
+      firstTryAccuracy: 0.2,
+      responseStability: 0.1,
     },
   },
 
   switchEarly: {
+    level: 6,
     label: "第 6 階",
     title: "提前換規則",
-    starRule: "clearSwitch",
+    category: "switch",
     abilityFocus: "ruleSwitch",
+    starRule: "clearSwitch",
+    minimumTrials: 4,
     weights: {
       postSwitchAccuracy: 0.5,
       accuracy: 0.2,
-      firstTryAccuracy: 0.15,
-      interferenceControl: 0.15,
+      firstTryAccuracy: 0.2,
+      responseStability: 0.1,
     },
   },
 
   switchMaintain: {
+    level: 7,
     label: "第 7 階",
     title: "切換後維持",
-    starRule: "switchMaintain",
+    category: "switch",
     abilityFocus: "ruleMaintain",
+    starRule: "switchMaintain",
+    minimumTrials: 5,
     weights: {
       postSwitchAccuracy: 0.4,
-      interferenceControl: 0.25,
+      interferenceControl: 0.2,
       firstTryAccuracy: 0.15,
-      accuracy: 0.1,
-      responseStability: 0.1,
-    },
-  },
-
-  lowInterference: {
-    label: "第 8 階",
-    title: "少量干擾",
-    starRule: "interference",
-    abilityFocus: "inhibition",
-    weights: {
-      interferenceControl: 0.35,
-      postSwitchAccuracy: 0.35,
-      accuracy: 0.2,
-      responseStability: 0.1,
-    },
-  },
-
-  highInterference: {
-    label: "第 9 階",
-    title: "高干擾",
-    starRule: "interference",
-    abilityFocus: "inhibition",
-    weights: {
-      interferenceControl: 0.4,
-      postSwitchAccuracy: 0.35,
       accuracy: 0.15,
       responseStability: 0.1,
     },
   },
 
+  lowInterference: {
+    level: 8,
+    label: "第 8 階",
+    title: "少量干擾",
+    category: "interference",
+    abilityFocus: "inhibition",
+    starRule: "interference",
+    minimumTrials: 5,
+    weights: {
+      interferenceControl: 0.3,
+      interferenceAccuracy: 0.2,
+      postSwitchAccuracy: 0.25,
+      accuracy: 0.15,
+      responseStability: 0.1,
+    },
+  },
+
+  highInterference: {
+    level: 9,
+    label: "第 9 階",
+    title: "高干擾",
+    category: "interference",
+    abilityFocus: "inhibition",
+    starRule: "interference",
+    minimumTrials: 5,
+    weights: {
+      interferenceControl: 0.35,
+      interferenceAccuracy: 0.2,
+      postSwitchAccuracy: 0.25,
+      accuracy: 0.1,
+      responseStability: 0.1,
+    },
+  },
+
   testLike: {
+    level: 10,
     label: "第 10 階",
     title: "接近測驗",
-    starRule: "testLike",
+    category: "testLike",
     abilityFocus: "testReadiness",
+    starRule: "testLike",
+    minimumTrials: 6,
     weights: {
-      postSwitchAccuracy: 0.4,
+      postSwitchAccuracy: 0.35,
       accuracy: 0.25,
-      interferenceControl: 0.2,
+      interferenceControl: 0.15,
+      interferenceAccuracy: 0.1,
       firstTryAccuracy: 0.1,
       responseStability: 0.05,
     },
   },
 };
 
+/* -------------------------------------------------------------------------- */
+/* 基礎工具                                                                    */
+/* -------------------------------------------------------------------------- */
+
+function isFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function safeNumber(value, fallback = 0) {
+  return isFiniteNumber(value) ? value : fallback;
+}
+
+function safeInteger(value, fallback = 0) {
+  return isFiniteNumber(value)
+    ? Math.max(0, Math.round(value))
+    : fallback;
+}
+
+function clamp(value, min = 0, max = 100) {
+  if (!isFiniteNumber(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
+
+function safeDivide(numerator, denominator, fallback = 0) {
+  const safeNumerator = safeNumber(numerator, 0);
+  const safeDenominator = safeNumber(denominator, 0);
+
+  if (safeDenominator <= 0) return fallback;
+
+  const result = safeNumerator / safeDenominator;
+
+  return Number.isFinite(result) ? result : fallback;
+}
+
+function normalizeRatio(value, fallback = 0) {
+  if (!isFiniteNumber(value)) return fallback;
+
+  if (value > 1) {
+    return clamp(value, 0, 100) / 100;
+  }
+
+  return clamp(value, 0, 1);
+}
+
+function toPercent(value) {
+  return Math.round(normalizeRatio(value) * 100);
+}
+
+function round(value, digits = 0) {
+  if (!isFiniteNumber(value)) return 0;
+
+  const multiplier = Math.pow(10, digits);
+
+  return Math.round(value * multiplier) / multiplier;
+}
+
+function average(values = []) {
+  const validValues = Array.isArray(values)
+    ? values.filter(
+        (value) => isFiniteNumber(value) && value > 0
+      )
+    : [];
+
+  if (validValues.length === 0) return 0;
+
+  return Math.round(
+    validValues.reduce((sum, value) => sum + value, 0) /
+      validValues.length
+  );
+}
+
+function standardDeviation(values = []) {
+  const validValues = Array.isArray(values)
+    ? values.filter(
+        (value) => isFiniteNumber(value) && value > 0
+      )
+    : [];
+
+  if (validValues.length <= 1) return 0;
+
+  const mean =
+    validValues.reduce((sum, value) => sum + value, 0) /
+    validValues.length;
+
+  const variance =
+    validValues.reduce(
+      (sum, value) => sum + Math.pow(value - mean, 2),
+      0
+    ) / validValues.length;
+
+  return Math.round(Math.sqrt(variance));
+}
+
+function filterValidReactionTimes(values = []) {
+  if (!Array.isArray(values)) return [];
+
+  return values.filter(
+    (value) => isFiniteNumber(value) && value > 0
+  );
+}
+
+function getCoefficientOfVariation(values = []) {
+  const validValues = filterValidReactionTimes(values);
+
+  if (validValues.length <= 1) {
+    return {
+      value: 0,
+      validCount: validValues.length,
+      reliable: false,
+    };
+  }
+
+  const mean = average(validValues);
+  const sd = standardDeviation(validValues);
+
+  if (mean <= 0) {
+    return {
+      value: 0,
+      validCount: validValues.length,
+      reliable: false,
+    };
+  }
+
+  const value = sd / mean;
+
+  return {
+    value: Number.isFinite(value) ? value : 0,
+    validCount: validValues.length,
+    reliable: Number.isFinite(value),
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/* 難度                                                                        */
+/* -------------------------------------------------------------------------- */
+
 function normalizeDifficulty(difficulty) {
+  if (isFiniteNumber(difficulty)) {
+    const index = clamp(
+      Math.round(difficulty) - 1,
+      0,
+      DCCS_DIFFICULTY_ORDER.length - 1
+    );
+
+    return DCCS_DIFFICULTY_ORDER[index];
+  }
+
+  const key =
+    typeof difficulty === "string"
+      ? difficulty.trim()
+      : "";
+
   const map = {
     easy: "colorIntro",
     normal: "switchClear",
+    medium: "switchClear",
     hard: "highInterference",
 
     easyIntro: "colorIntro",
@@ -670,230 +378,1287 @@ function normalizeDifficulty(difficulty) {
     low_interference: "lowInterference",
     high_interference: "highInterference",
     test_like: "testLike",
+
+    level1: "colorIntro",
+    level2: "colorStable",
+    level3: "typeIntro",
+    level4: "typeStable",
+    level5: "switchClear",
+    level6: "switchEarly",
+    level7: "switchMaintain",
+    level8: "lowInterference",
+    level9: "highInterference",
+    level10: "testLike",
   };
 
-  return map[difficulty] || "switchClear";
+  return map[key] || "switchClear";
 }
 
-function getLevelScoringConfig(difficulty) {
-  const normalizedDifficulty = normalizeDifficulty(difficulty);
-  const fallbackDifficulty = "switchClear";
+function getDifficultyConfig(difficulty) {
+  const normalizedDifficulty =
+    normalizeDifficulty(difficulty);
 
   return {
-    normalizedDifficulty,
+    difficulty: normalizedDifficulty,
     config:
       DCCS_LEVEL_SCORING[normalizedDifficulty] ||
-      DCCS_LEVEL_SCORING[fallbackDifficulty],
+      DCCS_LEVEL_SCORING.switchClear,
   };
 }
 
-function getScoreValue(key, source) {
-  if (key === "responseStability") return source.responseStabilityScore;
-  return normalizeRatio(source[key]) * 100;
-}
+/* -------------------------------------------------------------------------- */
+/* Trial 欄位相容處理                                                          */
+/* -------------------------------------------------------------------------- */
 
-function getPrimarySingleRuleAccuracy(config, source) {
-  if (config.abilityFocus === "typeRule") {
-    return source.typeTrials > 0 ? source.typeAccuracy : source.accuracy;
+function normalizeRuleName(value) {
+  if (typeof value !== "string") return null;
+
+  const normalized = value.trim().toLowerCase();
+
+  if (
+    normalized === "color" ||
+    normalized === "colour" ||
+    normalized === "顏色"
+  ) {
+    return "color";
   }
 
+  if (
+    normalized === "type" ||
+    normalized === "shape" ||
+    normalized === "clothes" ||
+    normalized === "category" ||
+    normalized === "種類" ||
+    normalized === "衣服" ||
+    normalized === "服飾"
+  ) {
+    return "type";
+  }
+
+  return null;
+}
+
+function getTrialRule(trial = {}) {
+  const directRule =
+    normalizeRuleName(trial.rule) ||
+    normalizeRuleName(trial.currentRule) ||
+    normalizeRuleName(trial.sortRule) ||
+    normalizeRuleName(trial.targetRule) ||
+    normalizeRuleName(trial.ruleType);
+
+  if (directRule) return directRule;
+
+  const phase = String(trial.phase || "").toLowerCase();
+
+  if (
+    phase === "color" ||
+    phase.includes("color_rule") ||
+    phase.includes("color_test") ||
+    phase.includes("color_training")
+  ) {
+    return "color";
+  }
+
+  if (
+    phase === "type" ||
+    phase === "shape" ||
+    phase.includes("type_rule") ||
+    phase.includes("shape_rule") ||
+    phase.includes("type_test") ||
+    phase.includes("shape_test") ||
+    phase.includes("type_training")
+  ) {
+    return "type";
+  }
+
+  return null;
+}
+
+function getCorrectValue(trial = {}) {
+  if (typeof trial.isCorrect === "boolean") {
+    return trial.isCorrect;
+  }
+
+  if (typeof trial.correct === "boolean") {
+    return trial.correct;
+  }
+
+  if (typeof trial.wasCorrect === "boolean") {
+    return trial.wasCorrect;
+  }
+
+  if (typeof trial.success === "boolean") {
+    return trial.success;
+  }
+
+  if (typeof trial.result === "string") {
+    const normalized = trial.result.trim().toLowerCase();
+
+    if (
+      normalized === "correct" ||
+      normalized === "success" ||
+      normalized === "passed"
+    ) {
+      return true;
+    }
+
+    if (
+      normalized === "wrong" ||
+      normalized === "incorrect" ||
+      normalized === "timeout" ||
+      normalized === "failed"
+    ) {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+function isTimeoutTrial(trial = {}) {
+  return Boolean(
+    trial.isTimeout === true ||
+      trial.timeout === true ||
+      trial.timedOut === true ||
+      trial.result === "timeout" ||
+      trial.errorType === "timeout"
+  );
+}
+
+function getReactionTime(trial = {}) {
+  const candidates = [
+    trial.reactionTime,
+    trial.responseTime,
+    trial.rt,
+    trial.responseTimeMs,
+    trial.reactionTimeMs,
+    trial.elapsedTime,
+  ];
+
+  for (const candidate of candidates) {
+    if (isFiniteNumber(candidate) && candidate > 0) {
+      return candidate;
+    }
+  }
+
+  return 0;
+}
+
+function normalizeSide(value) {
+  if (value === null || value === undefined) return null;
+
+  const normalized = String(value).trim().toLowerCase();
+
+  if (
+    normalized === "left" ||
+    normalized === "l" ||
+    normalized === "0" ||
+    normalized === "左"
+  ) {
+    return "left";
+  }
+
+  if (
+    normalized === "right" ||
+    normalized === "r" ||
+    normalized === "1" ||
+    normalized === "右"
+  ) {
+    return "right";
+  }
+
+  if (
+    normalized === "top" ||
+    normalized === "up" ||
+    normalized === "上"
+  ) {
+    return "top";
+  }
+
+  if (
+    normalized === "bottom" ||
+    normalized === "down" ||
+    normalized === "下"
+  ) {
+    return "bottom";
+  }
+
+  return normalized || null;
+}
+
+function getCorrectSide(trial = {}) {
+  return normalizeSide(
+    trial.correctSide ??
+      trial.correctPosition ??
+      trial.targetSide ??
+      trial.answerSide ??
+      trial.correctBasket ??
+      trial.correctAnswer
+  );
+}
+
+function getOldRuleSide(trial = {}) {
+  return normalizeSide(
+    trial.oldRuleSide ??
+      trial.oldRulePosition ??
+      trial.previousRuleSide ??
+      trial.previousCorrectSide ??
+      trial.colorRuleSide ??
+      trial.oldAnswerSide
+  );
+}
+
+function getSelectedSide(trial = {}) {
+  return normalizeSide(
+    trial.selectedSide ??
+      trial.selectedPosition ??
+      trial.userAnswerSide ??
+      trial.answer ??
+      trial.userChoice ??
+      trial.chosenSide ??
+      trial.selectedBasket
+  );
+}
+
+function isRuleSwitchMarker(trial = {}) {
+  return Boolean(
+    trial.phase === "rule_switch" ||
+      trial.trialType === "rule_switch" ||
+      trial.isRuleSwitch === true ||
+      trial.ruleChanged === true ||
+      trial.switchMarker === true
+  );
+}
+
+function getExplicitPostSwitchValue(trial = {}) {
+  const booleanFields = [
+    "wasAfterRuleSwitch",
+    "isPostSwitch",
+    "afterSwitch",
+    "isAfterSwitch",
+    "postSwitch",
+    "hasSwitched",
+  ];
+
+  for (const field of booleanFields) {
+    if (typeof trial[field] === "boolean") {
+      return trial[field];
+    }
+  }
+
+  const phase = String(trial.phase || "").toLowerCase();
+  const trialType = String(trial.trialType || "").toLowerCase();
+
+  if (
+    phase === "post_switch" ||
+    phase === "type_after_switch" ||
+    phase === "shape_after_switch" ||
+    trialType === "post_switch"
+  ) {
+    return true;
+  }
+
+  return null;
+}
+
+function isFormalTrial(trial = {}) {
+  if (!trial || typeof trial !== "object") return false;
+
+  const phase = String(trial.phase || "").toLowerCase();
+
+  if (
+    trial.isPractice === true ||
+    trial.practice === true ||
+    trial.isTutorial === true ||
+    phase === "instruction" ||
+    phase === "tutorial" ||
+    phase === "intro" ||
+    phase === "practice" ||
+    isRuleSwitchMarker(trial)
+  ) {
+    return false;
+  }
+
+  return Boolean(
+    getTrialRule(trial) ||
+      typeof trial.isCorrect === "boolean" ||
+      typeof trial.correct === "boolean" ||
+      typeof trial.wasCorrect === "boolean" ||
+      typeof trial.result === "string"
+  );
+}
+
+function isFirstTryCorrect(trial = {}) {
+  if (!getCorrectValue(trial)) return false;
+
+  if (isFiniteNumber(trial.attemptCount)) {
+    return trial.attemptCount <= 1;
+  }
+
+  if (isFiniteNumber(trial.wrongTapCount)) {
+    return trial.wrongTapCount <= 0;
+  }
+
+  if (isFiniteNumber(trial.errorCount)) {
+    return trial.errorCount <= 0;
+  }
+
+  if (typeof trial.isFirstTry === "boolean") {
+    return trial.isFirstTry;
+  }
+
+  if (typeof trial.firstTryCorrect === "boolean") {
+    return trial.firstTryCorrect;
+  }
+
+  return true;
+}
+
+function isInterferenceTrial(trial = {}) {
+  if (
+    trial.isInterferenceTrial === true ||
+    trial.interferenceTrial === true ||
+    trial.hasConflict === true ||
+    trial.isConflictTrial === true ||
+    trial.phase === "interference" ||
+    trial.trialType === "interference" ||
+    trial.trialType === "conflict"
+  ) {
+    return true;
+  }
+
+  const correctSide = getCorrectSide(trial);
+  const oldRuleSide = getOldRuleSide(trial);
+
+  return Boolean(
+    correctSide &&
+      oldRuleSide &&
+      correctSide !== oldRuleSide
+  );
+}
+
+function isOldRuleError(trial = {}) {
+  if (getCorrectValue(trial)) return false;
+
+  if (
+    trial.isPerseverativeError === true ||
+    trial.isOldRuleInterference === true ||
+    trial.oldRuleError === true ||
+    trial.followedOldRule === true ||
+    trial.errorType === "perseverative" ||
+    trial.errorType === "old_rule" ||
+    trial.errorType === "oldRule"
+  ) {
+    return true;
+  }
+
+  const selectedSide = getSelectedSide(trial);
+  const oldRuleSide = getOldRuleSide(trial);
+  const correctSide = getCorrectSide(trial);
+
+  return Boolean(
+    selectedSide &&
+      oldRuleSide &&
+      correctSide &&
+      selectedSide === oldRuleSide &&
+      selectedSide !== correctSide
+  );
+}
+
+function getBestStreak(trials = []) {
+  let current = 0;
+  let best = 0;
+
+  trials.forEach((trial) => {
+    if (getCorrectValue(trial)) {
+      current += 1;
+      best = Math.max(best, current);
+    } else {
+      current = 0;
+    }
+  });
+
+  return best;
+}
+
+/* -------------------------------------------------------------------------- */
+/* 規則切換時序                                                                */
+/* -------------------------------------------------------------------------- */
+
+function buildSwitchTimeline(trialLogs = []) {
+  const entries = [];
+
+  let previousRule = null;
+  let switchOccurred = false;
+
+  trialLogs.forEach((trial, originalIndex) => {
+    if (!trial || typeof trial !== "object") return;
+
+    if (isRuleSwitchMarker(trial)) {
+      switchOccurred = true;
+      return;
+    }
+
+    if (!isFormalTrial(trial)) return;
+
+    const rule = getTrialRule(trial);
+    const explicitPostSwitch = getExplicitPostSwitchValue(trial);
+
+    if (
+      previousRule &&
+      rule &&
+      previousRule !== rule
+    ) {
+      switchOccurred = true;
+    }
+
+    const isPostSwitch =
+      explicitPostSwitch === true ||
+      (explicitPostSwitch !== false && switchOccurred);
+
+    entries.push({
+      trial,
+      originalIndex,
+      rule,
+      isPostSwitch,
+    });
+
+    if (rule) {
+      previousRule = rule;
+    }
+  });
+
+  return entries;
+}
+
+/* -------------------------------------------------------------------------- */
+/* 反應時間                                                                    */
+/* -------------------------------------------------------------------------- */
+
+function getReactionTimeScore(avgReactionTime) {
+  const rt = safeNumber(avgReactionTime, 0);
+
+  if (rt <= 0) return DEFAULT_MISSING_RT_SCORE;
+  if (rt <= 1800) return 100;
+  if (rt <= 2800) return 90;
+  if (rt <= 4000) return 78;
+  if (rt <= 5500) return 65;
+  if (rt <= 7500) return 50;
+
+  return 35;
+}
+
+function getResponseStability(reactionTimes = []) {
+  const validTimes = filterValidReactionTimes(reactionTimes);
+  const mean = average(validTimes);
+  const sd = standardDeviation(validTimes);
+  const cvResult = getCoefficientOfVariation(validTimes);
+
+  if (validTimes.length <= 1 || mean <= 0) {
+    return {
+      score: DEFAULT_STABILITY_SCORE,
+      level: "資料不足",
+      mean,
+      standardDeviation: sd,
+      coefficientOfVariation: 0,
+      validCount: validTimes.length,
+      reliable: false,
+    };
+  }
+
+  const cv = cvResult.value;
+
+  let consistencyScore = 40;
+  let level = "波動較大";
+
+  if (cv <= 0.2 && sd <= 500) {
+    consistencyScore = 100;
+    level = "非常穩定";
+  } else if (cv <= 0.35 && sd <= 1000) {
+    consistencyScore = 85;
+    level = "穩定";
+  } else if (cv <= 0.5 && sd <= 1800) {
+    consistencyScore = 70;
+    level = "尚可";
+  } else if (cv <= 0.7 && sd <= 2500) {
+    consistencyScore = 55;
+    level = "稍有波動";
+  }
+
+  const speedScore = getReactionTimeScore(mean);
+
+  return {
+    score: Math.round(
+      consistencyScore * 0.75 + speedScore * 0.25
+    ),
+    level,
+    mean,
+    standardDeviation: sd,
+    coefficientOfVariation: cv,
+    validCount: validTimes.length,
+    reliable: cvResult.reliable,
+  };
+}
+
+function getReactionTimeLevel(avgReactionTime) {
+  const rt = safeNumber(avgReactionTime, 0);
+
+  if (rt <= 0) {
+    return {
+      level: "未取得",
+      description: "本次沒有取得有效反應時間資料。",
+    };
+  }
+
+  if (rt <= 2000) {
+    return {
+      level: "快速",
+      description: "能在短時間內完成規則判斷與分類反應。",
+    };
+  }
+
+  if (rt <= 3500) {
+    return {
+      level: "穩定",
+      description: "作答速度大致穩定，能完成規則判斷。",
+    };
+  }
+
+  if (rt <= 5000) {
+    return {
+      level: "稍慢",
+      description: "可能需要更多時間理解規則或確認答案。",
+    };
+  }
+
+  if (rt <= 7000) {
+    return {
+      level: "偏慢",
+      description: "分類前需要較長思考時間，建議搭配練習觀察。",
+    };
+  }
+
+  return {
+    level: "明顯偏慢",
+    description: "完成分類所需時間較長，建議增加規則提示。",
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Trial logs 分析                                                             */
+/* -------------------------------------------------------------------------- */
+
+function analyzeTrialLogs(trialLogs = []) {
+  const safeLogs = Array.isArray(trialLogs)
+    ? trialLogs
+    : [];
+
+  const timeline = buildSwitchTimeline(safeLogs);
+
+  const formalTrials = timeline.map((entry) => entry.trial);
+
+  const colorTrials = timeline
+    .filter((entry) => entry.rule === "color")
+    .map((entry) => entry.trial);
+
+  const typeTrials = timeline
+    .filter((entry) => entry.rule === "type")
+    .map((entry) => entry.trial);
+
+  const preSwitchTrials = timeline
+    .filter((entry) => !entry.isPostSwitch)
+    .map((entry) => entry.trial);
+
+  const postSwitchTrials = timeline
+    .filter((entry) => entry.isPostSwitch)
+    .map((entry) => entry.trial);
+
+  const interferenceTrials =
+    postSwitchTrials.filter(isInterferenceTrial);
+
+  const correctTrials =
+    formalTrials.filter(getCorrectValue);
+
+  const incorrectTrials =
+    formalTrials.filter((trial) => !getCorrectValue(trial));
+
+  const timeoutTrials =
+    formalTrials.filter(isTimeoutTrial);
+
+  const colorCorrect =
+    colorTrials.filter(getCorrectValue);
+
+  const typeCorrect =
+    typeTrials.filter(getCorrectValue);
+
+  const postSwitchCorrect =
+    postSwitchTrials.filter(getCorrectValue);
+
+  const interferenceCorrect =
+    interferenceTrials.filter(getCorrectValue);
+
+  const firstTryCorrect =
+    formalTrials.filter(isFirstTryCorrect);
+
+  const explicitPerseverativeErrors =
+    interferenceTrials.filter(isOldRuleError);
+
+  const fallbackPerseverativeErrors =
+    postSwitchTrials.filter(isOldRuleError);
+
+  const perseverativeErrorTrials =
+    interferenceTrials.length > 0
+      ? explicitPerseverativeErrors
+      : fallbackPerseverativeErrors;
+
+  const totalTrials = formalTrials.length;
+  const correctCount = correctTrials.length;
+  const incorrectCount = incorrectTrials.length;
+  const timeoutCount = timeoutTrials.length;
+
+  const accuracy = safeDivide(correctCount, totalTrials);
+
+  const colorAccuracy = safeDivide(
+    colorCorrect.length,
+    colorTrials.length
+  );
+
+  const typeAccuracy = safeDivide(
+    typeCorrect.length,
+    typeTrials.length
+  );
+
+  const postSwitchAccuracy = safeDivide(
+    postSwitchCorrect.length,
+    postSwitchTrials.length
+  );
+
+  const interferenceAccuracy = safeDivide(
+    interferenceCorrect.length,
+    interferenceTrials.length
+  );
+
+  const firstTryAccuracy = safeDivide(
+    firstTryCorrect.length,
+    totalTrials
+  );
+
+  const reactionTimes = filterValidReactionTimes(
+    formalTrials.map(getReactionTime)
+  );
+
+  const preSwitchReactionTimes =
+    filterValidReactionTimes(
+      preSwitchTrials.map(getReactionTime)
+    );
+
+  const postSwitchReactionTimes =
+    filterValidReactionTimes(
+      postSwitchTrials.map(getReactionTime)
+    );
+
+  const colorReactionTimes =
+    filterValidReactionTimes(
+      colorTrials.map(getReactionTime)
+    );
+
+  const typeReactionTimes =
+    filterValidReactionTimes(
+      typeTrials.map(getReactionTime)
+    );
+
+  const interferenceReactionTimes =
+    filterValidReactionTimes(
+      interferenceTrials.map(getReactionTime)
+    );
+
+  const avgReactionTime = average(reactionTimes);
+
+  const preSwitchAvgReactionTime =
+    average(preSwitchReactionTimes);
+
+  const postSwitchAvgReactionTime =
+    average(postSwitchReactionTimes);
+
+  const colorAvgReactionTime =
+    average(colorReactionTimes);
+
+  const typeAvgReactionTime =
+    average(typeReactionTimes);
+
+  const interferenceAvgReactionTime =
+    average(interferenceReactionTimes);
+
+  const rtDifferenceAfterSwitch =
+    preSwitchAvgReactionTime > 0 &&
+    postSwitchAvgReactionTime > 0
+      ? postSwitchAvgReactionTime -
+        preSwitchAvgReactionTime
+      : 0;
+
+  const switchCostRatio =
+    preSwitchAvgReactionTime > 0 &&
+    postSwitchAvgReactionTime > 0
+      ? safeDivide(
+          rtDifferenceAfterSwitch,
+          preSwitchAvgReactionTime
+        )
+      : 0;
+
+  const perseverativeErrors =
+    perseverativeErrorTrials.length;
+
+  const perseverativeDenominator =
+    interferenceTrials.length > 0
+      ? interferenceTrials.length
+      : postSwitchTrials.length;
+
+  const perseverativeErrorRate = safeDivide(
+    perseverativeErrors,
+    perseverativeDenominator
+  );
+
+  const hasInhibitionData =
+    perseverativeDenominator > 0;
+
+  const interferenceControl =
+    hasInhibitionData
+      ? clamp(1 - perseverativeErrorRate, 0, 1)
+      : null;
+
+  const overallStability =
+    getResponseStability(reactionTimes);
+
+  const colorStability =
+    getResponseStability(colorReactionTimes);
+
+  const typeStability =
+    getResponseStability(typeReactionTimes);
+
+  const postSwitchStability =
+    getResponseStability(postSwitchReactionTimes);
+
+  return {
+    formalTrials,
+    timeline,
+
+    totalTrials,
+    correctCount,
+    incorrectCount,
+    timeoutCount,
+
+    colorTrials: colorTrials.length,
+    typeTrials: typeTrials.length,
+    preSwitchTrials: preSwitchTrials.length,
+    postSwitchTrials: postSwitchTrials.length,
+    switchTrials: postSwitchTrials.length,
+    interferenceTrials: interferenceTrials.length,
+
+    accuracy,
+    colorAccuracy,
+    typeAccuracy,
+    postSwitchAccuracy,
+    switchAccuracy: postSwitchAccuracy,
+    interferenceAccuracy,
+    firstTryAccuracy,
+
+    perseverativeErrors,
+    perseverativeErrorRate,
+    interferenceControl,
+    hasInhibitionData,
+
+    bestStreak: getBestStreak(formalTrials),
+
+    reactionTimes,
+    avgReactionTime,
+    preSwitchAvgReactionTime,
+    postSwitchAvgReactionTime,
+    switchAvgReactionTime: postSwitchAvgReactionTime,
+    colorAvgReactionTime,
+    typeAvgReactionTime,
+    interferenceAvgReactionTime,
+
+    rtDifferenceAfterSwitch,
+    switchCost: rtDifferenceAfterSwitch,
+    switchCostRatio,
+
+    responseStabilityScore: overallStability.score,
+    responseStabilityLevel: overallStability.level,
+
+    reactionTimeStandardDeviation:
+      overallStability.standardDeviation,
+
+    reactionTimeCv:
+      overallStability.coefficientOfVariation,
+
+    reactionTimeValidCount:
+      overallStability.validCount,
+
+    reactionTimeCvReliable:
+      overallStability.reliable,
+
+    colorReactionTimeCv:
+      colorStability.coefficientOfVariation,
+
+    typeReactionTimeCv:
+      typeStability.coefficientOfVariation,
+
+    postSwitchReactionTimeCv:
+      postSwitchStability.coefficientOfVariation,
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/* 輸入資料讀取                                                                */
+/* -------------------------------------------------------------------------- */
+
+function readRatio(resultData, keys, fallback = 0) {
+  const keyList = Array.isArray(keys) ? keys : [keys];
+
+  for (const key of keyList) {
+    if (isFiniteNumber(resultData?.[key])) {
+      return normalizeRatio(resultData[key]);
+    }
+  }
+
+  return normalizeRatio(fallback);
+}
+
+function readCount(resultData, keys, fallback = 0) {
+  const keyList = Array.isArray(keys) ? keys : [keys];
+
+  for (const key of keyList) {
+    if (isFiniteNumber(resultData?.[key])) {
+      return safeInteger(resultData[key], fallback);
+    }
+  }
+
+  return safeInteger(fallback, 0);
+}
+
+function readTime(resultData, keys, fallback = 0) {
+  const keyList = Array.isArray(keys) ? keys : [keys];
+
+  for (const key of keyList) {
+    if (isFiniteNumber(resultData?.[key])) {
+      return Math.max(0, resultData[key]);
+    }
+  }
+
+  return Math.max(0, safeNumber(fallback, 0));
+}
+
+function resolveMode(resultData = {}) {
+  const explicitMode =
+    resultData.mode ||
+    resultData.scoringMode ||
+    resultData.gameMode ||
+    resultData.sourceMode;
+
+  if (typeof explicitMode === "string") {
+    const normalized = explicitMode.trim().toLowerCase();
+
+    if (
+      normalized === "training" ||
+      normalized === "train" ||
+      normalized === "practice"
+    ) {
+      return "training";
+    }
+
+    if (
+      normalized === "test" ||
+      normalized === "assessment" ||
+      normalized === "formal"
+    ) {
+      return "test";
+    }
+  }
+
+  if (
+    resultData.isTraining === true ||
+    resultData.training === true
+  ) {
+    return "training";
+  }
+
+  if (
+    resultData.isTest === true ||
+    resultData.formalTest === true
+  ) {
+    return "test";
+  }
+
+  if (
+    resultData.trainingDifficulty ||
+    resultData.levelDifficulty ||
+    resultData.trainingLevel ||
+    resultData.trainingConfig
+  ) {
+    return "training";
+  }
+
+  return "test";
+}
+
+function getResultDifficulty(resultData = {}) {
+  return (
+    resultData.trainingDifficulty ||
+    resultData.levelDifficulty ||
+    resultData.trainingLevel ||
+    resultData.difficultyLevel ||
+    resultData.levelId ||
+    resultData.difficulty ||
+    "switchClear"
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* 訓練模式評分                                                                */
+/* -------------------------------------------------------------------------- */
+
+function getMetricScore(metric, source) {
+  if (metric === "responseStability") {
+    return clamp(
+      source.responseStabilityScore,
+      0,
+      100
+    );
+  }
+
+  if (
+    metric === "interferenceControl" &&
+    source.interferenceControl === null
+  ) {
+    return null;
+  }
+
+  return normalizeRatio(source[metric]) * 100;
+}
+
+function calculateWeightedScore(weights, source) {
+  let weightedScore = 0;
+  let activeWeight = 0;
+
+  Object.entries(weights || {}).forEach(
+    ([metric, rawWeight]) => {
+      const weight = safeNumber(rawWeight, 0);
+      const metricScore = getMetricScore(metric, source);
+
+      if (
+        weight <= 0 ||
+        metricScore === null ||
+        !Number.isFinite(metricScore)
+      ) {
+        return;
+      }
+
+      weightedScore += metricScore * weight;
+      activeWeight += weight;
+    }
+  );
+
+  if (activeWeight <= 0) return 0;
+
+  return Math.round(
+    clamp(weightedScore / activeWeight, 0, 100)
+  );
+}
+
+function getPrimaryRuleAccuracy(config, source) {
   if (config.abilityFocus === "colorRule") {
-    return source.colorTrials > 0 ? source.colorAccuracy : source.accuracy;
+    return source.colorTrials > 0
+      ? source.colorAccuracy
+      : source.accuracy;
+  }
+
+  if (config.abilityFocus === "typeRule") {
+    return source.typeTrials > 0
+      ? source.typeAccuracy
+      : source.accuracy;
   }
 
   return source.accuracy;
 }
 
-function calculateTrainingLevelScore({
-  difficulty,
-  accuracy,
-  colorAccuracy,
-  typeAccuracy,
-  postSwitchAccuracy,
-  switchAccuracy,
-  firstTryAccuracy,
-  interferenceControl,
-  interferenceAccuracy,
-  responseStabilityScore,
-  colorTrials,
-  typeTrials,
-  switchTrials,
-  postSwitchTrials,
-  interferenceTrials,
-  perseverativeErrors,
-}) {
-  const { normalizedDifficulty, config } = getLevelScoringConfig(difficulty);
-
-  const effectivePostSwitchAccuracy =
-    typeof postSwitchAccuracy === "number" ? postSwitchAccuracy : switchAccuracy;
+function calculateTrainingLevelScore(metrics, difficulty) {
+  const {
+    difficulty: normalizedDifficulty,
+    config,
+  } = getDifficultyConfig(difficulty);
 
   const scoreSource = {
-    accuracy,
-    colorAccuracy,
-    typeAccuracy,
-    postSwitchAccuracy: effectivePostSwitchAccuracy,
-    switchAccuracy: effectivePostSwitchAccuracy,
-    firstTryAccuracy,
-    interferenceControl,
-    interferenceAccuracy,
-    responseStabilityScore,
-    colorTrials,
-    typeTrials,
-    switchTrials: postSwitchTrials ?? switchTrials,
-    postSwitchTrials: postSwitchTrials ?? switchTrials,
-    interferenceTrials,
+    ...metrics,
+    responseStabilityScore: clamp(
+      metrics.responseStabilityScore,
+      0,
+      100
+    ),
   };
 
-  let totalScore = 0;
-
-  Object.entries(config.weights || {}).forEach(([key, weight]) => {
-    totalScore += getScoreValue(key, scoreSource) * weight;
-  });
-
-  totalScore = Math.round(clamp(totalScore, 0, 100));
-
-  const primarySingleRuleAccuracy = getPrimarySingleRuleAccuracy(
-    config,
+  const totalScore = calculateWeightedScore(
+    config.weights,
     scoreSource
   );
 
-  const hasSwitchTrials = (postSwitchTrials ?? switchTrials ?? 0) > 0;
-  const hasInterferenceTrials = (interferenceTrials ?? 0) > 0;
+  const primaryRuleAccuracy =
+    getPrimaryRuleAccuracy(config, scoreSource);
 
-  const effectiveInterferenceControl = hasInterferenceTrials
-    ? interferenceControl
-    : 1 - safeDivide(perseverativeErrors, postSwitchTrials || switchTrials || 1);
+  const hasSwitchTrials =
+    scoreSource.postSwitchTrials > 0;
+
+  const hasInterferenceTrials =
+    scoreSource.interferenceTrials > 0;
+
+  const interferenceControl =
+    scoreSource.interferenceControl;
+
+  const perseverativeErrors =
+    safeInteger(scoreSource.perseverativeErrors, 0);
 
   let stars = 1;
 
   if (config.starRule === "singleRule") {
-    if (totalScore >= 85 && primarySingleRuleAccuracy >= 0.8) {
+    if (
+      totalScore >= 85 &&
+      primaryRuleAccuracy >= 0.8 &&
+      scoreSource.firstTryAccuracy >= 0.7
+    ) {
       stars = 3;
-    } else if (totalScore >= 60 && primarySingleRuleAccuracy >= 0.55) {
+    } else if (
+      totalScore >= 60 &&
+      primaryRuleAccuracy >= 0.55
+    ) {
       stars = 2;
     }
   }
 
   if (config.starRule === "clearSwitch") {
-    if (hasSwitchTrials && effectivePostSwitchAccuracy < 0.5) {
-      stars = 1;
-    } else if (totalScore >= 82 && effectivePostSwitchAccuracy >= 0.7) {
+    if (
+      hasSwitchTrials &&
+      scoreSource.postSwitchAccuracy >= 0.7 &&
+      totalScore >= 80
+    ) {
       stars = 3;
-    } else if (totalScore >= 58 && effectivePostSwitchAccuracy >= 0.5) {
+    } else if (
+      hasSwitchTrials &&
+      scoreSource.postSwitchAccuracy >= 0.5 &&
+      totalScore >= 55
+    ) {
       stars = 2;
     }
   }
 
   if (config.starRule === "switchMaintain") {
-    if (hasSwitchTrials && effectivePostSwitchAccuracy < 0.5) {
-      stars = 1;
-    } else if (
-      totalScore >= 82 &&
-      effectivePostSwitchAccuracy >= 0.7 &&
+    if (
+      hasSwitchTrials &&
+      scoreSource.postSwitchAccuracy >= 0.7 &&
+      totalScore >= 80 &&
       perseverativeErrors <= 1
     ) {
       stars = 3;
-    } else if (totalScore >= 58 && effectivePostSwitchAccuracy >= 0.5) {
+    } else if (
+      hasSwitchTrials &&
+      scoreSource.postSwitchAccuracy >= 0.5 &&
+      totalScore >= 55
+    ) {
       stars = 2;
     }
   }
 
   if (config.starRule === "interference") {
     if (
-      (hasSwitchTrials && effectivePostSwitchAccuracy < 0.5) ||
-      effectiveInterferenceControl < 0.45
-    ) {
-      stars = 1;
-    } else if (
-      totalScore >= 82 &&
-      effectivePostSwitchAccuracy >= 0.7 &&
-      effectiveInterferenceControl >= 0.75 &&
-      perseverativeErrors <= 1
+      hasSwitchTrials &&
+      hasInterferenceTrials &&
+      scoreSource.postSwitchAccuracy >= 0.7 &&
+      scoreSource.interferenceAccuracy >= 0.65 &&
+      interferenceControl !== null &&
+      interferenceControl >= 0.75 &&
+      perseverativeErrors <= 1 &&
+      totalScore >= 80
     ) {
       stars = 3;
     } else if (
-      totalScore >= 58 &&
-      effectivePostSwitchAccuracy >= 0.5 &&
-      effectiveInterferenceControl >= 0.55
+      hasSwitchTrials &&
+      hasInterferenceTrials &&
+      scoreSource.postSwitchAccuracy >= 0.5 &&
+      scoreSource.interferenceAccuracy >= 0.5 &&
+      interferenceControl !== null &&
+      interferenceControl >= 0.55 &&
+      totalScore >= 55
     ) {
       stars = 2;
     }
   }
 
   if (config.starRule === "testLike") {
-    if (hasSwitchTrials && effectivePostSwitchAccuracy < 0.5) {
-      stars = 1;
-    } else if (
-      totalScore >= 80 &&
-      effectivePostSwitchAccuracy >= 0.75 &&
-      perseverativeErrors <= 1
+    if (
+      hasSwitchTrials &&
+      scoreSource.postSwitchAccuracy >= 0.75 &&
+      scoreSource.accuracy >= 0.75 &&
+      perseverativeErrors <= 1 &&
+      totalScore >= 80
     ) {
       stars = 3;
-    } else if (totalScore >= 55 && effectivePostSwitchAccuracy >= 0.5) {
+    } else if (
+      hasSwitchTrials &&
+      scoreSource.postSwitchAccuracy >= 0.5 &&
+      scoreSource.accuracy >= 0.55 &&
+      totalScore >= 55
+    ) {
       stars = 2;
     }
   }
 
   return {
-    difficulty: normalizedDifficulty,
-    difficultyLabel: config.label,
-    difficultyTitle: config.title,
-    abilityFocus: config.abilityFocus,
     totalScore,
     stars,
+
+    difficulty: normalizedDifficulty,
+    difficultyLevel: config.level,
+    difficultyLabel: config.label,
+    difficultyTitle: config.title,
+    difficultyCategory: config.category,
+
+    abilityFocus: config.abilityFocus,
     scoringMode: "training",
     scoringWeights: config.weights,
     starRule: config.starRule,
+    minimumReliableTrials: config.minimumTrials,
   };
 }
 
-function calculateFormalTestScore({
-  accuracy,
-  colorAccuracy,
-  postSwitchAccuracy,
-  switchAccuracy,
-  interferenceControl,
-  avgReactionTime,
-  switchTrials,
-  postSwitchTrials,
-  perseverativeErrors,
-}) {
-  const effectivePostSwitchAccuracy =
-    typeof postSwitchAccuracy === "number" ? postSwitchAccuracy : switchAccuracy;
+/* -------------------------------------------------------------------------- */
+/* 正式測驗評分                                                                */
+/* -------------------------------------------------------------------------- */
 
-  const effectiveSwitchTrials = postSwitchTrials ?? switchTrials ?? 0;
+function calculateFormalTestScore(metrics) {
+  const hasSwitchData =
+    metrics.postSwitchTrials > 0;
 
-  const switchScore = effectivePostSwitchAccuracy * 40;
-  const accuracyScore = accuracy * 25;
-  const perseverativeScore = interferenceControl * 20;
-  const colorScore = colorAccuracy * 10;
-  const reactionTimeScore = getReactionTimeScore(avgReactionTime) * 0.05;
+  const hasInhibitionData =
+    metrics.hasInhibitionData === true;
 
-  const totalScore = Math.round(
-    clamp(
-      switchScore +
-        accuracyScore +
-        perseverativeScore +
-        colorScore +
-        reactionTimeScore,
-      0,
-      100
-    )
-  );
+  const basicRuleAccuracy = (() => {
+    if (
+      metrics.colorTrials > 0 &&
+      metrics.typeTrials > 0
+    ) {
+      return (
+        metrics.colorAccuracy +
+        metrics.typeAccuracy
+      ) / 2;
+    }
+
+    if (metrics.colorTrials > 0) {
+      return metrics.colorAccuracy;
+    }
+
+    if (metrics.typeTrials > 0) {
+      return metrics.typeAccuracy;
+    }
+
+    return metrics.accuracy;
+  })();
+
+  /*
+   * 正式測驗基礎權重：
+   * 規則切換 40%
+   * 整體正確率 25%
+   * 抑制舊規則 20%
+   * 基本規則理解 10%
+   * 反應時間 5%
+   *
+   * 缺少某類資料時，會重新正規化剩餘權重，
+   * 避免缺少干擾題卻直接獲得滿分。
+   */
+  const components = [
+    {
+      key: "switchScore",
+      available: hasSwitchData,
+      weight: 0.4,
+      score: metrics.postSwitchAccuracy * 100,
+    },
+    {
+      key: "accuracyScore",
+      available: metrics.totalTrials > 0,
+      weight: 0.25,
+      score: metrics.accuracy * 100,
+    },
+    {
+      key: "perseverativeScore",
+      available: hasInhibitionData,
+      weight: 0.2,
+      score:
+        metrics.interferenceControl === null
+          ? 0
+          : metrics.interferenceControl * 100,
+    },
+    {
+      key: "ruleScore",
+      available: metrics.totalTrials > 0,
+      weight: 0.1,
+      score: basicRuleAccuracy * 100,
+    },
+    {
+      key: "reactionTimeScore",
+      available: metrics.avgReactionTime > 0,
+      weight: 0.05,
+      score: getReactionTimeScore(
+        metrics.avgReactionTime
+      ),
+    },
+  ];
+
+  const availableComponents =
+    components.filter((component) => component.available);
+
+  const activeWeight =
+    availableComponents.reduce(
+      (sum, component) => sum + component.weight,
+      0
+    );
+
+  const totalScore =
+    activeWeight > 0
+      ? Math.round(
+          clamp(
+            availableComponents.reduce(
+              (sum, component) =>
+                sum +
+                component.score * component.weight,
+              0
+            ) / activeWeight,
+            0,
+            100
+          )
+        )
+      : 0;
+
+  const componentScores = {};
+
+  components.forEach((component) => {
+    componentScores[component.key] =
+      component.available
+        ? Math.round(component.score)
+        : null;
+  });
 
   let stars = 1;
 
-  if (effectiveSwitchTrials > 0 && effectivePostSwitchAccuracy < 0.5) {
-    stars = 1;
-  } else if (
-    totalScore >= 80 &&
-    effectivePostSwitchAccuracy >= 0.75 &&
-    perseverativeErrors <= 1
+  if (
+    hasSwitchData &&
+    metrics.postSwitchAccuracy >= 0.75 &&
+    metrics.accuracy >= 0.75 &&
+    metrics.perseverativeErrors <= 1 &&
+    totalScore >= 80
   ) {
     stars = 3;
   } else if (
-    totalScore >= 55 &&
-    (effectiveSwitchTrials === 0 || effectivePostSwitchAccuracy >= 0.5)
+    hasSwitchData &&
+    metrics.postSwitchAccuracy >= 0.5 &&
+    metrics.accuracy >= 0.55 &&
+    totalScore >= 55
   ) {
     stars = 2;
   }
@@ -902,155 +1667,394 @@ function calculateFormalTestScore({
     totalScore,
     stars,
     scoringMode: "test",
+    minimumReliableTrials: 4,
 
-    switchScore: Math.round(switchScore),
-    accuracyScore: Math.round(accuracyScore),
-    perseverativeScore: Math.round(perseverativeScore),
-    colorScore: Math.round(colorScore),
-    reactionTimeScore: Math.round(reactionTimeScore),
+    ...componentScores,
+
+    colorScore: componentScores.ruleScore,
   };
 }
 
-function readRatio(resultData, key, fallback) {
-  return typeof resultData[key] === "number"
-    ? normalizeRatio(resultData[key])
-    : fallback;
+/* -------------------------------------------------------------------------- */
+/* 資料品質                                                                    */
+/* -------------------------------------------------------------------------- */
+
+function calculateDataQuality({
+  totalTrials,
+  analyzedTrialCount,
+  reportedTrialCount,
+  minimumReliableTrials,
+  reactionTimeValidCount,
+  reactionTimeReliable,
+  postSwitchTrials,
+  interferenceTrials,
+  mode,
+}) {
+  const actualTrialCount =
+    analyzedTrialCount > 0
+      ? analyzedTrialCount
+      : totalTrials;
+
+  const hasEnoughTrials =
+    actualTrialCount >= minimumReliableTrials;
+
+  const countMismatch =
+    analyzedTrialCount > 0 &&
+    reportedTrialCount > 0 &&
+    analyzedTrialCount !== reportedTrialCount;
+
+  let confidence = 25;
+
+  if (actualTrialCount >= minimumReliableTrials) {
+    confidence += 25;
+  }
+
+  if (actualTrialCount >= minimumReliableTrials + 2) {
+    confidence += 15;
+  }
+
+  if (reactionTimeReliable) {
+    confidence += 15;
+  } else if (reactionTimeValidCount >= 2) {
+    confidence += 8;
+  }
+
+  if (postSwitchTrials >= 2) {
+    confidence += 10;
+  }
+
+  if (interferenceTrials >= 2) {
+    confidence += 10;
+  }
+
+  if (countMismatch) {
+    confidence -= 10;
+  }
+
+  if (
+    mode === "test" &&
+    postSwitchTrials <= 0
+  ) {
+    confidence = Math.min(confidence, 45);
+  }
+
+  return {
+    hasEnoughTrials,
+    minimumReliableTrials,
+    actualTrialCount,
+    analyzedTrialCount,
+    reportedTrialCount,
+    countMismatch,
+    reactionTimeReliable,
+    confidence: Math.round(
+      clamp(confidence, 0, 100)
+    ),
+  };
 }
+
+/* -------------------------------------------------------------------------- */
+/* 主評分函式                                                                  */
+/* -------------------------------------------------------------------------- */
 
 export function calculateDccsScore(resultData = {}) {
   const trialLogs = Array.isArray(resultData.trialLogs)
     ? resultData.trialLogs
+    : Array.isArray(resultData.records)
+    ? resultData.records
+    : Array.isArray(resultData.trials)
+    ? resultData.trials
+    : Array.isArray(resultData.logs)
+    ? resultData.logs
     : [];
 
   const analyzed = analyzeTrialLogs(trialLogs);
 
-  const totalTrials = resultData.totalTrials ?? analyzed.totalTrials;
+  const reportedTotalTrials = readCount(
+    resultData,
+    ["totalTrials", "trialCount", "completedTrials"],
+    0
+  );
+
+  const totalTrials =
+    analyzed.totalTrials > 0
+      ? analyzed.totalTrials
+      : reportedTotalTrials;
+
+  const reportedCorrectCount = readCount(
+    resultData,
+    [
+      "correctCount",
+      "correctTrials",
+      "correctAnswers",
+    ],
+    -1
+  );
 
   const correctCount =
-    resultData.correctCount ?? resultData.correctTrials ?? analyzed.correctCount;
+    analyzed.totalTrials > 0
+      ? analyzed.correctCount
+      : reportedCorrectCount >= 0
+      ? Math.min(reportedCorrectCount, totalTrials)
+      : 0;
 
-  const accuracy = readRatio(resultData, "accuracy", analyzed.accuracy);
+  const incorrectCount =
+    analyzed.totalTrials > 0
+      ? analyzed.incorrectCount
+      : Math.max(0, totalTrials - correctCount);
 
-  const colorAccuracy = readRatio(
+  const timeoutCount = readCount(
     resultData,
-    "colorAccuracy",
-    analyzed.colorAccuracy
+    ["timeoutCount", "timeouts"],
+    analyzed.timeoutCount
   );
 
-  const typeAccuracy = readRatio(
+  const fallbackAccuracy =
+    totalTrials > 0
+      ? safeDivide(correctCount, totalTrials)
+      : 0;
+
+  const accuracy =
+    analyzed.totalTrials > 0
+      ? analyzed.accuracy
+      : readRatio(
+          resultData,
+          ["accuracy", "accuracyRatio"],
+          fallbackAccuracy
+        );
+
+  const colorTrials = readCount(
     resultData,
-    "typeAccuracy",
-    analyzed.typeAccuracy
+    "colorTrials",
+    analyzed.colorTrials
   );
 
-  const postSwitchAccuracy =
-    typeof resultData.postSwitchAccuracy === "number"
-      ? normalizeRatio(resultData.postSwitchAccuracy)
-      : typeof resultData.switchAccuracy === "number"
-      ? normalizeRatio(resultData.switchAccuracy)
-      : analyzed.postSwitchAccuracy;
-
-  const switchAccuracy = postSwitchAccuracy;
-
-  const interferenceAccuracy = readRatio(
+  const typeTrials = readCount(
     resultData,
-    "interferenceAccuracy",
-    analyzed.interferenceAccuracy
+    "typeTrials",
+    analyzed.typeTrials
   );
 
-  const firstTryAccuracy = readRatio(
+  const postSwitchTrials = readCount(
     resultData,
-    "firstTryAccuracy",
-    analyzed.firstTryAccuracy
+    ["postSwitchTrials", "switchTrials"],
+    analyzed.postSwitchTrials
   );
-
-  const perseverativeErrors =
-    typeof resultData.perseverativeErrors === "number"
-      ? resultData.perseverativeErrors
-      : typeof resultData.oldRuleInterference === "number"
-      ? resultData.oldRuleInterference
-      : analyzed.perseverativeErrors;
-
-  const colorTrials =
-    typeof resultData.colorTrials === "number"
-      ? resultData.colorTrials
-      : analyzed.colorTrials;
-
-  const typeTrials =
-    typeof resultData.typeTrials === "number"
-      ? resultData.typeTrials
-      : analyzed.typeTrials;
-
-  const postSwitchTrials =
-    typeof resultData.postSwitchTrials === "number"
-      ? resultData.postSwitchTrials
-      : typeof resultData.switchTrials === "number"
-      ? resultData.switchTrials
-      : analyzed.postSwitchTrials;
 
   const switchTrials = postSwitchTrials;
 
-  const interferenceTrials =
-    typeof resultData.interferenceTrials === "number"
-      ? resultData.interferenceTrials
-      : analyzed.interferenceTrials;
+  const interferenceTrials = readCount(
+    resultData,
+    "interferenceTrials",
+    analyzed.interferenceTrials
+  );
 
-  const perseverativeErrorRate =
-    typeof resultData.perseverativeErrorRate === "number"
-      ? normalizeRatio(resultData.perseverativeErrorRate)
-      : safeDivide(
-          perseverativeErrors,
-          interferenceTrials > 0 ? interferenceTrials : postSwitchTrials
+  const colorAccuracy =
+    analyzed.colorTrials > 0
+      ? analyzed.colorAccuracy
+      : readRatio(
+          resultData,
+          ["colorAccuracy", "colorAccuracyRatio"],
+          0
         );
 
+  const typeAccuracy =
+    analyzed.typeTrials > 0
+      ? analyzed.typeAccuracy
+      : readRatio(
+          resultData,
+          ["typeAccuracy", "typeAccuracyRatio"],
+          0
+        );
+
+  const postSwitchAccuracy =
+    analyzed.postSwitchTrials > 0
+      ? analyzed.postSwitchAccuracy
+      : readRatio(
+          resultData,
+          [
+            "postSwitchAccuracy",
+            "switchAccuracy",
+            "switchAccuracyRatio",
+          ],
+          0
+        );
+
+  const switchAccuracy =
+    postSwitchAccuracy;
+
+  const interferenceAccuracy =
+    analyzed.interferenceTrials > 0
+      ? analyzed.interferenceAccuracy
+      : readRatio(
+          resultData,
+          [
+            "interferenceAccuracy",
+            "interferenceAccuracyRatio",
+          ],
+          0
+        );
+
+  const firstTryAccuracy =
+    analyzed.totalTrials > 0
+      ? analyzed.firstTryAccuracy
+      : readRatio(
+          resultData,
+          [
+            "firstTryAccuracy",
+            "firstTryAccuracyRatio",
+          ],
+          accuracy
+        );
+
+  const perseverativeErrors =
+    analyzed.postSwitchTrials > 0
+      ? analyzed.perseverativeErrors
+      : readCount(
+          resultData,
+          [
+            "perseverativeErrors",
+            "oldRuleInterference",
+          ],
+          0
+        );
+
+  const perseverativeDenominator =
+    interferenceTrials > 0
+      ? interferenceTrials
+      : postSwitchTrials;
+
+  const hasInhibitionData =
+    analyzed.hasInhibitionData ||
+    perseverativeDenominator > 0;
+
+  const perseverativeErrorRate =
+    hasInhibitionData
+      ? readRatio(
+          resultData,
+          [
+            "perseverativeErrorRateRatio",
+            "perseverativeErrorRate",
+          ],
+          safeDivide(
+            perseverativeErrors,
+            perseverativeDenominator
+          )
+        )
+      : 0;
+
   const interferenceControl =
-    typeof resultData.interferenceControl === "number"
-      ? normalizeRatio(resultData.interferenceControl)
-      : clamp(1 - perseverativeErrorRate, 0, 1);
+    hasInhibitionData
+      ? readRatio(
+          resultData,
+          [
+            "interferenceControlRatio",
+            "interferenceControl",
+          ],
+          clamp(
+            1 - perseverativeErrorRate,
+            0,
+            1
+          )
+        )
+      : null;
 
-  const avgReactionTime =
-    typeof resultData.avgReactionTime === "number"
-      ? resultData.avgReactionTime
-      : analyzed.avgReactionTime;
+  const avgReactionTime = readTime(
+    resultData,
+    "avgReactionTime",
+    analyzed.avgReactionTime
+  );
 
-  const colorAvgReactionTime =
-    typeof resultData.colorAvgReactionTime === "number"
-      ? resultData.colorAvgReactionTime
-      : analyzed.colorAvgReactionTime;
+  const preSwitchAvgReactionTime = readTime(
+    resultData,
+    "preSwitchAvgReactionTime",
+    analyzed.preSwitchAvgReactionTime
+  );
 
-  const typeAvgReactionTime =
-    typeof resultData.typeAvgReactionTime === "number"
-      ? resultData.typeAvgReactionTime
-      : analyzed.typeAvgReactionTime;
+  const colorAvgReactionTime = readTime(
+    resultData,
+    "colorAvgReactionTime",
+    analyzed.colorAvgReactionTime
+  );
 
-  const postSwitchAvgReactionTime =
-    typeof resultData.postSwitchAvgReactionTime === "number"
-      ? resultData.postSwitchAvgReactionTime
-      : typeof resultData.switchAvgReactionTime === "number"
-      ? resultData.switchAvgReactionTime
-      : analyzed.postSwitchAvgReactionTime;
+  const typeAvgReactionTime = readTime(
+    resultData,
+    "typeAvgReactionTime",
+    analyzed.typeAvgReactionTime
+  );
 
-  const switchAvgReactionTime = postSwitchAvgReactionTime;
+  const postSwitchAvgReactionTime = readTime(
+    resultData,
+    [
+      "postSwitchAvgReactionTime",
+      "switchAvgReactionTime",
+    ],
+    analyzed.postSwitchAvgReactionTime
+  );
+
+  const switchAvgReactionTime =
+    postSwitchAvgReactionTime;
+
+  const interferenceAvgReactionTime = readTime(
+    resultData,
+    "interferenceAvgReactionTime",
+    analyzed.interferenceAvgReactionTime
+  );
 
   const rtDifferenceAfterSwitch =
-    typeof resultData.rtDifferenceAfterSwitch === "number"
+    isFiniteNumber(resultData.rtDifferenceAfterSwitch)
       ? resultData.rtDifferenceAfterSwitch
+      : isFiniteNumber(resultData.switchCost)
+      ? resultData.switchCost
       : analyzed.rtDifferenceAfterSwitch;
 
+  const switchCost =
+    rtDifferenceAfterSwitch;
+
+  const switchCostRatio =
+    isFiniteNumber(resultData.switchCostRatio)
+      ? resultData.switchCostRatio
+      : preSwitchAvgReactionTime > 0 &&
+        postSwitchAvgReactionTime > 0
+      ? safeDivide(
+          rtDifferenceAfterSwitch,
+          preSwitchAvgReactionTime
+        )
+      : analyzed.switchCostRatio;
+
   const responseStabilityScore =
-    typeof resultData.responseStabilityScore === "number"
-      ? resultData.responseStabilityScore
+    isFiniteNumber(resultData.responseStabilityScore)
+      ? clamp(
+          resultData.responseStabilityScore,
+          0,
+          100
+        )
       : analyzed.responseStabilityScore;
 
+  const responseStabilityLevel =
+    resultData.responseStabilityLevel ||
+    analyzed.responseStabilityLevel ||
+    "資料不足";
+
+  const reactionTimeStandardDeviation =
+    readTime(
+      resultData,
+      [
+        "reactionTimeStandardDeviation",
+        "reactionTimeStd",
+      ],
+      analyzed.reactionTimeStandardDeviation
+    );
+
   const reactionTimeCv =
-    typeof resultData.reactionTimeCv === "number"
-      ? safeNumber(resultData.reactionTimeCv, 0)
+    isFiniteNumber(resultData.reactionTimeCv)
+      ? Math.max(0, resultData.reactionTimeCv)
       : analyzed.reactionTimeCv;
 
-  const reactionTimeValidCount =
-    typeof resultData.reactionTimeValidCount === "number"
-      ? resultData.reactionTimeValidCount
-      : analyzed.reactionTimeValidCount;
+  const reactionTimeValidCount = readCount(
+    resultData,
+    "reactionTimeValidCount",
+    analyzed.reactionTimeValidCount
+  );
 
   const reactionTimeCvReliable =
     typeof resultData.reactionTimeCvReliable === "boolean"
@@ -1058,206 +2062,304 @@ export function calculateDccsScore(resultData = {}) {
       : analyzed.reactionTimeCvReliable;
 
   const colorReactionTimeCv =
-    typeof resultData.colorReactionTimeCv === "number"
-      ? safeNumber(resultData.colorReactionTimeCv, 0)
+    isFiniteNumber(resultData.colorReactionTimeCv)
+      ? Math.max(0, resultData.colorReactionTimeCv)
       : analyzed.colorReactionTimeCv;
 
   const typeReactionTimeCv =
-    typeof resultData.typeReactionTimeCv === "number"
-      ? safeNumber(resultData.typeReactionTimeCv, 0)
+    isFiniteNumber(resultData.typeReactionTimeCv)
+      ? Math.max(0, resultData.typeReactionTimeCv)
       : analyzed.typeReactionTimeCv;
 
   const postSwitchReactionTimeCv =
-    typeof resultData.postSwitchReactionTimeCv === "number"
-      ? safeNumber(resultData.postSwitchReactionTimeCv, 0)
+    isFiniteNumber(resultData.postSwitchReactionTimeCv)
+      ? Math.max(
+          0,
+          resultData.postSwitchReactionTimeCv
+        )
       : analyzed.postSwitchReactionTimeCv;
 
-  const bestStreak =
-    typeof resultData.bestStreak === "number"
-      ? resultData.bestStreak
-      : analyzed.bestStreak;
+  const bestStreak = readCount(
+    resultData,
+    "bestStreak",
+    analyzed.bestStreak
+  );
 
-  const mode = resultData.mode || resultData.scoringMode || "test";
-
-  const isTraining =
-    mode === "training" ||
-    Boolean(
-      resultData.trainingDifficulty ||
-        resultData.difficulty ||
-        resultData.levelDifficulty
-    );
+  const mode = resolveMode(resultData);
+  const isTraining = mode === "training";
 
   const difficulty =
-    resultData.trainingDifficulty ||
-    resultData.difficulty ||
-    resultData.levelDifficulty ||
-    "switchClear";
+    getResultDifficulty(resultData);
+
+  const metrics = {
+    totalTrials,
+    correctCount,
+    incorrectCount,
+    timeoutCount,
+
+    colorTrials,
+    typeTrials,
+    postSwitchTrials,
+    switchTrials,
+    interferenceTrials,
+
+    accuracy,
+    colorAccuracy,
+    typeAccuracy,
+    postSwitchAccuracy,
+    switchAccuracy,
+    interferenceAccuracy,
+    firstTryAccuracy,
+
+    perseverativeErrors,
+    perseverativeErrorRate,
+    interferenceControl,
+    hasInhibitionData,
+
+    avgReactionTime,
+    preSwitchAvgReactionTime,
+    colorAvgReactionTime,
+    typeAvgReactionTime,
+    postSwitchAvgReactionTime,
+    switchAvgReactionTime,
+    interferenceAvgReactionTime,
+
+    rtDifferenceAfterSwitch,
+    switchCost,
+    switchCostRatio,
+
+    responseStabilityScore,
+    responseStabilityLevel,
+
+    reactionTimeStandardDeviation,
+    reactionTimeCv,
+    reactionTimeValidCount,
+    reactionTimeCvReliable,
+
+    colorReactionTimeCv,
+    typeReactionTimeCv,
+    postSwitchReactionTimeCv,
+
+    bestStreak,
+  };
 
   const scoringResult = isTraining
-    ? calculateTrainingLevelScore({
-        difficulty,
-        accuracy,
-        colorAccuracy,
-        typeAccuracy,
-        postSwitchAccuracy,
-        switchAccuracy,
-        firstTryAccuracy,
-        interferenceControl,
-        interferenceAccuracy,
-        responseStabilityScore,
-        colorTrials,
-        typeTrials,
-        switchTrials,
-        postSwitchTrials,
-        interferenceTrials,
-        perseverativeErrors,
-      })
-    : calculateFormalTestScore({
-        accuracy,
-        colorAccuracy,
-        postSwitchAccuracy,
-        switchAccuracy,
-        interferenceControl,
-        avgReactionTime,
-        switchTrials,
-        postSwitchTrials,
-        perseverativeErrors,
-      });
+    ? calculateTrainingLevelScore(
+        metrics,
+        difficulty
+      )
+    : calculateFormalTestScore(metrics);
+
+  const minimumReliableTrials =
+    scoringResult.minimumReliableTrials;
+
+  const dataQuality = calculateDataQuality({
+    totalTrials,
+    analyzedTrialCount: analyzed.totalTrials,
+    reportedTrialCount: reportedTotalTrials,
+    minimumReliableTrials,
+    reactionTimeValidCount,
+    reactionTimeReliable:
+      reactionTimeCvReliable,
+    postSwitchTrials,
+    interferenceTrials,
+    mode,
+  });
+
+  let stars = scoringResult.stars;
+
+  if (!dataQuality.hasEnoughTrials) {
+    stars = 1;
+  }
+
+  if (
+    mode === "test" &&
+    postSwitchTrials <= 0
+  ) {
+    stars = 1;
+  }
 
   const totalScore = scoringResult.totalScore;
-  const stars = scoringResult.stars;
-  const reactionTimeLevel = getReactionTimeLevel(avgReactionTime);
 
-  const ruleUnderstandingValue = (() => {
-    if (typeTrials > 0 && colorTrials === 0) return typeAccuracy;
-    if (colorTrials > 0 && typeTrials === 0) return colorAccuracy;
+  const ruleUnderstandingRatio = (() => {
+    if (colorTrials > 0 && typeTrials > 0) {
+      return (
+        colorAccuracy + typeAccuracy
+      ) / 2;
+    }
+
+    if (typeTrials > 0) {
+      return typeAccuracy;
+    }
+
+    if (colorTrials > 0) {
+      return colorAccuracy;
+    }
+
     return accuracy;
   })();
 
   const parentIndicators = {
-    ruleUnderstanding: toPercent(ruleUnderstandingValue),
+    ruleUnderstanding:
+      toPercent(ruleUnderstandingRatio),
+
     cognitiveFlexibility:
-      postSwitchTrials > 0 ? toPercent(postSwitchAccuracy) : null,
+      postSwitchTrials > 0
+        ? toPercent(postSwitchAccuracy)
+        : null,
+
     inhibitionControl:
-      postSwitchTrials > 0 || interferenceTrials > 0
+      hasInhibitionData &&
+      interferenceControl !== null
         ? toPercent(interferenceControl)
         : null,
-    responseStability: Math.round(responseStabilityScore),
+
+    responseStability:
+      Math.round(responseStabilityScore),
 
     understandRule: {
       label: "看懂規則",
-      value: toPercent(ruleUnderstandingValue),
-      description: "孩子是否能理解目前要依照什麼規則分類。",
+      value: toPercent(ruleUnderstandingRatio),
+      description:
+        "孩子是否能理解目前要依照顏色或衣服種類進行分類。",
     },
 
     switchRule: {
       label: "換玩法能力",
-      value: postSwitchTrials > 0 ? toPercent(postSwitchAccuracy) : null,
+      value:
+        postSwitchTrials > 0
+          ? toPercent(postSwitchAccuracy)
+          : null,
       description:
         postSwitchTrials > 0
           ? "孩子在玩法改變後，是否能跟上新的分類方式。"
-          : "此關卡尚未加入換玩法，因此不計算此指標。",
+          : "此關卡未包含玩法切換，因此不計算此指標。",
     },
 
     avoidOldRule: {
       label: "不被舊玩法影響",
       value:
-        postSwitchTrials > 0 || interferenceTrials > 0
+        hasInhibitionData &&
+        interferenceControl !== null
           ? toPercent(interferenceControl)
           : null,
       description:
-        postSwitchTrials > 0 || interferenceTrials > 0
+        hasInhibitionData
           ? "孩子換玩法後，是否能避免被前一個玩法干擾。"
-          : "此關卡尚未加入舊玩法干擾，因此不計算此指標。",
+          : "此關卡沒有足夠的舊規則干擾資料。",
     },
 
     stableResponse: {
       label: "作答穩定度",
       value: Math.round(responseStabilityScore),
-      description: "觀察孩子作答速度與反應是否穩定，不是單純越快越好。",
+      description:
+        "觀察孩子每題反應速度是否穩定，並非單純越快越好。",
     },
   };
 
   const clinicianMetrics = {
-    totalTrials,
-    correctCount,
+    ...metrics,
 
-    accuracy,
     accuracyPercent: toPercent(accuracy),
+    colorAccuracyPercent:
+      toPercent(colorAccuracy),
+    typeAccuracyPercent:
+      toPercent(typeAccuracy),
+    postSwitchAccuracyPercent:
+      toPercent(postSwitchAccuracy),
+    switchAccuracyPercent:
+      toPercent(switchAccuracy),
+    interferenceAccuracyPercent:
+      toPercent(interferenceAccuracy),
+    firstTryAccuracyPercent:
+      toPercent(firstTryAccuracy),
 
-    colorTrials,
-    colorAccuracy,
-    colorAccuracyPercent: toPercent(colorAccuracy),
+    perseverativeErrorRatePercent:
+      toPercent(perseverativeErrorRate),
 
-    typeTrials,
-    typeAccuracy,
-    typeAccuracyPercent: toPercent(typeAccuracy),
+    interferenceControlPercent:
+      interferenceControl === null
+        ? null
+        : toPercent(interferenceControl),
 
-    postSwitchTrials,
-    switchTrials,
-    postSwitchAccuracy,
-    switchAccuracy,
-    postSwitchAccuracyPercent: toPercent(postSwitchAccuracy),
-    switchAccuracyPercent: toPercent(switchAccuracy),
+    scoringMode:
+      scoringResult.scoringMode,
 
-    interferenceTrials,
-    interferenceAccuracy,
-    interferenceAccuracyPercent: toPercent(interferenceAccuracy),
+    scoringWeights:
+      scoringResult.scoringWeights || null,
 
-    firstTryAccuracy,
-    firstTryAccuracyPercent: toPercent(firstTryAccuracy),
+    starRule:
+      scoringResult.starRule || null,
 
-    perseverativeErrors,
-    perseverativeErrorRate,
-    perseverativeErrorRatePercent: toPercent(perseverativeErrorRate),
+    abilityFocus:
+      scoringResult.abilityFocus || null,
 
-    interferenceControl,
-    interferenceControlPercent: toPercent(interferenceControl),
+    switchScore:
+      scoringResult.switchScore ?? null,
 
-    bestStreak,
-    avgReactionTime,
-    colorAvgReactionTime,
-    typeAvgReactionTime,
-    postSwitchAvgReactionTime,
-    switchAvgReactionTime,
-    rtDifferenceAfterSwitch,
+    accuracyScore:
+      scoringResult.accuracyScore ?? null,
 
-    responseStabilityScore,
-    reactionTimeCv,
-    reactionTimeValidCount,
-    reactionTimeCvReliable,
-    colorReactionTimeCv,
-    typeReactionTimeCv,
-    postSwitchReactionTimeCv,
+    perseverativeScore:
+      scoringResult.perseverativeScore ?? null,
 
-    scoringMode: scoringResult.scoringMode,
-    scoringWeights: scoringResult.scoringWeights || null,
-    starRule: scoringResult.starRule || null,
-    abilityFocus: scoringResult.abilityFocus || null,
+    colorScore:
+      scoringResult.colorScore ?? null,
 
-    switchScore: scoringResult.switchScore,
-    accuracyScore: scoringResult.accuracyScore,
-    perseverativeScore: scoringResult.perseverativeScore,
-    colorScore: scoringResult.colorScore,
-    reactionTimeScore: scoringResult.reactionTimeScore,
+    ruleScore:
+      scoringResult.ruleScore ?? null,
+
+    reactionTimeScore:
+      scoringResult.reactionTimeScore ?? null,
+
+    dataQuality,
 
     trialLogs,
   };
 
+  const reactionTimeLevel =
+    getReactionTimeLevel(avgReactionTime);
+
   return {
     task: "DCCS",
+    gameId: "DCCS",
+    mode,
+    scoringMode: scoringResult.scoringMode,
 
     totalScore,
+    score: totalScore,
     stars,
 
-    scoringMode: scoringResult.scoringMode,
-    difficulty: scoringResult.difficulty || null,
-    difficultyLabel: scoringResult.difficultyLabel || null,
-    difficultyTitle: scoringResult.difficultyTitle || null,
-    abilityFocus: scoringResult.abilityFocus || null,
+    difficulty:
+      scoringResult.difficulty || null,
+
+    difficultyLevel:
+      scoringResult.difficultyLevel || null,
+
+    difficultyLabel:
+      scoringResult.difficultyLabel || null,
+
+    difficultyTitle:
+      scoringResult.difficultyTitle || null,
+
+    difficultyCategory:
+      scoringResult.difficultyCategory || null,
+
+    abilityFocus:
+      scoringResult.abilityFocus || null,
 
     totalTrials,
     correctCount,
+    correctTrials: correctCount,
+    incorrectCount,
+    incorrectTrials: incorrectCount,
+    timeoutCount,
+
+    colorTrials,
+    typeTrials,
+    postSwitchTrials,
+    switchTrials,
+    interferenceTrials,
 
     accuracy,
     colorAccuracy,
@@ -1267,84 +2369,165 @@ export function calculateDccsScore(resultData = {}) {
     interferenceAccuracy,
     firstTryAccuracy,
 
-    perseverativeErrors,
-    perseverativeErrorRate,
-    interferenceControl,
+    accuracyPercent: toPercent(accuracy),
+    colorAccuracyPercent:
+      toPercent(colorAccuracy),
+    typeAccuracyPercent:
+      toPercent(typeAccuracy),
+    postSwitchAccuracyPercent:
+      toPercent(postSwitchAccuracy),
+    switchAccuracyPercent:
+      toPercent(switchAccuracy),
+    interferenceAccuracyPercent:
+      toPercent(interferenceAccuracy),
+    firstTryAccuracyPercent:
+      toPercent(firstTryAccuracy),
 
-    colorTrials,
-    typeTrials,
-    postSwitchTrials,
-    switchTrials,
-    interferenceTrials,
+    perseverativeErrors,
+    oldRuleInterference:
+      perseverativeErrors,
+
+    perseverativeErrorRate,
+    perseverativeErrorRatePercent:
+      toPercent(perseverativeErrorRate),
+
+    interferenceControl,
+    interferenceControlPercent:
+      interferenceControl === null
+        ? null
+        : toPercent(interferenceControl),
+
+    hasInhibitionData,
 
     bestStreak,
+
     avgReactionTime,
+    preSwitchAvgReactionTime,
     colorAvgReactionTime,
     typeAvgReactionTime,
     postSwitchAvgReactionTime,
     switchAvgReactionTime,
+    interferenceAvgReactionTime,
+
     rtDifferenceAfterSwitch,
-    responseStabilityScore,
+    switchCost,
+    switchCostRatio,
+
+    reactionTimeStandardDeviation,
+    reactionTimeStd:
+      reactionTimeStandardDeviation,
+
     reactionTimeCv,
     reactionTimeValidCount,
     reactionTimeCvReliable,
+
     colorReactionTimeCv,
     typeReactionTimeCv,
     postSwitchReactionTimeCv,
 
-    accuracyPercent: toPercent(accuracy),
-    colorAccuracyPercent: toPercent(colorAccuracy),
-    typeAccuracyPercent: toPercent(typeAccuracy),
-    postSwitchAccuracyPercent: toPercent(postSwitchAccuracy),
-    switchAccuracyPercent: toPercent(switchAccuracy),
-    interferenceAccuracyPercent: toPercent(interferenceAccuracy),
-    firstTryAccuracyPercent: toPercent(firstTryAccuracy),
-    perseverativeErrorRatePercent: toPercent(perseverativeErrorRate),
-    interferenceControlPercent: toPercent(interferenceControl),
+    responseStabilityScore,
+    responseStabilityLevel,
+
+    hasEnoughTrials:
+      dataQuality.hasEnoughTrials,
+
+    minimumReliableTrials,
+    dataConfidence:
+      dataQuality.confidence,
+
+    dataQuality,
+
+    scoringWeights:
+      scoringResult.scoringWeights || null,
+
+    starRule:
+      scoringResult.starRule || null,
+
+    switchScore:
+      scoringResult.switchScore ?? null,
+
+    accuracyScore:
+      scoringResult.accuracyScore ?? null,
+
+    perseverativeScore:
+      scoringResult.perseverativeScore ?? null,
+
+    colorScore:
+      scoringResult.colorScore ?? null,
+
+    ruleScore:
+      scoringResult.ruleScore ?? null,
+
+    reactionTimeScore:
+      scoringResult.reactionTimeScore ?? null,
 
     parentIndicators,
     clinicianMetrics,
 
-    childMessage: getChildMessage(stars),
+    childMessage:
+      getChildMessage({
+        stars,
+        hasEnoughTrials:
+          dataQuality.hasEnoughTrials,
+      }),
 
-    parentSummary: getParentSummary({
-      stars,
-      postSwitchAccuracy,
-      switchAccuracy,
-      perseverativeErrors,
-      avgReactionTime,
-      isTraining,
-      difficulty: scoringResult.difficulty,
-      difficultyTitle: scoringResult.difficultyTitle,
-      postSwitchTrials,
-      switchTrials,
-      interferenceTrials,
-    }),
+    parentSummary:
+      getParentSummary({
+        stars,
+        isTraining,
+        difficultyTitle:
+          scoringResult.difficultyTitle,
+        accuracy,
+        postSwitchAccuracy,
+        perseverativeErrors,
+        postSwitchTrials,
+        interferenceTrials,
+        hasInhibitionData,
+        hasEnoughTrials:
+          dataQuality.hasEnoughTrials,
+      }),
 
-    clinicianSummary: getClinicianSummary({
-      totalScore,
-      accuracy,
-      colorAccuracy,
-      typeAccuracy,
-      postSwitchAccuracy,
-      switchAccuracy,
-      interferenceAccuracy,
-      firstTryAccuracy,
-      perseverativeErrors,
-      perseverativeErrorRate,
-      avgReactionTime,
-      rtDifferenceAfterSwitch,
-      responseStabilityScore,
-      postSwitchTrials,
-      switchTrials,
-      interferenceTrials,
-    }),
+    clinicianSummary:
+      getClinicianSummary({
+        totalScore,
+        accuracy,
+        colorAccuracy,
+        typeAccuracy,
+        postSwitchAccuracy,
+        interferenceAccuracy,
+        firstTryAccuracy,
+        perseverativeErrors,
+        perseverativeErrorRate,
+        interferenceControl,
+        avgReactionTime,
+        rtDifferenceAfterSwitch,
+        switchCostRatio,
+        responseStabilityScore,
+        postSwitchTrials,
+        interferenceTrials,
+        hasInhibitionData,
+        dataQuality,
+      }),
 
     reactionTimeLevel,
   };
 }
 
-function getChildMessage(stars) {
+/* -------------------------------------------------------------------------- */
+/* 文字結果                                                                    */
+/* -------------------------------------------------------------------------- */
+
+function getChildMessage({
+  stars,
+  hasEnoughTrials,
+}) {
+  if (!hasEnoughTrials) {
+    return {
+      title: "完成練習！",
+      text: "這次完成的題目比較少，下次再多玩幾題看看吧！",
+    };
+  }
+
   if (stars === 3) {
     return {
       title: "太棒了！",
@@ -1355,7 +2538,7 @@ function getChildMessage(stars) {
   if (stars === 2) {
     return {
       title: "做得不錯！",
-      text: "你已經會分類了，換玩法的時候再多想一下會更棒！",
+      text: "你已經會分類了，換玩法時再多想一下會更棒！",
     };
   }
 
@@ -1367,25 +2550,28 @@ function getChildMessage(stars) {
 
 function getParentSummary({
   stars,
-  postSwitchAccuracy,
-  switchAccuracy,
-  perseverativeErrors,
   isTraining,
   difficultyTitle,
+  accuracy,
+  postSwitchAccuracy,
+  perseverativeErrors,
   postSwitchTrials,
-  switchTrials,
   interferenceTrials,
+  hasInhibitionData,
+  hasEnoughTrials,
 }) {
-  const effectiveSwitchAccuracy =
-    typeof postSwitchAccuracy === "number" ? postSwitchAccuracy : switchAccuracy;
+  if (!hasEnoughTrials) {
+    return "本次完成的有效題數較少，結果暫時只適合作為練習紀錄，不建議單獨用來判斷能力。";
+  }
 
-  const hasSwitch = (postSwitchTrials ?? switchTrials ?? 0) > 0;
-  const hasInterference = (interferenceTrials ?? 0) > 0;
-  const levelText = difficultyTitle ? `「${difficultyTitle}」` : "本次";
+  const levelText =
+    difficultyTitle
+      ? `「${difficultyTitle}」`
+      : "本次";
 
   if (isTraining) {
     if (stars === 3) {
-      if (hasSwitch) {
+      if (postSwitchTrials > 0) {
         return `孩子在${levelText}訓練中表現穩定，能在玩法改變後跟上新的分類方式。`;
       }
 
@@ -1393,33 +2579,50 @@ function getParentSummary({
     }
 
     if (stars === 2) {
-      if (hasInterference || perseverativeErrors > 0) {
-        return "孩子已能完成部分分類任務，但在舊玩法干擾出現時，可能還需要多一點時間確認。建議維持短回合練習。";
+      if (
+        hasInhibitionData &&
+        perseverativeErrors > 0
+      ) {
+        return "孩子已能完成部分分類，但換玩法後仍可能受到前一個玩法影響，建議維持短回合練習。";
       }
 
-      if (hasSwitch && effectiveSwitchAccuracy < 0.7) {
-        return "孩子能完成基本分類，但在玩法改變後需要更多練習來穩定套用新規則。";
+      if (
+        postSwitchTrials > 0 &&
+        postSwitchAccuracy < 0.7
+      ) {
+        return "孩子能完成基本分類，但在玩法改變後仍需要更多練習來穩定套用新規則。";
       }
 
-      return "孩子已能完成部分分類任務，建議維持短回合練習，讓孩子慢慢熟悉。";
+      return "孩子已能完成部分分類任務，建議維持相同難度，讓規則理解更加穩定。";
     }
 
-    return "孩子在本次訓練中可能仍需要較多提示。建議先從單一規則分類開始，再逐步加入換玩法與干擾練習。";
+    if (accuracy < 0.5) {
+      return "孩子目前對分類規則仍較容易混淆，建議先降低難度並增加清楚的視覺提示。";
+    }
+
+    return "孩子在目前難度下仍需要較多提示，建議先維持單一規則或減少切換題。";
   }
 
   if (stars === 3) {
-    return "孩子在本次分類任務中表現穩定，尤其在規則改變後仍能依照新規則作答。";
+    return "孩子在本次分類任務中表現穩定，規則改變後仍能依照新的分類方式作答。";
   }
 
   if (stars === 2) {
-    return "孩子能完成基本分類任務，但在規則切換後仍可能受到前一個規則影響。建議透過短回合、明確提示的分類練習來熟悉換規則情境。";
+    return "孩子能完成基本分類，但規則切換後仍可能受到前一個玩法影響，建議透過短回合練習加強。";
   }
 
-  if (!hasSwitch) {
-    return "孩子在本次任務中對基本分類規則仍需要更多練習。建議先從單一規則分類開始。";
+  if (postSwitchTrials <= 0) {
+    return "本次沒有足夠的規則切換題，暫時無法完整判斷換玩法能力。";
   }
 
-  return "孩子在本次任務中對規則轉換較容易混淆，可能需要更多視覺提示與重複練習。";
+  if (
+    interferenceTrials > 0 &&
+    perseverativeErrors > 0
+  ) {
+    return "孩子在規則轉換後較容易受到舊玩法影響，建議增加明確提示並放慢切換節奏。";
+  }
+
+  return "孩子在規則轉換時較容易混淆，建議先從單一規則開始，再逐步加入換玩法練習。";
 }
 
 function getClinicianSummary({
@@ -1428,61 +2631,108 @@ function getClinicianSummary({
   colorAccuracy,
   typeAccuracy,
   postSwitchAccuracy,
-  switchAccuracy,
   interferenceAccuracy,
   firstTryAccuracy,
   perseverativeErrors,
   perseverativeErrorRate,
+  interferenceControl,
   avgReactionTime,
   rtDifferenceAfterSwitch,
+  switchCostRatio,
   responseStabilityScore,
   postSwitchTrials,
-  switchTrials,
   interferenceTrials,
+  hasInhibitionData,
+  dataQuality,
 }) {
-  const effectiveSwitchAccuracy =
-    typeof postSwitchAccuracy === "number" ? postSwitchAccuracy : switchAccuracy;
-
-  const effectiveSwitchTrials = postSwitchTrials ?? switchTrials ?? 0;
+  const switchCostPercent =
+    Number.isFinite(switchCostRatio)
+      ? Math.round(switchCostRatio * 100)
+      : 0;
 
   return {
-    overview: `DCCS 綜合分數為 ${totalScore} 分，整體正確率為 ${toPercent(
-      accuracy
-    )}%，顏色規則正確率為 ${toPercent(
-      colorAccuracy
-    )}%，種類規則正確率為 ${toPercent(typeAccuracy)}%。`,
+    overview:
+      `DCCS 綜合分數為 ${totalScore} 分，` +
+      `整體正確率 ${toPercent(accuracy)}%，` +
+      `顏色規則正確率 ${toPercent(colorAccuracy)}%，` +
+      `種類規則正確率 ${toPercent(typeAccuracy)}%。`,
 
     switchObservation:
-      effectiveSwitchTrials > 0
+      postSwitchTrials > 0
         ? `切換後正確率為 ${toPercent(
-            effectiveSwitchAccuracy
-          )}%，可作為觀察規則轉換能力的主要指標。`
-        : "本次任務未包含切換後規則階段，因此不計算切換後正確率作為主要判讀依據。",
+            postSwitchAccuracy
+          )}%，切換後反應時間差為 ${rtDifferenceAfterSwitch} ms，` +
+          `相對切換成本約為 ${switchCostPercent}%。`
+        : "本次缺少切換後試題，無法將規則轉換能力作為主要判讀依據。",
 
     inhibitionObservation:
-      effectiveSwitchTrials > 0 || interferenceTrials > 0
-        ? `固著錯誤共 ${perseverativeErrors} 次，固著錯誤率為 ${toPercent(
+      hasInhibitionData
+        ? `固著錯誤共 ${perseverativeErrors} 次，` +
+          `固著錯誤率為 ${toPercent(
             perseverativeErrorRate
-          )}%，干擾題正確率為 ${toPercent(
+          )}%，` +
+          `抑制控制指標為 ${
+            interferenceControl === null
+              ? "無資料"
+              : `${toPercent(interferenceControl)}%`
+          }，` +
+          `干擾題正確率為 ${toPercent(
             interferenceAccuracy
-          )}%。此指標可用於觀察孩子是否仍受到前一個規則影響。`
-        : "本次任務未包含舊規則干擾階段，因此固著錯誤不作為主要判讀依據。",
+          )}%。`
+        : "本次沒有足夠的舊規則干擾資料，因此不計算抑制控制指標。",
 
-    firstTryObservation: `第一次答對率為 ${toPercent(
-      firstTryAccuracy
-    )}%，可輔助觀察孩子是否能在不反覆試錯的情況下理解規則。`,
+    firstTryObservation:
+      `第一次答對率為 ${toPercent(
+        firstTryAccuracy
+      )}%，可輔助觀察是否能在不反覆試錯的情況下理解規則。`,
 
-    reactionTimeObservation: `平均反應時間為 ${avgReactionTime} ms，切換後反應時間差為 ${rtDifferenceAfterSwitch} ms，作答穩定度為 ${Math.round(
-      responseStabilityScore
-    )} 分。若切換後反應時間明顯增加，可能表示孩子需要更多時間抑制舊規則並重新套用新規則。`,
+    reactionTimeObservation:
+      `平均反應時間為 ${avgReactionTime} ms，` +
+      `作答穩定度為 ${Math.round(
+        responseStabilityScore
+      )} 分。`,
+
+    dataQualityObservation:
+      `本次有效題數為 ${
+        dataQuality.actualTrialCount
+      } 題，最低建議題數為 ${
+        dataQuality.minimumReliableTrials
+      } 題，資料信心度為 ${
+        dataQuality.confidence
+      }%。` +
+      (dataQuality.countMismatch
+        ? " 系統回報題數與逐題紀錄題數不一致，建議檢查資料儲存流程。"
+        : ""),
   };
 }
+
+/* -------------------------------------------------------------------------- */
+/* 對外工具                                                                    */
+/* -------------------------------------------------------------------------- */
 
 export function getDccsStars(resultData = {}) {
   return calculateDccsScore(resultData).stars;
 }
 
-export const calculateDcssScore = calculateDccsScore;
-export const getDcssStars = getDccsStars;
+export function getDccsScore(resultData = {}) {
+  return calculateDccsScore(resultData).totalScore;
+}
+
+export function analyzeDccsTrials(trialLogs = []) {
+  return analyzeTrialLogs(trialLogs);
+}
+
+export function normalizeDccsDifficulty(difficulty) {
+  return normalizeDifficulty(difficulty);
+}
+
+/*
+ * 保留舊拼字 Dcss，避免既有 import 失效。
+ */
+export const calculateDcssScore =
+  calculateDccsScore;
+
+export const getDcssStars =
+  getDccsStars;
 
 export default calculateDccsScore;

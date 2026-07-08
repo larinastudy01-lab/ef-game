@@ -4,11 +4,17 @@ import React, { useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/GamePage_DCCS.css";
 
+import bgImg from "../asset/SRT_testbackground.png";
+import homeBackBtn from "../asset/home/back.png";
+import homeAgainBtn from "../asset/home/again.png";
 import calculateDccsScore from "../utils/dccsScoring";
 
 const MENU_ROUTE = "/game-menu";
-const TEST_ROUTE = "/test-dccs";
+const TEST_MAP_ROUTE = "/test-map";
 const TRAINING_ROUTE = "/training-dccs";
+const HAT_GAME_ROUTE = "/hat-sticker-game";
+const HAT_TRIGGER_MIN = 5;
+const HAT_TRIGGER_MAX = 8;
 const SESSION_KEYS = [
   "DCCS_RESULT",
   "DCCS_TEST_RESULT",
@@ -112,6 +118,116 @@ const STAR_STATUS = {
     detail: "孩子可能還在熟悉玩法，建議先回到簡單、短回合練習。",
   },
 };
+
+
+function safeJsonParse(raw, fallback = null) {
+  if (!raw) return fallback;
+
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function resolveChildId(payload = {}) {
+  const directId =
+    payload?.childId ??
+    payload?.userId ??
+    payload?.profileId ??
+    payload?.child?.id ??
+    payload?.profile?.id;
+
+  if (directId !== undefined && directId !== null && String(directId).trim()) {
+    return String(directId);
+  }
+
+  const directKeys = [
+    "selectedChildId",
+    "currentChildId",
+    "activeChildId",
+    "childId",
+  ];
+
+  for (const key of directKeys) {
+    const value = localStorage.getItem(key);
+    if (value && value.trim()) return value.trim();
+  }
+
+  const objectKeys = ["currentChild", "selectedChild", "activeChild"];
+
+  for (const key of objectKeys) {
+    const parsed = safeJsonParse(localStorage.getItem(key), null);
+    if (parsed?.id !== undefined && parsed?.id !== null) {
+      return String(parsed.id);
+    }
+  }
+
+  return "unassigned";
+}
+
+function isTrainingResult(payload = {}) {
+  const mode = String(
+    payload?.mode ??
+      payload?.resultMode ??
+      payload?.gameMode ??
+      payload?.result?.mode ??
+      ""
+  ).toLowerCase();
+
+  return mode === "training" || mode === "train";
+}
+
+function createHatRewardSessionId(childId) {
+  return `dccs-hat-${childId}-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
+}
+
+function getRandomHatTarget() {
+  return (
+    Math.floor(Math.random() * (HAT_TRIGGER_MAX - HAT_TRIGGER_MIN + 1)) +
+    HAT_TRIGGER_MIN
+  );
+}
+
+function shouldOpenHatGame(childId) {
+  const progressKey = `hatRewardProgress_${childId}`;
+  const saved = safeJsonParse(localStorage.getItem(progressKey), {});
+
+  const previousCount = Math.max(0, Math.floor(safeNumber(saved?.count, 0)));
+  const previousTarget = clamp(
+    Math.floor(safeNumber(saved?.target, getRandomHatTarget())),
+    HAT_TRIGGER_MIN,
+    HAT_TRIGGER_MAX
+  );
+  const nextCount = previousCount + 1;
+
+  if (nextCount >= previousTarget) {
+    localStorage.setItem(
+      progressKey,
+      JSON.stringify({
+        count: 0,
+        target: getRandomHatTarget(),
+        lastTriggeredAt: new Date().toISOString(),
+        lastSourceGame: "DCCS",
+      })
+    );
+    return true;
+  }
+
+  localStorage.setItem(
+    progressKey,
+    JSON.stringify({
+      count: nextCount,
+      target: previousTarget,
+      lastCompletedAt: new Date().toISOString(),
+      lastSourceGame: "DCCS",
+    })
+  );
+
+  return false;
+}
 
 function readStoredResult() {
   for (const key of SESSION_KEYS) {
@@ -344,8 +460,8 @@ function buildParentInterpretation(result, context) {
 function ObservationCard({ icon, title, level, text, helper, active = true }) {
   return (
     <div
-      className="Dcss-parent-explain-card"
-      style={{ opacity: active ? 1 : 0.82 }}
+      className="dccs-observation-card"
+      style={{ opacity: active ? 1 : 0.76 }}
     >
       <div
         style={{
@@ -372,7 +488,7 @@ function ObservationCard({ icon, title, level, text, helper, active = true }) {
 
         <strong
           style={{
-            color: active ? "#5d4037" : "#9e8b80",
+            color: active ? "#5d3220" : "#9e8b80",
             minWidth: 104,
             textAlign: "right",
           }}
@@ -393,6 +509,8 @@ function ParentView({ payload, result, context, interpretation }) {
   const accuracy = percent(result?.accuracy);
   const correctCount = safeNumber(result?.correctCount ?? result?.clinicianMetrics?.correctCount, 0);
   const totalTrials = safeNumber(result?.totalTrials ?? result?.clinicianMetrics?.totalTrials, 0);
+  const postSwitchAccuracy = percent(result?.postSwitchAccuracy ?? result?.switchAccuracy);
+  const oldRuleErrors = safeNumber(result?.perseverativeErrors ?? result?.oldRuleInterference, 0);
 
   const observations = [
     {
@@ -429,133 +547,507 @@ function ParentView({ payload, result, context, interpretation }) {
     },
   ];
 
+  const quickStats = [
+    {
+      label: "目前關卡",
+      value: `第 ${context.level} 關`,
+      helper: context.levelInfo.title,
+    },
+    {
+      label: "完成情形",
+      value: totalTrials > 0 ? `${correctCount}/${totalTrials} 題` : "--",
+      helper: "正確完成的分類題數",
+    },
+    {
+      label: "整體正確率",
+      value: `${accuracy}%`,
+      helper: "有沒有照目前玩法分類",
+    },
+    {
+      label: "建議練習",
+      value: `第 ${context.recommendedLevel} 關`,
+      helper: context.recommendedInfo.title,
+    },
+  ];
+
+  const highlights = [
+    {
+      badge: understandRule >= 70 ? "✓" : "△",
+      tone: understandRule >= 70 ? "good" : "watch",
+      title: "先確認玩法",
+      text: context.levelInfo.parentText,
+    },
+    {
+      badge: context.hasSwitchData ? (postSwitchAccuracy >= 70 ? "✓" : "△") : "☆",
+      tone: context.hasSwitchData ? (postSwitchAccuracy >= 70 ? "good" : "watch") : "neutral",
+      title: "換玩法反應",
+      text: context.hasSwitchData
+        ? `玩法改變後約 ${postSwitchAccuracy}% 的題目能跟上。`
+        : "這一關主要還在看單一玩法，換玩法能力會在後面關卡觀察。",
+    },
+    {
+      badge: context.hasInterferenceData ? (oldRuleErrors <= 1 ? "✓" : "!") : "☆",
+      tone: context.hasInterferenceData ? (oldRuleErrors <= 1 ? "good" : "alert") : "neutral",
+      title: "避免舊玩法干擾",
+      text: context.hasInterferenceData
+        ? `這次約有 ${oldRuleErrors} 次可能還照剛剛的玩法做。`
+        : "這一關還沒有明顯干擾，先不用把這項當成主要表現。",
+    },
+  ];
+
   return (
     <>
-      <div className="Dcss-section-title">
-        <h1>家長觀察摘要</h1>
-        <p>
-          這不是診斷，也不是排名。這一頁用白話說明孩子今天在遊戲中做了什麼、哪裡穩定、下一步可以怎麼陪。
-        </p>
-      </div>
-
-      <div className="Dcss-parent-explain-card" style={{ marginBottom: 18 }}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 1fr) auto",
-            gap: 18,
-            alignItems: "center",
-          }}
-        >
-          <div>
-            <span className="Dcss-tag">今日一句話</span>
-            <h2 style={{ margin: "10px 0 8px" }}>{interpretation.headline}</h2>
-            <p style={{ margin: 0 }}>{interpretation.summary}</p>
+      <section className="dccs-overview-card">
+        <div className="dccs-overview-left">
+          <div className="dccs-score-circle" aria-label={`${accuracy} 分`}>
+            <span className="dccs-score-number">{accuracy}</span>
+            <span className="dccs-score-unit">分</span>
           </div>
 
-          <div style={{ textAlign: "center", minWidth: 170 }}>
-            <div style={{ fontSize: 34, letterSpacing: 2 }}>
-              {"⭐".repeat(context.stars)}
-            </div>
-            <strong style={{ color: "#5d4037", display: "block", marginTop: 6 }}>
-              {context.starStatus.label}
-            </strong>
-            <p style={{ margin: "6px 0 0", color: "#8d6e63", fontWeight: 700 }}>
-              今天需要多少協助
-            </p>
+          <div className="dccs-overview-text-box">
+            <p className="dccs-overview-label">這次分類挑戰</p>
+            <h2 className="dccs-overview-title">{interpretation.headline}</h2>
+            <p className="dccs-overview-desc">{interpretation.summary}</p>
           </div>
         </div>
-      </div>
 
-      <div className="Dcss-parent-highlight-grid">
-        <div className="Dcss-highlight-card">
-          <span>這一關在看</span>
-          <strong style={{ fontSize: 24 }}>{context.levelInfo.focus}</strong>
-          <p>{context.levelInfo.parentText}</p>
+        <div className="dccs-star-summary">
+          <div className="dccs-star-row" aria-label={`${context.stars} 顆星`}>
+            {[1, 2, 3].map((star) => (
+              <span
+                key={star}
+                className={`dccs-star-chip ${star <= context.stars ? "is-on" : ""}`}
+              >
+                ★
+              </span>
+            ))}
+          </div>
+          <p>{context.starStatus.label}</p>
+          <small>星星代表本次需要協助的程度，請搭配下方說明一起看。</small>
         </div>
+      </section>
 
-        <div className="Dcss-highlight-card">
-          <span>今天的狀態</span>
-          <strong>{context.starStatus.label}</strong>
-          <p>{context.starStatus.detail}</p>
-        </div>
+      <section className="dccs-quick-stats">
+        {quickStats.map((item) => (
+          <article key={item.label} className="dccs-stat-card">
+            <p className="dccs-stat-label">{item.label}</p>
+            <p className="dccs-stat-value">{item.value}</p>
+            <p className="dccs-stat-helper">{item.helper}</p>
+          </article>
+        ))}
+      </section>
 
-        <div className="Dcss-highlight-card">
-          <span>完成情形</span>
-          <strong>{getReadableLevel(accuracy)}</strong>
-          <p>
-            {totalTrials > 0
-              ? `共 ${totalTrials} 題，完成正確 ${correctCount} 題。`
-              : "目前沒有收到完整題數資料。"}
-          </p>
-        </div>
-      </div>
-
-      <div className="Dcss-parent-explain-card" style={{ marginTop: 18 }}>
-        <h3>先看這句就好</h3>
-        <p style={{ marginBottom: 0 }}>
+      <section className="dccs-panel-block">
+        <h2 className="dccs-section-title">家長快速解讀</h2>
+        <p className="dccs-parent-summary-text">
           {context.level <= 4
             ? "這一關還在練單一玩法。家長可以先看孩子是否知道現在要看顏色或看衣服，不用急著解讀換玩法能力。"
             : context.level <= 7
             ? "這一關開始練玩法改變。重點是孩子能不能從『看顏色』改成『看衣服種類』。"
             : "這一關加入干擾。重點是孩子能不能記得現在的玩法，不被剛剛的玩法拉回去。"}
         </p>
-      </div>
+      </section>
 
-      <div className="Dcss-parent-grid" style={{ marginTop: 18 }}>
-        {observations.map((card) => (
-          <ObservationCard key={card.title} {...card} />
-        ))}
-      </div>
-
-      <div className="Dcss-parent-grid" style={{ marginTop: 18 }}>
-        <div className="Dcss-parent-explain-card">
-          <h3>孩子做得好的地方</h3>
-          <p>{interpretation.good}</p>
-        </div>
-
-        <div className="Dcss-parent-explain-card">
-          <h3>還可以練習的地方</h3>
-          <p>{interpretation.practice}</p>
-        </div>
-      </div>
-
-      <div className="Dcss-parent-explain-card" style={{ marginTop: 18 }}>
-        <h3>家長可以怎麼陪</h3>
-        <p>{context.levelInfo.homeTip}</p>
-        <p style={{ marginBottom: 0 }}>
-          可以用很短的句子提醒：「現在看顏色」、「現在換成看衣服」、「慢慢來，先想現在要看哪一個」。
+      <section className="dccs-panel-block">
+        <h2 className="dccs-section-title">家長可以這樣看</h2>
+        <p className="dccs-parent-intro">
+          不需要先懂專有名詞，只要看孩子「知道規則、能不能換規則、會不會被舊規則拉回去」。
         </p>
-      </div>
 
-      <div className="Dcss-parent-explain-card" style={{ marginTop: 18 }}>
-        <h3>下一步建議</h3>
+        <div className="dccs-highlight-grid">
+          {highlights.map((item) => (
+            <article key={item.title} className="dccs-observation-card">
+              <div className="dccs-observation-top">
+                <span className={`dccs-status-pill ${item.tone}`}>{item.badge}</span>
+                <div>
+                  <p className="dccs-card-label">觀察重點</p>
+                  <h3>{item.title}</h3>
+                </div>
+              </div>
+              <p>{item.text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="dccs-panel-block">
+        <h2 className="dccs-section-title">孩子這次主要表現</h2>
+        <div className="dccs-indicator-grid">
+          {observations.map((card) => (
+            <ObservationCard key={card.title} {...card} />
+          ))}
+        </div>
+      </section>
+
+      <section className="dccs-panel-block">
+        <h2 className="dccs-section-title">做得好與可練習</h2>
+        <div className="dccs-highlight-grid two-cols">
+          <article className="dccs-observation-card">
+            <h3>孩子做得好的地方</h3>
+            <p>{interpretation.good}</p>
+          </article>
+          <article className="dccs-observation-card">
+            <h3>還可以練習的地方</h3>
+            <p>{interpretation.practice}</p>
+          </article>
+        </div>
+      </section>
+
+      <section className="dccs-next-card">
+        <h2 className="dccs-section-title">下一步建議</h2>
+        <h3>建議先練第 {context.recommendedLevel} 關：{context.recommendedInfo.title}</h3>
         <p>
-          建議先練 <strong>第 {context.recommendedLevel} 關：{context.recommendedInfo.title}</strong>。
-          這一關重點是「{context.recommendedInfo.focus}」。
+          這一關重點是「{context.recommendedInfo.focus}」。{context.levelInfo.homeTip}
         </p>
-        <p style={{ marginBottom: 0 }}>
-          每次練 3～5 分鐘就好，孩子穩定後再進入下一個挑戰。
-        </p>
-      </div>
+      </section>
 
-      <div
-        className="Dcss-parent-explain-card"
-        style={{
-          marginTop: 18,
-          background: "rgba(255, 248, 225, 0.9)",
-          border: "2px solid rgba(255, 193, 7, 0.35)",
-        }}
-      >
-        <h3>家長不用擔心</h3>
-        <p style={{ marginBottom: 0 }}>
-          這不是診斷，也不是能力排名。孩子今天的狀態可能受到疲倦、分心、剛接觸新玩法影響。
-          建議看多次練習的變化，不要只看一次結果。
+      <section className="dccs-note-box">
+        <h3>給家長的小提醒</h3>
+        <p>
+          這份結果是本次遊戲中的觀察紀錄，可以幫助了解孩子在「記住分類規則、切換分類規則、避免舊規則干擾」時的狀況；不代表醫療診斷，建議搭配多次練習一起觀察。
         </p>
-      </div>
+      </section>
     </>
   );
 }
+
+
+const resultPageCss = `
+:root {
+  --dccs-honey: #e7a62f;
+  --dccs-honey-dark: #b87818;
+  --dccs-cream: #fffaf0;
+  --dccs-cream-deep: #f6ead4;
+  --dccs-sky: #65b8e8;
+  --dccs-sky-soft: #eaf6fd;
+  --dccs-leaf: #739a48;
+  --dccs-leaf-soft: #eef5e6;
+  --dccs-coral: #e98f7d;
+  --dccs-coral-soft: #fff0ec;
+  --dccs-wood: #6b4226;
+  --dccs-wood-soft: #8a5a34;
+  --dccs-line: #ead8b7;
+}
+
+.dccs-result-page {
+  width: 100%;
+  min-height: 100dvh;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  padding: clamp(12px, 2.4vw, 30px);
+  box-sizing: border-box;
+  font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+  color: var(--dccs-wood);
+}
+
+.dccs-result-main-card {
+  width: min(1180px, 100%);
+  min-height: calc(100dvh - clamp(24px, 4.8vw, 60px));
+  margin: 0 auto;
+  background: rgba(255, 250, 240, 0.97);
+  border: 1px solid rgba(194, 139, 68, 0.45);
+  border-radius: 22px;
+  box-shadow: 0 18px 44px rgba(99, 67, 30, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dccs-result-header {
+  padding: clamp(22px, 4vw, 38px) clamp(18px, 4vw, 42px) 22px;
+  border-bottom: 1px solid var(--dccs-line);
+  background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,248,232,.94));
+}
+
+.dccs-mode-tag {
+  display: inline-flex;
+  margin: 0 0 9px;
+  padding: 6px 12px;
+  border-radius: 7px;
+  background: var(--dccs-sky-soft);
+  border: 1px solid #b9dff4;
+  color: #3b7799;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+
+.dccs-result-main-title {
+  margin: 0;
+  color: var(--dccs-wood);
+  font-size: clamp(27px, 4vw, 42px);
+  font-weight: 900;
+  line-height: 1.22;
+}
+
+.dccs-result-subtitle {
+  margin: 10px 0 0;
+  color: var(--dccs-wood-soft);
+  font-size: clamp(15px, 1.7vw, 19px);
+  font-weight: 650;
+}
+
+.dccs-parent-panel {
+  flex: 1;
+  padding: clamp(16px, 3vw, 34px);
+}
+
+.dccs-overview-card,
+.dccs-panel-block,
+.dccs-next-card,
+.dccs-note-box {
+  background: rgba(255,255,255,.96);
+  border: 1px solid var(--dccs-line);
+  border-radius: 15px;
+  box-shadow: 0 5px 16px rgba(108, 72, 31, .07);
+}
+
+.dccs-overview-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 24px;
+  padding: clamp(20px, 3vw, 30px);
+  margin-bottom: 22px;
+  border-top: 5px solid var(--dccs-honey);
+}
+
+.dccs-overview-left {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-width: 0;
+}
+
+.dccs-score-circle {
+  width: 132px;
+  height: 132px;
+  min-width: 132px;
+  border-radius: 18px;
+  background: linear-gradient(160deg, #7fc9ef, var(--dccs-sky));
+  border: 3px solid #fff;
+  outline: 1px solid #9fd5ef;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  box-shadow: 0 8px 18px rgba(57, 137, 181, .22);
+}
+
+.dccs-score-number { font-size: 48px; font-weight: 900; line-height: 1; }
+.dccs-score-unit { font-size: 20px; font-weight: 800; align-self: flex-end; margin-bottom: 30px; }
+
+.dccs-overview-label,
+.dccs-card-label,
+.dccs-stat-label {
+  margin: 0 0 7px;
+  color: #8d6745;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .03em;
+}
+
+.dccs-overview-title {
+  margin: 0 0 10px;
+  color: var(--dccs-wood);
+  font-size: clamp(24px, 3vw, 34px);
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.dccs-overview-desc,
+.dccs-parent-summary-text,
+.dccs-parent-intro,
+.dccs-observation-card p,
+.dccs-next-card p,
+.dccs-note-box p {
+  margin: 0;
+  color: #6f5743;
+  font-size: clamp(15px, 1.7vw, 18px);
+  font-weight: 500;
+  line-height: 1.75;
+}
+
+.dccs-star-summary {
+  flex: 0 0 220px;
+  padding: 20px;
+  border-radius: 13px;
+  background: linear-gradient(180deg, #fff8df, #fff3cf);
+  border: 1px solid #efd28d;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
+.dccs-star-row { display: flex; justify-content: center; gap: 8px; }
+.dccs-star-chip { color: #d9c8a7; font-size: 30px; line-height: 1; }
+.dccs-star-chip.is-on { color: var(--dccs-honey); }
+.dccs-star-summary p { margin: 0; color: var(--dccs-wood); font-size: 15px; font-weight: 800; }
+.dccs-star-summary small { color: #8a6a4d; font-size: 12px; line-height: 1.5; }
+
+.dccs-quick-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.dccs-stat-card {
+  min-height: 122px;
+  padding: 18px;
+  border-radius: 13px;
+  background: #fff;
+  border: 1px solid var(--dccs-line);
+  border-top: 4px solid var(--dccs-leaf);
+  box-sizing: border-box;
+}
+.dccs-stat-card:nth-child(2) { border-top-color: var(--dccs-sky); }
+.dccs-stat-card:nth-child(3) { border-top-color: var(--dccs-honey); }
+.dccs-stat-card:nth-child(4) { border-top-color: var(--dccs-coral); }
+.dccs-stat-card:nth-child(5) { border-top-color: #9d7ac1; }
+.dccs-stat-card:nth-child(6) { border-top-color: var(--dccs-leaf); }
+
+.dccs-stat-value { margin: 0 0 7px; color: var(--dccs-wood); font-size: clamp(23px, 2.5vw, 30px); font-weight: 900; }
+.dccs-stat-helper { margin: 0; color: #8b715b; font-size: 13px; line-height: 1.5; }
+
+.dccs-panel-block,
+.dccs-next-card,
+.dccs-note-box { padding: clamp(18px, 3vw, 28px); margin-bottom: 22px; }
+.dccs-section-title { margin: 0 0 12px; color: var(--dccs-wood); font-size: clamp(20px, 2.4vw, 25px); font-weight: 900; }
+
+.dccs-highlight-grid,
+.dccs-indicator-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+.dccs-indicator-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.dccs-observation-card {
+  padding: 18px;
+  border-radius: 13px;
+  background: #fffdf8;
+  border: 1px solid #eadcc5;
+  box-sizing: border-box;
+}
+.dccs-observation-card:nth-child(3n+1) { background: #fbfdf7; border-color: #d7e4c7; }
+.dccs-observation-card:nth-child(3n+2) { background: #f7fcff; border-color: #cfe7f4; }
+.dccs-observation-card:nth-child(3n) { background: #fff9f7; border-color: #f0d2ca; }
+
+.dccs-observation-top { display: flex; gap: 11px; align-items: flex-start; margin-bottom: 12px; }
+.dccs-observation-card h3,
+.dccs-next-card h3,
+.dccs-note-box h3 { margin: 0 0 7px; color: var(--dccs-wood); font-size: 18px; font-weight: 800; line-height: 1.4; }
+
+.dccs-status-pill {
+  flex: 0 0 auto;
+  min-width: 38px;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: #fff5df;
+  border: 1px solid #edcf91;
+  color: #98651f;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+.dccs-status-pill.good { background: var(--dccs-leaf-soft); color: #547731; border-color: #c8dbaa; }
+.dccs-status-pill.watch { background: #fff5df; color: #98651f; border-color: #edcf91; }
+.dccs-status-pill.alert { background: var(--dccs-coral-soft); color: #a15343; border-color: #efc0b6; }
+.dccs-status-pill.neutral { background: var(--dccs-sky-soft); color: #3d7898; border-color: #c5e2f2; }
+
+.dccs-indicator-score { color: var(--dccs-wood) !important; font-size: 22px !important; font-weight: 900 !important; margin-bottom: 6px !important; }
+.dccs-card-meaning { margin-top: 10px !important; padding-top: 10px; border-top: 1px solid #eadcc5; color: #7e6754 !important; font-size: 15px !important; }
+
+.dccs-next-card {
+  background: linear-gradient(180deg, #f7fbf2, #eef5e6);
+  border-left: 5px solid var(--dccs-leaf);
+}
+
+.dccs-note-box {
+  background: linear-gradient(180deg, #fffaf3, #fff5e5);
+  box-shadow: none;
+  border-left: 5px solid var(--dccs-honey);
+}
+
+.dccs-action-btns {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(16px, 3vw, 30px);
+  padding: 18px clamp(16px, 3vw, 32px) 24px;
+  border-top: 1px solid var(--dccs-line);
+  background: rgba(255,250,240,.98);
+}
+
+.dccs-image-button {
+  width: clamp(148px, 18vw, 220px);
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 12px;
+  line-height: 0;
+  cursor: pointer;
+  transition: transform .16s ease, filter .16s ease;
+}
+.dccs-image-button img { width: 100%; height: auto; display: block; pointer-events: none; user-select: none; -webkit-user-drag: none; filter: drop-shadow(0 5px 6px rgba(91,57,27,.2)); }
+.dccs-image-button:hover { transform: translateY(-2px); filter: brightness(1.03); }
+.dccs-image-button:active { transform: translateY(1px) scale(.98); }
+.dccs-image-button:focus-visible { outline: 3px solid rgba(101,184,232,.38); outline-offset: 4px; }
+
+@media (max-width: 980px) {
+  .dccs-overview-card { flex-direction: column; }
+  .dccs-star-summary { flex-basis: auto; }
+  .dccs-quick-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dccs-highlight-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .dccs-result-page { padding: 0; background-position: center top; }
+  .dccs-result-main-card { min-height: 100dvh; border-radius: 0; border-left: 0; border-right: 0; box-shadow: none; }
+  .dccs-result-header { padding: 20px 16px 17px; }
+  .dccs-parent-panel { padding: 14px; }
+  .dccs-overview-card { padding: 18px; gap: 18px; }
+  .dccs-overview-left { align-items: flex-start; gap: 15px; }
+  .dccs-score-circle { width: 96px; height: 96px; min-width: 96px; border-radius: 14px; }
+  .dccs-score-number { font-size: 36px; }
+  .dccs-score-unit { font-size: 16px; margin-bottom: 21px; }
+  .dccs-quick-stats,
+  .dccs-highlight-grid,
+  .dccs-indicator-grid { grid-template-columns: 1fr; }
+  .dccs-stat-card { min-height: auto; }
+  .dccs-action-btns { position: sticky; bottom: 0; z-index: 10; gap: 12px; padding: 12px 14px calc(12px + env(safe-area-inset-bottom)); box-shadow: 0 -5px 14px rgba(91,57,27,.09); }
+  .dccs-image-button { width: min(44vw, 190px); }
+}
+
+@media (max-width: 420px) {
+  .dccs-overview-left { flex-direction: column; }
+  .dccs-score-circle { width: 100%; height: 82px; }
+  .dccs-score-unit { align-self: center; margin: 13px 0 0; }
+  .dccs-image-button { width: calc(50vw - 22px); }
+}
+
+
+.dccs-highlight-grid.two-cols {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dccs-image-button:disabled {
+  cursor: default;
+  opacity: .62;
+}
+
+.dccs-image-button:disabled:hover {
+  transform: none;
+  filter: none;
+}
+`
+
 
 export default function ResultPage_DCCS() {
   const location = useLocation();
@@ -584,6 +1076,36 @@ export default function ResultPage_DCCS() {
     navigate(route, state ? { state } : undefined);
   };
 
+  const returnToForest = () => {
+    if (actionLockRef.current) return;
+
+    // 只有訓練結果可以累積並觸發帽子遊戲；正式測驗永遠直接回森林。
+    if (!isTrainingResult(payload)) {
+      leaveResultPage(TEST_MAP_ROUTE);
+      return;
+    }
+
+    const childId = resolveChildId(payload);
+    const shouldTrigger = shouldOpenHatGame(childId);
+
+    if (!shouldTrigger) {
+      leaveResultPage(MENU_ROUTE);
+      return;
+    }
+
+    const rewardSessionId = createHatRewardSessionId(childId);
+
+    leaveResultPage(HAT_GAME_ROUTE, {
+      childId,
+      rewardSessionId,
+      sessionId: rewardSessionId,
+      sourceGame: "DCCS",
+      sourceMode: "training",
+      returnRoute: MENU_ROUTE,
+      fromResultPage: true,
+    });
+  };
+
   const startRecommendedTraining = () => {
     const safeRecommendedLevel = getSafeTrainingLevel(context?.recommendedLevel, 5);
 
@@ -597,19 +1119,24 @@ export default function ResultPage_DCCS() {
   };
 
   return (
-    <div className="Dcss-page">
-      <main className="Dcss-result-shell">
-        <header className="Dcss-result-header">
-          <div>
-            <div className="Dcss-tag">家長看的小紀錄</div>
-            <h1>孔雀小姐的整理小紀錄</h1>
-            <p className="Dcss-child-message">
-              看看孩子今天在分類遊戲中，能不能記得「現在要看顏色」還是「現在要看衣服」。
-            </p>
-          </div>
+    <div
+      className="dccs-result-page"
+      style={{
+        backgroundImage: `linear-gradient(rgba(255,255,255,0.22), rgba(255,255,255,0.22)), url(${bgImg})`,
+      }}
+    >
+      <style>{resultPageCss}</style>
+
+      <main className="dccs-result-main-card">
+        <header className="dccs-result-header">
+          <p className="dccs-mode-tag">{isTrainingResult(payload) ? "訓練結果" : "測驗結果"}</p>
+          <h1 className="dccs-result-main-title">分類挑戰完成</h1>
+          <p className="dccs-result-subtitle">
+            了解孩子在規則理解、規則切換與避免舊規則干擾上的本次表現。
+          </p>
         </header>
 
-        <section className="Dcss-result-panel">
+        <section className="dccs-parent-panel">
           <ParentView
             payload={payload}
             result={result}
@@ -618,33 +1145,28 @@ export default function ResultPage_DCCS() {
           />
         </section>
 
-        <footer className="Dcss-result-actions">
+        <footer className="dccs-action-btns">
           <button
             type="button"
-            className="Dcss-main-btn"
-            onClick={startRecommendedTraining}
+            className="dccs-image-button"
+            onClick={returnToForest}
             disabled={isNavigating}
+            aria-label="回到森林"
           >
-            {isNavigating ? "準備中..." : "開始建議練習"}
+            <img src={homeBackBtn} alt="回到森林" />
           </button>
 
-          <button
-            type="button"
-            className="Dcss-sub-btn"
-            onClick={() => leaveResultPage(MENU_ROUTE)}
-            disabled={isNavigating}
-          >
-            回到森林地圖
-          </button>
-
-          <button
-            type="button"
-            className="Dcss-sub-btn"
-            onClick={() => leaveResultPage(TEST_ROUTE)}
-            disabled={isNavigating}
-          >
-            稍後再測一次
-          </button>
+          {isTrainingResult(payload) && (
+            <button
+              type="button"
+              className="dccs-image-button"
+              onClick={startRecommendedTraining}
+              disabled={isNavigating}
+              aria-label="play again"
+            >
+              <img src={homeAgainBtn} alt="play again" />
+            </button>
+          )}
         </footer>
       </main>
     </div>

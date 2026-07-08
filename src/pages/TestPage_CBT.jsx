@@ -4,42 +4,52 @@ import { useNavigate } from "react-router-dom";
 import stoneImg from "../asset/stone.png";
 import personImg from "../asset/CBT_person.png";
 import bgImg from "../asset/CBT_testbackground.png";
-import resultVideo from "../asset/SRT_start.mp4";
+import storyVideo from "../asset/mp4/CBT_start.mp4";
+import tutorialVideo from "../asset/mp4/CBT_step.mp4";
+import endingVideo from "../asset/mp4/CBT_end.mp4";
 import clickSoundFile from "../asset/Click_SRT.mp3";
 import startAvatar from "../asset/avatar/deer.png";
 import homeStartBtn from "../asset/home/start.png";
 import homeSkipBtn from "../asset/home/skip.png";
 import homeBackBtn from "../asset/home/back.png";
-import homeAgainBtn from "../asset/home/again.png";
 import homeResultBtn from "../asset/home/result.png";
 import mouseGuideImg from "../asset/mouse.png";
 
 import "../styles/GamePage_CBT.css";
 
+import { saveUnifiedResult } from "../utils/resultManager";
+import { calculateCBTScore } from "../utils/cbtScoring";
 import { createGameResult } from "../ai/gameResultTemplate";
 import { analyzePerformance } from "../ai/performanceAnalyzer";
 import { analyzeErrors } from "../ai/errorAnalyzer";
 import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
+import { detectCBTErrorPattern } from "../ai/cbtTrainingAnalyzer";
 
 // 仍保留內部作答時間上限，但不在幼兒畫面顯示壓力式倒數。
 const ANSWER_TIME = 10;
 const SHOW_SPEED = 720;
 const GAP_SPEED = 260;
 const TOTAL_QUESTIONS = 10;
+const START_MEMORY_LENGTH = 2;
+const MAX_MEMORY_LENGTH = 6;
+const TRIALS_PER_MEMORY_LENGTH = 2;
+const MAX_CONSECUTIVE_TIMEOUTS = 2;
+const IDLE_HINT_DELAY_MS = 6000;
+const TEST_PAGE_ROUTE = "/test-map";
 
 // 正式測驗棋盤尺寸。石頭座標會用這個範圍即時計算，
 // 所以每一題都會真的「換位置」，不再固定成同一種排列。
 const BOARD_WIDTH = 760;
 const BOARD_HEIGHT = 455;
-const STONE_SIZE = 128;
+const STONE_SIZE = 190;
 const PERSON_OFFSET_Y = 76;
 const WALK_ANIMATION_MS = 260;
 
 const RANDOM_LAYOUT_CONFIG = {
   5: { minDistance: 185, marginX: 115, marginY: 95 },
   6: { minDistance: 165, marginX: 105, marginY: 88 },
-  8: { minDistance: 140, marginX: 92, marginY: 78 },
+  8: { minDistance: 150, marginX: 105, marginY: 88 },
 };
 
 function getDistance(a, b) {
@@ -93,7 +103,6 @@ function createRandomLayout(blockCount) {
   return positions;
 }
 
-const WARMUP_SEQUENCE = [0, 1];
 const COUNTDOWN_SECONDS = 5;
 
 function shuffleArray(items) {
@@ -114,23 +123,18 @@ function createRandomizedBlocks(blockCount) {
   }));
 }
 
-function createSequence(questionIndex, previousLastStone = null) {
-  const setting = getQuestionSetting(questionIndex);
+function createSequence(questionIndex, previousLastStone = null, forcedMemoryLength = null) {
+  const setting = getQuestionSetting(questionIndex, forcedMemoryLength);
   const seq = [];
 
   for (let i = 0; i < setting.level; i += 1) {
-    let next;
-    let guard = 0;
+    const previousStone = i > 0 ? seq[i - 1] : previousLastStone;
+    const candidates = Array.from(
+      { length: setting.blockCount },
+      (_, stoneIndex) => stoneIndex
+    ).filter((stoneIndex) => stoneIndex !== previousStone);
 
-    do {
-      next = Math.floor(Math.random() * setting.blockCount);
-      guard += 1;
-    } while (
-      guard < 80 &&
-      ((i > 0 && next === seq[i - 1]) ||
-        (i === 0 && previousLastStone !== null && next === previousLastStone))
-    );
-
+    const next = candidates[Math.floor(Math.random() * candidates.length)];
     seq.push(next);
   }
 
@@ -138,7 +142,18 @@ function createSequence(questionIndex, previousLastStone = null) {
 }
 
 
-function getQuestionSetting(index) {
+function getBlockCountByMemoryLength(memoryLength) {
+  if (memoryLength <= 4) return 5;
+  if (memoryLength <= 5) return 6;
+  return 8;
+}
+
+function getQuestionSetting(index, forcedMemoryLength = null) {
+  if (Number.isFinite(Number(forcedMemoryLength))) {
+    const level = Math.max(START_MEMORY_LENGTH, Number(forcedMemoryLength));
+    return { level, blockCount: getBlockCountByMemoryLength(level) };
+  }
+
   if (index < 2) return { level: 2, blockCount: 5 };
   if (index < 4) return { level: 3, blockCount: 5 };
   if (index < 6) return { level: 4, blockCount: 5 };
@@ -432,7 +447,7 @@ const cbtSrtLikeCss = `
 .cbt-forest-button:disabled { opacity: 0.46; cursor: default; filter: grayscale(0.25); }
 .cbt-btn-start { width: clamp(170px, 18vw, 236px); }
 .cbt-btn-skip { width: clamp(170px, 18vw, 232px); }
-.cbt-btn-home, .cbt-btn-replay, .cbt-btn-detail { width: clamp(180px, 18vw, 238px); }
+.cbt-btn-home, .cbt-btn-detail { width: clamp(180px, 18vw, 238px); }
 
 .cbt-guided-action {
   position: relative;
@@ -600,7 +615,6 @@ const cbtSrtLikeCss = `
 }
 
 .cbt-result-actions .cbt-btn-home,
-.cbt-result-actions .cbt-btn-replay,
 .cbt-result-actions .cbt-btn-detail {
   width: clamp(168px, 16vw, 232px);
 }
@@ -622,7 +636,6 @@ const cbtSrtLikeCss = `
 .cbt-board,
 .cbt-block,
 .cbt-btn-home,
-.cbt-btn-replay,
 .cbt-btn-detail,
 .cbt-btn-start,
 .cbt-btn-skip {
@@ -924,6 +937,72 @@ const cbtSrtLikeCss = `
   overflow: hidden;
 }
 
+/* CBT 影片統一採 SRT 式橫向 16:9 呈現。 */
+.cbt-video-only-card {
+  width: min(94vw, 980px) !important;
+  min-height: 0 !important;
+  padding: clamp(22px, 3vw, 34px) !important;
+  gap: clamp(14px, 2vw, 22px);
+}
+
+.cbt-video-only-card .cbt-video-wrapper {
+  width: min(86vw, 860px) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  aspect-ratio: 16 / 9;
+  margin: 0;
+  border-radius: 28px;
+}
+
+.cbt-video-only-card .cbt-video {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+/* 正式測驗直接使用湖水背景：石頭與棋盤皆不再附加底色或外框。 */
+.cbt-test-card {
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+/* 湖水背景上的標題改用高對比淺色，避免與水面顏色混在一起。 */
+.cbt-test-card .cbt-subtitle {
+  color: #fff4c7 !important;
+  text-shadow:
+    0 3px 0 rgba(18, 76, 91, 0.95),
+    0 0 10px rgba(8, 54, 70, 0.72);
+}
+
+.cbt-test-card .cbt-text {
+  color: #ffffff !important;
+  text-shadow:
+    0 2px 0 rgba(18, 76, 91, 0.95),
+    0 0 8px rgba(8, 54, 70, 0.76);
+}
+
+.cbt-test-card .cbt-board,
+.cbt-board {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.cbt-block {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
 @media (max-width: 768px) {
   .cbt-start-shell, .cbt-guide-shell, .cbt-result-shell {
     width: min(92vw, 620px);
@@ -940,7 +1019,7 @@ const cbtSrtLikeCss = `
   .cbt-guide-arrow { transform: rotate(90deg); }
   .cbt-video-only-card { min-height: 0; padding: 20px 14px; }
   .cbt-video-only-card .cbt-video-wrapper { width: 100% !important; min-height: 250px; height: min(54vh, 430px); }
-  .cbt-btn-home, .cbt-btn-replay, .cbt-btn-detail, .cbt-btn-start, .cbt-btn-skip { width: clamp(142px, 38vw, 196px); }
+  .cbt-btn-home, .cbt-btn-detail, .cbt-btn-start, .cbt-btn-skip { width: clamp(142px, 38vw, 196px); }
   .cbt-result-shell { width: min(92vw, 620px); border-radius: 34px; padding: 44px 18px 28px; }
   .cbt-cute-stars { height: 112px; margin-top: -76px; margin-bottom: -10px; gap: 8px; }
   .cbt-cute-star-shell { width: 88px; height: 84px; }
@@ -987,24 +1066,36 @@ function safeCreateGameResult(payload) {
   }
 }
 
-function getCurrentChildId() {
+function safeParseStorageObject(key) {
   try {
-    const selectedChild = JSON.parse(localStorage.getItem("selectedChild") || "null");
-    return selectedChild?.id || selectedChild?.childId || "guest-child";
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : null;
   } catch (error) {
-    return "guest-child";
+    return null;
   }
+}
+
+function getCurrentChildId() {
+  const currentChildId = localStorage.getItem("currentChildId");
+  if (currentChildId) return currentChildId;
+
+  const currentChild = safeParseStorageObject("currentChild");
+  if (currentChild?.childId || currentChild?.id) return currentChild.childId || currentChild.id;
+
+  const selectedChild = safeParseStorageObject("selectedChild");
+  if (selectedChild?.childId || selectedChild?.id) return selectedChild.childId || selectedChild.id;
+
+  return "guest-child";
 }
 
 export default function TestPage_CBT() {
   const navigate = useNavigate();
 
   const [phase, setPhase] = useState("story");
-  const [guideStep, setGuideStep] = useState(0);
   const [countdownLeft, setCountdownLeft] = useState(COUNTDOWN_SECONDS);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [sequence, setSequence] = useState([]);
-  const [userInput, setUserInput] = useState([]);
+  const [, setUserInput] = useState([]);
 
   const [timeLeft, setTimeLeft] = useState(ANSWER_TIME);
 
@@ -1016,8 +1107,8 @@ export default function TestPage_CBT() {
   const [personIndex, setPersonIndex] = useState(null);
   const [isWalking, setIsWalking] = useState(false);
   const [message, setMessage] = useState("");
+  const [idleHintActive, setIdleHintActive] = useState(false);
 
-  const [warmupDone, setWarmupDone] = useState(false);
   const [boardPositions, setBoardPositions] = useState(() => createRandomizedBlocks(5));
   const [finalResult, setFinalResult] = useState(null);
 
@@ -1030,10 +1121,22 @@ export default function TestPage_CBT() {
   const endedRef = useRef(false);
   const lastShownStoneRef = useRef(null);
   const pendingFinalHistoryRef = useRef(null);
+  const resultSavedRef = useRef(false);
   const sequenceTimerRef = useRef(new Set());
   const userInputRef = useRef([]);
   const accumulatedWalkingTimeRef = useRef(0);
   const isClickResolvingRef = useRef(false);
+  const currentMemoryLengthRef = useRef(START_MEMORY_LENGTH);
+  const currentLengthTrialCountRef = useRef(0);
+  const currentLengthWrongCountRef = useRef(0);
+  const consecutiveTimeoutRef = useRef(0);
+  const maxPassedMemoryLengthRef = useRef(0);
+  const stopReasonRef = useRef(null);
+  const firstTapAtRef = useRef(null);
+  const tapTimestampsRef = useRef([]);
+  const idleHintShownRef = useRef(false);
+  const idleHintCountRef = useRef(0);
+  const idleBeforeFirstTapMsRef = useRef(null);
 
   const isWarmup =
     phase === "warmupShow" ||
@@ -1042,7 +1145,7 @@ export default function TestPage_CBT() {
 
   const currentSetting = useMemo(() => {
     if (isWarmup) return { level: 2, blockCount: 5 };
-    return getQuestionSetting(questionIndex);
+    return getQuestionSetting(questionIndex, currentMemoryLengthRef.current);
   }, [questionIndex, isWarmup]);
 
   const blocks = boardPositions;
@@ -1090,12 +1193,71 @@ export default function TestPage_CBT() {
     clickAudioRef.current.play().catch(() => {});
   }
 
+  function readStoredResult(fallback = {}) {
+    try {
+      return JSON.parse(localStorage.getItem("cbtTestResult") || "{}");
+    } catch (error) {
+      console.warn("[TestPage_CBT] Failed to read stored result:", error);
+      return fallback;
+    }
+  }
+
+  function saveResultPayload({ resultPayload, scoring, childId }) {
+    try {
+      saveUnifiedResult({
+        rawResult: resultPayload,
+        gameId: "CBT",
+        mode: "test",
+        difficulty: scoring.summary?.finalMicroDifficultyKey || "normal2",
+        route: "/test-cbt",
+        visibleRoles: ["child", "parent", "clinician"],
+        saveLegacy: true,
+      });
+    } catch (error) {
+      console.warn("[TestPage_CBT] saveUnifiedResult failed:", error);
+    }
+
+    let serializedResult = "";
+    try {
+      serializedResult = JSON.stringify(resultPayload);
+    } catch (error) {
+      console.warn("[TestPage_CBT] Failed to serialize result:", error);
+      return;
+    }
+
+    const storageKeys = [
+      "cbtTestResult",
+      "latestCBTTestResult",
+      "ef_game_cbt_test_result",
+      childId ? `cbtTestResult_${childId}` : null,
+    ].filter(Boolean);
+
+    storageKeys.forEach((key) => {
+      try {
+        localStorage.setItem(key, serializedResult);
+      } catch (error) {
+        console.warn(`[TestPage_CBT] Failed to save ${key}:`, error);
+      }
+    });
+  }
+
   function resetTestData() {
     clearAllManagedTimers();
     historyRef.current = [];
     endedRef.current = false;
     userInputRef.current = [];
     accumulatedWalkingTimeRef.current = 0;
+    currentMemoryLengthRef.current = START_MEMORY_LENGTH;
+    currentLengthTrialCountRef.current = 0;
+    currentLengthWrongCountRef.current = 0;
+    consecutiveTimeoutRef.current = 0;
+    maxPassedMemoryLengthRef.current = 0;
+    stopReasonRef.current = null;
+    firstTapAtRef.current = null;
+    tapTimestampsRef.current = [];
+    idleHintShownRef.current = false;
+    idleHintCountRef.current = 0;
+    idleBeforeFirstTapMsRef.current = null;
 
     setQuestionIndex(0);
     setSequence([]);
@@ -1108,33 +1270,25 @@ export default function TestPage_CBT() {
     setPersonIndex(null);
     setIsWalking(false);
     setMessage("");
+    setIdleHintActive(false);
     setCountdownLeft(COUNTDOWN_SECONDS);
     lastShownStoneRef.current = null;
     pendingFinalHistoryRef.current = null;
+    resultSavedRef.current = false;
     setBoardPositions(createRandomizedBlocks(5));
     setFinalResult(null);
   }
 
-  function startWarmup() {
-    resetTestData();
-    setWarmupDone(false);
-    setBoardPositions(createRandomizedBlocks(5));
-    setSequence(WARMUP_SEQUENCE);
-    setShowStep(0);
-    setPhase("warmupShow");
-  }
-
   function startFormalTest() {
     resetTestData();
-    setWarmupDone(true);
     setCountdownLeft(COUNTDOWN_SECONDS);
     setPhase("countdown");
   }
 
   function startQuestion(targetIndex) {
     clearAllManagedTimers();
-    const setting = getQuestionSetting(targetIndex);
-    const newSequence = createSequence(targetIndex, lastShownStoneRef.current);
+    const setting = getQuestionSetting(targetIndex, currentMemoryLengthRef.current);
+    const newSequence = createSequence(targetIndex, lastShownStoneRef.current, currentMemoryLengthRef.current);
     lastShownStoneRef.current = newSequence[newSequence.length - 1];
     setBoardPositions(createRandomizedBlocks(setting.blockCount));
 
@@ -1154,6 +1308,12 @@ export default function TestPage_CBT() {
     setTimeLeft(ANSWER_TIME);
     currentRandomClicksRef.current = 0;
     currentRepeatedClicksRef.current = 0;
+    firstTapAtRef.current = null;
+    tapTimestampsRef.current = [];
+    idleHintShownRef.current = false;
+    idleHintCountRef.current = 0;
+    idleBeforeFirstTapMsRef.current = null;
+    setIdleHintActive(false);
     questionStartRef.current = Date.now();
     setPhase("show");
   }
@@ -1169,6 +1329,37 @@ export default function TestPage_CBT() {
 
   function recordTrial({ correct, input, errorType }) {
     const reactionTime = getReactionTimeMs();
+    const isTimeout = errorType === "timeout";
+    const trialMemoryLength = currentMemoryLengthRef.current;
+    const trialInLength = currentLengthTrialCountRef.current + 1;
+    const firstTapTime = firstTapAtRef.current && answerStartRef.current
+      ? Math.max(0, firstTapAtRef.current - answerStartRef.current)
+      : null;
+    const tapIntervals = tapTimestampsRef.current
+      .slice(1)
+      .map((time, index) => Math.max(0, time - tapTimestampsRef.current[index]));
+    const averageTapInterval = tapIntervals.length > 0
+      ? Math.round(tapIntervals.reduce((sum, value) => sum + value, 0) / tapIntervals.length)
+      : null;
+    const firstMismatchIndex = input.findIndex((value, index) => value !== sequence[index]);
+    const firstErrorPosition = correct
+      ? null
+      : firstMismatchIndex >= 0
+        ? firstMismatchIndex
+        : input.length;
+    const errorPattern = detectCBTErrorPattern({
+      correct,
+      isCorrect: correct,
+      timeout: isTimeout,
+      isTimeout,
+      targetSequence: sequence,
+      userSequence: input,
+      sequenceLength: sequence.length,
+      firstErrorPosition,
+      errorType,
+      idleHintShown: idleHintShownRef.current,
+      cleanCorrect: correct && !idleHintShownRef.current && !isTimeout,
+    });
 
     const trial = {
       trialIndex: questionIndex + 1,
@@ -1176,16 +1367,25 @@ export default function TestPage_CBT() {
       isCorrect: correct,
 
       errorType,
-      timeout: errorType === "timeout",
-      isTimeout: errorType === "timeout",
-      missed: errorType === "timeout",
+      errorPattern,
+      timeout: isTimeout,
+      isTimeout,
+      missed: isTimeout,
       randomClickCount: currentRandomClicksRef.current,
       repeatedClickCount: currentRepeatedClicksRef.current,
 
       level: currentSetting.level,
       length: sequence.length,
       sequenceLength: sequence.length,
+      memoryLength: trialMemoryLength,
+      memoryLengthTrialIndex: trialInLength,
+      sameLengthWrongCountBefore: currentLengthWrongCountRef.current,
+      consecutiveTimeoutCountBefore: consecutiveTimeoutRef.current,
       blockCount: currentSetting.blockCount,
+      difficulty: "normal",
+      difficultyKey: "normal",
+      microDifficulty: `normal${Math.min(3, Math.max(1, trialMemoryLength - 2))}`,
+      microDifficultyKey: `normal${Math.min(3, Math.max(1, trialMemoryLength - 2))}`,
 
       sequence,
       targetSequence: sequence,
@@ -1197,6 +1397,19 @@ export default function TestPage_CBT() {
 
       reactionTime,
       answerTime: reactionTime,
+      firstTapTime,
+      averageTapInterval,
+      firstErrorPosition,
+      errorIndex: firstErrorPosition,
+      idleHintShown: idleHintShownRef.current,
+      idleHintCount: idleHintCountRef.current,
+      idleBeforeFirstTapMs: idleBeforeFirstTapMsRef.current,
+      cleanCorrect: correct && !idleHintShownRef.current && !isTimeout,
+      rescueCorrect: false,
+      rescueFailed: false,
+      usedReplay: false,
+      replayCount: 0,
+      usedHint: false,
       remainingTime: timeLeft,
       totalTrialTime: questionStartRef.current ? Date.now() - questionStartRef.current : reactionTime,
 
@@ -1331,6 +1544,68 @@ export default function TestPage_CBT() {
     };
   }
 
+  function updateFormalProgress({ correct, isTimeout }) {
+    currentLengthTrialCountRef.current += 1;
+
+    if (correct) {
+      maxPassedMemoryLengthRef.current = Math.max(
+        maxPassedMemoryLengthRef.current,
+        currentMemoryLengthRef.current
+      );
+    } else {
+      currentLengthWrongCountRef.current += 1;
+    }
+
+    if (isTimeout) {
+      consecutiveTimeoutRef.current += 1;
+    } else {
+      consecutiveTimeoutRef.current = 0;
+    }
+
+    if (consecutiveTimeoutRef.current >= MAX_CONSECUTIVE_TIMEOUTS) {
+      stopReasonRef.current = "two_consecutive_timeouts";
+      return { shouldFinish: true };
+    }
+
+    if (currentLengthTrialCountRef.current >= TRIALS_PER_MEMORY_LENGTH) {
+      if (currentLengthWrongCountRef.current >= TRIALS_PER_MEMORY_LENGTH) {
+        stopReasonRef.current = "two_failures_same_memory_length";
+        return { shouldFinish: true };
+      }
+
+      if (currentMemoryLengthRef.current >= MAX_MEMORY_LENGTH) {
+        stopReasonRef.current = "max_memory_length_reached";
+        return { shouldFinish: true };
+      }
+
+      currentMemoryLengthRef.current += 1;
+      currentLengthTrialCountRef.current = 0;
+      currentLengthWrongCountRef.current = 0;
+    }
+
+    return { shouldFinish: false };
+  }
+
+  function completeTrial(finalHistory, { correct, isTimeout = false }) {
+    const decision = updateFormalProgress({ correct, isTimeout });
+
+    if (decision.shouldFinish) {
+      setMessage("完成了！");
+      setPhase("finish");
+      setManagedTimeout(() => {
+        prepareFinish(finalHistory);
+      }, 700);
+      return;
+    }
+
+    setMessage("下一題。");
+    setPhase("next");
+
+    setManagedTimeout(() => {
+      startQuestion(questionIndex + 1);
+    }, 900);
+  }
+
   function prepareFinish(finalHistory = historyRef.current) {
     if (endedRef.current) return;
 
@@ -1341,58 +1616,102 @@ export default function TestPage_CBT() {
   }
 
   function finishTest(finalHistory = pendingFinalHistoryRef.current || historyRef.current) {
-    const correctCount = finalHistory.filter((item) => item.correct).length;
-    const bestSpan = finalHistory.reduce((max, item) => {
-      if (!item.correct) return max;
-      return Math.max(max, item.length || 0);
+    if (resultSavedRef.current) return;
+    resultSavedRef.current = true;
+
+    const records = Array.isArray(finalHistory) ? finalHistory : [];
+    let scoring = {};
+    try {
+      scoring = calculateCBTScore(records) || {};
+    } catch (error) {
+      console.warn("[TestPage_CBT] calculateCBTScore failed:", error);
+      scoring = {
+        taskName: "Corsi Block Tapping",
+        totalScore: 0,
+        stars: 1,
+        summary: {
+          totalTrials: records.length,
+          correctCount: records.filter((item) => item.correct || item.isCorrect).length,
+          accuracyRate: 0,
+          accuracyPercent: 0,
+        },
+      };
+    }
+
+    const correctCount = records.filter((item) => item.correct || item.isCorrect).length;
+    const bestSpan = scoring.summary?.rawSpan || records.reduce((max, item) => {
+      if (!item.correct && !item.isCorrect) return max;
+      return Math.max(max, item.length || item.sequenceLength || 0);
     }, 0);
 
+    // 舊版 AI 欄位只保留相容用；正式分數、星級、家長端與醫療端說明
+    // 一律以 cbtScoring.js 產生的 scoring 為準，避免結果頁與儲存資料不一致。
+    const legacyAiResult = buildCbtAiResult(records, correctCount, bestSpan);
+    const childId = getCurrentChildId();
+    const generatedAt = new Date().toISOString();
+
     const resultPayload = {
-      ...buildCbtAiResult(finalHistory, correctCount, bestSpan),
-      visibleResultRoles: ["child", "parent"],
-      hideMedicalResult: true,
+      ...legacyAiResult,
+
+      source: "test",
+      mode: "test",
+      resultType: "test",
+      gameId: "CBT",
+      taskCode: "CBT",
+      taskName: scoring.taskName || "Corsi Block Tapping",
+      childId,
+      generatedAt,
+
+      scoring,
+      summary: scoring.summary,
+      parentView: scoring.parentView,
+      clinicalView: scoring.clinicalView,
+      childView: scoring.childView,
+      aiAnalysis: scoring.aiAnalysis,
+      scoreBreakdown: scoring.scoreBreakdown,
+
+      stars: scoring.stars,
+      score: scoring.totalScore,
+      totalScore: scoring.totalScore,
+      accuracy: scoring.summary?.accuracyRate ?? scoring.summary?.accuracy ?? legacyAiResult.accuracy ?? 0,
+      accuracyPercent: scoring.summary?.accuracyPercent ?? 0,
+      correctCount: scoring.summary?.correctCount ?? correctCount,
+      totalQuestions: records.length || TOTAL_QUESTIONS,
+      totalTrials: scoring.summary?.totalTrials ?? records.length,
+
+      recommendedDifficulty: scoring.recommendedDifficulty,
+      recommendedAction: scoring.recommendedAction,
+      recommendationReason: scoring.recommendationReason,
+      mainWeakness: scoring.mainWeakness,
+
+      records,
+      history: records,
+      cbtHistory: records,
+      trials: records,
+
+      bestSpan,
+      maxPassedMemoryLength: maxPassedMemoryLengthRef.current,
+      stopReason: stopReasonRef.current || "manual_finish",
+      visibleResultRoles: ["child", "parent", "clinician"],
+      hideMedicalResult: false,
     };
 
-    localStorage.setItem("cbtTestResult", JSON.stringify(resultPayload));
+    saveResultPayload({ resultPayload, scoring, childId });
+
     setFinalResult(resultPayload);
     setPhase("result");
   }
 
   function openDetailedResult() {
-    const resultPayload = finalResult || JSON.parse(localStorage.getItem("cbtTestResult") || "{}");
+    const resultPayload = finalResult || readStoredResult();
     navigate("/result-cbt", {
       state: resultPayload,
     });
   }
 
-  function restartFromStartPage() {
-    resetTestData();
-    setGuideStep(0);
-    setWarmupDone(false);
-    pendingFinalHistoryRef.current = null;
-    setPhase("story");
-  }
 
-  function goNextQuestion(finalHistory) {
-    const nextQuestionIndex = questionIndex + 1;
-
-    if (nextQuestionIndex >= TOTAL_QUESTIONS) {
-      setMessage("完成了！");
-      setPhase("finish");
-
-      setManagedTimeout(() => {
-        prepareFinish(finalHistory);
-      }, 700);
-
-      return;
-    }
-
-    setMessage("下一題。");
-    setPhase("next");
-
-    setManagedTimeout(() => {
-      startQuestion(nextQuestionIndex);
-    }, 900);
+  function goNextQuestion(finalHistory, outcome = { correct: true, isTimeout: false }) {
+    completeTrial(finalHistory, outcome);
   }
 
 
@@ -1422,6 +1741,15 @@ export default function TestPage_CBT() {
     if (isClickResolvingRef.current) return;
 
     playClickSound();
+    setIdleHintActive(false);
+
+    if (userInputRef.current.length === 0 && !firstTapAtRef.current) {
+      firstTapAtRef.current = Date.now();
+      if (answerStartRef.current && idleBeforeFirstTapMsRef.current === null) {
+        idleBeforeFirstTapMsRef.current = Math.max(0, firstTapAtRef.current - answerStartRef.current);
+      }
+    }
+    tapTimestampsRef.current = [...tapTimestampsRef.current, Date.now()];
 
     const currentInput = userInputRef.current;
     const nextInput = [...currentInput, index];
@@ -1466,6 +1794,15 @@ export default function TestPage_CBT() {
     if (isClickResolvingRef.current) return;
 
     playClickSound();
+    setIdleHintActive(false);
+
+    if (userInputRef.current.length === 0 && !firstTapAtRef.current) {
+      firstTapAtRef.current = Date.now();
+      if (answerStartRef.current && idleBeforeFirstTapMsRef.current === null) {
+        idleBeforeFirstTapMsRef.current = Math.max(0, firstTapAtRef.current - answerStartRef.current);
+      }
+    }
+    tapTimestampsRef.current = [...tapTimestampsRef.current, Date.now()];
 
     const currentInput = userInputRef.current;
     const isRepeatedClick = currentInput.length > 0 && currentInput[currentInput.length - 1] === index;
@@ -1495,7 +1832,10 @@ export default function TestPage_CBT() {
           });
 
           setManagedTimeout(() => {
-            prepareFinish(finalHistory);
+            completeTrial(finalHistory, {
+              correct: false,
+              isTimeout: false,
+            });
           }, 390);
         },
       });
@@ -1517,7 +1857,10 @@ export default function TestPage_CBT() {
           });
 
           setManagedTimeout(() => {
-            goNextQuestion(finalHistory);
+            goNextQuestion(finalHistory, {
+              correct: true,
+              isTimeout: false,
+            });
           }, 260);
         }
       },
@@ -1545,6 +1888,12 @@ export default function TestPage_CBT() {
         currentRepeatedClicksRef.current = 0;
         accumulatedWalkingTimeRef.current = 0;
         isClickResolvingRef.current = false;
+        firstTapAtRef.current = null;
+        tapTimestampsRef.current = [];
+        idleHintShownRef.current = false;
+        idleHintCountRef.current = 0;
+        idleBeforeFirstTapMsRef.current = null;
+        setIdleHintActive(false);
         answerStartRef.current = Date.now();
         setPhase("answer");
       }
@@ -1572,6 +1921,34 @@ export default function TestPage_CBT() {
   }, [phase, showStep, sequence]);
 
   useEffect(() => {
+    if (phase !== "answer") {
+      setIdleHintActive(false);
+      return;
+    }
+
+    if (idleHintShownRef.current) return;
+
+    const timer = setManagedTimeout(() => {
+      if (phase !== "answer") return;
+      if (endedRef.current || isClickResolvingRef.current) return;
+      if (userInputRef.current.length > 0) return;
+
+      idleHintShownRef.current = true;
+      idleHintCountRef.current += 1;
+      if (answerStartRef.current && idleBeforeFirstTapMsRef.current === null) {
+        idleBeforeFirstTapMsRef.current = Math.max(0, Date.now() - answerStartRef.current);
+      }
+      setIdleHintActive(true);
+
+      setManagedTimeout(() => {
+        setIdleHintActive(false);
+      }, 1100);
+    }, IDLE_HINT_DELAY_MS);
+
+    return () => clearManagedTimeout(timer);
+  }, [phase, questionIndex]);
+
+  useEffect(() => {
     if (phase !== "answer") return;
     if (endedRef.current) return;
 
@@ -1585,7 +1962,10 @@ export default function TestPage_CBT() {
       setMessage("時間到了。");
 
       setManagedTimeout(() => {
-        prepareFinish(finalHistory);
+        completeTrial(finalHistory, {
+          correct: false,
+          isTimeout: true,
+        });
       }, 500);
 
       return;
@@ -1596,6 +1976,8 @@ export default function TestPage_CBT() {
     }, 1000);
 
     return () => clearManagedTimeout(timer);
+    // Timer callbacks use refs/current phase state; adding function deps resets the countdown loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, timeLeft]);
 
   useEffect(() => {
@@ -1611,6 +1993,8 @@ export default function TestPage_CBT() {
     }, 1000);
 
     return () => clearManagedTimeout(timer);
+    // Countdown transition should only react to phase and countdownLeft changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, countdownLeft]);
 
   return (
@@ -1623,11 +2007,11 @@ export default function TestPage_CBT() {
       <style>{cbtSrtLikeCss}</style>
 
       {phase === "story" && (
-        <main className="cbt-start-shell" aria-label="圖片記憶任務開始畫面">
-          <h1 className="cbt-start-title">圖片記憶任務</h1>
+        <main className="cbt-start-shell" aria-label="石頭路線記憶測驗開始畫面">
+          <h1 className="cbt-start-title">石頭路線記憶</h1>
 
           <div className="cbt-start-content">
-            <div className="cbt-dialog-bubble">幫小鹿記住湖邊的小物品。</div>
+            <div className="cbt-dialog-bubble">幫小鹿記住石頭亮起的路線。</div>
             <div className="cbt-round-avatar">
               <img src={startAvatar} alt="小鹿頭像" draggable="false" />
             </div>
@@ -1646,18 +2030,15 @@ export default function TestPage_CBT() {
 
       {phase === "introVideo" && (
         <VideoOnlyPage
-          videoSrc={resultVideo}
-          onDone={() => setPhase("guide")}
+          videoSrc={storyVideo}
+          onDone={() => setPhase("tutorialVideo")}
         />
       )}
 
-      {phase === "guide" && (
-        <InteractiveGuide
-          guideStep={guideStep}
-          setGuideStep={setGuideStep}
-          onReady={startFormalTest}
-          stoneImg={stoneImg}
-          personImg={personImg}
+      {phase === "tutorialVideo" && (
+        <VideoOnlyPage
+          videoSrc={tutorialVideo}
+          onDone={startFormalTest}
         />
       )}
 
@@ -1685,6 +2066,7 @@ export default function TestPage_CBT() {
             wrongIndex={wrongIndex}
             personIndex={personIndex}
             isWalking={isWalking}
+            idleHintActive={false}
             onBlockClick={handleWarmupClick}
             disabled={phase !== "warmupAnswer"}
           />
@@ -1753,6 +2135,7 @@ export default function TestPage_CBT() {
             wrongIndex={wrongIndex}
             personIndex={personIndex}
             isWalking={isWalking}
+            idleHintActive={idleHintActive}
             onBlockClick={handleBlockClick}
             onBoardClick={() => {
               currentRandomClicksRef.current += 1;
@@ -1772,7 +2155,7 @@ export default function TestPage_CBT() {
 
       {phase === "endingVideo" && (
         <VideoOnlyPage
-          videoSrc={resultVideo}
+          videoSrc={endingVideo}
           onDone={() => finishTest()}
         />
       )}
@@ -1813,16 +2196,9 @@ export default function TestPage_CBT() {
               imgSrc={homeBackBtn}
               imgAlt="回到森林"
               ariaLabel="回到森林"
-              onClick={() => navigate("/test-map")}
+              onClick={() => navigate(TEST_PAGE_ROUTE)}
               showMouse
               variant="home"
-            />
-            <GuidedImageButton
-              imgSrc={homeAgainBtn}
-              imgAlt="再玩一次"
-              ariaLabel="再玩一次"
-              onClick={restartFromStartPage}
-              variant="replay"
             />
             <GuidedImageButton
               imgSrc={homeResultBtn}
@@ -1905,6 +2281,7 @@ function GuidedImageButton({
   );
 }
 
+/* eslint-disable no-unused-vars, react-hooks/exhaustive-deps */
 function InteractiveGuide({ guideStep, setGuideStep, onReady, stoneImg, personImg }) {
   const guideStones = [
     { left: "24%", top: "42%" },
@@ -2088,6 +2465,7 @@ function InteractiveGuide({ guideStep, setGuideStep, onReady, stoneImg, personIm
     </main>
   );
 }
+/* eslint-enable no-unused-vars, react-hooks/exhaustive-deps */
 
 function CBTBoard({
   blocks,
@@ -2097,13 +2475,14 @@ function CBTBoard({
   wrongIndex,
   personIndex,
   isWalking,
+  idleHintActive = false,
   onBlockClick,
   onBoardClick,
   disabled,
 }) {
   return (
     <div
-      className="cbt-board"
+      className={["cbt-board", idleHintActive ? "is-idle-hint" : ""].filter(Boolean).join(" ")}
       style={{
         width: BOARD_WIDTH,
         height: BOARD_HEIGHT,

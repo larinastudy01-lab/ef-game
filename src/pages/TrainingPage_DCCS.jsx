@@ -5,10 +5,12 @@ import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/GamePage_DCCS.css";
 
 import dccsBackgroundImg from "../asset/DCCS_testbackground.png";
-import introVideo from "../asset/SRT_start.mp4";
-import endingVideo from "../asset/SRT_start.mp4";
+import startVideo from "../asset/mp4/DCCS_start.mp4";
+import stepVideo from "../asset/mp4/DCCS_step.mp4";
+import endingVideo from "../asset/mp4/DCCS_end.mp4";
 import homeStartBtn from "../asset/home/start.png";
 import homeSkipBtn from "../asset/home/skip.png";
+import homeNextBtn from "../asset/home/next.png";
 import homeBackBtn from "../asset/home/back.png";
 import homeAgainBtn from "../asset/home/again.png";
 import homeResultBtn from "../asset/home/result.png";
@@ -17,25 +19,33 @@ import mouseGuideImg from "../asset/mouse.png";
 import { analyzePerformance } from "../ai/performanceAnalyzer";
 import { analyzeErrors } from "../ai/errorAnalyzer";
 import { analyzeFatigue } from "../ai/fatigueAnalyzer";
-import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
+import { saveUnifiedResult } from "../utils/resultManager";
+import { calculateDccsScore } from "../utils/dccsScoring";
+import { analyzeDccsTraining } from "../ai/dccsTrainingAnalyzer";
 
 import peacockImg from "../asset/DCCS/dccs_peacock.png";
 import basketTopImg from "../asset/DCCS/dccs_basket_left.png";
 import basketBottomImg from "../asset/DCCS/dccs_basket_right.png";
 
-import pinkSkirtImg from "../asset/DCCS/dccs_pink_skirt.png";
-import blueSkirtImg from "../asset/DCCS/dccs_blue_skirt.png";
-import pinkSocksImg from "../asset/DCCS/dccs_pink_socks.png";
-import greenSocksImg from "../asset/DCCS/dccs_green_socks.png";
-import yellowShirtImg from "../asset/DCCS/dccs_yellow_shirt.png";
-import blueShirtImg from "../asset/DCCS/dccs_blue_shirt.png";
-import yellowPantsImg from "../asset/DCCS/dccs_yellow_pants.png";
-import purplePantsImg from "../asset/DCCS/dccs_purple_pants.png";
+import {
+  dccsClothingCards,
+  normalCards,
+  baggedCards,
+  colorLabels as clothingColorLabels,
+  typeLabels as clothingTypeLabels,
+} from "../config/dccsClothingData";
+
+import pinkSkirtImg from "../asset/DCCS/pink_skirts.png";
+import blueSkirtImg from "../asset/DCCS/blue_skirts.png";
+import yellowShirtImg from "../asset/DCCS/yellow_T-shirts.png";
+import blueShirtImg from "../asset/DCCS/blue_T-shirts.png";
 
 const MENU_ROUTE = "/game-menu";
-const TEST_ROUTE = "/test-dccs";
+const RESULT_ROUTE = "/result-dccs";
 
-const INTRO_VIDEO_SRC = introVideo;
+// ???雿輻 DCCS_start.mp4嚗?撠?摮訾蝙??DCCS_step.mp4嚗????思蝙??DCCS_end.mp4??
+const START_VIDEO_SRC = startVideo;
+const STEP_VIDEO_SRC = stepVideo;
 const END_VIDEO_SRC = endingVideo;
 
 const COMPLETED_LEVELS_STORAGE_KEY = "ef_game_completed_training_levels";
@@ -48,6 +58,29 @@ const safeParse = (value, fallback = null) => {
   } catch {
     return fallback;
   }
+};
+
+const getStoredCurrentChild = () => {
+  if (typeof window === "undefined") return null;
+
+  const currentChild = safeParse(window.localStorage?.getItem("currentChild"), null);
+  const currentChildId =
+    currentChild?.childId ||
+    currentChild?.id ||
+    currentChild?.patientId ||
+    window.localStorage?.getItem("currentChildId") ||
+    null;
+
+  if (!currentChildId) return currentChild || null;
+
+  return {
+    ...(currentChild && typeof currentChild === "object" ? currentChild : {}),
+    id: currentChildId,
+    childId: currentChildId,
+    patientId: currentChildId,
+    name: currentChild?.name || currentChild?.nickname || "",
+    nickname: currentChild?.nickname || currentChild?.name || "",
+  };
 };
 
 const clampNumber = (value, min, max) => {
@@ -100,13 +133,23 @@ const normalizePercent = (value) => {
 };
 
 const readLatestDccsTestResult = () => {
+  const currentChild = getStoredCurrentChild();
+  const childId =
+    currentChild?.childId ||
+    currentChild?.id ||
+    currentChild?.patientId ||
+    null;
+
   const keys = [
     "DCCS_TEST_RESULT",
+    "DCCS_RESULT",
     "dccsTestResult",
+    "latestDccsTestResult",
+    childId ? `dccsTestResult_${childId}` : null,
     "dccs_test_result",
     "ef_game_dccs_test_result",
     "ef_game_DCCS_test_result",
-  ];
+  ].filter(Boolean);
 
   const candidates = keys
     .flatMap((key) => [sessionStorage.getItem(key), localStorage.getItem(key)])
@@ -182,17 +225,6 @@ const SINGLE_RULE_LEVEL_IDS = new Set([
   "typeStable",
 ]);
 
-const COLOR_ONLY_LEVEL_IDS = new Set(["colorIntro", "colorStable"]);
-const TYPE_ONLY_LEVEL_IDS = new Set(["typeIntro", "typeStable"]);
-const SWITCH_LEVEL_IDS = new Set([
-  "switchClear",
-  "switchEarly",
-  "switchMaintain",
-  "lowInterference",
-  "highInterference",
-  "testLike",
-]);
-
 const getDifficultyForTrainingLevel = (trainingLevel, testProfile) => {
   const safeLevel = clampNumber(trainingLevel, 1, DCCS_DIFFICULTY_ORDER.length);
   const baseIndex = safeLevel - 1;
@@ -202,9 +234,9 @@ const getDifficultyForTrainingLevel = (trainingLevel, testProfile) => {
     DCCS_DIFFICULTY_ORDER.length - 1
   );
 
-  // 保留關卡成長感：
-  // 1～2 關不會直接跳到切換；3～4 關不會跳過「看衣服」練習；
-  // 7 關以後至少維持在切換層，避免退回太基礎。
+  // 靽?????
+  // 1嚚? ????亥歲?啣???3嚚? ???歲??銵???毀蝧?
+  // 7 ?誑敺撠雁???撅歹??踹???云?箇???
   if (safeLevel <= 2) {
     return DCCS_DIFFICULTY_ORDER[Math.min(shiftedIndex, 2)];
   }
@@ -225,65 +257,6 @@ const getLevelCategory = (levelId) => {
   if (levelId === "lowInterference" || levelId === "highInterference") return "interference";
   if (levelId === "testLike") return "testLike";
   return "switch";
-};
-
-const calculateTrainingStars = ({ summary, levelId }) => {
-  const accuracyScore = summary.accuracy || 0;
-  const firstTryScore = summary.firstTryAccuracy || 0;
-  const switchScore = summary.switchAccuracy || 0;
-  const interferenceAccuracy = summary.interferenceAccuracy ?? accuracyScore;
-  const oldRulePenalty = Math.min(30, (summary.oldRuleInterference || 0) * 7);
-  const category = getLevelCategory(levelId);
-
-  let totalScore = 0;
-
-  if (category === "singleRule") {
-    totalScore = accuracyScore * 0.65 + firstTryScore * 0.35;
-  } else if (category === "switch") {
-    totalScore = accuracyScore * 0.3 + switchScore * 0.5 + firstTryScore * 0.2 - oldRulePenalty;
-  } else if (category === "interference") {
-    totalScore =
-      accuracyScore * 0.25 +
-      switchScore * 0.35 +
-      interferenceAccuracy * 0.3 +
-      firstTryScore * 0.1 -
-      oldRulePenalty;
-  } else {
-    totalScore =
-      accuracyScore * 0.35 +
-      switchScore * 0.35 +
-      interferenceAccuracy * 0.2 +
-      firstTryScore * 0.1 -
-      oldRulePenalty;
-  }
-
-  const finalScore = Math.round(clampNumber(totalScore, 0, 100));
-
-  if (finalScore >= 85) return 3;
-  if (finalScore >= 60) return 2;
-  return 1;
-};
-
-const getNextRecommendedDccsLevel = ({ stars, summary, currentTrainingLevel }) => {
-  const safeLevel = clampNumber(currentTrainingLevel, 1, DCCS_DIFFICULTY_ORDER.length);
-
-  if (
-    stars === 3 &&
-    (summary.oldRuleInterference || 0) <= 1 &&
-    (summary.accuracy || 0) >= 80
-  ) {
-    return Math.min(DCCS_DIFFICULTY_ORDER.length, safeLevel + 1);
-  }
-
-  if (
-    stars === 1 ||
-    (summary.oldRuleInterference || 0) >= 3 ||
-    (summary.switchAccuracy || 100) < 50
-  ) {
-    return Math.max(1, safeLevel - 1);
-  }
-
-  return safeLevel;
 };
 
 const mergeJsonObject = (key, patch) => {
@@ -338,126 +311,397 @@ const persistTrainingStageResult = ({ context, result, stars }) => {
 const PHASE = {
   START: "start",
   VIDEO_INTRO: "video_intro",
-  COLOR_RULE: "color_rule",
+  VIDEO_STEP: "video_step",
   PLAYING: "playing",
   SWITCH_RULE: "switch_rule",
+  BAG_RULE: "bag_rule",
   END_VIDEO: "end_video",
   FINISH: "finish",
 };
 
-const colorLabels = {
+const COLOR_PRIORITY = [
+  "pink",
+  "blue",
+  "yellow",
+  "green",
+  "purple",
+  "red",
+  "orange",
+];
+
+const TYPE_PRIORITY = [
+  "tshirt",
+  "dress",
+  "gloves",
+  "jacket",
+  "scarf",
+  "shorts",
+  "skirt",
+  "sneakers",
+  "socks",
+  "hat",
+  "pants",
+  "shirt",
+];
+
+const DEFAULT_COLOR_LABELS = {
   pink: "粉紅色",
   blue: "藍色",
   yellow: "黃色",
   green: "綠色",
   purple: "紫色",
+  red: "紅色",
+  orange: "橘色",
+};
+
+const DEFAULT_TYPE_LABELS = {
+  tshirt: "上衣",
+  dress: "洋裝",
+  gloves: "手套",
+  jacket: "外套",
+  scarf: "圍巾",
+  shorts: "短褲",
+  skirt: "裙子",
+  sneakers: "鞋子",
+  socks: "襪子",
+  hat: "帽子",
+  pants: "褲子",
+  shirt: "上衣",
+};
+
+const colorLabels = {
+  ...DEFAULT_COLOR_LABELS,
+  ...(clothingColorLabels || {}),
 };
 
 const typeLabels = {
-  skirt: "裙子",
-  socks: "襪子",
-  shirt: "上衣",
-  pants: "褲子",
+  ...DEFAULT_TYPE_LABELS,
+  ...(clothingTypeLabels || {}),
 };
 
-const colorClassMap = {
-  pink: "dccs-color-pink",
-  blue: "dccs-color-blue",
-  yellow: "dccs-color-yellow",
-  green: "dccs-color-green",
-  purple: "dccs-color-purple",
-};
+function normalizeToken(value = "") {
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/\\/g, "/")
+    .replace(/\.(png|jpe?g|webp|svg)$/i, "")
+    .replace(/\s+/g, "_")
+    .replace(/-+/g, "_");
+}
 
-const colorHexMap = {
-  pink: "#f7a6c8",
-  blue: "#5aa8ff",
-  yellow: "#ffd84d",
-  green: "#79d67a",
-  purple: "#b692ff",
-};
+function normalizeColor(value = "") {
+  const token = normalizeToken(value);
+  const aliases = {
+    pink: "pink",
+    blue: "blue",
+    yellow: "yellow",
+    green: "green",
+    purple: "purple",
+    red: "red",
+    orange: "orange",
+    "粉紅色": "pink",
+    "粉紅": "pink",
+    "藍色": "blue",
+    "黃色": "yellow",
+    "綠色": "green",
+    "紫色": "purple",
+    "紅色": "red",
+    "橘色": "orange",
+    "橙色": "orange",
+  };
 
-const allCards = [
-  {
-    id: "pink_skirt",
-    img: pinkSkirtImg,
-    color: "pink",
-    type: "skirt",
-    colorText: "粉紅色",
-    typeText: "裙子",
-  },
-  {
-    id: "blue_skirt",
-    img: blueSkirtImg,
-    color: "blue",
-    type: "skirt",
-    colorText: "藍色",
-    typeText: "裙子",
-  },
-  {
-    id: "pink_socks",
-    img: pinkSocksImg,
-    color: "pink",
-    type: "socks",
-    colorText: "粉紅色",
-    typeText: "襪子",
-  },
-  {
-    id: "green_socks",
-    img: greenSocksImg,
-    color: "green",
-    type: "socks",
-    colorText: "綠色",
-    typeText: "襪子",
-  },
-  {
-    id: "yellow_shirt",
-    img: yellowShirtImg,
-    color: "yellow",
-    type: "shirt",
-    colorText: "黃色",
-    typeText: "上衣",
-  },
-  {
-    id: "blue_shirt",
-    img: blueShirtImg,
-    color: "blue",
-    type: "shirt",
-    colorText: "藍色",
-    typeText: "上衣",
-  },
-  {
-    id: "yellow_pants",
-    img: yellowPantsImg,
-    color: "yellow",
-    type: "pants",
-    colorText: "黃色",
-    typeText: "褲子",
-  },
-  {
-    id: "purple_pants",
-    img: purplePantsImg,
-    color: "purple",
-    type: "pants",
-    colorText: "紫色",
-    typeText: "褲子",
-  },
-];
+  if (aliases[token]) return aliases[token];
+  return COLOR_PRIORITY.find((color) => token.includes(color)) || token;
+}
 
-const typeSampleImg = {
-  skirt: pinkSkirtImg,
-  socks: greenSocksImg,
-  shirt: yellowShirtImg,
-  pants: purplePantsImg,
-};
+function normalizeType(value = "") {
+  const token = normalizeToken(value);
+  const aliases = {
+    t_shirt: "tshirt",
+    t_shirts: "tshirt",
+    tshirt: "tshirt",
+    tshirts: "tshirt",
+    shirt: "tshirt",
+    shirts: "tshirt",
+    top: "tshirt",
+    tops: "tshirt",
+    dress: "dress",
+    dresses: "dress",
+    glove: "gloves",
+    gloves: "gloves",
+    jacket: "jacket",
+    jackets: "jacket",
+    scarf: "scarf",
+    scarves: "scarf",
+    short: "shorts",
+    shorts: "shorts",
+    skirt: "skirt",
+    skirts: "skirt",
+    sneaker: "sneakers",
+    sneakers: "sneakers",
+    shoe: "sneakers",
+    shoes: "sneakers",
+    sock: "socks",
+    socks: "socks",
+    hat: "hat",
+    hats: "hat",
+    cap: "hat",
+    caps: "hat",
+    pants: "pants",
+    trouser: "pants",
+    trousers: "pants",
+    "上衣": "tshirt",
+    "洋裝": "dress",
+    "手套": "gloves",
+    "外套": "jacket",
+    "圍巾": "scarf",
+    "短褲": "shorts",
+    "裙子": "skirt",
+    "鞋子": "sneakers",
+    "襪子": "socks",
+    "帽子": "hat",
+    "褲子": "pants",
+  };
 
-function ColorDot({ colorKey, size = "training" }) {
+  if (aliases[token]) return aliases[token];
+
+  const matched = Object.keys(aliases).find((key) => token.includes(key));
+  return matched ? aliases[matched] : token;
+}
+
+function getImageSource(raw = {}) {
   return (
-    <span
-      className={`Dcss-color-dot-inline ${colorClassMap[colorKey] || ""} ${size}`}
-      aria-hidden="true"
-      style={{ backgroundColor: colorHexMap[colorKey] || "#ddd" }}
-    />
+    raw.normalImg ||
+    raw.normalImage ||
+    raw.img ||
+    raw.image ||
+    raw.src ||
+    raw.url ||
+    raw.asset ||
+    null
   );
+}
+
+function getBagImageSource(raw = {}) {
+  return (
+    raw.bagImg ||
+    raw.bagImage ||
+    raw.packagedImg ||
+    raw.packagedImage ||
+    raw.bag ||
+    null
+  );
+}
+
+function isBagRecord(raw = {}) {
+  if (raw.isBagged === true || raw.bagged === true || raw.variant === "bag") {
+    return true;
+  }
+
+  const sourceText = [
+    raw.id,
+    raw.key,
+    raw.name,
+    raw.filename,
+    raw.path,
+    raw.src,
+    raw.url,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return /(^|[\\/_-])bag([\\/_-]|$)|packaged|plastic/.test(sourceText);
+}
+
+function inferColor(raw = {}) {
+  const direct = raw.color || raw.colorKey || raw.colour || raw.colorName;
+  if (direct) return normalizeColor(direct);
+
+  const sourceText = [raw.id, raw.key, raw.name, raw.filename, raw.path]
+    .filter(Boolean)
+    .join("_");
+
+  return normalizeColor(sourceText);
+}
+
+function inferType(raw = {}) {
+  const direct =
+    raw.type || raw.typeKey || raw.category || raw.clothingType || raw.kind;
+  if (direct) return normalizeType(direct);
+
+  const sourceText = [raw.id, raw.key, raw.name, raw.filename, raw.path]
+    .filter(Boolean)
+    .join("_");
+
+  return normalizeType(sourceText);
+}
+
+function collectRawCards() {
+  const rawCards = [dccsClothingCards, normalCards, baggedCards]
+    .filter(Array.isArray)
+    .flat()
+    .filter((item) => item && typeof item === "object");
+
+  return Array.from(new Set(rawCards));
+}
+
+function normalizeClothingCards(rawCards = []) {
+  const grouped = new Map();
+
+  rawCards.forEach((raw, index) => {
+    if (!raw || typeof raw !== "object") return;
+
+    const color = inferColor(raw);
+    const type = inferType(raw);
+    if (!color || !type) return;
+
+    const rawId =
+      raw.id || raw.key || raw.name || raw.filename || `${color}_${type}_${index}`;
+    const normalizedId = normalizeToken(rawId) || `${color}_${type}_${index}`;
+    const compositeKey = `${color}:${type}`;
+    const previous = grouped.get(compositeKey) || {
+      id: `${color}_${type}`,
+      color,
+      type,
+      colorText: colorLabels[color] || raw.colorText || color,
+      typeText: typeLabels[type] || raw.typeText || type,
+      normalImg: null,
+      bagImg: null,
+    };
+
+    const directNormal = getImageSource(raw);
+    const directBag = getBagImageSource(raw);
+    const recordIsBag = isBagRecord(raw);
+
+    grouped.set(compositeKey, {
+      ...previous,
+      id: previous.id || normalizedId,
+      sourceIds: [...(previous.sourceIds || []), normalizedId],
+      colorText: raw.colorText || previous.colorText,
+      typeText: raw.typeText || previous.typeText,
+      normalImg:
+        directBag && directNormal && directBag !== directNormal
+          ? directNormal
+          : recordIsBag
+          ? previous.normalImg
+          : directNormal || previous.normalImg,
+      bagImg:
+        directBag || (recordIsBag ? directNormal : null) || previous.bagImg,
+    });
+  });
+
+  return Array.from(grouped.values())
+    .map((card) => ({
+      ...card,
+      img: card.normalImg || card.bagImg,
+      colorText: card.colorText || colorLabels[card.color] || card.color,
+      typeText: card.typeText || typeLabels[card.type] || card.type,
+    }))
+    .filter((card) => card.img);
+}
+
+const allCards = normalizeClothingCards(collectRawCards());
+
+function getCardImage(card, variant = "normal") {
+  if (!card) return null;
+  if (variant === "bag") return card.bagImg || card.normalImg || card.img;
+  return card.normalImg || card.img || card.bagImg;
+}
+
+function getAvailableValues(field, priority = []) {
+  const values = Array.from(
+    new Set(allCards.map((card) => card?.[field]).filter(Boolean))
+  );
+
+  return [
+    ...priority.filter((value) => values.includes(value)),
+    ...values.filter((value) => !priority.includes(value)),
+  ];
+}
+
+function findCard({
+  color,
+  type,
+  excludeId,
+  requireBag = false,
+  preferDifferentType,
+  preferDifferentColor,
+} = {}) {
+  const candidates = allCards.filter((card) => {
+    if (!card) return false;
+    if (excludeId && card.id === excludeId) return false;
+    if (color && card.color !== color) return false;
+    if (type && card.type !== type) return false;
+    if (requireBag && !card.bagImg) return false;
+    if (!requireBag && !card.normalImg) return false;
+    if (!getCardImage(card, requireBag ? "bag" : "normal")) return false;
+    return true;
+  });
+
+  return (
+    candidates.find(
+      (card) =>
+        (!preferDifferentType || card.type !== preferDifferentType) &&
+        (!preferDifferentColor || card.color !== preferDifferentColor)
+    ) ||
+    candidates[0] ||
+    null
+  );
+}
+
+function makeTarget(card, matchBy) {
+  if (!card) return null;
+
+  return {
+    key: matchBy === "type" ? card.type : card.color,
+    label:
+      matchBy === "type"
+        ? typeLabels[card.type] || card.typeText
+        : colorLabels[card.color] || card.colorText,
+    image: getCardImage(card, "normal"),
+    sampleCardId: card.id,
+    colorKey: card.color,
+    typeKey: card.type,
+  };
+}
+
+function arrangeTargets(correctTarget, wrongTarget, correctOnTop) {
+  return correctOnTop
+    ? { topTarget: correctTarget, bottomTarget: wrongTarget }
+    : { topTarget: wrongTarget, bottomTarget: correctTarget };
+}
+
+function pickDiverseCards(cards, count) {
+  const selected = [];
+  const usedIds = new Set();
+  const usedPairs = new Set();
+
+  for (const card of cards) {
+    const pair = `${card.color}:${card.type}`;
+    if (!usedIds.has(card.id) && !usedPairs.has(pair)) {
+      selected.push(card);
+      usedIds.add(card.id);
+      usedPairs.add(pair);
+    }
+    if (selected.length >= count) return selected;
+  }
+
+  for (const card of cards) {
+    if (!usedIds.has(card.id)) {
+      selected.push(card);
+      usedIds.add(card.id);
+    }
+    if (selected.length >= count) break;
+  }
+
+  return selected;
+}
+
+function repeatCardsToCount(cards, count) {
+  if (!Array.isArray(cards) || cards.length === 0 || count <= 0) return [];
+  const ordered = pickDiverseCards(cards, cards.length);
+  return Array.from({ length: count }, (_, index) => ordered[index % ordered.length]);
 }
 
 function ShadowCloth({ src, label }) {
@@ -469,33 +713,6 @@ function ShadowCloth({ src, label }) {
       aria-label={label}
     />
   );
-}
-
-function RuleIconSet({ rule }) {
-  if (rule === "type") {
-    return (
-      <div className="Dcss-current-rule-icons Dcss-current-type-icons" aria-label="看衣服種類">
-        <ShadowCloth src={yellowShirtImg} label="上衣剪影" />
-        <ShadowCloth src={purplePantsImg} label="褲子剪影" />
-        <ShadowCloth src={greenSocksImg} label="襪子剪影" />
-        <ShadowCloth src={pinkSkirtImg} label="裙子剪影" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="Dcss-current-rule-icons Dcss-current-color-icons" aria-label="看顏色">
-      <ColorDot colorKey="pink" size="small" />
-      <ColorDot colorKey="blue" size="small" />
-      <ColorDot colorKey="yellow" size="small" />
-      <ColorDot colorKey="green" size="small" />
-      <ColorDot colorKey="purple" size="small" />
-    </div>
-  );
-}
-
-function getCard(cardId) {
-  return allCards.find((card) => card.id === cardId);
 }
 
 function average(numbers = []) {
@@ -544,12 +761,41 @@ function getFatigueInput(logs = []) {
 }
 
 function buildDccsTrainingResult({ logs, levelId, currentLevel }) {
-  const errorTypes = getDccsErrorTypes(logs);
-  const correctTrials = logs.filter((log) => log.isCorrect).length;
-  const reactionTimes = logs.map((log) => log.reactionTime);
+  const formalLogs = Array.isArray(logs)
+    ? logs.filter((log) => log && typeof log === "object")
+    : [];
 
+  const errorTypes = getDccsErrorTypes(formalLogs);
+  const correctTrials = formalLogs.filter((log) => log.isCorrect).length;
+  const reactionTimes = formalLogs.map((log) => log.reactionTime);
+  const standardColorLogs = formalLogs.filter(
+    (log) => log.ruleStage === "color" && !log.isBagColorTrial
+  );
+  const typeStageLogs = formalLogs.filter((log) => log.ruleStage === "type");
+  const bagColorLogs = formalLogs.filter(
+    (log) => log.ruleStage === "bagColor" || log.isBagColorTrial
+  );
+  const bagColorCorrectCount = bagColorLogs.filter((log) => log.isCorrect).length;
+  const bagColorAccuracy =
+    bagColorLogs.length > 0 ? bagColorCorrectCount / bagColorLogs.length : 0;
+  const bagColorAvgReactionTime = average(
+    bagColorLogs.map((log) => log.reactionTime)
+  );
+  const secondSwitchPerseverativeErrors = bagColorLogs.filter(
+    (log) => log.isPerseverativeError || log.isOldRuleInterference
+  ).length;
+  const standardColorAvgReactionTime = average(
+    standardColorLogs.map((log) => log.reactionTime)
+  );
+  const secondSwitchCost =
+    bagColorLogs.length > 0 && standardColorLogs.length > 0
+      ? bagColorAvgReactionTime - standardColorAvgReactionTime
+      : 0;
+
+  // ???靽?雿?Ｘ?鞈??詨捆?隤文?????
+  // 甇??閮毀???蝝??賢?????DCCS 撠璅∠?????
   const performanceResult = analyzePerformance({
-    totalTrials: currentLevel.trials.length,
+    totalTrials: formalLogs.length,
     correctTrials,
     reactionTimes,
     errorTypes,
@@ -557,184 +803,458 @@ function buildDccsTrainingResult({ logs, levelId, currentLevel }) {
   });
 
   const errorResult = analyzeErrors(errorTypes);
-  const fatigueResult = analyzeFatigue(getFatigueInput(logs));
-  const fatigueLevel = fatigueResult?.fatigueLevel || "low";
+  const legacyFatigueResult = analyzeFatigue(getFatigueInput(formalLogs));
 
-  const recommendedDifficulty = getRecommendedDifficulty({
-    accuracy: performanceResult.accuracy,
-    avgReactionTime: performanceResult.avgReactionTime,
-    errorTypes,
-    fatigueLevel,
+  const scoring = calculateDccsScore({
+    gameId: "DCCS",
+    task: "DCCS",
+    mode: "training",
+    scoringMode: "training",
+    difficulty: levelId,
+    trainingDifficulty: levelId,
+    difficultyLevel: levelId,
+    totalTrials: formalLogs.length,
+    correctCount: correctTrials,
+    trialLogs: formalLogs,
   });
 
-  const switchLogs = logs.filter((log) => log.rule === "type" && log.wasAfterRuleSwitch);
-  const switchCorrect = switchLogs.filter((log) => log.isCorrect).length;
-  const interferenceLogs = logs.filter((log) => log.isInterferenceTrial);
-  const interferenceCorrect = interferenceLogs.filter((log) => log.isCorrect).length;
+  const trainingAnalysis = analyzeDccsTraining({
+    trialLogs: formalLogs,
+    difficultyLevel: levelId,
+    trainingDifficulty: levelId,
+    currentTrainingLevel: DCCS_DIFFICULTY_ORDER.indexOf(levelId) + 1,
+    totalTrials: scoring.totalTrials,
+    correctTrials: scoring.correctCount,
+    accuracy: scoring.accuracy,
+    colorTrials: scoring.colorTrials,
+    colorAccuracy: scoring.colorAccuracy,
+    typeTrials: scoring.typeTrials,
+    typeAccuracy: scoring.typeAccuracy,
+    switchTrials: scoring.switchTrials,
+    postSwitchTrials: scoring.postSwitchTrials,
+    switchAccuracy: scoring.switchAccuracy,
+    postSwitchAccuracy: scoring.postSwitchAccuracy,
+    interferenceTrials: scoring.interferenceTrials,
+    interferenceAccuracy: scoring.interferenceAccuracy,
+    interferenceControl: scoring.interferenceControl,
+    firstTryAccuracy: scoring.firstTryAccuracy,
+    perseverativeErrors: scoring.perseverativeErrors,
+    oldRuleInterference: scoring.perseverativeErrors,
+    perseverativeErrorRate: scoring.perseverativeErrorRate,
+    avgReactionTime: scoring.avgReactionTime,
+    responseStabilityScore: scoring.responseStabilityScore,
+    bagColorTrials: bagColorLogs.length,
+    bagColorCorrectCount,
+    bagColorAccuracy,
+    bagColorAvgReactionTime,
+    secondSwitchTrials: bagColorLogs.length,
+    secondSwitchAccuracy: bagColorAccuracy,
+    secondSwitchPerseverativeErrors,
+    secondSwitchCost,
+  });
+
+  const currentChild = getStoredCurrentChild();
+  const childId =
+    currentChild?.childId ||
+    currentChild?.id ||
+    currentChild?.patientId ||
+    "current-child";
+
+  const totalPlayTime =
+    formalLogs.length > 1
+      ? Math.max(
+          0,
+          formalLogs[formalLogs.length - 1].timestamp -
+            formalLogs[0].timestamp
+        )
+      : 0;
 
   return {
     gameId: "DCCS",
-    abilityType: "flexibility",
+    task: "DCCS",
+    abilityType: "cognitiveFlexibility",
     mode: "training",
-    difficulty: levelId,
-    levelLabel: currentLevel.label,
-    levelCategory: getLevelCategory(levelId),
-    totalTrials: currentLevel.trials.length,
-    correctTrials,
-    firstTryCorrect: logs.filter(
-      (log) => log.isCorrect && log.attemptCount === 1
-    ).length,
-    switchAccuracy:
-      switchLogs.length > 0
-        ? Math.round((switchCorrect / switchLogs.length) * 100)
-        : SINGLE_RULE_LEVEL_IDS.has(levelId)
-        ? 100
-        : 0,
-    interferenceAccuracy:
-      interferenceLogs.length > 0
-        ? Math.round((interferenceCorrect / interferenceLogs.length) * 100)
-        : null,
-    bestStreak: getBestStreak(logs),
-    oldRuleInterference: errorTypes.ruleSwitchError,
-    trialLogs: logs,
-    errorTypes,
+    scoringMode: "training",
+    childId,
+
     ...performanceResult,
     ...errorResult,
-    fatigueLevel,
-    fatigueResult,
-    recommendedDifficulty,
+
+    difficulty: levelId,
+    trainingDifficulty: levelId,
+    difficultyLevel: levelId,
+    difficultyLabel: scoring.difficultyLabel || currentLevel.label,
+    difficultyTitle: scoring.difficultyTitle || currentLevel.title,
+    levelLabel: currentLevel.label,
+    levelCategory: getLevelCategory(levelId),
+
+    score: scoring.totalScore,
+    totalScore: scoring.totalScore,
+    stars: scoring.stars,
+    scoring: {
+      ...scoring,
+      standardColorTrials: standardColorLogs.length,
+      typeStageTrials: typeStageLogs.length,
+      bagColorTrials: bagColorLogs.length,
+      bagColorCorrectCount,
+      bagColorAccuracy,
+      bagColorAccuracyPercent: Math.round(bagColorAccuracy * 100),
+      bagColorAvgReactionTime,
+      secondSwitchTrials: bagColorLogs.length,
+      secondSwitchAccuracy: bagColorAccuracy,
+      secondSwitchAccuracyPercent: Math.round(bagColorAccuracy * 100),
+      secondSwitchPerseverativeErrors,
+      secondSwitchCost,
+    },
+    trainingAnalysis,
+    aiAnalysis: trainingAnalysis,
+
+    totalTrials: scoring.totalTrials,
+    correctCount: scoring.correctCount,
+    correctTrials: scoring.correctCount,
+    incorrectTrials: Math.max(0, scoring.totalTrials - scoring.correctCount),
+
+    accuracy: scoring.accuracyPercent,
+    accuracyRatio: scoring.accuracy,
+
+    colorTrials: scoring.colorTrials,
+    colorAccuracy: scoring.colorAccuracyPercent,
+    colorAccuracyRatio: scoring.colorAccuracy,
+
+    typeTrials: scoring.typeTrials,
+    typeAccuracy: scoring.typeAccuracyPercent,
+    typeAccuracyRatio: scoring.typeAccuracy,
+
+    standardColorTrials: standardColorLogs.length,
+    typeStageTrials: typeStageLogs.length,
+    bagColorTrials: bagColorLogs.length,
+    bagColorCorrectCount,
+    bagColorAccuracy: Math.round(bagColorAccuracy * 100),
+    bagColorAccuracyRatio: bagColorAccuracy,
+    bagColorAvgReactionTime,
+    secondSwitchTrials: bagColorLogs.length,
+    secondSwitchAccuracy: Math.round(bagColorAccuracy * 100),
+    secondSwitchAccuracyRatio: bagColorAccuracy,
+    secondSwitchPerseverativeErrors,
+    secondSwitchCost,
+
+    switchTrials: scoring.switchTrials,
+    postSwitchTrials: scoring.postSwitchTrials,
+    switchAccuracy: scoring.switchAccuracyPercent,
+    postSwitchAccuracy: scoring.postSwitchAccuracyPercent,
+    switchAccuracyRatio: scoring.switchAccuracy,
+    postSwitchAccuracyRatio: scoring.postSwitchAccuracy,
+
+    interferenceTrials: scoring.interferenceTrials,
+    interferenceAccuracy: scoring.interferenceAccuracyPercent,
+    interferenceAccuracyRatio: scoring.interferenceAccuracy,
+    interferenceControl: scoring.interferenceControlPercent,
+    interferenceControlRatio: scoring.interferenceControl,
+
+    firstTryCorrect: formalLogs.filter(
+      (log) => log.isCorrect && log.attemptCount <= 1
+    ).length,
+    firstTryAccuracy: scoring.firstTryAccuracyPercent,
+    firstTryAccuracyRatio: scoring.firstTryAccuracy,
+
+    perseverativeErrors: scoring.perseverativeErrors,
+    oldRuleInterference: scoring.perseverativeErrors,
+    perseverativeErrorRate: scoring.perseverativeErrorRatePercent,
+    perseverativeErrorRateRatio: scoring.perseverativeErrorRate,
+
+    bestStreak: scoring.bestStreak,
+    avgReactionTime: scoring.avgReactionTime,
+    preSwitchAvgReactionTime: scoring.preSwitchAvgReactionTime,
+    colorAvgReactionTime: scoring.colorAvgReactionTime,
+    typeAvgReactionTime: scoring.typeAvgReactionTime,
+    switchAvgReactionTime: scoring.switchAvgReactionTime,
+    postSwitchAvgReactionTime: scoring.postSwitchAvgReactionTime,
+    switchCost: scoring.rtDifferenceAfterSwitch,
+    rtDifferenceAfterSwitch: scoring.rtDifferenceAfterSwitch,
+    reactionTimeCv: scoring.reactionTimeCv,
+    reactionTimeValidCount: scoring.reactionTimeValidCount,
+    reactionTimeCvReliable: scoring.reactionTimeCvReliable,
+    responseStabilityScore: scoring.responseStabilityScore,
+
+    fatigueLevel: trainingAnalysis.fatigueLevel,
+    fatigueScore: trainingAnalysis.fatigueScore,
+    fatigueResult: trainingAnalysis.fatigueResult,
+    legacyFatigueResult,
+
+    recommendedDifficulty: trainingAnalysis.recommendedDifficulty,
+    recommendedDifficultyLevel: trainingAnalysis.recommendedDifficultyLevel,
+    adjustment: trainingAnalysis.adjustment,
+    levelChange: trainingAnalysis.levelChange,
+    adjustmentReasons: trainingAnalysis.adjustmentReasons,
+    shouldIncreaseDifficulty: trainingAnalysis.shouldIncreaseDifficulty,
+    shouldDecreaseDifficulty: trainingAnalysis.shouldDecreaseDifficulty,
+    shouldMaintainDifficulty: trainingAnalysis.shouldMaintainDifficulty,
+
+    overallScore: trainingAnalysis.overallScore,
+    performanceLevel: trainingAnalysis.performanceLevel,
+    performanceLabel: trainingAnalysis.performanceLabel,
+    performanceDescription: trainingAnalysis.performanceDescription,
+    abilityScores: trainingAnalysis.abilityScores,
+    strengths: trainingAnalysis.strengths,
+    needsPractice: trainingAnalysis.needsPractice,
+    parentFeedback: trainingAnalysis.parentFeedback,
+    clinicianInterpretation: trainingAnalysis.clinicianInterpretation,
+    confidence: trainingAnalysis.confidence,
+
+    parentIndicators: scoring.parentIndicators,
+    clinicianMetrics: scoring.clinicianMetrics,
+    childMessage: scoring.childMessage,
+    parentSummary: scoring.parentSummary,
+    clinicianSummary: scoring.clinicianSummary,
+    reactionTimeLevel: scoring.reactionTimeLevel,
+    hasEnoughTrials: scoring.hasEnoughTrials,
+    minimumReliableTrials: scoring.minimumReliableTrials,
+
+    errorTypes,
+    totalPlayTime,
+    trialLogs: formalLogs,
+    records: formalLogs,
+    trials: formalLogs,
+
+
     createdAt: new Date().toISOString(),
+    finishedAt: new Date().toISOString(),
+    completedAt: new Date().toISOString(),
   };
 }
 
-const makeColorTrial = (cardId, topColor, bottomColor) => ({
-  card: getCard(cardId),
-  rule: "color",
-  topTarget: { key: topColor, label: colorLabels[topColor] },
-  bottomTarget: { key: bottomColor, label: colorLabels[bottomColor] },
-  isInterferenceTrial: false,
-  wasAfterRuleSwitch: false,
-});
+const createColorTrials = (count) => {
+  const availableColors = getAvailableValues("color", COLOR_PRIORITY);
+  const normalPool = allCards.filter((card) => card.normalImg);
+  const cards = repeatCardsToCount(normalPool, count);
 
-const makeTypeTrial = (cardId, topType, bottomType, topColorKey, bottomColorKey, options = {}) => {
-  const card = getCard(cardId);
-  const correctKey = card?.type;
-  const correctSide = topType === correctKey ? "top" : bottomType === correctKey ? "bottom" : null;
-  const oldRuleSide =
-    topColorKey === card?.color ? "top" : bottomColorKey === card?.color ? "bottom" : null;
-  const isInterferenceTrial = Boolean(
-    options.isInterferenceTrial ?? (oldRuleSide && correctSide && oldRuleSide !== correctSide)
-  );
+  return cards
+    .map((card, index) => {
+      const alternativeColors = availableColors.filter(
+        (color) => color !== card.color
+      );
+      const wrongColor =
+        alternativeColors[index % Math.max(alternativeColors.length, 1)] ||
+        alternativeColors[0];
+      const correctSample =
+        findCard({
+          color: card.color,
+          excludeId: card.id,
+          preferDifferentType: card.type,
+        }) || card;
+      const wrongSample =
+        findCard({
+          color: wrongColor,
+          preferDifferentType: correctSample.type,
+        }) || normalPool.find((item) => item.color !== card.color);
 
-  return {
-    card,
-    rule: "type",
-    topTarget: {
-      key: topType,
-      label: typeLabels[topType],
-      colorKey: topColorKey,
-    },
-    bottomTarget: {
-      key: bottomType,
-      label: typeLabels[bottomType],
-      colorKey: bottomColorKey,
-    },
-    isInterferenceTrial,
-    wasAfterRuleSwitch: Boolean(options.wasAfterRuleSwitch),
-  };
-};
+      if (!correctSample || !wrongSample) return null;
 
-const createColorTrials = (count, pairs = [["pink", "blue"], ["yellow", "green"], ["purple", "blue"]]) => {
-  const cards = [
-    "pink_skirt",
-    "blue_skirt",
-    "yellow_shirt",
-    "green_socks",
-    "purple_pants",
-    "pink_socks",
-    "blue_shirt",
-    "yellow_pants",
-  ];
-
-  return Array.from({ length: count }, (_, index) => {
-    const cardId = cards[index % cards.length];
-    const card = getCard(cardId);
-    const pair = pairs.find(([a, b]) => a === card.color || b === card.color) || [
-      card.color,
-      pairs[index % pairs.length][0],
-    ];
-    const topColor = index % 2 === 0 ? pair[0] : pair[1];
-    const bottomColor = index % 2 === 0 ? pair[1] : pair[0];
-
-    return makeColorTrial(cardId, topColor, bottomColor);
-  });
+      return {
+        id: `training_color_${index + 1}_${card.id}`,
+        card,
+        rule: "color",
+        ruleStage: "color",
+        matchBy: "color",
+        imageVariant: "normal",
+        previousRule: null,
+        isInterferenceTrial: false,
+        wasAfterRuleSwitch: false,
+        ...arrangeTargets(
+          makeTarget(correctSample, "color"),
+          makeTarget(wrongSample, "color"),
+          index % 2 === 0
+        ),
+      };
+    })
+    .filter(Boolean);
 };
 
 const createTypeTrials = (count, options = {}) => {
-  const cards = [
-    "pink_skirt",
-    "green_socks",
-    "yellow_shirt",
-    "purple_pants",
-    "blue_skirt",
-    "pink_socks",
-    "blue_shirt",
-    "yellow_pants",
-  ];
-  const typePairs = [
-    ["skirt", "socks"],
-    ["shirt", "pants"],
-    ["socks", "skirt"],
-    ["pants", "shirt"],
-  ];
-  const colorPairs = [
-    ["pink", "green"],
-    ["yellow", "purple"],
-    ["blue", "yellow"],
-    ["green", "pink"],
-  ];
+  const availableTypes = getAvailableValues("type", TYPE_PRIORITY);
+  const normalPool = allCards.filter((card) => card.normalImg);
+  const cards = repeatCardsToCount(normalPool, count);
+  const interferenceCount = Math.round(
+    count * clampNumber(options.interferenceRate ?? 0, 0, 1)
+  );
 
-  return Array.from({ length: count }, (_, index) => {
-    const cardId = cards[index % cards.length];
-    const card = getCard(cardId);
-    const baseTypePair =
-      typePairs.find(([a, b]) => a === card.type || b === card.type) || typePairs[index % typePairs.length];
-    const targetConflict = index < Math.round(count * (options.interferenceRate ?? 0));
-    const matchingColor = card.color;
-    const otherColor =
-      colorPairs[index % colorPairs.length].find((color) => color !== matchingColor) ||
-      ["pink", "blue", "yellow", "green", "purple"].find((color) => color !== matchingColor);
+  return cards
+    .map((card, index) => {
+      const targetConflict = index < interferenceCount;
+      const alternativeTypes = availableTypes.filter(
+        (type) => type !== card.type
+      );
+      const wrongType =
+        alternativeTypes[index % Math.max(alternativeTypes.length, 1)] ||
+        alternativeTypes[0];
 
-    let topType = index % 2 === 0 ? baseTypePair[0] : baseTypePair[1];
-    let bottomType = index % 2 === 0 ? baseTypePair[1] : baseTypePair[0];
+      const correctSample =
+        findCard({
+          type: card.type,
+          excludeId: card.id,
+          preferDifferentColor: card.color,
+        }) || card;
 
-    const correctSide = topType === card.type ? "top" : "bottom";
+      const conflictWrong = findCard({
+        color: card.color,
+        type: wrongType,
+      });
+      const neutralWrong =
+        findCard({
+          type: wrongType,
+          preferDifferentColor: correctSample.color,
+        }) || normalPool.find((item) => item.type !== card.type);
+      const wrongSample = targetConflict ? conflictWrong || neutralWrong : neutralWrong;
 
-    let topColorKey;
-    let bottomColorKey;
+      if (!correctSample || !wrongSample) return null;
 
-    if (targetConflict) {
-      topColorKey = correctSide === "top" ? otherColor : matchingColor;
-      bottomColorKey = correctSide === "bottom" ? otherColor : matchingColor;
-    } else {
-      topColorKey = correctSide === "top" ? matchingColor : otherColor;
-      bottomColorKey = correctSide === "bottom" ? matchingColor : otherColor;
-    }
+      const targets = arrangeTargets(
+        makeTarget(correctSample, "type"),
+        makeTarget(wrongSample, "type"),
+        index % 2 === 0
+      );
+      const correctSide = targets.topTarget.key === card.type ? "top" : "bottom";
+      const oldRuleSide =
+        targets.topTarget.colorKey === card.color
+          ? "top"
+          : targets.bottomTarget.colorKey === card.color
+          ? "bottom"
+          : null;
 
-    return makeTypeTrial(cardId, topType, bottomType, topColorKey, bottomColorKey, {
-      wasAfterRuleSwitch: Boolean(options.wasAfterRuleSwitch),
-      isInterferenceTrial: targetConflict,
-    });
-  });
+      return {
+        id: `training_type_${index + 1}_${card.id}`,
+        card,
+        rule: "type",
+        ruleStage: "type",
+        matchBy: "type",
+        imageVariant: "normal",
+        previousRule: options.wasAfterRuleSwitch ? "color" : null,
+        isInterferenceTrial: Boolean(
+          targetConflict && oldRuleSide && oldRuleSide !== correctSide
+        ),
+        wasAfterRuleSwitch: Boolean(options.wasAfterRuleSwitch),
+        ...targets,
+      };
+    })
+    .filter(Boolean);
 };
 
-const buildLevelTrials = ({ totalTrials, ruleSequence, switchPoint, interferenceRate = 0 }) => {
+const createBagColorTrials = (count, options = {}) => {
+  const availableColors = getAvailableValues("color", COLOR_PRIORITY);
+  const normalPool = allCards.filter((card) => card.normalImg);
+  const bagPool = allCards.filter((card) => card.bagImg);
+  const cards = repeatCardsToCount(bagPool, count);
+  const interferenceCount = Math.round(
+    count * clampNumber(options.bagInterferenceRate ?? options.interferenceRate ?? 0, 0, 1)
+  );
+
+  return cards
+    .map((card, index) => {
+      const targetConflict = index < interferenceCount;
+      const alternativeColors = availableColors.filter(
+        (color) => color !== card.color
+      );
+      const wrongColor =
+        alternativeColors[index % Math.max(alternativeColors.length, 1)] ||
+        alternativeColors[0];
+
+      const correctSample =
+        findCard({
+          color: card.color,
+          excludeId: card.id,
+          preferDifferentType: card.type,
+        }) || card;
+
+      const conflictWrong = findCard({
+        type: card.type,
+        color: wrongColor,
+      });
+      const neutralWrong =
+        findCard({
+          color: wrongColor,
+          preferDifferentType: correctSample.type,
+        }) || normalPool.find((item) => item.color !== card.color);
+      const wrongSample = targetConflict ? conflictWrong || neutralWrong : neutralWrong;
+
+      if (!correctSample || !wrongSample) return null;
+
+      const targets = arrangeTargets(
+        makeTarget(correctSample, "color"),
+        makeTarget(wrongSample, "color"),
+        index % 2 !== 0
+      );
+      const correctSide = targets.topTarget.key === card.color ? "top" : "bottom";
+      const oldRuleSide =
+        targets.topTarget.typeKey === card.type
+          ? "top"
+          : targets.bottomTarget.typeKey === card.type
+          ? "bottom"
+          : null;
+
+      return {
+        id: `training_bag_color_${index + 1}_${card.id}`,
+        card,
+        rule: "color",
+        ruleStage: "bagColor",
+        matchBy: "color",
+        imageVariant: "bag",
+        previousRule: "type",
+        isBagColorTrial: true,
+        isInterferenceTrial: Boolean(
+          targetConflict && oldRuleSide && oldRuleSide !== correctSide
+        ),
+        wasAfterRuleSwitch: true,
+        ...targets,
+      };
+    })
+    .filter(Boolean);
+};
+
+const buildLevelTrials = ({
+  totalTrials,
+  ruleSequence,
+  switchPoint,
+  firstSwitchPoint,
+  secondSwitchPoint,
+  interferenceRate = 0,
+  bagInterferenceRate = 0,
+}) => {
   if (ruleSequence.length === 1 && ruleSequence[0] === "color") {
     return createColorTrials(totalTrials);
   }
 
   if (ruleSequence.length === 1 && ruleSequence[0] === "type") {
-    return createTypeTrials(totalTrials, { interferenceRate: 0, wasAfterRuleSwitch: false });
+    return createTypeTrials(totalTrials, {
+      interferenceRate: 0,
+      wasAfterRuleSwitch: false,
+    });
+  }
+
+  if (ruleSequence.includes("bagColor")) {
+    const firstEnd = clampNumber(
+      firstSwitchPoint ?? switchPoint ?? Math.floor(totalTrials / 3),
+      1,
+      Math.max(1, totalTrials - 2)
+    );
+    const secondEnd = clampNumber(
+      secondSwitchPoint ?? Math.floor((totalTrials * 2) / 3),
+      firstEnd + 1,
+      Math.max(firstEnd + 1, totalTrials - 1)
+    );
+    const colorCount = firstEnd;
+    const typeCount = Math.max(1, secondEnd - firstEnd);
+    const bagCount = Math.max(1, totalTrials - secondEnd);
+
+    return [
+      ...createColorTrials(colorCount),
+      ...createTypeTrials(typeCount, {
+        interferenceRate,
+        wasAfterRuleSwitch: true,
+      }),
+      ...createBagColorTrials(bagCount, {
+        bagInterferenceRate,
+      }),
+    ];
   }
 
   const firstBlockCount = switchPoint || Math.floor(totalTrials / 2);
@@ -758,192 +1278,196 @@ const createLevelConfig = (config) => ({
 const LEVEL_CONFIG = {
   colorIntro: createLevelConfig({
     id: "colorIntro",
-    label: "第 1 階",
-    tag: "顏色認識",
+    label: "第 1 關",
+    tag: "顏色入門",
     emoji: "1",
-    title: "找一樣顏色",
-    description: "先練習看衣服的顏色，把衣服放進一樣顏色的籃子。",
-    helper: "看顏色，找一樣顏色的籃子。",
-    childGoal: "看顏色",
-    parentGoal: "單一顏色規則理解",
+    title: "先看顏色",
+    description: "依照衣服的顏色，把衣服放到相同顏色的籃子。",
+    helper: "看顏色，選一樣顏色的籃子。",
+    childGoal: "練習看顏色",
+    parentGoal: "建立顏色分類規則",
     ruleSequence: ["color"],
-    totalTrials: 4,
+    totalTrials: 6,
     feedbackMode: "full",
     hintPolicy: "always",
     showSwitchGuide: false,
-    interferenceRate: 0,
+    showBagGuide: false,
   }),
-
   colorStable: createLevelConfig({
     id: "colorStable",
-    label: "第 2 階",
+    label: "第 2 關",
     tag: "顏色穩定",
     emoji: "2",
-    title: "顏色小練習",
-    description: "衣服種類變多，但這一關仍然只看顏色。",
-    helper: "不用管衣服是哪一種，先找一樣的顏色。",
-    childGoal: "顏色小練習",
-    parentGoal: "單一顏色規則維持",
+    title: "穩定看顏色",
+    description: "連續練習顏色分類，減少提示。",
+    helper: "先看顏色，再選籃子。",
+    childGoal: "穩定依顏色分類",
+    parentGoal: "觀察顏色規則維持能力",
     ruleSequence: ["color"],
-    totalTrials: 6,
+    totalTrials: 8,
     feedbackMode: "normal",
     hintPolicy: "always",
     showSwitchGuide: false,
-    interferenceRate: 0,
+    showBagGuide: false,
   }),
-
   typeIntro: createLevelConfig({
     id: "typeIntro",
-    label: "第 3 階",
-    tag: "衣服認識",
+    label: "第 3 關",
+    tag: "衣服入門",
     emoji: "3",
-    title: "找一樣衣服",
-    description: "這一關只看衣服種類，不看顏色。",
-    helper: "看衣服是哪一種，找一樣剪影的籃子。",
-    childGoal: "看衣服",
-    parentGoal: "單一種類規則理解",
+    title: "改看衣服種類",
+    description: "不看顏色，依照衣服種類放到對應籃子。",
+    helper: "看衣服種類，選一樣種類的籃子。",
+    childGoal: "練習看衣服種類",
+    parentGoal: "建立種類分類規則",
     ruleSequence: ["type"],
-    totalTrials: 4,
+    totalTrials: 6,
     feedbackMode: "full",
     hintPolicy: "always",
     showSwitchGuide: false,
-    interferenceRate: 0,
+    showBagGuide: false,
   }),
-
   typeStable: createLevelConfig({
     id: "typeStable",
-    label: "第 4 階",
+    label: "第 4 關",
     tag: "衣服穩定",
     emoji: "4",
-    title: "衣服小練習",
-    description: "穩定練習看衣服種類，為後面的換規則做準備。",
-    helper: "看剪影，不用管顏色。",
-    childGoal: "衣服小練習",
-    parentGoal: "單一種類規則維持",
+    title: "穩定看衣服種類",
+    description: "連續練習種類分類，保持同一個規則。",
+    helper: "只看衣服種類，不被顏色影響。",
+    childGoal: "穩定依種類分類",
+    parentGoal: "觀察種類規則維持能力",
     ruleSequence: ["type"],
-    totalTrials: 6,
+    totalTrials: 8,
     feedbackMode: "normal",
     hintPolicy: "always",
     showSwitchGuide: false,
-    interferenceRate: 0,
+    showBagGuide: false,
   }),
-
   switchClear: createLevelConfig({
     id: "switchClear",
-    label: "第 5 階",
-    tag: "明確切換",
+    label: "第 5 關",
+    tag: "清楚切換",
     emoji: "5",
-    title: "換玩法囉",
-    description: "前面看顏色，後面改看衣服剪影。",
-    helper: "看到換規則後，就改看衣服是哪一種。",
-    childGoal: "換玩法囉",
-    parentGoal: "第一次規則切換",
+    title: "從顏色切到衣服種類",
+    description: "前半段看顏色，後半段改看衣服種類。",
+    helper: "規則改變時，跟著新規則選籃子。",
+    childGoal: "練習規則切換",
+    parentGoal: "觀察第一次規則轉換",
     ruleSequence: ["color", "type"],
     switchPoint: 4,
     totalTrials: 8,
     feedbackMode: "guided",
     hintPolicy: "always",
     showSwitchGuide: true,
+    showBagGuide: false,
     interferenceRate: 0.2,
   }),
-
   switchEarly: createLevelConfig({
     id: "switchEarly",
-    label: "第 6 階",
-    tag: "提前切換",
+    label: "第 6 關",
+    tag: "提早切換",
     emoji: "6",
-    title: "早一點換玩法",
-    description: "還沒完全習慣顏色規則，就要提早改看衣服。",
-    helper: "規則換了之後，先停一下，再看剪影。",
-    childGoal: "記得新玩法",
-    parentGoal: "較早切換規則",
+    title: "更快改規則",
+    description: "較早遇到規則切換，練習快速調整。",
+    helper: "聽到換規則後，立刻改看衣服種類。",
+    childGoal: "加快切換反應",
+    parentGoal: "觀察切換後錯誤修正",
     ruleSequence: ["color", "type"],
     switchPoint: 3,
-    totalTrials: 8,
+    totalTrials: 10,
     feedbackMode: "guided",
     hintPolicy: "afterWrong",
     showSwitchGuide: true,
-    interferenceRate: 0.3,
+    showBagGuide: false,
+    interferenceRate: 0.35,
   }),
-
   switchMaintain: createLevelConfig({
     id: "switchMaintain",
-    label: "第 7 階",
-    tag: "切換後維持",
+    label: "第 7 關",
+    tag: "切換維持",
     emoji: "7",
-    title: "不要忘記玩法",
-    description: "換規則後要持續照新規則分類。",
-    helper: "記得現在要看衣服，不要跑回顏色。",
-    childGoal: "不要忘記玩法",
-    parentGoal: "切換後維持新規則",
+    title: "切換後保持新規則",
+    description: "切換後持續使用新規則，避免回到舊規則。",
+    helper: "換規則後，要一直照新規則做。",
+    childGoal: "維持新規則",
+    parentGoal: "觀察保留舊規則的干擾",
     ruleSequence: ["color", "type"],
-    switchPoint: 5,
-    totalTrials: 10,
+    switchPoint: 4,
+    totalTrials: 12,
     feedbackMode: "simple",
     hintPolicy: "afterWrong",
     showSwitchGuide: true,
-    interferenceRate: 0.4,
-  }),
-
-  lowInterference: createLevelConfig({
-    id: "lowInterference",
-    label: "第 8 階",
-    tag: "少量干擾",
-    emoji: "8",
-    title: "不要被騙到",
-    description: "有些題目的顏色會故意干擾，要記得看衣服。",
-    helper: "先停一下，想想現在看哪一個。",
-    childGoal: "不要被騙到",
-    parentGoal: "低強度舊規則干擾抑制",
-    ruleSequence: ["color", "type"],
-    switchPoint: 5,
-    totalTrials: 10,
-    feedbackMode: "simple",
-    hintPolicy: "afterTwoWrong",
-    showSwitchGuide: true,
+    showBagGuide: false,
     interferenceRate: 0.5,
   }),
-
+  lowInterference: createLevelConfig({
+    id: "lowInterference",
+    label: "第 8 關",
+    tag: "低干擾",
+    emoji: "8",
+    title: "加入袋子顏色",
+    description: "先看顏色，再看衣服種類，最後看袋子的顏色。",
+    helper: "裝進袋子後，要看袋子的顏色。",
+    childGoal: "練習多規則切換",
+    parentGoal: "觀察多階段規則調整",
+    ruleSequence: ["color", "type", "bagColor"],
+    firstSwitchPoint: 4,
+    secondSwitchPoint: 8,
+    totalTrials: 12,
+    feedbackMode: "simple",
+    hintPolicy: "afterWrong",
+    showSwitchGuide: true,
+    showBagGuide: true,
+    interferenceRate: 0.45,
+    bagInterferenceRate: 0.45,
+  }),
   highInterference: createLevelConfig({
     id: "highInterference",
-    label: "第 9 階",
+    label: "第 9 關",
     tag: "高干擾",
     emoji: "9",
-    title: "看清楚再放",
-    description: "大多數題目都有顏色干擾，重點是抑制舊規則。",
-    helper: "不要被顏色騙，現在要看衣服是哪一種。",
-    childGoal: "看清楚再放",
-    parentGoal: "高強度舊規則干擾抑制",
-    ruleSequence: ["color", "type"],
-    switchPoint: 5,
-    totalTrials: 12,
+    title: "更強的規則干擾",
+    description: "袋子顏色可能和衣服種類互相干擾，要抓住目前規則。",
+    helper: "想清楚現在要看哪一個規則。",
+    childGoal: "抗干擾切換",
+    parentGoal: "觀察高干擾下的彈性控制",
+    ruleSequence: ["color", "type", "bagColor"],
+    firstSwitchPoint: 4,
+    secondSwitchPoint: 9,
+    totalTrials: 14,
     feedbackMode: "resultOnly",
     hintPolicy: "afterTwoWrong",
     showSwitchGuide: true,
-    interferenceRate: 0.75,
+    showBagGuide: true,
+    interferenceRate: 0.65,
+    bagInterferenceRate: 0.7,
   }),
-
   testLike: createLevelConfig({
     id: "testLike",
-    label: "第 10 階",
+    label: "第 10 關",
     tag: "接近測驗",
     emoji: "10",
-    title: "自己試試看",
-    description: "接近正式測驗的訓練，不主動給文字提示。",
-    helper: "自己試試看。",
-    childGoal: "自己試試看",
-    parentGoal: "近測驗模式",
-    ruleSequence: ["color", "type"],
-    switchPoint: 6,
-    totalTrials: 12,
+    title: "綜合挑戰",
+    description: "完整練習顏色、衣服種類與袋子顏色的規則切換。",
+    helper: "看清楚目前規則再作答。",
+    childGoal: "完成綜合挑戰",
+    parentGoal: "觀察接近測驗情境的表現",
+    ruleSequence: ["color", "type", "bagColor"],
+    firstSwitchPoint: 5,
+    secondSwitchPoint: 10,
+    totalTrials: 15,
     feedbackMode: "resultOnly",
     hintPolicy: "none",
     showSwitchGuide: false,
+    showBagGuide: false,
     interferenceRate: 0.75,
+    bagInterferenceRate: 0.8,
   }),
 };
 
 const DCCS_TRAINING_TOUCH_STYLE_ID = "dccs-training-touch-fix";
+const DCCS_TRAINING_PAGE_STYLE_ID = "dccs-training-page-style";
 const DCCS_TRAINING_TOUCH_STYLE = `
 .Dcss-page,
 .Dcss-test-shell,
@@ -975,17 +1499,18 @@ function TrainingPage_DCCS() {
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [isLocked, setIsLocked] = useState(false);
   const [logs, setLogs] = useState([]);
+  const [finalResult, setFinalResult] = useState(null);
 
   const trialStartTimeRef = useRef(null);
   const nextTrialTimerRef = useRef(null);
   const trialStartRafRef = useRef(null);
 
-  const pageBackgroundStyle = {
+  const pageBackgroundStyle = useMemo(() => ({
     backgroundImage: `
       linear-gradient(rgba(255, 244, 206, 0.30), rgba(255, 244, 206, 0.30)),
       url(${dccsBackgroundImg})
     `,
-  };
+  }), []);
 
   const clearPendingTiming = () => {
     if (nextTrialTimerRef.current) {
@@ -1019,6 +1544,13 @@ function TrainingPage_DCCS() {
       document.head.appendChild(style);
     }
 
+    if (typeof document !== "undefined" && !document.getElementById(DCCS_TRAINING_PAGE_STYLE_ID)) {
+      const style = document.createElement("style");
+      style.id = DCCS_TRAINING_PAGE_STYLE_ID;
+      style.textContent = dccsTrainingPageCss;
+      document.head.appendChild(style);
+    }
+
     return () => {
       clearPendingTiming();
     };
@@ -1030,42 +1562,6 @@ function TrainingPage_DCCS() {
     return currentLevel.trials[trialIndex] || null;
   }, [currentLevel, trialIndex]);
 
-  const summary = useMemo(() => {
-    const total = logs.length;
-    const correct = logs.filter((log) => log.isCorrect).length;
-    const firstTryCorrect = logs.filter(
-      (log) => log.isCorrect && log.attemptCount === 1
-    ).length;
-    const switchLogs = logs.filter((log) => log.rule === "type" && log.wasAfterRuleSwitch);
-    const switchCorrect = switchLogs.filter((log) => log.isCorrect).length;
-    const interferenceLogs = logs.filter((log) => log.isInterferenceTrial);
-    const interferenceCorrect = interferenceLogs.filter((log) => log.isCorrect).length;
-    const oldRuleInterference = logs.filter(
-      (log) => log.isOldRuleInterference
-    ).length;
-
-    return {
-      total,
-      correct,
-      accuracy: total > 0 ? Math.round((correct / total) * 100) : 0,
-      firstTryAccuracy:
-        total > 0 ? Math.round((firstTryCorrect / total) * 100) : 0,
-      switchAccuracy:
-        switchLogs.length > 0
-          ? Math.round((switchCorrect / switchLogs.length) * 100)
-          : SINGLE_RULE_LEVEL_IDS.has(levelId)
-          ? 100
-          : 0,
-      interferenceAccuracy:
-        interferenceLogs.length > 0
-          ? Math.round((interferenceCorrect / interferenceLogs.length) * 100)
-          : null,
-      bestStreak: getBestStreak(logs),
-      oldRuleInterference,
-      avgReactionTime: average(logs.map((log) => log.reactionTime)),
-    };
-  }, [logs, levelId]);
-
   const handleStart = () => {
     clearPendingTiming();
     setPhase(PHASE.VIDEO_INTRO);
@@ -1073,7 +1569,11 @@ function TrainingPage_DCCS() {
 
   const handleIntroVideoDone = () => {
     clearPendingTiming();
-    setPhase(PHASE.COLOR_RULE);
+    setPhase(PHASE.VIDEO_STEP);
+  };
+
+  const handleStepVideoDone = () => {
+    startPlaying();
   };
 
   const handleEndingVideoDone = () => {
@@ -1094,63 +1594,87 @@ function TrainingPage_DCCS() {
   const getCorrectPosition = (trial) => {
     if (!trial) return null;
 
-    const correctKey = trial.rule === "color" ? trial.card.color : trial.card.type;
+    const matchBy = trial.matchBy || (trial.rule === "type" ? "type" : "color");
+    const correctKey = trial.card?.[matchBy];
 
-    if (trial.topTarget.key === correctKey) return "top";
-    if (trial.bottomTarget.key === correctKey) return "bottom";
+    if (trial.topTarget?.key === correctKey) return "top";
+    if (trial.bottomTarget?.key === correctKey) return "bottom";
 
     return null;
   };
 
   const getOldRulePosition = (trial) => {
-    if (!trial || trial.rule !== "type") return null;
+    if (!trial) return null;
 
-    const oldColorKey = trial.card.color;
+    if (trial.previousRule === "color" || trial.ruleStage === "type") {
+      const oldColorKey = trial.card.color;
 
-    if (trial.topTarget.colorKey === oldColorKey) return "top";
-    if (trial.bottomTarget.colorKey === oldColorKey) return "bottom";
+      if (trial.topTarget?.colorKey === oldColorKey) return "top";
+      if (trial.bottomTarget?.colorKey === oldColorKey) return "bottom";
+    }
+
+    if (trial.previousRule === "type" || trial.ruleStage === "bagColor") {
+      const oldTypeKey = trial.card.type;
+
+      if (trial.topTarget?.typeKey === oldTypeKey) return "top";
+      if (trial.bottomTarget?.typeKey === oldTypeKey) return "bottom";
+    }
 
     return null;
   };
 
 
-  const shouldShowRuleHint = () => {
-    const policy = currentLevel.hintPolicy || "always";
-    const wrongCount = logs.filter((log) => !log.isCorrect).length;
-
-    if (policy === "none") return false;
-    if (policy === "afterWrong") return wrongCount >= 1 || Boolean(feedback?.type === "wrong");
-    if (policy === "afterTwoWrong") return wrongCount >= 2 || Boolean(feedback?.type === "wrong");
-    return true;
-  };
-
-
-  const getWrongFeedbackText = ({ isOldRuleInterference, rule }) => {
+  const getWrongFeedbackText = ({ isOldRuleInterference, rule, ruleStage }) => {
     const mode = currentLevel.feedbackMode;
 
     if (mode === "resultOnly") return "";
 
+    if (ruleStage === "bagColor") {
+      if (isOldRuleInterference) {
+        return "現在要看袋子的顏色，不是衣服種類。";
+      }
+      return mode === "full"
+        ? "衣服裝進袋子後，請選和袋子顏色一樣的籃子。"
+        : "請看袋子的顏色。";
+    }
+
     if (isOldRuleInterference) {
-      if (mode === "simple") return "先停一下，想想現在看哪一個。";
-      return "規則換了，現在看衣服喔。";
+      if (mode === "simple") return "規則已經換了，請跟著新規則。";
+      return "先停一下，現在要使用新的分類規則。";
     }
 
     if (rule === "color") {
-      return mode === "full" ? "看衣服的顏色，找一樣顏色的籃子。" : "看顏色。";
+      return mode === "full"
+        ? "請看衣服的顏色，選相同顏色的籃子。"
+        : "請看顏色。";
     }
 
-    if (mode === "guided") return "現在不看顏色，要看衣服是哪一種。";
-    if (mode === "simple") return "看剪影。";
-    return "看衣服。";
+    if (mode === "guided") return "請看衣服種類，不要被顏色影響。";
+    if (mode === "simple") return "請看衣服種類。";
+    return "請選相同種類的籃子。";
   };
 
-  const shouldShowSwitchRule = (nextTrialIndex) => {
-    if (!currentLevel.showSwitchGuide) return false;
-
+  const getRuleTransition = (nextTrialIndex) => {
     const current = currentLevel.trials[trialIndex];
     const next = currentLevel.trials[nextTrialIndex];
 
-    return current?.rule === "color" && next?.rule === "type";
+    if (
+      currentLevel.showSwitchGuide &&
+      current?.ruleStage !== "type" &&
+      next?.ruleStage === "type"
+    ) {
+      return "type";
+    }
+
+    if (
+      currentLevel.showBagGuide &&
+      current?.ruleStage === "type" &&
+      next?.ruleStage === "bagColor"
+    ) {
+      return "bagColor";
+    }
+
+    return null;
   };
 
   const handleAnswer = (position) => {
@@ -1167,7 +1691,6 @@ function TrainingPage_DCCS() {
     const isCorrect = position === correctPosition;
     const isOldRuleInterference =
       currentTrial.isInterferenceTrial &&
-      currentTrial.rule === "type" &&
       !isCorrect &&
       position === oldRulePosition;
 
@@ -1177,6 +1700,24 @@ function TrainingPage_DCCS() {
       levelLabel: currentLevel.label,
       levelCategory: getLevelCategory(levelId),
       rule: currentTrial.rule,
+      ruleStage: currentTrial.ruleStage || currentTrial.rule,
+      matchBy: currentTrial.matchBy || currentTrial.rule,
+      imageVariant: currentTrial.imageVariant || "normal",
+      isBagged: currentTrial.imageVariant === "bag",
+      isBagColorTrial: currentTrial.ruleStage === "bagColor",
+      previousRule: currentTrial.previousRule || null,
+      switchIndex:
+        currentTrial.ruleStage === "type"
+          ? 1
+          : currentTrial.ruleStage === "bagColor"
+          ? 2
+          : 0,
+      switchDirection:
+        currentTrial.ruleStage === "type"
+          ? "color_to_type"
+          : currentTrial.ruleStage === "bagColor"
+          ? "type_to_color"
+          : null,
       cardId: currentTrial.card.id,
       cardColor: currentTrial.card.color,
       cardColorText: currentTrial.card.colorText,
@@ -1185,12 +1726,34 @@ function TrainingPage_DCCS() {
       userAnswerSide: position,
       correctSide: correctPosition,
       oldRuleSide: oldRulePosition,
+      topTargetKey: currentTrial.topTarget?.key || null,
+      topTargetColor: currentTrial.topTarget?.colorKey || null,
+      topTargetType: currentTrial.topTarget?.typeKey || null,
+      topTargetSampleCardId: currentTrial.topTarget?.sampleCardId || null,
+      bottomTargetKey: currentTrial.bottomTarget?.key || null,
+      bottomTargetColor: currentTrial.bottomTarget?.colorKey || null,
+      bottomTargetType: currentTrial.bottomTarget?.typeKey || null,
+      bottomTargetSampleCardId: currentTrial.bottomTarget?.sampleCardId || null,
       isCorrect,
+      correct: isCorrect,
       isInterferenceTrial: Boolean(currentTrial.isInterferenceTrial),
+      interferenceTrial: Boolean(currentTrial.isInterferenceTrial),
       wasAfterRuleSwitch: Boolean(currentTrial.wasAfterRuleSwitch),
+      isAfterSwitch: Boolean(currentTrial.wasAfterRuleSwitch),
+      isPostSwitch: Boolean(currentTrial.wasAfterRuleSwitch),
       isOldRuleInterference,
+      isPerseverativeError: isOldRuleInterference,
+      oldRuleError: isOldRuleInterference,
+      errorType: isOldRuleInterference
+        ? "perseverative"
+        : isCorrect
+        ? null
+        : "wrong_target",
       reactionTime,
+      responseTime: reactionTime,
       attemptCount: 1,
+      wrongTapCount: 0,
+      isFirstTry: true,
       timestamp: now,
     };
 
@@ -1200,16 +1763,17 @@ function TrainingPage_DCCS() {
     if (isCorrect) {
       setFeedback({
         type: "correct",
-        title: "放對了！",
+        title: "?曉?鈭?",
         text: "",
       });
     } else {
       setFeedback({
         type: "wrong",
-        title: isOldRuleInterference ? "差一點！" : "再想一下！",
+        title: isOldRuleInterference ? "撌桐?暺?" : "?銝銝?",
         text: getWrongFeedbackText({
           isOldRuleInterference,
           rule: currentTrial.rule,
+          ruleStage: currentTrial.ruleStage,
         }),
       });
     }
@@ -1222,6 +1786,49 @@ function TrainingPage_DCCS() {
       nextTrialTimerRef.current = null;
       goNextTrial(nextLogs);
     }, isCorrect ? 850 : 1150);
+  };
+
+  const saveTrainingResult = (resultWithStage, stars) => {
+    try {
+      const serializedResult = JSON.stringify(resultWithStage);
+      const currentChild = getStoredCurrentChild();
+      const currentChildId =
+        resultWithStage.childId ||
+        currentChild?.childId ||
+        currentChild?.id ||
+        currentChild?.patientId ||
+        null;
+
+      sessionStorage.setItem("DCCS_RESULT", serializedResult);
+      sessionStorage.setItem("DCCS_TRAINING_RESULT", serializedResult);
+      localStorage.setItem("dccsTrainingResult", serializedResult);
+      localStorage.setItem("latestDccsTrainingResult", serializedResult);
+
+      if (currentChildId) {
+        localStorage.setItem(
+          `dccsTrainingResult_${currentChildId}`,
+          serializedResult
+        );
+      }
+
+      persistTrainingStageResult({
+        context: trainingContext,
+        result: resultWithStage,
+        stars,
+      });
+
+      saveUnifiedResult({
+        rawResult: resultWithStage,
+        gameId: "DCCS",
+        mode: "training",
+        difficulty: levelId || "normal",
+        child: currentChild,
+        route: RESULT_ROUTE,
+        visibleRoles: ["child", "parent", "clinician"],
+      });
+    } catch (error) {
+      console.warn("DCCS training result save failed:", error);
+    }
   };
 
   const goNextTrial = (nextLogs) => {
@@ -1238,46 +1845,13 @@ function TrainingPage_DCCS() {
         currentLevel,
       });
 
-      const finalSummary = {
-        total: nextLogs.length,
-        correct: nextLogs.filter((log) => log.isCorrect).length,
-        accuracy:
-          nextLogs.length > 0
-            ? Math.round((nextLogs.filter((log) => log.isCorrect).length / nextLogs.length) * 100)
-            : 0,
-        firstTryAccuracy:
-          nextLogs.length > 0
-            ? Math.round(
-                (nextLogs.filter((log) => log.isCorrect && log.attemptCount === 1).length /
-                  nextLogs.length) *
-                  100
-              )
-            : 0,
-        switchAccuracy: (() => {
-          const switchLogs = nextLogs.filter((log) => log.rule === "type" && log.wasAfterRuleSwitch);
-          const switchCorrect = switchLogs.filter((log) => log.isCorrect).length;
-          return switchLogs.length > 0
-            ? Math.round((switchCorrect / switchLogs.length) * 100)
-            : SINGLE_RULE_LEVEL_IDS.has(levelId)
-            ? 100
-            : 0;
-        })(),
-        interferenceAccuracy: (() => {
-          const interferenceLogs = nextLogs.filter((log) => log.isInterferenceTrial);
-          const interferenceCorrect = interferenceLogs.filter((log) => log.isCorrect).length;
-          return interferenceLogs.length > 0
-            ? Math.round((interferenceCorrect / interferenceLogs.length) * 100)
-            : null;
-        })(),
-        oldRuleInterference: nextLogs.filter((log) => log.isOldRuleInterference).length,
-      };
-
-      const stars = calculateTrainingStars({ summary: finalSummary, levelId });
-      const nextRecommendedDccsLevel = getNextRecommendedDccsLevel({
-        stars,
-        summary: finalSummary,
-        currentTrainingLevel: trainingContext.trainingLevel,
-      });
+      const stars = finalResult.stars;
+      const nextRecommendedDccsLevel = clampNumber(
+        finalResult.recommendedDifficultyLevel ??
+          trainingContext.trainingLevel,
+        1,
+        DCCS_DIFFICULTY_ORDER.length
+      );
 
       const resultWithStage = {
         ...finalResult,
@@ -1289,30 +1863,33 @@ function TrainingPage_DCCS() {
         testBasedDifficulty: testProfile.hasTestResult,
         sourceTestProfile: testProfile,
         nextRecommendedDccsLevel,
+        nextRecommendedDifficulty: finalResult.recommendedDifficulty,
+        trainingAdjustment: finalResult.adjustment,
+        trainingAdjustmentReasons: finalResult.adjustmentReasons,
         childGoal: currentLevel.childGoal,
         parentGoal: currentLevel.parentGoal,
       };
 
-      try {
-        sessionStorage.setItem("DCCS_TRAINING_RESULT", JSON.stringify(resultWithStage));
-        localStorage.setItem("dccsTrainingResult", JSON.stringify(resultWithStage));
-        persistTrainingStageResult({
-          context: trainingContext,
-          result: resultWithStage,
-          stars,
-        });
-      } catch (error) {
-        console.warn("DCCS training result save failed:", error);
-      }
+      setFinalResult(resultWithStage);
+      saveTrainingResult(resultWithStage, stars);
 
       clearPendingTiming();
       setPhase(PHASE.END_VIDEO);
       return;
     }
 
-    if (shouldShowSwitchRule(nextIndex)) {
+    const transition = getRuleTransition(nextIndex);
+
+    if (transition === "type") {
       setTrialIndex(nextIndex);
       setPhase(PHASE.SWITCH_RULE);
+      trialStartTimeRef.current = null;
+      return;
+    }
+
+    if (transition === "bagColor") {
+      setTrialIndex(nextIndex);
+      setPhase(PHASE.BAG_RULE);
       trialStartTimeRef.current = null;
       return;
     }
@@ -1336,89 +1913,30 @@ function TrainingPage_DCCS() {
     setLevelId(initialLevelId);
     setTrialIndex(0);
     setLogs([]);
+    setFinalResult(null);
     setFeedback(null);
     setSelectedPosition(null);
     setIsLocked(false);
     trialStartTimeRef.current = null;
   };
 
-  const getRuleTitle = () => {
-    if (!currentTrial) return "";
-
-    if (currentTrial.rule === "color") return "看顏色";
-    return "看衣服";
-  };
-
-  const getHelperSpeech = () => {
-    if (!currentTrial || !shouldShowRuleHint()) return "";
-
-    if (currentTrial.rule === "color") {
-      return "看顏色";
-    }
-
-    return "看衣服";
-  };
-
-  const getRuleHint = () => {
-    if (!currentTrial || !shouldShowRuleHint()) return "";
-
-    if (currentTrial.rule === "color") {
-      return "看圓點顏色";
-    }
-
-    return "看黑色剪影";
-  };
-
-  const renderWarmupGuide = () => {
-    const firstRule = currentLevel.ruleSequence?.[0];
-
-    if (currentLevel.ruleSequence?.length === 1 && firstRule === "type") {
-      return (
-        <div className="Dcss-training-visual-guide">
-          <div className="Dcss-guide-piece">
-            <ShadowCloth src={yellowShirtImg} label="衣服剪影" />
-            <img src={basketBottomImg} alt="種類籃子" />
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="Dcss-training-visual-guide">
-        <div className="Dcss-guide-piece">
-          <ColorDot colorKey="pink" />
-          <img src={basketTopImg} alt="顏色籃子" />
-        </div>
-
-        {currentLevel.showSwitchGuide && (
-          <>
-            <span className="Dcss-big-arrow">→</span>
-            <div className="Dcss-guide-piece">
-              <ShadowCloth src={yellowShirtImg} label="衣服剪影" />
-              <img src={basketBottomImg} alt="種類籃子" />
-            </div>
-          </>
-        )}
-      </div>
-    );
-  };
-
   const renderTargetVisual = (target) => {
-    if (!currentTrial) return null;
+    if (!currentTrial || !target?.image) return null;
 
-    if (currentTrial.rule === "color") {
-      return (
-        <div className="Dcss-visual-target Dcss-color-target Dcss-color-target-only">
-          <ColorDot colorKey={target.key} size="training" />
-        </div>
-      );
-    }
+    const matchBy =
+      currentTrial.matchBy || (currentTrial.rule === "type" ? "type" : "color");
 
     return (
-      <div className="Dcss-visual-target Dcss-type-target Dcss-type-target-neutral">
-        <ShadowCloth
-          src={typeSampleImg[target.key]}
-          label={`${target.label}剪影`}
+      <div
+        className={`Dcss-visual-target Dcss-target-clothing ${
+          matchBy === "type"
+            ? "Dcss-type-target-clothing"
+            : "Dcss-color-target-clothing"
+        }`}
+      >
+        <img
+          src={target.image}
+          alt={matchBy === "type" ? `${target.label}?內` : `${target.label}銵??`}
         />
       </div>
     );
@@ -1427,18 +1945,17 @@ function TrainingPage_DCCS() {
   const renderStartPage = () => {
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
-        <style>{dccsTrainingPageCss}</style>
         <main className="Dcss-center-shell Dcss-start-shell">
-          <section className="Dcss-soft-panel Dcss-start-panel" aria-label="開始畫面">
-            <div className="Dcss-game-title">孔雀小姐的服飾店</div>
+          <section className="Dcss-soft-panel Dcss-start-panel" aria-label="???恍">
+            <div className="Dcss-game-title">摮?撠???憌曉?</div>
 
             <div className="Dcss-start-content">
               <div className="Dcss-dialog-bubble Dcss-opening-bubble">
-                幫孔雀小姐把衣服放進正確的籃子。
+                撟怠??撠??﹝??脫迤蝣箇?蝐???
               </div>
 
               <div className="Dcss-round-icon Dcss-start-icon">
-                <img src={peacockImg} alt="孔雀小姐" />
+                <img src={peacockImg} alt="摮?撠?" />
               </div>
             </div>
 
@@ -1447,11 +1964,11 @@ function TrainingPage_DCCS() {
                 type="button"
                 className="Dcss-forest-button Dcss-image-button Dcss-btn-start"
                 onClick={handleStart}
-                aria-label="開始遊戲"
+                aria-label="???"
               >
-                <img src={homeStartBtn} alt="開始遊戲" />
+                <img src={homeStartBtn} alt="???" />
               </button>
-              <img className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+              <img className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="?內暺?" aria-hidden="true" />
             </div>
           </section>
         </main>
@@ -1462,7 +1979,6 @@ function TrainingPage_DCCS() {
   const renderVideoPage = ({ src, title, buttonText, onDone }) => {
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
-        <style>{dccsTrainingPageCss}</style>
         <main className="Dcss-center-shell Dcss-video-shell">
           <section className="Dcss-soft-panel Dcss-video-card" aria-label={title}>
             <div className="Dcss-video-frame">
@@ -1486,7 +2002,7 @@ function TrainingPage_DCCS() {
               >
                 <img src={homeSkipBtn} alt={buttonText} />
               </button>
-              <img className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+              <img className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="?內暺?" aria-hidden="true" />
             </div>
           </section>
         </main>
@@ -1494,57 +2010,9 @@ function TrainingPage_DCCS() {
     );
   };
 
-  const renderColorRulePage = () => {
-    return (
-      <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
-        <style>{dccsTrainingPageCss}</style>
-        <div className="Dcss-rule-card Dcss-picture-rule-card">
-          <img src={peacockImg} alt="孔雀小姐" className="Dcss-peacock-rule" />
-
-          <div className="Dcss-rule-content Dcss-picture-rule-content">
-            <div className="Dcss-tag">先看顏色</div>
-
-            <div className="Dcss-picture-rule-row">
-              <div className="Dcss-mini-example">
-                <img src={pinkSkirtImg} alt="粉紅裙子" />
-                <span className="Dcss-big-arrow">→</span>
-                <div className="Dcss-demo-target Dcss-demo-target-color">
-                  <ColorDot colorKey="pink" />
-                  <img src={basketTopImg} alt="粉紅籃" />
-                </div>
-              </div>
-
-              <div className="Dcss-mini-example">
-                <img src={blueShirtImg} alt="藍色上衣" />
-                <span className="Dcss-big-arrow">→</span>
-                <div className="Dcss-demo-target Dcss-demo-target-color">
-                  <ColorDot colorKey="blue" />
-                  <img src={basketBottomImg} alt="藍色籃" />
-                </div>
-              </div>
-            </div>
-
-            <div className="Dcss-guided-action Dcss-guided-rule">
-              <button
-                type="button"
-                className="Dcss-forest-button Dcss-image-button Dcss-btn-start"
-                onClick={startPlaying}
-                aria-label="開始遊戲"
-              >
-                <img src={homeStartBtn} alt="開始遊戲" />
-              </button>
-              <img className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   const renderSwitchRulePage = () => {
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
-        <style>{dccsTrainingPageCss}</style>
         <div className="Dcss-switch-card Dcss-picture-rule-card">
           <img src={peacockImg} alt="孔雀小姐" className="Dcss-peacock-rule" />
 
@@ -1575,11 +2043,11 @@ function TrainingPage_DCCS() {
             <div className="Dcss-guided-action Dcss-guided-rule">
               <button
                 type="button"
-                className="Dcss-forest-button Dcss-image-button Dcss-btn-start"
+                className="Dcss-forest-button Dcss-image-button Dcss-btn-next"
                 onClick={continueAfterSwitchRule}
-                aria-label="開始"
+                aria-label="繼續"
               >
-                <img src={homeStartBtn} alt="開始" />
+                <img src={homeNextBtn} alt="繼續" />
               </button>
               <img className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
             </div>
@@ -1589,9 +2057,94 @@ function TrainingPage_DCCS() {
     );
   };
 
+  const renderBagRulePage = () => {
+    const examples = currentLevel.trials
+      .filter((trial) => trial.ruleStage === "bagColor")
+      .slice(0, 2);
+
+    return (
+      <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
+        <div className="Dcss-switch-card Dcss-picture-rule-card">
+          <img src={peacockImg} alt="孔雀小姐" className="Dcss-peacock-rule" />
+
+          <div className="Dcss-rule-content Dcss-picture-rule-content">
+            <div className="Dcss-tag danger">再換一次規則</div>
+            <h1 className="Dcss-switch-title">衣服裝袋後，改看袋子的顏色</h1>
+            <p className="Dcss-switch-description">
+              不看衣服種類，也不看原本衣服的顏色；請看袋子的顏色。
+            </p>
+
+            <div className="Dcss-picture-rule-row">
+              {examples.map((example, index) => {
+                const correctPosition = getCorrectPosition(example);
+                const correctTarget =
+                  correctPosition === "top"
+                    ? example.topTarget
+                    : example.bottomTarget;
+
+                return (
+                  <div className="Dcss-mini-example" key={example.id}>
+                    <img
+                      src={getCardImage(example.card, "bag")}
+                      alt={`裝袋的${example.card.colorText}${example.card.typeText}`}
+                      className="Dcss-rule-bagged-cloth"
+                    />
+                    <span className="Dcss-big-arrow">→</span>
+                    <div className="Dcss-demo-target Dcss-demo-target-type">
+                      <ShadowCloth
+                        src={correctTarget?.image}
+                        label={`${correctTarget?.label || "正確顏色"}範例`}
+                      />
+                      <img
+                        src={index % 2 === 0 ? basketTopImg : basketBottomImg}
+                        alt={`${correctTarget?.label || "正確顏色"}籃子`}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {examples.length === 0 && (
+              <div className="Dcss-data-warning">
+                dccsClothingData.js 目前沒有可用的 bagImg，無法顯示裝袋規則範例。
+              </div>
+            )}
+
+            <div className="Dcss-guided-action Dcss-guided-rule">
+              <button
+                type="button"
+                className="Dcss-forest-button Dcss-image-button Dcss-btn-next"
+                onClick={continueAfterSwitchRule}
+                aria-label="繼續"
+                disabled={examples.length === 0}
+              >
+                <img src={homeNextBtn} alt="繼續" />
+              </button>
+              {examples.length > 0 && (
+                <img
+                  className="Dcss-mouse-guide Dcss-mouse-on-button"
+                  src={mouseGuideImg}
+                  alt="提示點擊"
+                  aria-hidden="true"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const getResultStars = () => {
-    if (summary.accuracy >= 85) return 3;
-    if (summary.accuracy >= 60) return 2;
+    if (finalResult?.scoring?.stars) {
+      return clampStarCount(finalResult.scoring.stars);
+    }
+
+    if (finalResult?.stars) {
+      return clampStarCount(finalResult.stars);
+    }
+
     return 1;
   };
 
@@ -1600,7 +2153,6 @@ function TrainingPage_DCCS() {
 
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
-        <style>{dccsTrainingPageCss}</style>
         <main className="Dcss-center-shell Dcss-result-shell">
           <section className="Dcss-soft-panel Dcss-result-panel" aria-label="練習結果">
             <div className="Dcss-cute-stars" aria-label={`${resultStars} 顆星`}>
@@ -1625,9 +2177,9 @@ function TrainingPage_DCCS() {
                   type="button"
                   className="Dcss-forest-button Dcss-image-button Dcss-btn-home"
                   onClick={() => navigate(MENU_ROUTE)}
-                  aria-label="回到森林"
+                  aria-label="回到選單"
                 >
-                  <img src={homeBackBtn} alt="回到森林" />
+                  <img src={homeBackBtn} alt="回到選單" />
                 </button>
                 <img className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
               </div>
@@ -1644,7 +2196,22 @@ function TrainingPage_DCCS() {
               <button
                 type="button"
                 className="Dcss-forest-button Dcss-image-button Dcss-btn-detail"
-                onClick={() => navigate(TEST_ROUTE)}
+                onClick={() => {
+                  const storedResult =
+                    finalResult ||
+                    safeParse(
+                      sessionStorage.getItem("DCCS_TRAINING_RESULT"),
+                      null
+                    ) ||
+                    safeParse(
+                      localStorage.getItem("latestDccsTrainingResult"),
+                      null
+                    );
+
+                  navigate(RESULT_ROUTE, {
+                    state: storedResult || {},
+                  });
+                }}
                 aria-label="詳細結果"
               >
                 <img src={homeResultBtn} alt="詳細結果" />
@@ -1660,21 +2227,30 @@ function TrainingPage_DCCS() {
 
   if (phase === PHASE.VIDEO_INTRO) {
     return renderVideoPage({
-      src: INTRO_VIDEO_SRC,
-      title: "前導影片",
-      buttonText: "跳過",
+      src: START_VIDEO_SRC,
+      title: "??敶梁?",
+      buttonText: "頝喲?",
       onDone: handleIntroVideoDone,
     });
   }
 
-  if (phase === PHASE.COLOR_RULE) return renderColorRulePage();
+  if (phase === PHASE.VIDEO_STEP) {
+    return renderVideoPage({
+      src: STEP_VIDEO_SRC,
+      title: "???飛",
+      buttonText: "頝喲?",
+      onDone: handleStepVideoDone,
+    });
+  }
+
   if (phase === PHASE.SWITCH_RULE) return renderSwitchRulePage();
+  if (phase === PHASE.BAG_RULE) return renderBagRulePage();
 
   if (phase === PHASE.END_VIDEO) {
     return renderVideoPage({
       src: END_VIDEO_SRC,
-      title: "完成影片",
-      buttonText: "跳過動畫",
+      title: "摰?敶梁?",
+      buttonText: "頝喲??",
       onDone: handleEndingVideoDone,
     });
   }
@@ -1685,21 +2261,34 @@ function TrainingPage_DCCS() {
 
   return (
     <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
-      <style>{dccsTrainingPageCss}</style>
       <div className="Dcss-test-shell Dcss-test-shell-visual Dcss-training-shell Dcss-training-shell-visual">
         <div className="Dcss-top-bar Dcss-top-bar-compact">
           <div className="Dcss-top-spacer" aria-hidden="true" />
 
           <div className="Dcss-progress-pill">
-            練習 {trialIndex + 1} / {currentLevel.trials.length}
+            蝺渡? {trialIndex + 1} / {currentLevel.trials.length}
           </div>
         </div>
 
         <div className="Dcss-main-area Dcss-main-area-bottom-baskets Dcss-main-area-visual Dcss-training-main-area Dcss-training-main-area-visual">
           <div className="Dcss-play-row">
             <div className="Dcss-card-stage Dcss-training-card-stage Dcss-card-stage-visual">
-              <div className={`Dcss-cloth-card ${feedback ? feedback.type : ""}`}>
-                <img src={currentTrial.card.img} alt={currentTrial.card.id} />
+              <div
+                className={`Dcss-cloth-card ${
+                  currentTrial.imageVariant === "bag"
+                    ? "Dcss-cloth-card-bagged"
+                    : ""
+                } ${feedback ? feedback.type : ""}`}
+              >
+                <img
+                  src={getCardImage(
+                    currentTrial.card,
+                    currentTrial.imageVariant || "normal"
+                  )}
+                  alt={`${
+                    currentTrial.imageVariant === "bag" ? "裝袋的" : ""
+                  }${currentTrial.card.colorText}${currentTrial.card.typeText}`}
+                />
               </div>
             </div>
           </div>
@@ -1713,8 +2302,12 @@ function TrainingPage_DCCS() {
               onClick={() => handleAnswer("top")}
               disabled={isLocked}
             >
-              {renderTargetVisual(currentTrial.topTarget)}
-              <img src={basketTopImg} alt="上方籃子" />
+              <div className="Dcss-basket-choice-label">
+                {renderTargetVisual(currentTrial.topTarget)}
+              </div>
+              <div className="Dcss-basket-choice-image">
+                <img src={basketTopImg} alt="撌血蝐?" />
+              </div>
             </button>
 
             <button
@@ -1725,8 +2318,12 @@ function TrainingPage_DCCS() {
               onClick={() => handleAnswer("bottom")}
               disabled={isLocked}
             >
-              {renderTargetVisual(currentTrial.bottomTarget)}
-              <img src={basketBottomImg} alt="下方籃子" />
+              <div className="Dcss-basket-choice-label">
+                {renderTargetVisual(currentTrial.bottomTarget)}
+              </div>
+              <div className="Dcss-basket-choice-image">
+                <img src={basketBottomImg} alt="?喳蝐?" />
+              </div>
             </button>
           </div>
 
@@ -1741,33 +2338,6 @@ function TrainingPage_DCCS() {
       </div>
     </div>
   );
-}
-
-function getCurrentStreak(logs = []) {
-  let streak = 0;
-
-  for (let i = logs.length - 1; i >= 0; i -= 1) {
-    if (!logs[i].isCorrect) break;
-    streak += 1;
-  }
-
-  return streak;
-}
-
-function getBestStreak(logs = []) {
-  let best = 0;
-  let current = 0;
-
-  logs.forEach((log) => {
-    if (log.isCorrect) {
-      current += 1;
-      best = Math.max(best, current);
-    } else {
-      current = 0;
-    }
-  });
-
-  return best;
 }
 
 const dccsTrainingPageCss = `
@@ -2050,7 +2620,7 @@ const dccsTrainingPageCss = `
 }
 
 
-/* DCCS 測驗版：把答案籃移到衣服下方，避免右側畫面過擠 */
+/* DCCS 皜祇?????獢?蝘餃銵??銝嚗??渡?ａ???*/
 .Dcss-main-area-bottom-baskets {
   width: min(100%, 1480px);
   min-height: clamp(560px, 72vh, 820px);
@@ -2128,8 +2698,8 @@ const dccsTrainingPageCss = `
   height: clamp(52px, 5.2vw, 76px);
 }
 
-/* 修正：外部 GamePage_DCCS.css 可能仍把籃子或按鈕設成 absolute，
-   這裡全部重設，避免籃子浮到衣服卡片上。 */
+/* 靽格迤嚗???GamePage_DCCS.css ?航隞?蝐????身??absolute嚗?
+   ?ㄐ?券?身嚗??摮筑?啗﹝?????*/
 .Dcss-main-area-bottom-baskets .Dcss-play-row,
 .Dcss-main-area-bottom-baskets .Dcss-card-stage,
 .Dcss-main-area-bottom-baskets .Dcss-helper,
@@ -2244,7 +2814,7 @@ const dccsTrainingPageCss = `
   }
 }
 
-/* DCCS 測驗版修正 2：籃子固定在衣服卡片下方，不再延伸到孔雀區或被左側裁切 */
+/* DCCS 皜祇??耨甇?2嚗?摮摰銵???∠?銝嚗??辣隡詨摮???◤撌血鋆? */
 .Dcss-test-shell-visual {
   overflow: visible !important;
 }
@@ -2449,7 +3019,7 @@ const dccsTrainingPageCss = `
 
 .Dcss-game-title::before,
 .Dcss-game-title::after {
-  content: "🌿";
+  content: "?";
   position: absolute;
   top: 50%;
   font-size: 28px;
@@ -2505,7 +3075,7 @@ const dccsTrainingPageCss = `
 }
 
 .Dcss-round-icon::after {
-  content: "★";
+  content: "??;
   position: absolute;
   right: 4px;
   bottom: 2px;
@@ -2568,6 +3138,7 @@ const dccsTrainingPageCss = `
 }
 
 .Dcss-btn-skip { width: clamp(190px, 18vw, 260px); }
+.Dcss-btn-next { width: clamp(172px, 17vw, 238px); }
 .Dcss-btn-home,
 .Dcss-btn-replay,
 .Dcss-btn-detail { width: clamp(160px, 15vw, 218px); }
@@ -2801,7 +3372,7 @@ const dccsTrainingPageCss = `
   }
 }
 
-/* 精確計時與行動裝置操作修正 */
+/* 蝎曄Ⅱ閮?????蝵格?雿耨甇?*/
 .Dcss-page,
 .Dcss-test-shell-visual,
 .Dcss-main-area-bottom-baskets,
@@ -2954,10 +3525,128 @@ const dccsTrainingPageCss = `
 
 @media (max-width: 620px) {
   .Dcss-training-main-area-visual .Dcss-baskets-bottom {
-    grid-template-columns: 1fr !important;
-    width: min(100%, 330px) !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    width: min(100%, 560px) !important;
+    gap: 12px !important;
   }
 }
+
+/* DCCS 蝐??賊?嚗﹝??蝷箏摰蝐?銝嚗??航??蝐?甇???*/
+.Dcss-training-main-area-visual .Dcss-visual-basket-btn {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: clamp(6px, 1vh, 12px) !important;
+  min-height: clamp(210px, 27vh, 300px) !important;
+  padding: clamp(10px, 1.4vw, 18px) clamp(8px, 1vw, 14px) !important;
+  overflow: visible !important;
+}
+
+.Dcss-basket-choice-label {
+  position: relative !important;
+  inset: auto !important;
+  width: 100% !important;
+  height: clamp(78px, 10vh, 118px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: visible !important;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.Dcss-basket-choice-label .Dcss-visual-target,
+.Dcss-basket-choice-label .Dcss-target-clothing {
+  position: relative !important;
+  inset: auto !important;
+  transform: none !important;
+  width: clamp(74px, 7.4vw, 112px) !important;
+  height: clamp(74px, 7.4vw, 112px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: visible !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.Dcss-basket-choice-label .Dcss-target-clothing img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 8px 7px rgba(83, 50, 18, 0.18));
+}
+
+.Dcss-basket-choice-image {
+  position: relative !important;
+  inset: auto !important;
+  width: 100% !important;
+  height: clamp(105px, 14vh, 160px) !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: center !important;
+  overflow: visible !important;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.Dcss-basket-choice-image > img {
+  position: relative !important;
+  inset: auto !important;
+  transform: none !important;
+  width: min(96%, 300px) !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: contain !important;
+}
+
+@media (max-width: 620px) {
+  .Dcss-training-main-area-visual .Dcss-visual-basket-btn {
+    min-height: 176px !important;
+    gap: 2px !important;
+    padding: 8px 4px !important;
+    border-radius: 22px !important;
+  }
+
+  .Dcss-basket-choice-label {
+    height: 70px !important;
+  }
+
+  .Dcss-basket-choice-label .Dcss-visual-target,
+  .Dcss-basket-choice-label .Dcss-target-clothing {
+    width: 66px !important;
+    height: 66px !important;
+  }
+
+  .Dcss-basket-choice-image {
+    height: 88px !important;
+  }
+}
+.Dcss-cloth-card-bagged img,
+.Dcss-rule-bagged-cloth {
+  object-fit: contain;
+  filter: drop-shadow(0 10px 10px rgba(67, 54, 38, 0.2));
+}
+
+.Dcss-rule-bagged-cloth {
+  width: clamp(110px, 14vw, 190px);
+  height: clamp(110px, 14vw, 190px);
+}
+
+.Dcss-switch-description {
+  margin: 0.35rem auto 1rem;
+  max-width: 720px;
+  text-align: center;
+  font-size: clamp(1rem, 1.7vw, 1.3rem);
+  line-height: 1.6;
+  color: #5f4b3d;
+}
+
 `;
 
 export default TrainingPage_DCCS;

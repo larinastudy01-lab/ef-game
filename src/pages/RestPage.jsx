@@ -125,7 +125,7 @@ const RestPage = () => {
     const restRecord = {
       childId: child?.childId || null,
       childName: child?.name || "",
-      reason: state.reason || "20min",
+      reason: state.reason || "2min",
       restSeconds,
       finishedAt: new Date().toISOString(),
     };

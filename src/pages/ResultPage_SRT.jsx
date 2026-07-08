@@ -1,6 +1,6 @@
 // src/pages/ResultPage_SRT.jsx
 
-import React, { useMemo } from "react";
+import React, { useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import bgImg from "../asset/SRT_testbackground.png";
@@ -10,6 +10,97 @@ import {
   calculateSrtScore,
   getStoredSrtResult,
 } from "../utils/srtScoring";
+
+const HAT_GAME_ROUTE = "/hat-sticker-game";
+const HAT_REWARD_MIN_COMPLETIONS = 5;
+const HAT_REWARD_MAX_COMPLETIONS = 8;
+
+function safeJsonParse(value, fallback = null) {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function randomHatRewardInterval() {
+  return (
+    Math.floor(
+      Math.random() *
+        (HAT_REWARD_MAX_COMPLETIONS - HAT_REWARD_MIN_COMPLETIONS + 1)
+    ) + HAT_REWARD_MIN_COMPLETIONS
+  );
+}
+
+function resolveResultChildId(summaryData = {}) {
+  const directChildId =
+    summaryData?.childId ||
+    summaryData?.child?.id ||
+    summaryData?.currentChild?.id;
+
+  if (directChildId) return String(directChildId);
+
+  const idKeys = [
+    "currentChildId",
+    "selectedChildId",
+    "activeChildId",
+    "childId",
+  ];
+
+  for (const key of idKeys) {
+    const value = localStorage.getItem(key);
+    if (value && value !== "null" && value !== "undefined") {
+      return String(value);
+    }
+  }
+
+  const objectKeys = ["currentChild", "selectedChild", "activeChild"];
+
+  for (const key of objectKeys) {
+    const parsed = safeJsonParse(localStorage.getItem(key), null);
+    if (parsed?.childId || parsed?.id) {
+      return String(parsed.childId || parsed.id);
+    }
+  }
+
+  return "unassigned";
+}
+
+function evaluateHatReward({ childId, resultToken }) {
+  const storageKey = `hatRewardSchedule_${childId}`;
+  const stored = safeJsonParse(localStorage.getItem(storageKey), {});
+  const processedTokens = Array.isArray(stored?.processedTokens)
+    ? stored.processedTokens
+    : [];
+
+  if (processedTokens.includes(resultToken)) {
+    return { shouldOpenHatGame: false, alreadyProcessed: true };
+  }
+
+  const currentRemaining = Number.isFinite(Number(stored?.remaining))
+    ? Math.max(1, Number(stored.remaining))
+    : randomHatRewardInterval();
+
+  const nextRemaining = currentRemaining - 1;
+  const shouldOpenHatGame = nextRemaining <= 0;
+  const nextProcessedTokens = [...processedTokens, resultToken].slice(-30);
+
+  localStorage.setItem(
+    storageKey,
+    JSON.stringify({
+      remaining: shouldOpenHatGame
+        ? randomHatRewardInterval()
+        : nextRemaining,
+      processedTokens: nextProcessedTokens,
+      lastCompletedAt: new Date().toISOString(),
+      lastTriggeredAt: shouldOpenHatGame
+        ? new Date().toISOString()
+        : stored?.lastTriggeredAt || null,
+    })
+  );
+
+  return { shouldOpenHatGame, alreadyProcessed: false };
+}
 
 const ResultPage_SRT = ({
   mode = "test",
@@ -21,19 +112,37 @@ const ResultPage_SRT = ({
   missCount = 0,
   summaryData = {},
   starResult = null,
+  scoring: providedScoring = null,
+  aiAnalysis: providedAiAnalysis = null,
+  recommendation: providedRecommendation = null,
+  parentSummary: providedParentSummary = "",
+  clinicianSummary: providedClinicianSummary = "",
   onRestart,
   onBackToMenu,
 }) => {
   const navigate = useNavigate();
+  const backActionLockedRef = useRef(false);
+  const rewardResultTokenRef = useRef(null);
 
   const normalizedRecords = useMemo(() => {
     if (Array.isArray(trialRecords) && trialRecords.length > 0) {
-      return trialRecords.map((record, index) => ({
+      return trialRecords.map((record, index) => {
+        const normalizedAction =
+          record.trainingAction === "correctReject"
+            ? "correctAvoid"
+            : record.trainingAction === "falseAlarm"
+            ? "clickedRotten"
+            : record.trainingAction || null;
+
+        const inferredCorrect =
+          normalizedAction === "hit" || normalizedAction === "correctAvoid";
+
+        return {
         trialIndex: record.trialIndex ?? record.trial ?? index + 1,
         isCorrect:
           record.isCorrect !== undefined
             ? record.isCorrect
-            : record.hit === true,
+            : inferredCorrect || record.hit === true,
         reactionTime:
           typeof record.reactionTime === "number"
             ? record.reactionTime
@@ -44,13 +153,25 @@ const ResultPage_SRT = ({
           record.miss === true ||
           record.timeout === true,
         falseClick: record.falseClick === true,
-        clickedRotten: record.clickedRotten === true,
-        trainingAction: record.trainingAction || null,
+        clickedRotten:
+          record.clickedRotten === true || normalizedAction === "clickedRotten",
+        trainingAction: normalizedAction,
         targetType: record.targetType || "normal",
+        assisted: record.assisted === true,
+        assistType: record.assistType || null,
+        assistShownAt:
+          typeof record.assistShownAt === "number" ? record.assistShownAt : null,
+        reactionAfterAssist:
+          typeof record.reactionAfterAssist === "number"
+            ? record.reactionAfterAssist
+            : null,
+        segment: record.segment || null,
+        falseClickType: record.falseClickType || null,
         positionX: record.positionX ?? null,
         positionY: record.positionY ?? null,
         timestamp: record.timestamp || null,
-      }));
+      };
+      });
     }
 
     if (Array.isArray(rtRecords) && rtRecords.length > 0) {
@@ -63,6 +184,12 @@ const ResultPage_SRT = ({
         falseClick: false,
         clickedRotten: false,
         targetType: "normal",
+        assisted: false,
+        assistType: null,
+        assistShownAt: null,
+        reactionAfterAssist: null,
+        segment: null,
+        falseClickType: null,
       }));
     }
 
@@ -70,6 +197,10 @@ const ResultPage_SRT = ({
   }, [trialRecords, rtRecords]);
 
   const scoringResult = useMemo(() => {
+    if (providedScoring?.summary && providedScoring?.childView) {
+      return providedScoring;
+    }
+
     if (normalizedRecords.length > 0) {
       return calculateSrtScore(normalizedRecords);
     }
@@ -80,7 +211,7 @@ const ResultPage_SRT = ({
     if (stored?.summary && stored?.childView) return stored;
 
     return calculateSrtScore([]);
-  }, [normalizedRecords]);
+  }, [normalizedRecords, providedScoring]);
 
   const summary = scoringResult?.summary || {};
   const childView = scoringResult?.childView || {};
@@ -88,12 +219,127 @@ const ResultPage_SRT = ({
 
   const isTrainingMode = mode === "training" || summaryData?.mode === "training";
 
+  const resolvedTrainingData = useMemo(() => {
+    const embeddedAnalysis = summaryData?.aiAnalysis || {};
+    const analysis = providedAiAnalysis || embeddedAnalysis;
+    const metrics = analysis?.metrics || {};
+    const segmentAnalysis =
+      analysis?.segmentAnalysis ||
+      analysis?.longAttentionMetrics ||
+      summaryData?.longAttentionMetrics ||
+      {};
+    const recommendation =
+      providedRecommendation ||
+      analysis?.recommendation ||
+      summaryData?.recommendation ||
+      summaryData?.aiRecommendation ||
+      null;
+
+    return {
+      ...summaryData,
+      mode: isTrainingMode ? "training" : summaryData?.mode,
+      scoring: providedScoring || summaryData?.scoring || null,
+      aiAnalysis: analysis,
+      recommendation,
+      aiRecommendation: recommendation || summaryData?.aiRecommendation || null,
+      parentSummary:
+        providedParentSummary ||
+        analysis?.parentSummary ||
+        summaryData?.parentSummary ||
+        "",
+      clinicianSummary:
+        providedClinicianSummary ||
+        analysis?.clinicianSummary ||
+        summaryData?.clinicianSummary ||
+        "",
+      recommendedDifficulty:
+        recommendation?.nextDifficulty ||
+        analysis?.nextDifficulty ||
+        summaryData?.recommendedDifficulty,
+      nextDifficulty:
+        recommendation?.nextDifficulty ||
+        analysis?.nextDifficulty ||
+        summaryData?.nextDifficulty,
+      accuracy:
+        metrics?.accuracy ??
+        summaryData?.accuracy ??
+        scoringResult?.summary?.accuracyPercent ??
+        0,
+      avgRT:
+        metrics?.avgRT ??
+        summaryData?.avgRT ??
+        scoringResult?.summary?.avgReactionTime ??
+        avgRT,
+      hitCount:
+        metrics?.hitCount ??
+        summaryData?.hitCount ??
+        scoringResult?.summary?.correctCount ??
+        0,
+      missCount:
+        metrics?.missCount ??
+        summaryData?.missCount ??
+        scoringResult?.summary?.missedCount ??
+        0,
+      correctAvoidCount:
+        metrics?.correctAvoidCount ??
+        summaryData?.correctAvoidCount ??
+        summaryData?.correctRejectCount ??
+        scoringResult?.summary?.rottenAvoidedCount ??
+        0,
+      clickedRottenCount:
+        metrics?.clickedRottenCount ??
+        summaryData?.clickedRottenCount ??
+        summaryData?.falseAlarmCount ??
+        scoringResult?.summary?.clickedRottenCount ??
+        0,
+      assistedRate:
+        metrics?.assistedRate ??
+        summaryData?.assistedRate ??
+        scoringResult?.summary?.assistedRate ??
+        0,
+      rtCV:
+        metrics?.rtCV ??
+        summaryData?.rtCV ??
+        scoringResult?.summary?.rtCV ??
+        0,
+      rtStd:
+        metrics?.rtStd ??
+        summaryData?.rtStd ??
+        scoringResult?.summary?.rtStd ??
+        0,
+      attentionDrop:
+        segmentAnalysis?.attentionDrop ??
+        summaryData?.attentionDrop ??
+        scoringResult?.summary?.attentionDrop ??
+        0,
+      fatigueLevel:
+        analysis?.fatigueLevel || summaryData?.fatigueLevel || "low",
+      attentionLevel:
+        analysis?.attentionLevel || summaryData?.attentionLevel || "stable",
+      impulseLevel:
+        analysis?.impulseLevel || summaryData?.impulseLevel || "low",
+      assistedNeed:
+        analysis?.assistedNeed || summaryData?.assistedNeed || "low",
+      longAttentionMetrics: segmentAnalysis,
+    };
+  }, [
+    summaryData,
+    providedAiAnalysis,
+    providedRecommendation,
+    providedParentSummary,
+    providedClinicianSummary,
+    providedScoring,
+    scoringResult,
+    isTrainingMode,
+    avgRT,
+  ]);
+
   const stars = Math.max(
     0,
     Math.min(
       3,
       Number(
-        childView.stars ||
+        (isTrainingMode ? providedScoring?.stars : childView.stars) ||
           scoringResult?.stars ||
           starResult?.stars ||
           starResult?.star ||
@@ -105,57 +351,67 @@ const ResultPage_SRT = ({
   const totalScore = scoringResult?.totalScore ?? starResult?.totalScore ?? 0;
 
   const displayScore = isTrainingMode
-    ? summaryData?.finalScore ?? score
+    ? resolvedTrainingData?.finalScore ?? score
     : totalScore;
 
   const childShortLabel = isTrainingMode
-    ? getTrainingChildLabel(summaryData?.finalScore ?? score)
+    ? getTrainingChildLabel(resolvedTrainingData?.finalScore ?? score)
     : childView.shortLabel || starResult?.level || "繼續加油";
 
   const abilityScores = sanitizeAbilityScores(parentView?.abilityScores, summary);
 
-  const parentPlainSummary = isTrainingMode
-    ? buildTrainingParentSummary(summaryData)
+  const resultPlainSummary = isTrainingMode
+    ? buildDetailedTrainingParentSummary(resolvedTrainingData)
     : parentView?.plainLanguageSummary ||
       buildTestParentSummary({ stars, summary, abilityScores });
 
   const oneSentenceResult = isTrainingMode
-    ? buildTrainingOneSentence(summaryData)
+    ? buildDetailedTrainingOneSentence(resolvedTrainingData)
     : buildTestOneSentence({ stars, summary, abilityScores });
 
   const keyHighlights = isTrainingMode
-    ? buildTrainingHighlights(summaryData)
+    ? buildDetailedTrainingHighlights(resolvedTrainingData)
     : buildTestHighlights({ summary, abilityScores });
 
   const nextSuggestion = isTrainingMode
-    ? buildTrainingNextSuggestion(summaryData)
+    ? buildDetailedTrainingNextSuggestion(resolvedTrainingData)
     : buildTestNextSuggestion({ stars, summary, abilityScores });
 
   const intuitiveIndicators = isTrainingMode
-    ? buildTrainingIndicators(summaryData, avgRT)
+    ? buildTrainingIndicators(resolvedTrainingData, avgRT)
     : buildIntuitiveIndicators({ summary, abilityScores });
 
   const quickStats = isTrainingMode
     ? [
         {
           label: "接到橡實",
-          value: `${summaryData?.hitCount || 0} 次`,
+          value: `${resolvedTrainingData?.hitCount || 0} 次`,
           helper: "正確點到可以接的橡實",
         },
         {
           label: "漏接橡實",
-          value: `${summaryData?.missCount || missCount || 0} 次`,
+          value: `${resolvedTrainingData?.missCount || missCount || 0} 次`,
           helper: "可以再觀察是否看得到目標",
         },
         {
           label: "平均反應",
-          value: formatMsShort(summaryData?.avgRT || avgRT || 0),
+          value: formatMsShort(resolvedTrainingData?.avgRT || avgRT || 0),
           helper: "接到橡實時的平均速度",
         },
         {
           label: "避開壞橡實",
-          value: `${summaryData?.correctAvoidCount || 0} 次`,
+          value: `${resolvedTrainingData?.correctAvoidCount || 0} 次`,
           helper: "看清楚後忍住不點",
+        },
+        {
+          label: "提醒需求",
+          value: getAssistLabel(resolvedTrainingData, normalizedRecords),
+          helper: "長時間練習中需要小提醒的程度",
+        },
+        {
+          label: "後段狀況",
+          value: getFocusLabel(resolvedTrainingData, normalizedRecords),
+          helper: "觀察後段是否仍能維持注意",
         },
       ]
     : [
@@ -182,12 +438,63 @@ const ResultPage_SRT = ({
       ];
 
   const handleBackToMenu = () => {
+    if (backActionLockedRef.current) return;
+    backActionLockedRef.current = true;
+
+    // 帽子貼紙遊戲只允許由 SRT 訓練結果觸發。
+    // TestPage_SRT 傳入 mode="test" 時，會直接執行原本的返回流程。
+    if (isTrainingMode) {
+      const childId = resolveResultChildId(summaryData);
+
+      if (!rewardResultTokenRef.current) {
+        const lastRecord = normalizedRecords[normalizedRecords.length - 1];
+        const recordMarker =
+          lastRecord?.timestamp ||
+          summaryData?.finishedAt ||
+          summaryData?.generatedAt ||
+          `${normalizedRecords.length}-${displayScore}-${avgRT}`;
+
+        rewardResultTokenRef.current = [
+          "SRT",
+          "training",
+          childId,
+          summaryData?.resultId || summaryData?.sessionId || "session",
+          recordMarker,
+        ].join(":");
+      }
+
+      try {
+        const rewardDecision = evaluateHatReward({
+          childId,
+          resultToken: rewardResultTokenRef.current,
+        });
+
+        if (rewardDecision.shouldOpenHatGame) {
+          const rewardSessionId = `SRT-${childId}-${Date.now()}`;
+
+          navigate(HAT_GAME_ROUTE, {
+            state: {
+              childId,
+              rewardSessionId,
+              sessionId: summaryData?.sessionId || rewardSessionId,
+              sourceGame: "SRT",
+              sourceMode: "training",
+              returnRoute: "/game-menu",
+            },
+          });
+          return;
+        }
+      } catch (error) {
+        console.error("SRT 帽子遊戲排程判斷失敗：", error);
+      }
+    }
+
     if (onBackToMenu) {
       onBackToMenu();
       return;
     }
 
-    navigate("/game-menu");
+    navigate(isTrainingMode ? "/game-menu" : "/test-map");
   };
 
   const handleRestart = () => {
@@ -216,9 +523,6 @@ const ResultPage_SRT = ({
           <h1 className="srt-result-main-title">
             {isTrainingMode ? "橡實練習完成" : "橡實挑戰完成"}
           </h1>
-          <p className="srt-result-subtitle">
-            給家長看的結果說明｜用白話了解孩子這次在做什麼
-          </p>
         </header>
 
         <section className="srt-parent-panel">
@@ -265,12 +569,12 @@ const ResultPage_SRT = ({
           </section>
 
           <section className="srt-panel-block">
-            <h2 className="srt-section-title">家長快速解讀</h2>
-            <p className="srt-parent-summary-text">{parentPlainSummary}</p>
+            <h2 className="srt-section-title">結果快速解讀</h2>
+            <p className="srt-parent-summary-text">{resultPlainSummary}</p>
           </section>
 
           <section className="srt-panel-block">
-            <h2 className="srt-section-title">家長可以這樣看</h2>
+            <h2 className="srt-section-title">可以這樣看</h2>
             <p className="srt-parent-intro">
               不需要先懂專有名詞，只要看每張卡片的「孩子在做什麼」和「代表什麼」。
             </p>
@@ -324,7 +628,7 @@ const ResultPage_SRT = ({
           </section>
 
           <section className="srt-note-box">
-            <h3>給家長的小提醒</h3>
+            <h3>結果小提醒</h3>
             <p>
               這份結果是本次遊戲中的觀察紀錄，可以幫助了解孩子在「看見橡實、快速反應、維持注意」時的狀況；不代表醫療診斷，建議搭配多次練習或其他任務一起觀察。
             </p>
@@ -341,14 +645,16 @@ const ResultPage_SRT = ({
             <img src={homeBackBtn} alt="回到森林" />
           </button>
 
-          <button
-            type="button"
-            className="srt-image-button"
-            onClick={handleRestart}
-            aria-label="再玩一次"
-          >
-            <img src={homeAgainBtn} alt="再玩一次" />
-          </button>
+          {isTrainingMode && (
+            <button
+              type="button"
+              className="srt-image-button"
+              onClick={handleRestart}
+              aria-label="play again"
+            >
+              <img src={homeAgainBtn} alt="play again" />
+            </button>
+          )}
         </footer>
       </main>
     </div>
@@ -366,6 +672,173 @@ function safePercent(value, fallback = 0) {
 
 function clampPercent(value) {
   return safePercent(value);
+}
+
+function averageNumbers(values = []) {
+  const safeValues = values
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value));
+
+  if (safeValues.length === 0) return 0;
+
+  return safeValues.reduce((sum, value) => sum + value, 0) / safeValues.length;
+}
+
+function getRtStatsFromRecords(records = []) {
+  const rts = records
+    .filter(
+      (record) =>
+        record?.trainingAction === "hit" &&
+        typeof record.reactionTime === "number"
+    )
+    .map((record) => record.reactionTime);
+
+  if (rts.length === 0) {
+    return { avg: 0, std: 0, cv: 0, count: 0 };
+  }
+
+  const avg = averageNumbers(rts);
+  const variance = averageNumbers(rts.map((rt) => Math.pow(rt - avg, 2)));
+  const std = Math.sqrt(variance);
+
+  return {
+    avg: Math.round(avg),
+    std: Math.round(std),
+    cv: avg > 0 ? Number((std / avg).toFixed(2)) : 0,
+    count: rts.length,
+  };
+}
+
+function getSegmentSummaryFromRecords(records = [], segmentIndex = 0, totalSegments = 3) {
+  const safeRecords = Array.isArray(records) ? records : [];
+  const segmentSize = Math.ceil(safeRecords.length / totalSegments) || 1;
+  const segmentRecords = safeRecords.slice(
+    segmentIndex * segmentSize,
+    segmentIndex * segmentSize + segmentSize
+  );
+  const total = segmentRecords.length;
+  const hit = segmentRecords.filter((record) => record.trainingAction === "hit").length;
+  const correctAvoid = segmentRecords.filter((record) => record.trainingAction === "correctAvoid").length;
+  const miss = segmentRecords.filter((record) => record.missed || record.timeout).length;
+  const clickedRotten = segmentRecords.filter((record) => record.trainingAction === "clickedRotten").length;
+  const assisted = segmentRecords.filter((record) => record.assisted).length;
+  const rtStats = getRtStatsFromRecords(segmentRecords);
+
+  return {
+    total,
+    hit,
+    correctAvoid,
+    miss,
+    clickedRotten,
+    assisted,
+    accuracy: total > 0 ? Math.round(((hit + correctAvoid) / total) * 100) : 0,
+    missRate: total > 0 ? Math.round((miss / total) * 100) : 0,
+    clickedRottenRate: total > 0 ? Math.round((clickedRotten / total) * 100) : 0,
+    assistedRate: total > 0 ? Math.round((assisted / total) * 100) : 0,
+    avgRT: rtStats.avg,
+    rtStd: rtStats.std,
+    rtCV: rtStats.cv,
+  };
+}
+
+function buildFallbackLongAttentionMetrics(records = []) {
+  const safeRecords = Array.isArray(records) ? records : [];
+  const firstThird = getSegmentSummaryFromRecords(safeRecords, 0, 3);
+  const middleThird = getSegmentSummaryFromRecords(safeRecords, 1, 3);
+  const lastThird = getSegmentSummaryFromRecords(safeRecords, 2, 3);
+  const rtStats = getRtStatsFromRecords(safeRecords);
+  const assistedCount = safeRecords.filter((record) => record.assisted).length;
+  const rtSlowing =
+    lastThird.avgRT && firstThird.avgRT ? lastThird.avgRT - firstThird.avgRT : 0;
+  const missIncrease = lastThird.missRate - firstThird.missRate;
+  const wrongClickIncrease = lastThird.clickedRottenRate - firstThird.clickedRottenRate;
+  const assistedRateIncrease = lastThird.assistedRate - firstThird.assistedRate;
+
+  return {
+    rtStd: rtStats.std,
+    rtCV: rtStats.cv,
+    assistedCount,
+    assistedRate:
+      safeRecords.length > 0 ? Math.round((assistedCount / safeRecords.length) * 100) : 0,
+    firstThird,
+    middleThird,
+    lastThird,
+    rtSlowing,
+    missIncrease,
+    wrongClickIncrease,
+    assistedRateIncrease,
+    attentionDrop:
+      Math.max(0, missIncrease) +
+      Math.max(0, wrongClickIncrease) +
+      Math.max(0, Math.round(rtSlowing / 100)),
+  };
+}
+
+function getLongAttentionMetrics(summaryData = {}, records = []) {
+  return (
+    summaryData?.longAttentionMetrics ||
+    summaryData?.segmentAnalysis ||
+    summaryData?.aiRecommendation?.longAttentionMetrics ||
+    summaryData?.aiAnalysis?.segmentAnalysis ||
+    summaryData?.aiAnalysis?.longAttentionMetrics ||
+    buildFallbackLongAttentionMetrics(records)
+  );
+}
+
+function getFocusLabel(summaryData = {}, records = []) {
+  if (summaryData?.focusLabel) return summaryData.focusLabel;
+  if (summaryData?.attentionLabel) return summaryData.attentionLabel;
+
+  const metrics = getLongAttentionMetrics(summaryData, records);
+
+  if ((metrics.attentionDrop || 0) >= 30 || (metrics.missIncrease || 0) >= 20) {
+    return "後段需要多觀察";
+  }
+
+  if ((metrics.attentionDrop || 0) >= 12 || (metrics.rtSlowing || 0) >= 250) {
+    return "後段稍微變慢";
+  }
+
+  return "維持穩定";
+}
+
+function getAssistLabel(summaryData = {}, records = []) {
+  if (summaryData?.assistLabel) return summaryData.assistLabel;
+
+  const metrics = getLongAttentionMetrics(summaryData, records);
+  const assistedRate = safeNumber(metrics.assistedRate, safeNumber(summaryData?.assistedRate, 0));
+
+  if (assistedRate >= 40) return "提醒較多";
+  if (assistedRate >= 20) return "偶爾需要提醒";
+  return "提醒很少";
+}
+
+function getNextDifficultyLabel(summaryData = {}) {
+  if (summaryData?.nextDifficultyLabel) return summaryData.nextDifficultyLabel;
+  const value =
+    summaryData?.recommendation?.nextDifficulty ||
+    summaryData?.aiRecommendation?.nextDifficulty ||
+    summaryData?.aiAnalysis?.nextDifficulty ||
+    summaryData?.recommendedDifficulty ||
+    summaryData?.nextDifficulty ||
+    "";
+
+  const map = {
+    easy: "降低挑戰",
+    medium: "維持中等",
+    hard: "增加挑戰",
+    "easy-1": "簡單 1",
+    "easy-2": "簡單 2",
+    "easy-3": "簡單 3",
+    "medium-1": "普通 1",
+    "medium-2": "普通 2",
+    "medium-3": "普通 3",
+    "hard-1": "困難 1",
+    "hard-2": "困難 2",
+    "hard-3": "困難 3",
+  };
+
+  return map[value] || "維持練習";
 }
 
 function sanitizeAbilityScores(rawAbilityScores = {}, summary = {}) {
@@ -402,6 +875,377 @@ function getTrainingChildLabel(score) {
   return "再練一次會更好";
 }
 
+function getDetailedTrainingStars(summaryData = {}) {
+  const directStars =
+    summaryData?.stars ??
+    summaryData?.star ??
+    summaryData?.scoring?.stars ??
+    summaryData?.starResult?.stars ??
+    summaryData?.starResult?.star;
+
+  if (Number.isFinite(Number(directStars))) {
+    return Math.max(1, Math.min(3, Number(directStars)));
+  }
+
+  const scoreValue = safeNumber(summaryData?.finalScore ?? summaryData?.score, 0);
+  if (scoreValue >= 35) return 3;
+  if (scoreValue >= 18) return 2;
+  return 1;
+}
+
+function normalizeTrainingDifficultyGroup(summaryData = {}) {
+  const rawValue = String(
+    summaryData?.difficulty ||
+      summaryData?.difficultyKey ||
+      summaryData?.difficultyLevel ||
+      summaryData?.currentDifficulty ||
+      summaryData?.recommendedDifficulty ||
+      summaryData?.nextDifficulty ||
+      summaryData?.difficultyLabel ||
+      ""
+  ).toLowerCase();
+
+  if (rawValue.includes("hard") || rawValue.includes("3") || rawValue.includes("高")) {
+    return "hard";
+  }
+
+  if (
+    rawValue.includes("medium") ||
+    rawValue.includes("normal") ||
+    rawValue.includes("2") ||
+    rawValue.includes("中")
+  ) {
+    return "medium";
+  }
+
+  return "easy";
+}
+
+function getDetailedTrainingLevelInfo(summaryData = {}) {
+  const group = normalizeTrainingDifficultyGroup(summaryData);
+  const label =
+    summaryData?.difficultyLabel ||
+    summaryData?.levelLabel ||
+    summaryData?.trainingLevelLabel ||
+    getNextDifficultyLabel(summaryData);
+
+  const map = {
+    easy: {
+      label,
+      title: "基礎反應層級",
+      meaning:
+        "這一層主要在建立「看到目標後啟動反應」的連結，重點不是追求很快，而是讓孩子先理解規則並願意穩定參與。",
+    },
+    medium: {
+      label,
+      title: "穩定反應層級",
+      meaning:
+        "這一層開始要求孩子在較多等待與干擾中保持注意，練習看清楚目標後再反應。",
+    },
+    hard: {
+      label,
+      title: "進階控制層級",
+      meaning:
+        "這一層同時拉高速度、持續注意與抑制控制的負荷，孩子需要在想快一點的情況下仍然維持判斷品質。",
+    },
+  };
+
+  return { group, ...map[group] };
+}
+
+function getDetailedTrainingStarInfo(stars) {
+  if (stars >= 3) {
+    return {
+      title: "目前層級表現穩定",
+      meaning:
+        "孩子在這個層級已能穩定完成主要要求，可以開始觀察是否準備好接受稍高一點的挑戰。",
+    };
+  }
+
+  if (stars === 2) {
+    return {
+      title: "能力正在出現，但還需要穩定",
+      meaning:
+        "孩子已經抓到任務規則，也能完成一部分目標；接下來的重點是讓反應品質更平均，減少忽快忽慢或偶發錯誤。",
+    };
+  }
+
+  return {
+    title: "仍需要較多支持與熟悉",
+    meaning:
+      "孩子目前可能還在適應任務節奏，建議先降低速度壓力，以短時間、多次熟悉為主。",
+  };
+}
+
+function getDetailedTrainingProfile(summaryData = {}) {
+  const metrics = getLongAttentionMetrics(summaryData);
+  const hitCount = safeNumber(summaryData?.hitCount, 0);
+  const missCount = safeNumber(summaryData?.missCount, 0);
+  const clickedRottenCount = safeNumber(summaryData?.clickedRottenCount, 0);
+  const correctAvoidCount = safeNumber(summaryData?.correctAvoidCount, 0);
+  const avgRT = safeNumber(summaryData?.avgRT, 0);
+  const rtCV = safeNumber(summaryData?.rtCV, safeNumber(metrics?.rtCV, 0));
+  const assistedRate = safeNumber(
+    summaryData?.assistedRate,
+    safeNumber(metrics?.assistedRate, 0)
+  );
+  const attentionDrop = safeNumber(
+    summaryData?.attentionDrop,
+    safeNumber(metrics?.attentionDrop, 0)
+  );
+  const totalResponseEvents = Math.max(1, hitCount + missCount);
+  const missRate = Math.round((missCount / totalResponseEvents) * 100);
+
+  if (assistedRate >= 40) {
+    return {
+      key: "needs_assist",
+      badge: "提示",
+      tone: "watch",
+      title: "需要提示後比較能穩定完成",
+      meaning:
+        "孩子在有提醒或輔助時比較容易接上任務，代表目前可以先把提示當作橋梁，再慢慢減少提示量。",
+      observation:
+        "家長可以觀察孩子是需要一開始提醒，還是任務中段容易斷掉後需要重新帶回來。",
+      advice:
+        "下次建議維持目前層級，先固定使用簡短提示，例如「先看清楚再按」，等穩定後再逐步撤除。",
+    };
+  }
+
+  if (clickedRottenCount >= 4) {
+    return {
+      key: "fast_but_impulsive",
+      badge: "誤按",
+      tone: "alert",
+      title: "反應意願高，但有時會太快出手",
+      meaning:
+        "孩子很投入，也願意快速反應；不過遇到不能按或相似刺激時，偶爾會還沒確認清楚就先按下去。",
+      observation:
+        "家長可以留意孩子是否常出現「先按再說」的狀況，或在刺激突然出現時比較難等待。",
+      advice:
+        "下次先維持或微降層級，把目標放在少誤按，而不是更快完成。",
+    };
+  }
+
+  if (missRate >= 45 || missCount > hitCount) {
+    return {
+      key: "miss_many",
+      badge: "漏按",
+      tone: "watch",
+      title: "理解任務，但目標出現時容易漏掉",
+      meaning:
+        "孩子可能知道要做什麼，但在等待、掃描畫面或持續注意上還不夠穩定，所以有些目標沒有即時接住。",
+      observation:
+        "家長可以觀察孩子是否在遊戲後半段比較容易看別處、慢半拍，或需要別人提醒才回到任務。",
+      advice:
+        "下次建議維持目前層級，但縮短單次練習時間，先把命中目標的穩定度拉起來。",
+    };
+  }
+
+  if (attentionDrop >= 20) {
+    return {
+      key: "late_fatigue",
+      badge: "後段",
+      tone: "watch",
+      title: "前段能投入，後段注意力較容易下滑",
+      meaning:
+        "孩子一開始可以進入任務，但隨著時間拉長，反應品質可能下降，這比較像持續注意或疲勞調節的議題。",
+      observation:
+        "家長可以看孩子是不是越到後面越慢、越容易漏掉，或開始需要更多提醒。",
+      advice:
+        "下次可以用較短回合練習，中間安排明確休息，再逐步拉長時間。",
+    };
+  }
+
+  if (rtCV >= 0.35) {
+    return {
+      key: "unstable_response",
+      badge: "起伏",
+      tone: "watch",
+      title: "反應忽快忽慢，穩定度仍在建立",
+      meaning:
+        "孩子有時能很快反應，但有時會突然慢下來。這代表能力已經出現，只是還需要練習穩定維持。",
+      observation:
+        "家長可以觀察孩子是否容易受到畫面變化、等待時間或情緒興奮程度影響。",
+      advice:
+        "下次先維持目前層級，練習固定節奏與看清楚再按。",
+    };
+  }
+
+  if (avgRT >= 1800 && hitCount >= missCount) {
+    return {
+      key: "slow_but_accurate",
+      badge: "慢穩",
+      tone: "good",
+      title: "速度較慢，但判斷品質不錯",
+      meaning:
+        "孩子可能會花比較多時間確認目標，但這也代表他正在嘗試控制衝動、避免亂按。",
+      observation:
+        "家長可以鼓勵孩子保持看清楚的習慣，再用輕鬆方式慢慢提高速度。",
+      advice:
+        "下次可維持同層級，目標放在稍微縮短反應時間，而不是一次提高很多難度。",
+    };
+  }
+
+  if (correctAvoidCount >= clickedRottenCount && hitCount >= missCount) {
+    return {
+      key: "balanced",
+      badge: "穩定",
+      tone: "good",
+      title: "速度、正確率與等待控制較平衡",
+      meaning:
+        "孩子在目前層級能同時做到看到目標就反應，以及遇到不該按的刺激時忍住。",
+      observation:
+        "家長可以觀察孩子是否能在沒有太多提醒下完成，並維持愉快投入。",
+      advice:
+        "下次可以維持層級再確認一次；若仍穩定，就可以考慮小幅提高難度。",
+    };
+  }
+
+  return {
+    key: "developing",
+    badge: "練習",
+    tone: "neutral",
+    title: "能力正在累積，仍需更多資料觀察",
+    meaning:
+      "這次表現沒有單一特別突出的錯誤型態，建議先把它視為孩子正在熟悉任務節奏的一次練習。",
+    observation:
+      "家長可以持續觀察孩子在不同日期是否呈現相似狀況，而不是只看單次表現。",
+    advice:
+      "下次建議維持目前層級，累積 2 到 3 次結果後再判斷是否調整。",
+  };
+}
+
+function buildDetailedTrainingOneSentence(summaryData = {}) {
+  const stars = getDetailedTrainingStars(summaryData);
+  const levelInfo = getDetailedTrainingLevelInfo(summaryData);
+  const profile = getDetailedTrainingProfile(summaryData);
+
+  return `${levelInfo.title}，${stars} 星：${profile.title}。`;
+}
+
+function buildDetailedTrainingParentSummary(summaryData = {}) {
+  if (summaryData?.aiParentSummary) return summaryData.aiParentSummary;
+  if (summaryData?.parentSummary) return summaryData.parentSummary;
+
+  const stars = getDetailedTrainingStars(summaryData);
+  const levelInfo = getDetailedTrainingLevelInfo(summaryData);
+  const starInfo = getDetailedTrainingStarInfo(stars);
+  const profile = getDetailedTrainingProfile(summaryData);
+  const hitCount = safeNumber(summaryData?.hitCount, 0);
+  const missCount = safeNumber(summaryData?.missCount, 0);
+  const clickedRottenCount = safeNumber(summaryData?.clickedRottenCount, 0);
+  const avgRT = safeNumber(summaryData?.avgRT, 0);
+  const rtText = avgRT ? `平均反應約 ${(avgRT / 1000).toFixed(2)} 秒` : "平均反應時間資料不足";
+
+  return `這次訓練屬於「${levelInfo.label}」的${levelInfo.title}。${levelInfo.meaning} 本次拿到 ${stars} 星，代表${starInfo.meaning} 主要觀察到的型態是「${profile.title}」：${profile.meaning} 數據上，孩子命中 ${hitCount} 次、漏按 ${missCount} 次、誤按干擾物 ${clickedRottenCount} 次，${rtText}。${profile.observation}`;
+}
+
+function buildDetailedTrainingHighlights(summaryData = {}) {
+  const stars = getDetailedTrainingStars(summaryData);
+  const levelInfo = getDetailedTrainingLevelInfo(summaryData);
+  const starInfo = getDetailedTrainingStarInfo(stars);
+  const profile = getDetailedTrainingProfile(summaryData);
+  const metrics = getLongAttentionMetrics(summaryData);
+  const hitCount = safeNumber(summaryData?.hitCount, 0);
+  const missCount = safeNumber(summaryData?.missCount, 0);
+  const clickedRottenCount = safeNumber(summaryData?.clickedRottenCount, 0);
+  const assistedRate = safeNumber(
+    summaryData?.assistedRate,
+    safeNumber(metrics?.assistedRate, 0)
+  );
+
+  return [
+    {
+      badge: levelInfo.group === "hard" ? "高" : levelInfo.group === "medium" ? "中" : "基",
+      tone: "neutral",
+      title: levelInfo.title,
+      text: levelInfo.meaning,
+    },
+    {
+      badge: `${stars}星`,
+      tone: stars >= 3 ? "good" : stars === 2 ? "watch" : "alert",
+      title: starInfo.title,
+      text: starInfo.meaning,
+    },
+    {
+      badge: profile.badge,
+      tone: profile.tone,
+      title: profile.title,
+      text: profile.meaning,
+    },
+    {
+      badge: hitCount >= missCount ? "命中" : "漏按",
+      tone: hitCount >= missCount ? "good" : "watch",
+      title: "目標反應狀況",
+      text: `孩子這次命中 ${hitCount} 次、漏按 ${missCount} 次。這可以協助判斷孩子是能穩定接住目標，還是需要先練習等待與掃描畫面。`,
+    },
+    {
+      badge: clickedRottenCount <= 2 ? "控制" : "誤按",
+      tone: clickedRottenCount <= 2 ? "good" : "alert",
+      title: "抑制控制狀況",
+      text:
+        clickedRottenCount <= 2
+          ? "孩子大多能忍住不該按的刺激，代表目前的等待與抑制控制表現不錯。"
+          : `孩子誤按干擾物 ${clickedRottenCount} 次，建議下次把重點放在「看清楚再按」。`,
+    },
+    {
+      badge: assistedRate >= 40 ? "多" : assistedRate >= 20 ? "中" : "少",
+      tone: assistedRate >= 40 ? "alert" : assistedRate >= 20 ? "watch" : "good",
+      title: "提示需求",
+      text:
+        assistedRate >= 40
+          ? "孩子目前仍需要較多提示才能維持任務，建議先保留簡短提示，再慢慢減少。"
+          : assistedRate >= 20
+          ? "孩子偶爾需要提示才能重新回到任務，可以觀察提示出現的時間點。"
+          : "孩子多半能自己完成任務，提示需求不高。",
+    },
+  ];
+}
+
+function buildDetailedTrainingNextSuggestion(summaryData = {}) {
+  if (summaryData?.parentNextSuggestion?.title || summaryData?.parentNextSuggestion?.text) {
+    return {
+      title: summaryData.parentNextSuggestion.title || "下一次訓練建議",
+      text: summaryData.parentNextSuggestion.text || "建議延續目前結果調整下一次訓練。",
+    };
+  }
+
+  const analyzerRecommendation =
+    summaryData?.recommendation ||
+    summaryData?.aiAnalysis?.recommendation ||
+    null;
+  const stars = getDetailedTrainingStars(summaryData);
+  const levelInfo = getDetailedTrainingLevelInfo(summaryData);
+  const profile = getDetailedTrainingProfile(summaryData);
+  const nextDifficultyLabel = getNextDifficultyLabel(summaryData);
+
+  if (analyzerRecommendation?.reason) {
+    return {
+      title: "下一次訓練建議",
+      text: `系統建議「${nextDifficultyLabel}」：${analyzerRecommendation.reason}。以家長觀察來看，這次主要型態是「${profile.title}」，${profile.advice}`,
+    };
+  }
+
+  if (profile.key === "balanced" && stars >= 3) {
+    return {
+      title: "可以小幅提高挑戰",
+      text: `孩子在「${levelInfo.label}」表現穩定。下一次可以先提高一小階，或維持同層級再確認一次穩定度。`,
+    };
+  }
+
+  if (stars <= 1 || profile.tone === "alert") {
+    return {
+      title: "先穩定，不急著升級",
+      text: `${profile.advice} 若連續兩次仍出現同樣狀況，可以考慮降低一階，先讓孩子重新建立成功經驗。`,
+    };
+  }
+
+  return {
+    title: "維持目前層級，針對主要型態練習",
+    text: `${profile.advice} 建議累積 2 到 3 次結果後，再判斷是否升級或調整訓練時間。`,
+  };
+}
+
 function buildTestOneSentence({ stars, summary = {}, abilityScores = {} }) {
   if (!summary.totalTrials) {
     return "目前資料還不完整，完成一次挑戰後，這裡會用簡單文字說明孩子的表現。";
@@ -426,6 +1270,7 @@ function buildTestOneSentence({ stars, summary = {}, abilityScores = {} }) {
   return "孩子還在熟悉規則，建議下一次先放慢速度，讓孩子先建立成功經驗。";
 }
 
+// eslint-disable-next-line no-unused-vars
 function buildTrainingOneSentence(summaryData = {}) {
   const hitCount = summaryData?.hitCount || 0;
   const correctAvoidCount = summaryData?.correctAvoidCount || 0;
@@ -435,7 +1280,7 @@ function buildTrainingOneSentence(summaryData = {}) {
 
 function buildTestParentSummary({ stars, summary = {}, abilityScores = {} }) {
   if (!summary.totalTrials) {
-    return "目前還沒有完整結果。完成一次完整挑戰後，這裡會整理成家長看得懂的說明。";
+    return "目前還沒有完整結果。完成一次完整挑戰後，這裡會整理成本次結果說明。";
   }
 
   const accuracyText =
@@ -446,7 +1291,7 @@ function buildTestParentSummary({ stars, summary = {}, abilityScores = {} }) {
       : "孩子目前還在熟悉規則，點對的比例可以再練習。";
 
   const speedText = summary.avgReactionTime
-    ? `平均反應約 ${(summary.avgReactionTime / 1000).toFixed(2)} 秒，家長可以把它理解成孩子看到橡實後按下去的速度。`
+    ? `平均反應約 ${(summary.avgReactionTime / 1000).toFixed(2)} 秒，可以把它理解成孩子看到橡實後按下去的速度。`
     : "目前有效反應時間資料不足。";
 
   const attentionText =
@@ -459,15 +1304,21 @@ function buildTestParentSummary({ stars, summary = {}, abilityScores = {} }) {
   return `${accuracyText}${speedText}${attentionText}`;
 }
 
+// eslint-disable-next-line no-unused-vars
 function buildTrainingParentSummary(summaryData = {}) {
+  if (summaryData?.aiParentSummary) return summaryData.aiParentSummary;
+  if (summaryData?.parentSummary) return summaryData.parentSummary;
+
   const difficultyLabel = summaryData?.difficultyLabel || "普通";
   const hitCount = summaryData?.hitCount || 0;
   const missCount = summaryData?.missCount || 0;
   const correctAvoidCount = summaryData?.correctAvoidCount || 0;
   const clickedRottenCount = summaryData?.clickedRottenCount || 0;
   const avgRT = summaryData?.avgRT || 0;
+  const focusLabel = getFocusLabel(summaryData);
+  const assistLabel = getAssistLabel(summaryData);
 
-  return `本次是「${difficultyLabel}」練習。孩子接到 ${hitCount} 次可以接的橡實，漏接 ${missCount} 次，平均反應約 ${(avgRT / 1000).toFixed(2)} 秒。若有壞橡實，孩子成功忍住 ${correctAvoidCount} 次，誤點 ${clickedRottenCount} 次。家長可以把它理解成：孩子有沒有先看清楚，再決定要不要點。`;
+  return `本次是「${difficultyLabel}」練習。孩子接到 ${hitCount} 次可以接的橡實，漏接 ${missCount} 次，平均反應約 ${(avgRT / 1000).toFixed(2)} 秒。若有壞橡實，孩子成功忍住 ${correctAvoidCount} 次，誤點 ${clickedRottenCount} 次。整體來看，專注維持狀況為「${focusLabel}」，提醒需求為「${assistLabel}」。可以把它理解成：孩子有沒有先看清楚，再決定要不要點。`;
 }
 
 function buildTestHighlights({ summary = {}, abilityScores = {} }) {
@@ -514,12 +1365,16 @@ function buildTestHighlights({ summary = {}, abilityScores = {} }) {
   return highlights;
 }
 
+// eslint-disable-next-line no-unused-vars
 function buildTrainingHighlights(summaryData = {}) {
   const hitCount = summaryData?.hitCount || 0;
   const missCount = summaryData?.missCount || 0;
   const clickedRottenCount = summaryData?.clickedRottenCount || 0;
+  const focusLabel = getFocusLabel(summaryData);
+  const assistLabel = getAssistLabel(summaryData);
+  const metrics = getLongAttentionMetrics(summaryData);
 
-  return [
+  const highlights = [
     {
       badge: hitCount >= missCount ? "✓" : "△",
       tone: hitCount >= missCount ? "good" : "watch",
@@ -542,6 +1397,29 @@ function buildTrainingHighlights(summaryData = {}) {
       text: "這個遊戲主要觀察孩子看到目標後，能不能先看清楚再反應。",
     },
   ];
+
+  if (summaryData?.longAttentionMetrics || summaryData?.aiAnalysis?.longAttentionMetrics) {
+    highlights.push({
+      badge: (metrics.attentionDrop || 0) >= 20 ? "△" : "✓",
+      tone: (metrics.attentionDrop || 0) >= 20 ? "watch" : "good",
+      title: "後段專注有沒有維持？",
+      text:
+        focusLabel === "維持穩定"
+          ? "前中後段變化不大，長時間練習時仍能維持注意。"
+          : `後段狀況為「${focusLabel}」，可以觀察是否因時間拉長而變慢或漏接增加。`,
+    });
+  }
+
+  if (summaryData?.assistedRate !== undefined || summaryData?.longAttentionMetrics?.assistedRate !== undefined) {
+    highlights.push({
+      badge: (metrics.assistedRate || 0) >= 40 ? "!" : (metrics.assistedRate || 0) >= 20 ? "△" : "✓",
+      tone: (metrics.assistedRate || 0) >= 40 ? "alert" : (metrics.assistedRate || 0) >= 20 ? "watch" : "good",
+      title: "需不需要小提醒？",
+      text: `本次提醒需求為「${assistLabel}」，代表孩子在長時間練習中需要被喚回注意的程度。`,
+    });
+  }
+
+  return highlights;
 }
 
 function buildTestNextSuggestion({ stars, summary = {}, abilityScores = {} }) {
@@ -586,10 +1464,47 @@ function buildTestNextSuggestion({ stars, summary = {}, abilityScores = {} }) {
   };
 }
 
+// eslint-disable-next-line no-unused-vars
 function buildTrainingNextSuggestion(summaryData = {}) {
+  if (summaryData?.parentNextSuggestion?.title || summaryData?.parentNextSuggestion?.text) {
+    return {
+      title: summaryData.parentNextSuggestion.title || "下次練習建議",
+      text: summaryData.parentNextSuggestion.text || "建議依照本次表現調整下次練習。",
+    };
+  }
+
+  if (summaryData?.aiRecommendation?.nextTitle || summaryData?.aiRecommendation?.nextSuggestion) {
+    return {
+      title: summaryData.aiRecommendation.nextTitle || "下次練習建議",
+      text:
+        summaryData.aiRecommendation.nextSuggestion ||
+        "建議依照本次表現調整下次練習。",
+    };
+  }
+
+  const analyzerRecommendation =
+    summaryData?.recommendation ||
+    summaryData?.aiAnalysis?.recommendation ||
+    null;
+
+  if (analyzerRecommendation?.reason) {
+    return {
+      title:
+        analyzerRecommendation.action === "upgrade"
+          ? "下次可以增加一階挑戰"
+          : analyzerRecommendation.action === "downgrade"
+          ? "下次建議降低一階難度"
+          : "下次先維持目前難度",
+      text: `系統建議「${getNextDifficultyLabel(summaryData)}」：${analyzerRecommendation.reason}`,
+    };
+  }
+
   const clickedRottenCount = summaryData?.clickedRottenCount || 0;
   const missCount = summaryData?.missCount || 0;
   const hitCount = summaryData?.hitCount || 0;
+  const focusLabel = getFocusLabel(summaryData);
+  const assistLabel = getAssistLabel(summaryData);
+  const nextDifficultyLabel = getNextDifficultyLabel(summaryData);
 
   if (clickedRottenCount >= 4) {
     return {
@@ -605,9 +1520,16 @@ function buildTrainingNextSuggestion(summaryData = {}) {
     };
   }
 
+  if (focusLabel !== "維持穩定" || assistLabel === "提醒較多") {
+    return {
+      title: "下次先穩定完成",
+      text: `本次後段狀況為「${focusLabel}」、提醒需求為「${assistLabel}」。建議下次先以「${nextDifficultyLabel}」為目標，穩定後再增加挑戰。`,
+    };
+  }
+
   return {
     title: "下次可以維持目前難度",
-    text: "孩子這次能完成不少反應任務，建議先穩定練習，再慢慢增加挑戰。",
+    text: `孩子這次能完成不少反應任務，建議先穩定練習。系統建議方向：${nextDifficultyLabel}。`,
   };
 }
 
@@ -711,7 +1633,15 @@ function formatMsShort(ms) {
 }
 
 function buildTrainingIndicators(summaryData = {}, avgRT = 0) {
-  return [
+  const metrics = getLongAttentionMetrics(summaryData);
+  const focusLabel = getFocusLabel(summaryData);
+  const assistLabel = getAssistLabel(summaryData);
+  const nextDifficultyLabel = getNextDifficultyLabel(summaryData);
+  const rtCV = safeNumber(summaryData?.rtCV, safeNumber(metrics.rtCV, 0));
+  const assistedRate = safeNumber(summaryData?.assistedRate, safeNumber(metrics.assistedRate, 0));
+  const attentionDrop = safeNumber(summaryData?.attentionDrop, safeNumber(metrics.attentionDrop, 0));
+
+  const indicators = [
     {
       key: "difficulty",
       title: "這次難度",
@@ -747,198 +1677,195 @@ function buildTrainingIndicators(summaryData = {}, avgRT = 0) {
       status: `${summaryData?.distractorMetrics?.goldenHitCount ?? summaryData?.goldenHitCount ?? 0} 次`,
       desc: "孩子有沒有注意到比較特別、比較值得接的金色橡實。",
     },
+    {
+      key: "focus",
+      title: "專心維持得如何？",
+      value: focusLabel,
+      status: focusLabel,
+      desc:
+        focusLabel === "維持穩定"
+          ? "前中後段表現相對穩定，長時間練習時仍能維持注意。"
+          : "這裡會看後段是否變慢、漏接是否增加，以及是否更需要提醒。",
+    },
+    {
+      key: "assist",
+      title: "需不需要小提醒？",
+      value: `${assistedRate}%`,
+      status: assistLabel,
+      desc: "提醒比例越高，代表孩子越常需要呼吸光、晃動或背景淡閃協助回到任務。",
+    },
+    {
+      key: "stability",
+      title: "反應穩定度",
+      value: rtCV ? `CV ${rtCV}` : "--",
+      status: rtCV ? `CV ${rtCV}` : "--",
+      desc: "這裡看反應是否忽快忽慢；數字越高，代表注意力波動可能越明顯。",
+    },
+    {
+      key: "attentionDrop",
+      title: "後段變化",
+      value: attentionDrop ? `${attentionDrop}` : "穩定",
+      status: attentionDrop ? `${attentionDrop}` : "穩定",
+      desc: "綜合後段變慢、漏接增加與誤點變化，用來觀察長時間專注是否下降。",
+    },
+    {
+      key: "next",
+      title: "下次怎麼練？",
+      value: nextDifficultyLabel,
+      status: nextDifficultyLabel,
+      desc:
+        summaryData?.parentAdvice ||
+        summaryData?.aiRecommendation?.parentAdvice ||
+        "建議先穩定完成目前難度，再慢慢增加挑戰。",
+    },
   ];
+
+  return indicators;
 }
 
 const resultPageCss = `
+:root {
+  --srt-honey: #e7a62f;
+  --srt-honey-dark: #b87818;
+  --srt-cream: #fffaf0;
+  --srt-cream-deep: #f6ead4;
+  --srt-sky: #65b8e8;
+  --srt-sky-soft: #eaf6fd;
+  --srt-leaf: #739a48;
+  --srt-leaf-soft: #eef5e6;
+  --srt-coral: #e98f7d;
+  --srt-coral-soft: #fff0ec;
+  --srt-wood: #6b4226;
+  --srt-wood-soft: #8a5a34;
+  --srt-line: #ead8b7;
+}
+
 .srt-result-page {
   width: 100%;
   min-height: 100dvh;
-  height: 100dvh;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
+  padding: clamp(12px, 2.4vw, 30px);
   box-sizing: border-box;
-  overflow: hidden;
   font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
-  color: #5b3524;
+  color: var(--srt-wood);
 }
 
 .srt-result-main-card {
-  width: min(1040px, 96vw);
-  max-height: calc(100dvh - 40px);
-  background: rgba(255, 248, 235, 0.97);
-  border: 7px solid #f4b13a;
-  border-radius: 34px;
-  padding: 24px 34px 26px;
-  box-sizing: border-box;
-  box-shadow: 0 18px 36px rgba(81, 55, 20, 0.22);
+  width: min(1180px, 100%);
+  min-height: calc(100dvh - clamp(24px, 4.8vw, 60px));
+  margin: 0 auto;
+  background: rgba(255, 250, 240, 0.97);
+  border: 1px solid rgba(194, 139, 68, 0.45);
+  border-radius: 22px;
+  box-shadow: 0 18px 44px rgba(99, 67, 30, 0.2);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  position: relative;
-}
-
-.srt-result-main-card::before {
-  content: "";
-  position: absolute;
-  inset: 20px;
-  border: 2px dashed rgba(255, 255, 255, 0.8);
-  border-radius: 26px;
-  pointer-events: none;
 }
 
 .srt-result-header {
-  text-align: center;
-  margin-bottom: 14px;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 1;
+  padding: clamp(22px, 4vw, 38px) clamp(18px, 4vw, 42px) 22px;
+  border-bottom: 1px solid var(--srt-line);
+  background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,248,232,.94));
 }
 
 .srt-mode-tag {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 0 8px;
-  padding: 6px 18px;
-  border-radius: 999px;
-  background: #fff6db;
-  border: 2px solid #efbd58;
-  color: #915725;
-  font-size: 15px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
+  margin: 0 0 9px;
+  padding: 6px 12px;
+  border-radius: 7px;
+  background: var(--srt-sky-soft);
+  border: 1px solid #b9dff4;
+  color: #3b7799;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .04em;
 }
 
 .srt-result-main-title {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  min-width: min(560px, 84vw);
   margin: 0;
-  padding: 14px 48px;
-  border-radius: 20px;
-  border: 4px solid #f0b24a;
-  background: linear-gradient(180deg, #fff0ab 0%, #fff7cc 100%);
-  box-shadow: 0 6px 0 #d99b3f;
-  color: #6b3e22;
-  font-size: clamp(34px, 5vw, 52px);
-  font-weight: 950;
-  letter-spacing: 0.08em;
-  line-height: 1.1;
-  text-shadow: 0 3px 0 rgba(255, 255, 255, 0.62);
-}
-
-.srt-result-main-title::before,
-.srt-result-main-title::after {
-  content: "🌿";
-  font-size: 26px;
+  color: var(--srt-wood);
+  font-size: clamp(27px, 4vw, 42px);
+  font-weight: 900;
+  line-height: 1.22;
 }
 
 .srt-result-subtitle {
-  margin: 16px 0 0;
-  color: #6a432e;
-  font-size: 22px;
-  font-weight: 900;
+  margin: 10px 0 0;
+  color: var(--srt-wood-soft);
+  font-size: clamp(15px, 1.7vw, 19px);
+  font-weight: 650;
 }
 
 .srt-parent-panel {
-  position: relative;
-  z-index: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 6px 8px 14px;
-  scrollbar-width: thin;
-  scrollbar-color: #d9a340 rgba(255, 247, 225, 0.75);
-}
-
-.srt-parent-panel::-webkit-scrollbar {
-  width: 10px;
-}
-
-.srt-parent-panel::-webkit-scrollbar-thumb {
-  background: #d9a340;
-  border-radius: 999px;
+  flex: 1;
+  padding: clamp(16px, 3vw, 34px);
 }
 
 .srt-overview-card,
 .srt-panel-block,
 .srt-next-card,
 .srt-note-box {
-  background: rgba(255, 255, 255, 0.88);
-  border: 4px solid rgba(236, 197, 123, 0.72);
-  border-radius: 28px;
-  box-shadow: 0 8px 0 rgba(205, 156, 62, 0.18), 0 12px 22px rgba(92, 58, 16, 0.09);
+  background: rgba(255,255,255,.96);
+  border: 1px solid var(--srt-line);
+  border-radius: 15px;
+  box-shadow: 0 5px 16px rgba(108, 72, 31, .07);
 }
 
 .srt-overview-card {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 22px;
-  padding: 26px 30px;
-  margin-bottom: 30px;
+  align-items: stretch;
+  gap: 24px;
+  padding: clamp(20px, 3vw, 30px);
+  margin-bottom: 22px;
+  border-top: 5px solid var(--srt-honey);
 }
 
 .srt-overview-left {
   display: flex;
   align-items: center;
-  gap: 30px;
+  gap: 24px;
   min-width: 0;
 }
 
 .srt-score-circle {
-  width: 184px;
-  height: 184px;
-  min-width: 184px;
-  min-height: 184px;
-  border-radius: 50%;
-  background: linear-gradient(180deg, #86d7ff 0%, #43aee6 100%);
-  border: 6px solid #ffffff;
-  outline: 4px solid #88ccec;
-  box-shadow: 0 7px 0 rgba(39, 125, 170, 0.28), 0 13px 22px rgba(40, 112, 148, 0.18);
-  color: #ffffff;
+  width: 132px;
+  height: 132px;
+  min-width: 132px;
+  border-radius: 18px;
+  background: linear-gradient(160deg, #7fc9ef, var(--srt-sky));
+  border: 3px solid #fff;
+  outline: 1px solid #9fd5ef;
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 5px;
+  box-shadow: 0 8px 18px rgba(57, 137, 181, .22);
 }
 
-.srt-score-number {
-  font-size: 58px;
-  font-weight: 950;
-  line-height: 1;
-}
-
-.srt-score-unit {
-  font-size: 28px;
-  font-weight: 950;
-  align-self: flex-end;
-  margin-bottom: 36px;
-}
+.srt-score-number { font-size: 48px; font-weight: 900; line-height: 1; }
+.srt-score-unit { font-size: 20px; font-weight: 800; align-self: flex-end; margin-bottom: 30px; }
 
 .srt-overview-label,
 .srt-card-label,
 .srt-stat-label {
-  margin: 0 0 8px;
-  color: #835234;
-  font-size: 15px;
-  font-weight: 950;
-  letter-spacing: 0.06em;
+  margin: 0 0 7px;
+  color: #8d6745;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .03em;
 }
 
 .srt-overview-title {
-  margin: 0 0 12px;
-  color: #5b2f20;
-  font-size: clamp(30px, 3.4vw, 42px);
-  font-weight: 950;
-  line-height: 1.15;
+  margin: 0 0 10px;
+  color: var(--srt-wood);
+  font-size: clamp(24px, 3vw, 34px);
+  font-weight: 900;
+  line-height: 1.25;
 }
 
 .srt-overview-desc,
@@ -948,376 +1875,172 @@ const resultPageCss = `
 .srt-next-card p,
 .srt-note-box p {
   margin: 0;
-  color: #6b3d2a;
-  font-size: 21px;
-  font-weight: 800;
-  line-height: 1.7;
+  color: #6f5743;
+  font-size: clamp(15px, 1.7vw, 18px);
+  font-weight: 500;
+  line-height: 1.75;
 }
 
 .srt-star-summary {
   flex: 0 0 220px;
+  padding: 20px;
+  border-radius: 13px;
+  background: linear-gradient(180deg, #fff8df, #fff3cf);
+  border: 1px solid #efd28d;
+  text-align: center;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 18px 14px;
-  border-radius: 24px;
-  background: #fff8df;
-  border: 3px solid #efd08b;
-  text-align: center;
-}
-
-.srt-star-row {
-  display: flex;
   justify-content: center;
   gap: 8px;
 }
 
-.srt-star-chip {
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #fff3cf;
-  border: 3px solid #dfb55e;
-  color: #c18a2f;
-  font-size: 27px;
-  line-height: 1;
-  opacity: 0.5;
-}
-
-.srt-star-chip.is-on {
-  background: linear-gradient(180deg, #fff2a6 0%, #ffc857 100%);
-  color: #8b5a18;
-  opacity: 1;
-  box-shadow: 0 4px 0 #c88a28;
-}
-
-.srt-star-summary p {
-  margin: 0;
-  color: #6a432e;
-  font-size: 16px;
-  font-weight: 950;
-}
-
-.srt-star-summary small {
-  color: #8a624d;
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 1.45;
-}
+.srt-star-row { display: flex; justify-content: center; gap: 8px; }
+.srt-star-chip { color: #d9c8a7; font-size: 30px; line-height: 1; }
+.srt-star-chip.is-on { color: var(--srt-honey); }
+.srt-star-summary p { margin: 0; color: var(--srt-wood); font-size: 15px; font-weight: 800; }
+.srt-star-summary small { color: #8a6a4d; font-size: 12px; line-height: 1.5; }
 
 .srt-quick-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 26px;
+  gap: 14px;
+  margin-bottom: 22px;
 }
 
 .srt-stat-card {
-  min-height: 126px;
-  padding: 18px 16px;
-  border-radius: 24px;
-  background: rgba(255, 252, 244, 0.96);
-  border: 3px solid rgba(239, 198, 124, 0.75);
-  box-shadow: 0 7px 0 rgba(213, 165, 75, 0.17);
+  min-height: 122px;
+  padding: 18px;
+  border-radius: 13px;
+  background: #fff;
+  border: 1px solid var(--srt-line);
+  border-top: 4px solid var(--srt-leaf);
   box-sizing: border-box;
 }
+.srt-stat-card:nth-child(2) { border-top-color: var(--srt-sky); }
+.srt-stat-card:nth-child(3) { border-top-color: var(--srt-honey); }
+.srt-stat-card:nth-child(4) { border-top-color: var(--srt-coral); }
+.srt-stat-card:nth-child(5) { border-top-color: #9d7ac1; }
+.srt-stat-card:nth-child(6) { border-top-color: var(--srt-leaf); }
 
-.srt-stat-value {
-  margin: 0 0 6px;
-  color: #5b2f20;
-  font-size: 30px;
-  font-weight: 950;
-}
-
-.srt-stat-helper {
-  margin: 0;
-  color: #8a624d;
-  font-size: 15px;
-  font-weight: 800;
-  line-height: 1.45;
-}
+.srt-stat-value { margin: 0 0 7px; color: var(--srt-wood); font-size: clamp(23px, 2.5vw, 30px); font-weight: 900; }
+.srt-stat-helper { margin: 0; color: #8b715b; font-size: 13px; line-height: 1.5; }
 
 .srt-panel-block,
 .srt-next-card,
-.srt-note-box {
-  padding: 22px 26px;
-  margin-bottom: 26px;
-}
-
-.srt-section-title {
-  margin: 0 0 12px;
-  color: #6b3a21;
-  font-size: 24px;
-  font-weight: 950;
-}
+.srt-note-box { padding: clamp(18px, 3vw, 28px); margin-bottom: 22px; }
+.srt-section-title { margin: 0 0 12px; color: var(--srt-wood); font-size: clamp(20px, 2.4vw, 25px); font-weight: 900; }
 
 .srt-highlight-grid,
 .srt-indicator-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
+  gap: 14px;
   margin-top: 18px;
 }
-
-.srt-indicator-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
+.srt-indicator-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
 .srt-observation-card {
-  padding: 20px;
-  border-radius: 24px;
-  background: rgba(255, 253, 247, 0.96);
-  border: 3px solid rgba(236, 197, 123, 0.72);
-  box-shadow: 0 7px 0 rgba(205, 156, 62, 0.15);
+  padding: 18px;
+  border-radius: 13px;
+  background: #fffdf8;
+  border: 1px solid #eadcc5;
   box-sizing: border-box;
 }
+.srt-observation-card:nth-child(3n+1) { background: #fbfdf7; border-color: #d7e4c7; }
+.srt-observation-card:nth-child(3n+2) { background: #f7fcff; border-color: #cfe7f4; }
+.srt-observation-card:nth-child(3n) { background: #fff9f7; border-color: #f0d2ca; }
 
-.srt-observation-top {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  margin-bottom: 14px;
-}
-
+.srt-observation-top { display: flex; gap: 11px; align-items: flex-start; margin-bottom: 12px; }
 .srt-observation-card h3,
 .srt-next-card h3,
-.srt-note-box h3 {
-  margin: 0 0 8px;
-  color: #5d3220;
-  font-size: 22px;
-  font-weight: 950;
-  line-height: 1.25;
-}
+.srt-note-box h3 { margin: 0 0 7px; color: var(--srt-wood); font-size: 18px; font-weight: 800; line-height: 1.4; }
 
 .srt-status-pill {
   flex: 0 0 auto;
-  min-width: 44px;
-  min-height: 36px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #fff4de;
-  border: 2px solid #f2c27d;
-  color: #9a6322;
-  font-size: 16px;
-  font-weight: 950;
+  min-width: 38px;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: #fff5df;
+  border: 1px solid #edcf91;
+  color: #98651f;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
 }
+.srt-status-pill.good { background: var(--srt-leaf-soft); color: #547731; border-color: #c8dbaa; }
+.srt-status-pill.watch { background: #fff5df; color: #98651f; border-color: #edcf91; }
+.srt-status-pill.alert { background: var(--srt-coral-soft); color: #a15343; border-color: #efc0b6; }
+.srt-status-pill.neutral { background: var(--srt-sky-soft); color: #3d7898; border-color: #c5e2f2; }
 
-.srt-status-pill.good {
-  background: #e9f8ef;
-  color: #2f7d4f;
-  border-color: #9ed9b4;
-}
-
-.srt-status-pill.watch {
-  background: #fff4de;
-  color: #9a6322;
-  border-color: #f2c27d;
-}
-
-.srt-status-pill.alert {
-  background: #fff0ec;
-  color: #a9472d;
-  border-color: #e7a08e;
-}
-
-.srt-status-pill.neutral {
-  background: #eef7ff;
-  color: #27719b;
-  border-color: #9bd2f2;
-}
-
-.srt-indicator-score {
-  color: #5b2f20 !important;
-  font-size: 26px !important;
-  font-weight: 950 !important;
-  margin-bottom: 8px !important;
-}
-
-.srt-card-meaning {
-  margin-top: 10px !important;
-  padding-top: 10px;
-  border-top: 2px dashed rgba(213, 165, 75, 0.38);
-  color: #8a624d !important;
-  font-size: 17px !important;
-}
+.srt-indicator-score { color: var(--srt-wood) !important; font-size: 22px !important; font-weight: 900 !important; margin-bottom: 6px !important; }
+.srt-card-meaning { margin-top: 10px !important; padding-top: 10px; border-top: 1px solid #eadcc5; color: #7e6754 !important; font-size: 15px !important; }
 
 .srt-next-card {
-  background: #fff6dc;
+  background: linear-gradient(180deg, #f7fbf2, #eef5e6);
+  border-left: 5px solid var(--srt-leaf);
 }
 
 .srt-note-box {
-  background: rgba(255, 250, 238, 0.92);
-  margin-bottom: 16px;
+  background: linear-gradient(180deg, #fffaf3, #fff5e5);
+  box-shadow: none;
+  border-left: 5px solid var(--srt-honey);
 }
 
 .srt-action-btns {
-  position: relative;
-  z-index: 1;
-  flex-shrink: 0;
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 28px;
-  padding-top: 2px;
+  gap: clamp(16px, 3vw, 30px);
+  padding: 18px clamp(16px, 3vw, 32px) 24px;
+  border-top: 1px solid var(--srt-line);
+  background: rgba(255,250,240,.98);
 }
 
 .srt-image-button {
-  width: clamp(168px, 16vw, 232px);
-  height: auto;
+  width: clamp(148px, 18vw, 220px);
   padding: 0;
   border: none;
   background: transparent;
-  border-radius: 18px;
+  border-radius: 12px;
   line-height: 0;
   cursor: pointer;
-  transform-origin: 50% 58%;
-  transition: transform 0.18s ease, filter 0.18s ease;
+  transition: transform .16s ease, filter .16s ease;
+}
+.srt-image-button img { width: 100%; height: auto; display: block; pointer-events: none; user-select: none; -webkit-user-drag: none; filter: drop-shadow(0 5px 6px rgba(91,57,27,.2)); }
+.srt-image-button:hover { transform: translateY(-2px); filter: brightness(1.03); }
+.srt-image-button:active { transform: translateY(1px) scale(.98); }
+.srt-image-button:focus-visible { outline: 3px solid rgba(101,184,232,.38); outline-offset: 4px; }
+
+@media (max-width: 980px) {
+  .srt-overview-card { flex-direction: column; }
+  .srt-star-summary { flex-basis: auto; }
+  .srt-quick-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .srt-highlight-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-.srt-image-button img {
-  width: 100%;
-  height: auto;
-  display: block;
-  pointer-events: none;
-  user-select: none;
-  -webkit-user-drag: none;
-  filter: drop-shadow(0 10px 8px rgba(74, 48, 16, 0.26));
-}
-
-.srt-image-button:hover {
-  transform: translateY(-3px) scale(1.04);
-  filter: brightness(1.05);
-}
-
-.srt-image-button:active {
-  transform: translateY(2px) scale(0.97);
-}
-
-@media (max-width: 1024px) {
-  .srt-result-main-card {
-    padding: 22px 24px 24px;
-  }
-
-  .srt-overview-card,
-  .srt-overview-left {
-    align-items: center;
-  }
-
-  .srt-quick-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
+@media (max-width: 700px) {
+  .srt-result-page { padding: 0; background-position: center top; }
+  .srt-result-main-card { min-height: 100dvh; border-radius: 0; border-left: 0; border-right: 0; box-shadow: none; }
+  .srt-result-header { padding: 20px 16px 17px; }
+  .srt-parent-panel { padding: 14px; }
+  .srt-overview-card { padding: 18px; gap: 18px; }
+  .srt-overview-left { align-items: flex-start; gap: 15px; }
+  .srt-score-circle { width: 96px; height: 96px; min-width: 96px; border-radius: 14px; }
+  .srt-score-number { font-size: 36px; }
+  .srt-score-unit { font-size: 16px; margin-bottom: 21px; }
+  .srt-quick-stats,
   .srt-highlight-grid,
-  .srt-indicator-grid {
-    grid-template-columns: 1fr;
-  }
+  .srt-indicator-grid { grid-template-columns: 1fr; }
+  .srt-stat-card { min-height: auto; }
+  .srt-action-btns { position: sticky; bottom: 0; z-index: 10; gap: 12px; padding: 12px 14px calc(12px + env(safe-area-inset-bottom)); box-shadow: 0 -5px 14px rgba(91,57,27,.09); }
+  .srt-image-button { width: min(44vw, 190px); }
 }
 
-@media (max-width: 760px) {
-  .srt-result-page {
-    height: auto;
-    min-height: 100dvh;
-    overflow: auto;
-    padding: 14px;
-  }
-
-  .srt-result-main-card {
-    max-height: none;
-    width: 100%;
-    border-width: 5px;
-    border-radius: 28px;
-    padding: 18px 14px 20px;
-  }
-
-  .srt-result-main-title {
-    min-width: auto;
-    width: 100%;
-    padding: 12px 18px;
-    font-size: 30px;
-  }
-
-  .srt-result-main-title::before,
-  .srt-result-main-title::after {
-    display: none;
-  }
-
-  .srt-result-subtitle {
-    font-size: 17px;
-  }
-
-  .srt-parent-panel {
-    overflow: visible;
-    padding: 4px 2px 14px;
-  }
-
-  .srt-overview-card {
-    flex-direction: column;
-    padding: 20px 16px;
-    gap: 18px;
-  }
-
-  .srt-overview-left {
-    flex-direction: column;
-    gap: 18px;
-    text-align: center;
-  }
-
-  .srt-score-circle {
-    width: 136px;
-    height: 136px;
-    min-width: 136px;
-    min-height: 136px;
-  }
-
-  .srt-score-number {
-    font-size: 46px;
-  }
-
-  .srt-score-unit {
-    font-size: 22px;
-    margin-bottom: 26px;
-  }
-
-  .srt-star-summary {
-    flex-basis: auto;
-    width: 100%;
-  }
-
-  .srt-quick-stats {
-    grid-template-columns: 1fr;
-  }
-
-  .srt-overview-desc,
-  .srt-parent-summary-text,
-  .srt-parent-intro,
-  .srt-observation-card p,
-  .srt-next-card p,
-  .srt-note-box p {
-    font-size: 17px;
-  }
-
-  .srt-panel-block,
-  .srt-next-card,
-  .srt-note-box {
-    padding: 18px 16px;
-  }
-
-  .srt-action-btns {
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-
-  .srt-image-button {
-    width: min(72vw, 206px);
-  }
+@media (max-width: 420px) {
+  .srt-overview-left { flex-direction: column; }
+  .srt-score-circle { width: 100%; height: 82px; }
+  .srt-score-unit { align-self: center; margin: 13px 0 0; }
+  .srt-image-button { width: calc(50vw - 22px); }
 }
 `;
 

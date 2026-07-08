@@ -1,6 +1,6 @@
 // src/pages/TestPage_DPT.jsx
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/GamePage_DPT.css";
 
@@ -8,621 +8,594 @@ import { analyzePerformance } from "../ai/performanceAnalyzer";
 import { analyzeErrors } from "../ai/errorAnalyzer";
 import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
-
-/* ========= 圖片 / 影片素材 ========= */
+import { saveUnifiedResult } from "../utils/resultManager";
+import { calculateDptScore } from "../utils/dptScoring";
 
 import backgroundImg from "../asset/DPT_testbackground.png";
-import introVideo from "../asset/SRT_start.mp4";
-import endingVideo from "../asset/SRT_start.mp4";
+import introVideo from "../asset/mp4/DPT_start.mp4";
+import stepVideo from "../asset/mp4/DPT_step.mp4";
+import endingVideo from "../asset/mp4/DPT_end.mp4";
 import startAvatar from "../asset/avatar/fox.png";
-import tutorialAvatar from "../asset/avatar/chicken.png";
 import homeStartBtn from "../asset/home/start.png";
+import homeNextBtn from "../asset/home/next.png";
 import homeSkipBtn from "../asset/home/skip.png";
 import homeBackBtn from "../asset/home/back.png";
-import homeAgainBtn from "../asset/home/again.png";
 import homeResultBtn from "../asset/home/result.png";
 import mouseGuideImg from "../asset/mouse.png";
 
-import foxImg from "../asset/DPT/dpt_fox.png";
-import flyImg from "../asset/DPT/dpt_fly.png";
-import beeImg from "../asset/DPT/bee.png";
+import catImg from "../asset/DPT/cat.png";
+import dogImg from "../asset/DPT/dog.png";
+import catSound from "../asset/DPT/cat.mp3";
+import dogSound from "../asset/DPT/dog.mp3";
 
-import honeyImg from "../asset/DPT/dpt_honey.png";
-import cakeImg from "../asset/DPT/dpt_cake.png";
-import giftImg from "../asset/DPT/dpt_pudding.png";
-import candyImg from "../asset/DPT/dpt_candy.png";
-import cookieImg from "../asset/DPT/dpt_cookie.png";
-import juiceImg from "../asset/DPT/dpt_pancake.png";
-
-/* ========= 路由 ========= */
 const RESULT_ROUTE = "/result-dpt";
-
-/* ========= 測驗參數 ========= */
+const TEST_PAGE_ROUTE = "/test-map";
 const TOTAL_TRIALS = 20;
-const FIXATION_TIME = 500;
-const STIMULUS_TIME = 500;
-const BLANK_TIME = 250;
-const ANSWER_TIME_LIMIT = 3000;
-const FEEDBACK_TIME = 650;
-const NEXT_TRIAL_DELAY = 300;
+const PRE_SOUND_DELAY = 500;
+const ANSWER_TIME_LIMIT = 3500;
+const FEEDBACK_TIME = 420;
+const NEXT_TRIAL_DELAY = 260;
+const ANTICIPATION_RT = 150;
+const TASK_VERSION = "audio-visual-opposite-v2";
+const SCORING_VERSION = "2.0.0";
 
-/* ========= 素材整理 ========= */
 const asset = {
   background: backgroundImg,
   introVideo,
+  stepVideo,
   endingVideo,
   startAvatar,
-  tutorialAvatar,
   homeStartBtn,
+  homeNextBtn,
   homeSkipBtn,
   homeBackBtn,
-  homeAgainBtn,
   homeResultBtn,
   mouseGuideImg,
-  fox: foxImg,
-  fly: flyImg,
-  bee: beeImg,
-  items: [honeyImg, cakeImg, giftImg, candyImg, cookieImg, juiceImg],
+  cat: catImg,
+  dog: dogImg,
+  catSound,
+  dogSound,
 };
 
-/* ========= 小工具 ========= */
 function shuffleArray(array) {
   const arr = [...array];
-
   for (let i = arr.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
-
   return arr;
 }
 
-function getRandomItem(items) {
-  return items[Math.floor(Math.random() * items.length)];
-}
-
-function getDifferentItem(items, usedItem) {
-  const candidates = items.filter((item) => item !== usedItem);
-  return getRandomItem(candidates.length > 0 ? candidates : items);
-}
-
 function averageRt(records) {
-  const validRecords = records.filter(
-    (record) =>
-      record.isCorrect &&
-      typeof record.reactionTime === "number" &&
-      Number.isFinite(record.reactionTime)
-  );
+  const values = records
+    .filter((record) => record.isCorrect && !record.isAnticipation)
+    .map((record) => record.reactionTime)
+    .filter(Number.isFinite);
+  if (!values.length) return null;
+  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+}
 
-  if (validRecords.length === 0) return null;
+function percent(part, total) {
+  return total ? Math.round((part / total) * 100) : 0;
+}
 
-  const sum = validRecords.reduce(
-    (total, record) => total + record.reactionTime,
-    0
-  );
+function countRecords(records, predicate) {
+  return records.filter(predicate).length;
+}
 
-  return Math.round(sum / validRecords.length);
+function withInteractionMeta(records, interactionCounts) {
+  return records.map((record, index) => index === 0 ? {
+    ...record,
+    ...interactionCounts,
+  } : record);
+}
+
+function getSuggestedAction(stars) {
+  if (stars >= 3) {
+    return "孩子已能穩定使用相反規則，可進入訓練模式挑戰更短的作答時間。";
+  }
+
+  if (stars === 2) {
+    return "建議進入訓練模式維持普通難度，繼續練習聽完聲音後再選擇相反動物。";
+  }
+
+  return "建議先使用簡單訓練模式，延長作答時間並加強「貓叫選狗、狗叫選貓」的示範。";
+}
+
+function safeCall(label, callback, fallback = {}) {
+  try {
+    return callback() || fallback;
+  } catch (error) {
+    console.warn(`[DPT] ${label} failed`, error);
+    return fallback;
+  }
+}
+
+function summarizeRecords(recordsWithMeta) {
+  const totalTrials = recordsWithMeta.length;
+  const correctCount = countRecords(recordsWithMeta, (record) => record.isCorrect);
+  const timeoutCount = countRecords(recordsWithMeta, (record) => record.timeout);
+  const wrongCount = totalTrials - correctCount - timeoutCount;
+  const accuracy = percent(correctCount, totalTrials);
+  const avgReactionTime = averageRt(recordsWithMeta);
+  const catRecords = recordsWithMeta.filter((record) => record.soundType === "cat");
+  const dogRecords = recordsWithMeta.filter((record) => record.soundType === "dog");
+  const sameAnimalErrorCount = countRecords(recordsWithMeta, (record) => record.errorType === "sameAnimalError");
+  const anticipationCount = countRecords(recordsWithMeta, (record) => record.errorType === "anticipation");
+  const firstHalf = recordsWithMeta.slice(0, Math.ceil(totalTrials / 2));
+  const secondHalf = recordsWithMeta.slice(Math.ceil(totalTrials / 2));
+  const firstHalfAccuracy = percent(countRecords(firstHalf, (record) => record.isCorrect), firstHalf.length);
+  const secondHalfAccuracy = percent(countRecords(secondHalf, (record) => record.isCorrect), secondHalf.length);
+  const attentionDrop = Math.max(firstHalfAccuracy - secondHalfAccuracy, 0);
+
+  return {
+    totalTrials,
+    correctCount,
+    timeoutCount,
+    wrongCount,
+    accuracy,
+    avgReactionTime,
+    catRecords,
+    dogRecords,
+    sameAnimalErrorCount,
+    anticipationCount,
+    firstHalf,
+    secondHalf,
+    firstHalfAccuracy,
+    secondHalfAccuracy,
+    attentionDrop,
+  };
 }
 
 function buildTrials() {
-  const conditions = [
-    ...Array(TOTAL_TRIALS / 2).fill("congruent"),
-    ...Array(TOTAL_TRIALS / 2).fill("incongruent"),
+  const combinations = [
+    { soundType: "cat", correctTarget: "dog", correctPosition: "left" },
+    { soundType: "cat", correctTarget: "dog", correctPosition: "right" },
+    { soundType: "dog", correctTarget: "cat", correctPosition: "left" },
+    { soundType: "dog", correctTarget: "cat", correctPosition: "right" },
   ];
 
-  const flySides = [
-    ...Array(TOTAL_TRIALS / 2).fill("left"),
-    ...Array(TOTAL_TRIALS / 2).fill("right"),
-  ];
+  const baseRepeats = Math.floor(TOTAL_TRIALS / combinations.length);
+  const remainder = TOTAL_TRIALS % combinations.length;
+  const trials = combinations.flatMap((combination, index) =>
+    Array.from({ length: baseRepeats + (index < remainder ? 1 : 0) }, () => ({ ...combination }))
+  );
 
-  const shuffledConditions = shuffleArray(conditions);
-  const shuffledFlySides = shuffleArray(flySides);
-
-  return Array.from({ length: TOTAL_TRIALS }, (_, index) => {
-    const flySide = shuffledFlySides[index];
-    const otherSide = flySide === "left" ? "right" : "left";
-    const condition = shuffledConditions[index];
-
-    const attractiveSide = condition === "congruent" ? flySide : otherSide;
-
-    const leftItem = getRandomItem(asset.items);
-    const rightItem = getDifferentItem(asset.items, leftItem);
+  return shuffleArray(trials).map((trial, index) => {
+    const catPosition = trial.correctTarget === "cat"
+      ? trial.correctPosition
+      : trial.correctPosition === "left" ? "right" : "left";
+    const dogPosition = catPosition === "left" ? "right" : "left";
 
     return {
+      ...trial,
       trialIndex: index + 1,
-      condition,
-      flySide,
-      correctSide: flySide,
-      targetSide: flySide,
-      attractiveSide,
-      distractorSide: attractiveSide === flySide ? otherSide : attractiveSide,
-      leftItem,
-      rightItem,
+      catPosition,
+      dogPosition,
+      soundSrc: trial.soundType === "cat" ? asset.catSound : asset.dogSound,
     };
   });
 }
 
 export default function TestPage_DPT() {
   const navigate = useNavigate();
-
   const trials = useMemo(() => buildTrials(), []);
-
   const [phase, setPhase] = useState("start");
-  const [teachingStep, setTeachingStep] = useState(0);
-  const [practiceResult, setPracticeResult] = useState(null);
-
   const [trialIndex, setTrialIndex] = useState(0);
-
-  const [showFixation, setShowFixation] = useState(false);
-  const [showItems, setShowItems] = useState(false);
-  const [showFly, setShowFly] = useState(false);
   const [canAnswer, setCanAnswer] = useState(false);
-
-  const [feedbackSide, setFeedbackSide] = useState(null);
-  const [feedbackType, setFeedbackType] = useState(null);
-  const [flyHit, setFlyHit] = useState(false);
-  const [foxHappy, setFoxHappy] = useState(false);
-
+  const [isPreparingSound, setIsPreparingSound] = useState(false);
+  const [audioError, setAudioError] = useState(false);
   const [trialRecords, setTrialRecords] = useState([]);
   const [pendingResult, setPendingResult] = useState(null);
 
   const timeoutRefs = useRef([]);
-  const animationFrameRef = useRef(null);
+  const audioRef = useRef(null);
   const probeStartTimeRef = useRef(null);
   const answeredRef = useRef(false);
+  const finishingRef = useRef(false);
   const trialIndexRef = useRef(0);
   const trialRecordsRef = useRef([]);
   const randomClickCountRef = useRef(0);
+  const prematureClickCountRef = useRef(0);
   const repeatedClickCountRef = useRef(0);
   const lastPointerTimeRef = useRef(0);
 
   const currentTrial = trials[trialIndex];
 
-  const framelessZoneStyle = {
-    border: "none",
-    outline: "none",
-    boxShadow: "none",
-    background: "transparent",
-  };
-
-  const largeItemStyle = {
-    width: "clamp(190px, 22vw, 300px)",
-    height: "clamp(190px, 22vw, 300px)",
-    objectFit: "contain",
-  };
-
-  const largeFlyStyle = {
-    width: "clamp(80px, 8.5vw, 120px)",
-    height: "clamp(80px, 8.5vw, 120px)",
-    objectFit: "contain",
-  };
-
-  useEffect(() => {
-    trialIndexRef.current = trialIndex;
-  }, [trialIndex]);
-
-  useEffect(() => {
-    trialRecordsRef.current = trialRecords;
-  }, [trialRecords]);
+  useEffect(() => { trialIndexRef.current = trialIndex; }, [trialIndex]);
+  useEffect(() => { trialRecordsRef.current = trialRecords; }, [trialRecords]);
 
   function addTimeout(callback, delay) {
-    const timeoutId = window.setTimeout(() => {
-      timeoutRefs.current = timeoutRefs.current.filter((id) => id !== timeoutId);
+    const id = window.setTimeout(() => {
+      timeoutRefs.current = timeoutRefs.current.filter((value) => value !== id);
       callback();
     }, delay);
-
-    timeoutRefs.current.push(timeoutId);
-    return timeoutId;
+    timeoutRefs.current.push(id);
+    return id;
   }
 
-  function clearCurrentTimer() {
-    timeoutRefs.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
-    timeoutRefs.current = [];
-
-    if (animationFrameRef.current !== null) {
-      window.cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-  }
-
-  useEffect(() => {
-    return () => {
-      clearCurrentTimer();
-    };
+  const stopAudio = useCallback(() => {
+    if (!audioRef.current) return;
+    audioRef.current.pause();
+    audioRef.current.currentTime = 0;
+    audioRef.current.onplaying = null;
+    audioRef.current.onerror = null;
+    audioRef.current = null;
   }, []);
 
-  /* ========= 互動教學 ========= */
-  function nextTeachingStep() {
-    setPracticeResult(null);
+  const clearCurrentTimer = useCallback(() => {
+    timeoutRefs.current.forEach(window.clearTimeout);
+    timeoutRefs.current = [];
+    stopAudio();
+  }, [stopAudio]);
 
-    if (teachingStep < 3) {
-      setTeachingStep((prev) => prev + 1);
-      return;
-    }
+  useEffect(() => () => clearCurrentTimer(), [clearCurrentTimer]);
 
-    startTest();
-  }
-
-  function handlePracticeClick(side) {
-    if (teachingStep !== 3) return;
-
-    if (side === "left") {
-      setPracticeResult("correct");
-    } else {
-      setPracticeResult("wrong");
-    }
-  }
-
-  /* ========= 開始測驗 ========= */
-  function startTest() {
+  function resetTestState() {
     clearCurrentTimer();
-
+    setPendingResult(null);
+    setTrialIndex(0);
+    setTrialRecords([]);
+    setCanAnswer(false);
+    setIsPreparingSound(false);
+    setAudioError(false);
+    trialIndexRef.current = 0;
+    trialRecordsRef.current = [];
     randomClickCountRef.current = 0;
+    prematureClickCountRef.current = 0;
     repeatedClickCountRef.current = 0;
     lastPointerTimeRef.current = 0;
+    answeredRef.current = false;
+    finishingRef.current = false;
+    probeStartTimeRef.current = null;
+  }
 
-    setPendingResult(null);
+  function handleStart() {
+    resetTestState();
+    setPhase("introVideo");
+  }
+
+  function handleIntroEnd() {
+    clearCurrentTimer();
+    setPhase("teaching");
+  }
+
+  function startTest() {
+    resetTestState();
     setPhase("playing");
-    setTrialIndex(0);
-    trialIndexRef.current = 0;
-    setTrialRecords([]);
-    trialRecordsRef.current = [];
-
-    startTrial(0);
+    addTimeout(() => startTrial(0), 0);
   }
 
   function handleStagePointerDown(event) {
     if (phase !== "playing") return;
-
     const now = performance.now();
-
     if (lastPointerTimeRef.current && now - lastPointerTimeRef.current < 250) {
       repeatedClickCountRef.current += 1;
     }
-
     lastPointerTimeRef.current = now;
-
-    const isAnswerZone = event.target.closest("[data-answer-zone='true']");
-
-    if (canAnswer && !isAnswerZone) {
-      randomClickCountRef.current += 1;
-    }
+    const answerZone = event.target.closest("[data-answer-zone='true']");
+    if (!answerZone) randomClickCountRef.current += 1;
+    else if (!canAnswer) prematureClickCountRef.current += 1;
   }
 
-  /* ========= 開始單題 ========= */
   function startTrial(index) {
     clearCurrentTimer();
-
     answeredRef.current = false;
     probeStartTimeRef.current = null;
-
-    setShowFixation(true);
-    setShowItems(false);
-    setShowFly(false);
     setCanAnswer(false);
-    setFeedbackSide(null);
-    setFeedbackType(null);
-    setFlyHit(false);
-    setFoxHappy(false);
-
-    addTimeout(() => {
-      setShowFixation(false);
-      setShowItems(true);
-
-      addTimeout(() => {
-        setShowItems(false);
-
-        addTimeout(() => {
-          setShowFly(true);
-
-          animationFrameRef.current = window.requestAnimationFrame(() => {
-            animationFrameRef.current = null;
-
-            if (answeredRef.current || trialIndexRef.current !== index) return;
-
-            probeStartTimeRef.current = performance.now();
-            setCanAnswer(true);
-
-            addTimeout(() => {
-              if (!answeredRef.current) {
-                handleTimeout(index);
-              }
-            }, ANSWER_TIME_LIMIT);
-          });
-        }, BLANK_TIME);
-      }, STIMULUS_TIME);
-    }, FIXATION_TIME);
+    setAudioError(false);
+    setIsPreparingSound(true);
+    addTimeout(() => playTrialSound(index), PRE_SOUND_DELAY);
   }
 
-  /* ========= 作答 ========= */
-  function handleAnswer(clickedSide) {
-    if (!canAnswer || answeredRef.current || phase !== "playing") return;
+  function playTrialSound(index) {
+    const trial = trials[index];
+    if (!trial || answeredRef.current || trialIndexRef.current !== index) return;
+    stopAudio();
+    const audio = new Audio(trial.soundSrc);
+    audio.preload = "auto";
+    audioRef.current = audio;
+    audio.onplaying = () => {
+      if (answeredRef.current || trialIndexRef.current !== index) return;
+      probeStartTimeRef.current = performance.now();
+      setIsPreparingSound(false);
+      setAudioError(false);
+      setCanAnswer(true);
+      addTimeout(() => {
+        if (!answeredRef.current && trialIndexRef.current === index) handleTimeout(index);
+      }, ANSWER_TIME_LIMIT);
+    };
+    audio.onerror = () => {
+      if (trialIndexRef.current !== index) return;
+      setIsPreparingSound(false);
+      setCanAnswer(false);
+      setAudioError(true);
+    };
+    audio.play().catch(() => {
+      if (trialIndexRef.current !== index) return;
+      setIsPreparingSound(false);
+      setCanAnswer(false);
+      setAudioError(true);
+    });
+  }
 
-    answeredRef.current = true;
-    clearCurrentTimer();
+  function retryCurrentSound() {
+    if (!audioError) return;
+    setAudioError(false);
+    setIsPreparingSound(true);
+    playTrialSound(trialIndexRef.current);
+  }
 
-    const currentIndex = trialIndexRef.current;
-    const trial = trials[currentIndex];
-
-    if (!trial) return;
-
-    const reactionTime = probeStartTimeRef.current
-      ? Math.round(performance.now() - probeStartTimeRef.current)
-      : null;
-
-    const isCorrect = clickedSide === trial.correctSide;
-
-    const record = {
+  function buildRecord({ trial, selectedTarget, selectedPosition, reactionTime, timeout }) {
+    const targetCorrect = !timeout && selectedTarget === trial.correctTarget;
+    const isAnticipation = Number.isFinite(reactionTime) && reactionTime < ANTICIPATION_RT;
+    const isCorrect = targetCorrect && !isAnticipation;
+    return {
       trialIndex: trial.trialIndex,
-
-      condition: trial.condition,
-      flySide: trial.flySide,
-      correctSide: trial.correctSide,
-      clickedSide,
-
-      attractiveSide: trial.attractiveSide,
-      targetSide: trial.targetSide,
-      distractorSide: trial.distractorSide,
-
+      mode: "test",
+      difficulty: "normal",
+      difficultyKey: "normal",
+      taskVersion: TASK_VERSION,
+      soundType: trial.soundType,
+      expectedTarget: trial.correctTarget,
+      selectedTarget,
+      correctPosition: trial.correctPosition,
+      selectedPosition,
+      catPosition: trial.catPosition,
+      dogPosition: trial.dogPosition,
+      targetCorrect,
+      isAnticipation,
       isCorrect,
       reactionTime,
-      timeout: false,
-      errorType: isCorrect ? null : "wrongTarget",
-
-      leftItem: trial.leftItem,
-      rightItem: trial.rightItem,
-
+      timeout,
+      errorType: timeout ? "miss" : isAnticipation ? "anticipation" : targetCorrect ? null : "sameAnimalError",
+      // 暫時保留舊計分器相容欄位
+      condition: trial.soundType,
+      isIncongruent: true,
+      correctSide: trial.correctPosition,
+      clickedSide: selectedPosition,
+      targetSide: trial.correctPosition,
       timestamp: new Date().toISOString(),
     };
-
-    const updatedRecords = [...trialRecordsRef.current, record];
-
-    trialRecordsRef.current = updatedRecords;
-    setTrialRecords(updatedRecords);
-
-    setCanAnswer(false);
-    setFeedbackSide(clickedSide);
-    setFeedbackType(isCorrect ? "correct" : "wrong");
-
-    if (isCorrect) {
-      setFlyHit(true);
-      setFoxHappy(true);
-    }
-
-    addTimeout(() => {
-      goNextTrial(updatedRecords, currentIndex);
-    }, FEEDBACK_TIME);
   }
 
-  /* ========= Timeout ========= */
-  function handleTimeout(index) {
-    if (answeredRef.current) return;
-
+  function handleAnswer(selectedTarget, selectedPosition) {
+    if (!canAnswer || answeredRef.current || phase !== "playing") return;
     answeredRef.current = true;
     clearCurrentTimer();
-
+    const index = trialIndexRef.current;
     const trial = trials[index];
-
     if (!trial) return;
-
-    const record = {
-      trialIndex: trial.trialIndex,
-
-      condition: trial.condition,
-      flySide: trial.flySide,
-      correctSide: trial.correctSide,
-      clickedSide: null,
-
-      attractiveSide: trial.attractiveSide,
-      targetSide: trial.targetSide,
-      distractorSide: trial.distractorSide,
-
-      isCorrect: false,
-      reactionTime: null,
-      timeout: true,
-      errorType: "miss",
-
-      leftItem: trial.leftItem,
-      rightItem: trial.rightItem,
-
-      timestamp: new Date().toISOString(),
-    };
-
-    const updatedRecords = [...trialRecordsRef.current, record];
-
-    trialRecordsRef.current = updatedRecords;
-    setTrialRecords(updatedRecords);
-
+    const reactionTime = Number.isFinite(probeStartTimeRef.current)
+      ? Math.round(performance.now() - probeStartTimeRef.current)
+      : null;
+    const record = buildRecord({ trial, selectedTarget, selectedPosition, reactionTime, timeout: false });
+    const updated = [...trialRecordsRef.current, record];
+    trialRecordsRef.current = updated;
+    setTrialRecords(updated);
     setCanAnswer(false);
-    setFeedbackSide(trial.correctSide);
-    setFeedbackType("wrong");
-
-    addTimeout(() => {
-      goNextTrial(updatedRecords, index);
-    }, FEEDBACK_TIME);
+    addTimeout(() => goNextTrial(updated, index), FEEDBACK_TIME);
   }
 
-  /* ========= 下一題 / 結束 ========= */
-  function goNextTrial(updatedRecords, currentIndex) {
+  function handleTimeout(index) {
+    if (answeredRef.current || trialIndexRef.current !== index) return;
+    answeredRef.current = true;
     clearCurrentTimer();
-
-    setShowFixation(false);
-    setShowItems(false);
-    setShowFly(false);
+    const trial = trials[index];
+    if (!trial) return;
+    const record = buildRecord({ trial, selectedTarget: null, selectedPosition: null, reactionTime: null, timeout: true });
+    const updated = [...trialRecordsRef.current, record];
+    trialRecordsRef.current = updated;
+    setTrialRecords(updated);
     setCanAnswer(false);
-    setFeedbackSide(null);
-    setFeedbackType(null);
-    setFlyHit(false);
-    setFoxHappy(false);
+    addTimeout(() => goNextTrial(updated, index), FEEDBACK_TIME);
+  }
 
+  function goNextTrial(records, currentIndex) {
+    clearCurrentTimer();
+    setCanAnswer(false);
+    setAudioError(false);
+    setIsPreparingSound(false);
     const nextIndex = currentIndex + 1;
-
     if (nextIndex >= TOTAL_TRIALS) {
-      finishTest(updatedRecords);
+      finishTest(records);
       return;
     }
-
     trialIndexRef.current = nextIndex;
     setTrialIndex(nextIndex);
-
-    addTimeout(() => {
-      startTrial(nextIndex);
-    }, NEXT_TRIAL_DELAY);
+    addTimeout(() => startTrial(nextIndex), NEXT_TRIAL_DELAY);
   }
 
-  /* ========= 結束測驗，整理資料 ========= */
+  function safeScoring(records) {
+    try {
+      return calculateDptScore(records, {
+        mode: "test",
+        difficulty: "normal",
+        plannedTotalRounds: TOTAL_TRIALS,
+      }) || {};
+    } catch (error) {
+      console.error("DPT 測驗評分失敗：", error);
+      return {};
+    }
+  }
+
   function finishTest(records) {
-    const totalTrials = records.length;
-    const correctCount = records.filter((record) => record.isCorrect).length;
-    const wrongCount = records.filter(
-      (record) => !record.isCorrect && !record.timeout
-    ).length;
-    const timeoutCount = records.filter((record) => record.timeout).length;
+    if (finishingRef.current) return;
+    finishingRef.current = true;
+    clearCurrentTimer();
 
-    const avgReactionTime = averageRt(records);
-
-    const congruentRecords = records.filter(
-      (record) => record.condition === "congruent"
-    );
-
-    const incongruentRecords = records.filter(
-      (record) => record.condition === "incongruent"
-    );
-
-    const avgCongruentRt = averageRt(congruentRecords);
-    const avgIncongruentRt = averageRt(incongruentRecords);
-
-    const interferenceEffect =
-      avgCongruentRt !== null && avgIncongruentRt !== null
-        ? avgIncongruentRt - avgCongruentRt
-        : null;
-
-    const accuracy =
-      totalTrials > 0 ? Math.round((correctCount / totalTrials) * 100) : 0;
-
-    const congruentCorrectCount = congruentRecords.filter(
-      (record) => record.isCorrect
-    ).length;
-
-    const incongruentCorrectCount = incongruentRecords.filter(
-      (record) => record.isCorrect
-    ).length;
-
-    const congruentAccuracy =
-      congruentRecords.length > 0
-        ? Math.round((congruentCorrectCount / congruentRecords.length) * 100)
-        : 0;
-
-    const incongruentAccuracy =
-      incongruentRecords.length > 0
-        ? Math.round(
-            (incongruentCorrectCount / incongruentRecords.length) * 100
-          )
-        : 0;
-
-    const firstHalfRecords = records.slice(0, Math.ceil(records.length / 2));
-    const secondHalfRecords = records.slice(Math.ceil(records.length / 2));
-
-    const firstHalfRT = averageRt(firstHalfRecords) || 0;
-    const secondHalfRT = averageRt(secondHalfRecords) || 0;
-
-    const firstHalfMiss = firstHalfRecords.filter((record) => record.timeout)
-      .length;
-    const secondHalfMiss = secondHalfRecords.filter((record) => record.timeout)
-      .length;
+    const interactionCounts = {
+      randomClickCount: randomClickCountRef.current,
+      prematureClickCount: prematureClickCountRef.current,
+      repeatedClickCount: repeatedClickCountRef.current,
+    };
+    const recordsWithMeta = withInteractionMeta(records, interactionCounts);
+    const summary = summarizeRecords(recordsWithMeta);
+    const {
+      totalTrials,
+      correctCount,
+      timeoutCount,
+      wrongCount,
+      accuracy,
+      avgReactionTime,
+      catRecords,
+      dogRecords,
+      sameAnimalErrorCount,
+      anticipationCount,
+      firstHalf,
+      secondHalf,
+      firstHalfAccuracy,
+      secondHalfAccuracy,
+      attentionDrop,
+    } = summary;
 
     const errorTypes = {
       miss: timeoutCount,
-      randomClick: randomClickCountRef.current,
-      wrongTarget: wrongCount,
-      repeatedClick: repeatedClickCountRef.current,
       timeout: timeoutCount,
+      sameAnimalError: sameAnimalErrorCount,
+      wrongTarget: sameAnimalErrorCount,
+      anticipation: anticipationCount,
+      randomClick: interactionCounts.randomClickCount,
+      prematureClick: interactionCounts.prematureClickCount,
+      repeatedClick: interactionCounts.repeatedClickCount,
+      distractorError: 0,
+      incongruentError: 0,
       sequenceError: 0,
       ruleSwitchError: 0,
     };
 
-    const performanceResult = analyzePerformance({
-      totalTrials,
-      correctTrials: correctCount,
-      reactionTimes: records
-        .map((record) => record.reactionTime)
-        .filter((reactionTime) => typeof reactionTime === "number"),
-      errorTypes,
-      difficulty: "normal",
-    });
+    const dptScoring = safeScoring(recordsWithMeta);
+    const performanceResult = safeCall("analyzePerformance", () =>
+      analyzePerformance({
+        totalTrials,
+        correctTrials: correctCount,
+        reactionTimes: recordsWithMeta.map((r) => r.reactionTime).filter(Number.isFinite),
+        errorTypes,
+        difficulty: "normal",
+      })
+    );
+    const errorResult = safeCall("analyzeErrors", () => analyzeErrors(errorTypes));
+    const fatigueResult = safeCall("analyzeFatigue", () =>
+      analyzeFatigue({
+        firstHalfRT: averageRt(firstHalf) || 0,
+        secondHalfRT: averageRt(secondHalf) || 0,
+        missIncrease: Math.max(countRecords(secondHalf, (r) => r.timeout) - countRecords(firstHalf, (r) => r.timeout), 0),
+      })
+    );
 
-    const errorResult = analyzeErrors(errorTypes);
+    const fatigueLevel = fatigueResult?.fatigueLevel || "low";
+    const recommendedDifficulty = safeCall("getRecommendedDifficulty", () =>
+      getRecommendedDifficulty({
+        accuracy: performanceResult.accuracy ?? accuracy,
+        avgReactionTime: performanceResult.avgReactionTime ?? avgReactionTime,
+        errorTypes,
+        fatigueLevel,
+      }),
+      "normal"
+    );
 
-    const fatigueResult = analyzeFatigue({
-      firstHalfRT,
-      secondHalfRT,
-      missIncrease: Math.max(secondHalfMiss - firstHalfMiss, 0),
-    });
-
-    const fatigueLevel =
-      typeof fatigueResult === "object" && fatigueResult !== null
-        ? fatigueResult.fatigueLevel
-        : fatigueResult;
-
-    const recommendedDifficulty = getRecommendedDifficulty({
-      accuracy: performanceResult.accuracy,
-      avgReactionTime: performanceResult.avgReactionTime,
-      errorTypes,
-      fatigueLevel,
-    });
+    const scoringSummary = dptScoring.summary || {};
+    const scoringParentView = dptScoring.parentView || {};
+    const scoringClinicalView = dptScoring.clinicalView || {};
+    const finalRecommendedDifficulty = recommendedDifficulty || "normal";
+    const stars = Number(dptScoring.stars) || (accuracy >= 85 ? 3 : accuracy >= 65 ? 2 : 1);
+    const totalScore = Number.isFinite(Number(dptScoring.totalScore))
+      ? Number(dptScoring.totalScore)
+      : accuracy;
+    const finishedAt = new Date().toISOString();
 
     const result = {
-      taskName: "Dot Probe Task",
+      taskName: "聽聲音選相反動物",
       taskCode: "DPT",
+      taskVersion: TASK_VERSION,
+      scoringVersion: dptScoring.scoringVersion || SCORING_VERSION,
+      taskRule: "catSoundSelectDog_dogSoundSelectCat",
       gameId: "DPT",
-      abilityType: "inhibition",
+      abilityType: "attention_control",
       mode: "test",
       difficulty: "normal",
+      difficultyKey: "normal",
+      difficultyLabel: dptScoring.difficultyLabel || "普通",
+      expectedTrials: TOTAL_TRIALS,
+      resultViews: ["child", "parent", "clinician"],
+      resultSource: "dptScoring",
+      isFinalized: true,
 
-      resultViews: ["child", "parent"],
-
-      totalTrials,
-      correctCount,
-      wrongCount,
-      timeoutCount,
-
-      accuracy,
-      accuracyPercent: accuracy,
-
-      avgReactionTime,
-      avgCongruentRt,
-      avgIncongruentRt,
-      interferenceEffect,
-
-      congruentTotal: congruentRecords.length,
-      incongruentTotal: incongruentRecords.length,
-      congruentCorrectCount,
-      incongruentCorrectCount,
-      congruentAccuracy,
-      incongruentAccuracy,
+      // 頂層摘要與正式評分器保持一致，方便結果頁、歷史紀錄與醫療端直接讀取。
+      totalTrials: scoringSummary.totalTrials ?? totalTrials,
+      completionRate: scoringSummary.completionRate ?? percent(totalTrials, TOTAL_TRIALS),
+      correctCount: scoringSummary.correctCount ?? correctCount,
+      wrongCount: scoringSummary.wrongCount ?? wrongCount,
+      timeoutCount: scoringSummary.timeoutCount ?? timeoutCount,
+      anticipationCount: scoringSummary.anticipationCount ?? anticipationCount,
+      sameAnimalErrorCount: scoringSummary.sameAnimalErrorCount ?? sameAnimalErrorCount,
+      accuracy: scoringSummary.accuracyPercent ?? accuracy,
+      accuracyPercent: scoringSummary.accuracyPercent ?? accuracy,
+      timeoutRate: scoringSummary.timeoutRate ?? percent(timeoutCount, totalTrials),
+      anticipationRate: scoringSummary.anticipationRate ?? percent(anticipationCount, totalTrials),
+      sameAnimalErrorRate: scoringSummary.sameAnimalErrorRate ?? percent(sameAnimalErrorCount, totalTrials),
+      avgReactionTime: scoringSummary.avgReactionTime ?? avgReactionTime,
+      medianReactionTime: scoringSummary.medianReactionTime ?? null,
+      reactionTimeStd: scoringSummary.rtStd ?? null,
+      reactionTimeCv: scoringSummary.rtCv ?? null,
+      catSoundAccuracy: scoringSummary.catSoundAccuracy ?? percent(catRecords.filter((r) => r.isCorrect).length, catRecords.length),
+      dogSoundAccuracy: scoringSummary.dogSoundAccuracy ?? percent(dogRecords.filter((r) => r.isCorrect).length, dogRecords.length),
+      leftAccuracy: scoringSummary.leftAccuracy ?? 0,
+      rightAccuracy: scoringSummary.rightAccuracy ?? 0,
+      firstHalfAccuracy: scoringSummary.firstHalfAccuracy ?? firstHalfAccuracy,
+      secondHalfAccuracy: scoringSummary.secondHalfAccuracy ?? secondHalfAccuracy,
+      attentionDrop: scoringSummary.attentionDrop ?? attentionDrop,
 
       errorTypes,
       fatigueLevel,
-      recommendedDifficulty,
-      aiSuggestion: recommendedDifficulty,
+      recommendedDifficulty: finalRecommendedDifficulty,
+      aiSuggestion: finalRecommendedDifficulty,
 
+      scoring: dptScoring,
+      clinicalView: scoringClinicalView,
+      parentView: scoringParentView,
+      childView: dptScoring.childView || null,
+      totalScore,
+      score: totalScore,
+      stars,
+      performanceLevel: dptScoring.performanceLevel || (stars >= 3 ? "good" : stars >= 2 ? "developing" : "needs_support"),
+
+      // 測驗模式不進行自動升降級；此欄提供家長可執行的下一步建議。
+      suggestedAction: getSuggestedAction(stars),
+      parentSummary: scoringParentView.plainLanguageSummary || scoringParentView.summary || performanceResult.parentSummary || "",
+      warningLevel: errorResult.warningLevel || "none",
+
+      // 保留通用分析，供既有儀表板相容使用；正式分數以 scoring 為準。
       performance: performanceResult,
       errorAnalysis: errorResult,
       fatigueAnalysis: fatigueResult,
-
-      stars: performanceResult.stars,
-      performanceLevel: performanceResult.performanceLevel,
-      suggestedAction: performanceResult.suggestedAction,
-      parentSummary: performanceResult.parentSummary,
-      warningLevel: errorResult.warningLevel,
-
-      records,
-
+      records: recordsWithMeta,
       startedFrom: "TestPage_DPT",
-      finishedAt: new Date().toISOString(),
+      finishedAt,
+      generatedAt: dptScoring.generatedAt || finishedAt,
     };
 
-    localStorage.setItem("dptTestResult", JSON.stringify(result));
+    try {
+      saveUnifiedResult({
+        rawResult: result,
+        gameId: "DPT",
+        mode: "test",
+        difficulty: "normal",
+        route: "/test-dpt",
+        visibleRoles: ["child", "parent", "clinician"],
+      });
+    } catch (error) {
+      console.warn("[DPT] saveUnifiedResult failed", error);
+    }
+
+    try {
+      localStorage.setItem("dptTestResult", JSON.stringify(result));
+      localStorage.setItem("latestDptResult", JSON.stringify(result));
+      localStorage.setItem("latestDptResultMode", "test");
+      localStorage.setItem("latestDptResultVersion", TASK_VERSION);
+    } catch (error) {
+      console.error("儲存 DPT 測驗結果失敗：", error);
+    }
 
     setPendingResult(result);
     setPhase("endingVideo");
@@ -630,94 +603,37 @@ export default function TestPage_DPT() {
 
   function goResultPage() {
     if (!pendingResult) return;
-
-    navigate(RESULT_ROUTE, {
-      state: pendingResult,
-      replace: true,
-    });
+    navigate(RESULT_ROUTE, { state: pendingResult, replace: true });
   }
 
-  function handleStart() {
-    clearCurrentTimer();
-    setPendingResult(null);
-    setTeachingStep(0);
-    setPracticeResult(null);
-    setTrialIndex(0);
-    setTrialRecords([]);
-    trialRecordsRef.current = [];
-    trialIndexRef.current = 0;
-    randomClickCountRef.current = 0;
-    repeatedClickCountRef.current = 0;
-    lastPointerTimeRef.current = 0;
-    setShowFixation(false);
-    setShowItems(false);
-    setShowFly(false);
-    setCanAnswer(false);
-    setFeedbackSide(null);
-    setFeedbackType(null);
-    setFlyHit(false);
-    setFoxHappy(false);
-    setPhase("introVideo");
-  }
-
-  function handleIntroEnd() {
-    clearCurrentTimer();
-    setTeachingStep(0);
-    setPracticeResult(null);
-    setPhase("teaching");
-  }
-
-  function handleEndingVideoEnd() {
-    setPhase("result");
-  }
-
-  function handleReplay() {
-    handleStart();
-  }
+  function handleEndingVideoEnd() { setPhase("result"); }
 
   const resultStars = Math.max(
     1,
-    Math.min(3, Number(pendingResult?.stars) || Number(pendingResult?.performance?.stars) || 1)
+    Math.min(
+      3,
+      Number(pendingResult?.scoring?.stars) ||
+        Number(pendingResult?.stars) ||
+        1
+    )
   );
 
-  /* ========= 畫面：開始 / 前導影片 ========= */
   if (phase === "start") {
     return (
-      <div
-        className="dpt-page dpt-page--soft"
-        style={{ "--dpt-bg": `url(${asset.background})` }}
-      >
+      <div className="dpt-page dpt-page--soft" style={{ "--dpt-bg": `url(${asset.background})` }}>
         <style>{dptInlineCss}</style>
         <main className="dpt-center-shell dpt-start-shell">
           <section className="dpt-soft-panel dpt-start-panel" aria-label="開始畫面">
-            <div className="dpt-game-title">幫狐狸守住點心</div>
-
+            <div className="dpt-game-title">貓狗合唱團</div>
             <div className="dpt-start-content">
-              <div className="dpt-dialog-bubble dpt-opening-bubble">
-                小狐狸想請你一起保護點心。
-              </div>
-
-              <div className="dpt-round-icon dpt-start-avatar">
-                <img src={asset.startAvatar} alt="開始角色" draggable="false" />
-              </div>
+              <div className="dpt-dialog-bubble dpt-opening-bubble">仔細聽聲音，選出相反的動物。</div>
+              <div className="dpt-round-icon dpt-start-avatar"><img src={asset.startAvatar} alt="開始角色" draggable="false" /></div>
             </div>
-
             <div className="dpt-guided-action dpt-guided-start">
-              <button
-                type="button"
-                className="dpt-forest-button dpt-image-button dpt-btn-start"
-                onClick={handleStart}
-                aria-label="進入遊戲"
-              >
+              <button type="button" className="dpt-forest-button dpt-image-button dpt-btn-start" onClick={handleStart} aria-label="進入遊戲">
                 <img src={asset.homeStartBtn} alt="進入遊戲" draggable="false" />
               </button>
-              <img
-                className="dpt-mouse-guide dpt-mouse-on-button"
-                src={asset.mouseGuideImg}
-                alt="提示點擊"
-                aria-hidden="true"
-                draggable="false"
-              />
+              <img className="dpt-mouse-guide dpt-mouse-on-button" src={asset.mouseGuideImg} alt="" aria-hidden="true" draggable="false" />
             </div>
           </section>
         </main>
@@ -725,303 +641,66 @@ export default function TestPage_DPT() {
     );
   }
 
-  if (phase === "introVideo") {
+  if (phase === "introVideo" || phase === "teaching" || phase === "endingVideo") {
+    const isIntro = phase === "introVideo";
+    const isTeaching = phase === "teaching";
+    const isEnding = phase === "endingVideo";
+    const videoSrc = isIntro ? asset.introVideo : isTeaching ? asset.stepVideo : asset.endingVideo;
+    const onEnded = isIntro ? handleIntroEnd : isTeaching ? startTest : handleEndingVideoEnd;
+    const continueAction = isIntro ? handleIntroEnd : isTeaching ? startTest : handleEndingVideoEnd;
+
     return (
-      <div
-        className="dpt-page dpt-page--soft"
-        style={{ "--dpt-bg": `url(${asset.background})` }}
-      >
+      <div className="dpt-page dpt-page--soft" style={{ "--dpt-bg": `url(${asset.background})` }}>
         <style>{dptInlineCss}</style>
         <main className="dpt-center-shell">
-          <section className="dpt-soft-panel dpt-video-panel" aria-label="前導動畫">
+          <section className="dpt-soft-panel dpt-video-panel" aria-label={isIntro ? "前導動畫" : isTeaching ? "步驟教學影片" : "結束動畫"}>
             <div className="dpt-video-frame">
-              <video
-                className="dpt-video"
-                src={asset.introVideo}
-                autoPlay
-                muted
-                playsInline
-                controls={false}
-                preload="auto"
-                onEnded={handleIntroEnd}
-              >
+              <video className="dpt-video" src={videoSrc} autoPlay playsInline controls={false} preload="auto" onEnded={onEnded}>
                 你的瀏覽器不支援影片播放。
               </video>
             </div>
-
-            <div className="dpt-guided-action dpt-guided-skip">
-              <button
-                type="button"
-                className="dpt-forest-button dpt-image-button dpt-btn-skip"
-                onClick={handleIntroEnd}
-                aria-label="跳過動畫"
-              >
-                <img src={asset.homeSkipBtn} alt="跳過動畫" draggable="false" />
-              </button>
-              <img
-                className="dpt-mouse-guide dpt-mouse-on-button"
-                src={asset.mouseGuideImg}
-                alt="提示點擊"
-                aria-hidden="true"
-                draggable="false"
-              />
-            </div>
-          </section>
-        </main>
-      </div>
-    );
-  }
-
-  /* ========= 畫面：前導圖片 / 互動教學 ========= */
-  if (phase === "teaching") {
-    const teachingScreens = [
-      {
-        key: "focus",
-        title: "看中間",
-        button: "下一步",
-        content: (
-          <div className="dpt-icon-flow dpt-icon-flow--single">
-            <div className="dpt-mini-scene dpt-mini-scene--focus">
-              <img className="dpt-teach-fox" src={asset.fox} alt="狐狸" draggable="false" />
-              <div className="dpt-focus-ring">
-                <img className="dpt-teach-bee" src={asset.bee} alt="中間小蜜蜂" draggable="false" />
+            <div className="dpt-step-actions">
+              {!isEnding && (
+                <div className="dpt-guided-action dpt-guided-skip">
+                  <button type="button" className="dpt-forest-button dpt-image-button dpt-btn-skip" onClick={continueAction} aria-label="跳過動畫">
+                    <img src={asset.homeSkipBtn} alt="跳過動畫" draggable="false" />
+                  </button>
+                </div>
+              )}
+              <div className="dpt-guided-action dpt-guided-next">
+                <button type="button" className="dpt-forest-button dpt-image-button dpt-btn-next" onClick={continueAction} aria-label={isEnding ? "查看結果" : "下一步"}>
+                  <img src={isEnding ? asset.homeResultBtn : asset.homeNextBtn} alt={isEnding ? "查看結果" : "下一步"} draggable="false" />
+                </button>
+                <img className="dpt-mouse-guide dpt-mouse-on-button" src={asset.mouseGuideImg} alt="" aria-hidden="true" draggable="false" />
               </div>
             </div>
-          </div>
-        ),
-      },
-      {
-        key: "remember",
-        title: "記住左右",
-        button: "下一步",
-        content: (
-          <div className="dpt-icon-flow">
-            <div className="dpt-teach-side dpt-teach-side--left">
-              <span className="dpt-side-label">左</span>
-              <img src={asset.items[0]} alt="左邊圖片" draggable="false" />
-            </div>
-            <div className="dpt-teach-symbol">＋</div>
-            <div className="dpt-teach-side dpt-teach-side--right">
-              <span className="dpt-side-label">右</span>
-              <img src={asset.items[1]} alt="右邊圖片" draggable="false" />
-            </div>
-          </div>
-        ),
-      },
-      {
-        key: "probe",
-        title: "圖片不見，找蒼蠅",
-        button: "我知道了",
-        content: (
-          <div className="dpt-icon-flow">
-            <div className="dpt-teach-ghost">
-              <img src={asset.items[2]} alt="消失的左圖" draggable="false" />
-            </div>
-            <div className="dpt-teach-arrow">→</div>
-            <div className="dpt-teach-probe">
-              <img className="dpt-teach-fly" src={asset.fly} alt="小蒼蠅" draggable="false" />
-              <span className="dpt-side-label">左</span>
-            </div>
-          </div>
-        ),
-      },
-      {
-        key: "answer",
-        title: "點蒼蠅那一邊",
-        button: "開始測驗",
-        content: (
-          <div className="dpt-practice-icon-wrap">
-            <button
-              type="button"
-              className={[
-                "dpt-practice-choice",
-                practiceResult === "correct" ? "is-correct" : "",
-              ].join(" ")}
-              onClick={() => handlePracticeClick("left")}
-              aria-label="教學左邊"
-            >
-              <span className="dpt-side-label">左</span>
-              <img className="dpt-teach-fly" src={asset.fly} alt="左邊小蒼蠅" draggable="false" />
-            </button>
-            <button
-              type="button"
-              className={[
-                "dpt-practice-choice",
-                practiceResult === "wrong" ? "is-wrong" : "",
-              ].join(" ")}
-              onClick={() => handlePracticeClick("right")}
-              aria-label="教學右邊"
-            >
-              <span className="dpt-side-label">右</span>
-              <span className="dpt-empty-dot">?</span>
-            </button>
-          </div>
-        ),
-      },
-    ];
-
-    const screen = teachingScreens[teachingStep] || teachingScreens[0];
-
-    return (
-      <div
-        className="dpt-page dpt-page--soft"
-        style={{ "--dpt-bg": `url(${asset.background})` }}
-      >
-        <style>{dptInlineCss}</style>
-        <div className="dpt-rule-card dpt-rule-card--icons">
-          <div className="dpt-teaching-head">
-            <div className="dpt-avatar-guide">
-              <img src={asset.tutorialAvatar} alt="小助手" draggable="false" />
-            </div>
-            <div>
-              <h1 className="dpt-rule-title">幫狐狸守住點心</h1>
-              <h2 className="dpt-rule-icon-title">{screen.title}</h2>
-            </div>
-          </div>
-
-          {screen.content}
-
-          {practiceResult === "correct" && (
-            <div className="dpt-icon-feedback dpt-icon-feedback--success">✓</div>
-          )}
-
-          {practiceResult === "wrong" && (
-            <div className="dpt-icon-feedback dpt-icon-feedback--error">↺</div>
-          )}
-
-          <div className="dpt-guided-action dpt-guided-start">
-            <button
-              type="button"
-              className="dpt-forest-button dpt-image-button dpt-btn-start"
-              onClick={screen.key === "answer" ? startTest : nextTeachingStep}
-              aria-label={screen.button}
-            >
-              <img src={asset.homeStartBtn} alt={screen.button} draggable="false" />
-            </button>
-            <img
-              className="dpt-mouse-guide dpt-mouse-on-button"
-              src={asset.mouseGuideImg}
-              alt="提示點擊"
-              aria-hidden="true"
-              draggable="false"
-            />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  /* ========= 畫面：結束影片 ========= */
-  if (phase === "endingVideo") {
-    return (
-      <div
-        className="dpt-page dpt-page--soft"
-        style={{ "--dpt-bg": `url(${asset.background})` }}
-      >
-        <style>{dptInlineCss}</style>
-        <main className="dpt-center-shell">
-          <section className="dpt-soft-panel dpt-video-panel" aria-label="結束動畫">
-            <div className="dpt-video-frame">
-              <video
-                className="dpt-video"
-                src={asset.endingVideo}
-                autoPlay
-                muted
-                playsInline
-                controls={false}
-                preload="auto"
-                onEnded={handleEndingVideoEnd}
-              >
-                你的瀏覽器不支援影片播放。
-              </video>
-            </div>
-
-            <div className="dpt-guided-action dpt-guided-skip">
-              <button
-                type="button"
-                className="dpt-forest-button dpt-image-button dpt-btn-skip"
-                onClick={handleEndingVideoEnd}
-                aria-label="跳過動畫"
-              >
-                <img src={asset.homeSkipBtn} alt="跳過動畫" draggable="false" />
-              </button>
-              <img
-                className="dpt-mouse-guide dpt-mouse-on-button"
-                src={asset.mouseGuideImg}
-                alt="提示點擊"
-                aria-hidden="true"
-                draggable="false"
-              />
-            </div>
           </section>
         </main>
       </div>
     );
   }
 
-  /* ========= 畫面：測驗完成 ========= */
   if (phase === "result") {
     return (
-      <div
-        className="dpt-page dpt-page--soft"
-        style={{ "--dpt-bg": `url(${asset.background})` }}
-      >
+      <div className="dpt-page dpt-page--soft" style={{ "--dpt-bg": `url(${asset.background})` }}>
         <style>{dptInlineCss}</style>
         <main className="dpt-center-shell dpt-result-shell">
           <section className="dpt-soft-panel dpt-result-panel" aria-label="測驗結果">
             <div className="dpt-cute-stars" aria-label={`${resultStars} 顆星`}>
-              {[1, 2, 3].map((star) => (
-                <span
-                  key={star}
-                  className={`dpt-cute-star ${star <= resultStars ? "is-on" : ""}`}
-                >
-                  ★
-                </span>
-              ))}
+              {[1,2,3].map((star) => <span key={star} className={`dpt-cute-star ${star <= resultStars ? "is-on" : ""}`}>★</span>)}
             </div>
-
             <div className="dpt-start-content dpt-result-content">
-              <div className="dpt-dialog-bubble">
-                關卡完成！你很認真幫狐狸守住點心喔。
-              </div>
-
-              <div className="dpt-round-icon dpt-result-icon">
-                <img src={asset.startAvatar} alt="狐狸角色" draggable="false" />
-              </div>
+              <div className="dpt-dialog-bubble">測驗完成！你有仔細聽聲音並選出相反的動物。</div>
+              <div className="dpt-round-icon dpt-result-icon"><img src={asset.startAvatar} alt="狐狸角色" draggable="false" /></div>
             </div>
-
             <div className="dpt-result-actions">
               <div className="dpt-guided-action dpt-guided-result-main">
-                <button
-                  type="button"
-                  className="dpt-forest-button dpt-image-button dpt-btn-home"
-                  onClick={() => navigate("/test-map")}
-                  aria-label="回到森林"
-                >
+                <button type="button" className="dpt-forest-button dpt-image-button dpt-btn-home" onClick={() => navigate(TEST_PAGE_ROUTE)} aria-label="回到森林">
                   <img src={asset.homeBackBtn} alt="回到森林" draggable="false" />
                 </button>
-                <img
-                  className="dpt-mouse-guide dpt-mouse-on-button"
-                  src={asset.mouseGuideImg}
-                  alt="提示點擊"
-                  aria-hidden="true"
-                  draggable="false"
-                />
+                <img className="dpt-mouse-guide dpt-mouse-on-button" src={asset.mouseGuideImg} alt="" aria-hidden="true" draggable="false" />
               </div>
-              <button
-                type="button"
-                className="dpt-forest-button dpt-image-button dpt-btn-replay"
-                onClick={handleReplay}
-                aria-label="再玩一次"
-              >
-                <img src={asset.homeAgainBtn} alt="再玩一次" draggable="false" />
-              </button>
-              <button
-                type="button"
-                className="dpt-forest-button dpt-image-button dpt-btn-detail"
-                onClick={goResultPage}
-                aria-label="詳細結果"
-              >
+              <button type="button" className="dpt-forest-button dpt-image-button dpt-btn-detail" onClick={goResultPage} aria-label="詳細結果">
                 <img src={asset.homeResultBtn} alt="詳細結果" draggable="false" />
               </button>
             </div>
@@ -1031,116 +710,26 @@ export default function TestPage_DPT() {
     );
   }
 
-  /* ========= 畫面：正式測驗 ========= */
+  const leftTarget = currentTrial?.catPosition === "left" ? "cat" : "dog";
+  const rightTarget = leftTarget === "cat" ? "dog" : "cat";
+
   return (
-    <div
-      className="dpt-page dpt-page--soft"
-      style={{ "--dpt-bg": `url(${asset.background})` }}
-    >
+    <div className="dpt-page dpt-page--soft" style={{ "--dpt-bg": `url(${asset.background})` }}>
       <style>{dptInlineCss}</style>
       <div className="dpt-container">
         <div className="dpt-stage" onPointerDownCapture={handleStagePointerDown}>
-          {showFixation && (
-            <img
-              className="dpt-fixation-bee"
-              src={asset.bee}
-              alt="注視蜜蜂"
-              draggable="false"
-            />
-          )}
-
-          <button
-            type="button"
-            className={[
-              "dpt-side-zone",
-              "dpt-side-zone--left",
-              canAnswer ? "is-clickable" : "",
-              feedbackSide === "left" && feedbackType === "correct"
-                ? "is-correct"
-                : "",
-              feedbackSide === "left" && feedbackType === "wrong"
-                ? "is-wrong"
-                : "",
-            ].join(" ")}
-            style={framelessZoneStyle}
-            onClick={() => handleAnswer("left")}
-            disabled={!canAnswer}
-            aria-label="左邊"
-            data-answer-zone="true"
-          >
-            {showItems && currentTrial?.leftItem && (
-              <img
-                className="dpt-item"
-                src={currentTrial.leftItem}
-                alt="左邊物品"
-                draggable="false"
-                style={largeItemStyle}
-              />
-            )}
-          </button>
-
-          <button
-            type="button"
-            className={[
-              "dpt-side-zone",
-              "dpt-side-zone--right",
-              canAnswer ? "is-clickable" : "",
-              feedbackSide === "right" && feedbackType === "correct"
-                ? "is-correct"
-                : "",
-              feedbackSide === "right" && feedbackType === "wrong"
-                ? "is-wrong"
-                : "",
-            ].join(" ")}
-            style={framelessZoneStyle}
-            onClick={() => handleAnswer("right")}
-            disabled={!canAnswer}
-            aria-label="右邊"
-            data-answer-zone="true"
-          >
-            {showItems && currentTrial?.rightItem && (
-              <img
-                className="dpt-item"
-                src={currentTrial.rightItem}
-                alt="右邊物品"
-                draggable="false"
-                style={largeItemStyle}
-              />
-            )}
-          </button>
-
-          {showFly && (
-            <img
-              className={[
-                "dpt-fly",
-                currentTrial?.flySide === "left"
-                  ? "dpt-fly--left"
-                  : "dpt-fly--right",
-                flyHit ? "is-hit" : "",
-              ].join(" ")}
-              src={asset.fly}
-              alt="蒼蠅"
-              draggable="false"
-              style={largeFlyStyle}
-            />
-          )}
-
-          {feedbackSide && (
-            <div
-              className={[
-                "dpt-effect",
-                feedbackType === "correct"
-                  ? "dpt-effect--correct"
-                  : "dpt-effect--wrong",
-              ].join(" ")}
-              style={{
-                left: feedbackSide === "left" ? "28%" : "72%",
-                top: "32%",
-              }}
-            >
-              {feedbackType === "correct" ? "✓" : "×"}
-            </div>
-          )}
+          <div className="dpt-listen-status" aria-live="polite">
+            {audioError ? "聲音沒有成功播放" : isPreparingSound ? "請準備聽聲音" : canAnswer ? "請選擇相反的動物" : "請稍候"}
+          </div>
+          <div className="dpt-animal-choice-row" aria-label="選擇動物">
+            <button type="button" className={`dpt-animal-choice ${canAnswer ? "is-clickable" : ""}`} onClick={() => handleAnswer(leftTarget, "left")} data-answer-zone="true" aria-disabled={!canAnswer} disabled={!canAnswer}>
+              <img src={leftTarget === "cat" ? asset.cat : asset.dog} alt={leftTarget === "cat" ? "貓咪" : "狗狗"} draggable="false" />
+            </button>
+            <button type="button" className={`dpt-animal-choice ${canAnswer ? "is-clickable" : ""}`} onClick={() => handleAnswer(rightTarget, "right")} data-answer-zone="true" aria-disabled={!canAnswer} disabled={!canAnswer}>
+              <img src={rightTarget === "cat" ? asset.cat : asset.dog} alt={rightTarget === "cat" ? "貓咪" : "狗狗"} draggable="false" />
+            </button>
+          </div>
+          {audioError && <button type="button" className="dpt-retry-audio" onClick={retryCurrentSound}>重新播放聲音</button>}
         </div>
       </div>
     </div>
@@ -1148,121 +737,39 @@ export default function TestPage_DPT() {
 }
 
 const dptInlineCss = `
-.dpt-page,
-.dpt-page *,
-.dpt-forest-button,
-.dpt-image-button,
-.dpt-side-zone,
-.dpt-practice-choice {
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-
 .dpt-page--soft {
   min-height: 100vh;
   font-family: "jf-openhuninn", "Fredoka", "Nunito", "Noto Sans TC", sans-serif;
   text-align: center;
   overflow: hidden;
-  background-image: linear-gradient(rgba(255,255,255,.3), rgba(255,255,255,.3)), var(--dpt-bg);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  color: #4b2c16;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.dpt-center-shell { width: min(90vw, 1220px); min-height: 100vh; margin: 0 auto; display: flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 28px 0; }
-.dpt-start-shell, .dpt-result-shell { width: min(78vw, 960px); }
-.dpt-soft-panel, .dpt-rule-card { width: 100%; background: linear-gradient(180deg, rgba(255,238,174,.98), rgba(255,229,151,.98)); border: 7px solid #ff8426; border-radius: 72px; box-sizing: border-box; box-shadow: 0 18px 34px rgba(108,67,25,.12); }
-.dpt-start-panel { min-height: 500px; padding: 52px 72px 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 44px; }
-.dpt-game-title, .dpt-rule-title { display: inline-flex; align-items: center; justify-content: center; padding: 12px 34px; border-radius: 999px; border: 4px solid #ff8a37; background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,246,213,.98)); color: #3b2414; font-size: clamp(30px,3.8vw,48px); font-weight: 950; line-height: 1.08; letter-spacing: 1px; box-shadow: 0 8px 0 rgba(231,124,32,.2), 0 14px 26px rgba(108,67,25,.12); margin: 0; }
-.dpt-start-content { width: min(100%,760px); display: grid; grid-template-columns: minmax(300px,1fr) 170px; align-items: center; justify-content: center; gap: 64px; }
-.dpt-dialog-bubble { min-height: 138px; border: 5px solid #f0782e; border-radius: 28px; background: linear-gradient(180deg,#fff 0%,#fff9e9 100%); color: #1e1711; display: flex; align-items: center; justify-content: center; padding: 18px 30px; font-size: clamp(26px,3vw,38px); line-height: 1.32; font-weight: 900; box-sizing: border-box; position: relative; box-shadow: 0 8px 0 rgba(240,125,45,.12), inset 0 0 0 6px rgba(255,226,150,.28); }
-.dpt-dialog-bubble::after { content: ""; position: absolute; right: -44px; top: 50%; width: 46px; height: 40px; background: #fff9e9; border-top: 5px solid #f0782e; border-right: 5px solid #f0782e; transform: translateY(-50%) skewX(-32deg) rotate(12deg); }
-.dpt-round-icon { width: 170px; height: 170px; border-radius: 999px; background: linear-gradient(180deg,#4e82d5,#2f68c2); border: 3px solid #173466; display: flex; align-items: center; justify-content: center; overflow: hidden; box-sizing: border-box; padding: 10px; box-shadow: 0 10px 20px rgba(44,83,139,.18); }
-.dpt-round-icon img { width: 100%; height: 100%; max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 50%; display: block; }
-.dpt-forest-button, .dpt-start-button, .dpt-main-button { min-width: 184px; min-height: 72px; padding: 12px 34px; border-radius: 14px; color: #fff; font-family: inherit; font-size: clamp(23px,2.5vw,32px); font-weight: 900; line-height: 1.15; cursor: pointer; transition: transform .14s ease, filter .14s ease, box-shadow .14s ease, opacity .14s ease; }
-.dpt-forest-button:hover:not(:disabled), .dpt-start-button:hover:not(:disabled), .dpt-main-button:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.04); }
-.dpt-btn-start, .dpt-start-button, .dpt-main-button { border: 2px solid #2d6e31; background: linear-gradient(180deg,#7ec65b,#66a83f); box-shadow: 0 4px 0 rgba(34,92,35,.34), 0 10px 18px rgba(67,93,38,.16); }
-.dpt-btn-skip { border: 2px solid #74513a; background: linear-gradient(180deg,#b28a68,#8e664f); box-shadow: 0 4px 0 rgba(84,56,38,.34),0 10px 18px rgba(84,56,38,.14); }
-.dpt-btn-home { border: 2px solid #2d6e31; background: linear-gradient(180deg,#7ac65a,#5fa742); box-shadow: 0 4px 0 rgba(34,92,35,.34),0 10px 18px rgba(67,93,38,.14); }
-.dpt-btn-replay { border: 2px solid #b45f18; background: linear-gradient(180deg,#ffbc58,#f08a2a); box-shadow: 0 4px 0 rgba(154,86,22,.34),0 10px 18px rgba(154,86,22,.14); }
-.dpt-btn-detail { border: 2px solid #2c5e9a; background: linear-gradient(180deg,#75a8ff,#4d80d8); box-shadow: 0 4px 0 rgba(38,78,137,.34),0 10px 18px rgba(38,78,137,.14); }
-.dpt-video-panel { min-height: 78vh; padding: 48px 72px 34px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; }
-.dpt-video-frame { width: 100%; height: min(60vh,560px); min-height: 360px; border: 2px solid rgba(97,123,74,.55); border-radius: 22px; background: rgba(255,255,255,.38); overflow: hidden; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
-.dpt-video { width: 100%; height: 100%; object-fit: cover; display: block; }
-.dpt-rule-card { width: min(90vw,1120px); min-height: 72vh; margin: 8vh auto 0; padding: clamp(28px,4vw,52px); }
-.dpt-rule-card--icons { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(18px,2.3vw,28px); }
-.dpt-rule-icon-title { margin: 0; color: #3b2414; font-size: clamp(28px,3.2vw,44px); font-weight: 950; line-height: 1.15; }
-.dpt-icon-flow { position: relative; width: min(760px,92vw); min-height: clamp(230px,30vw,330px); display: flex; align-items: center; justify-content: center; gap: clamp(20px,4vw,52px); margin: 2px auto 4px; }
-.dpt-icon-flow--single { min-height: clamp(260px,32vw,360px); }
-.dpt-mini-scene { position: relative; width: min(650px,88vw); height: clamp(250px,31vw,340px); }
-.dpt-teach-fox { position: absolute; left: 8%; bottom: 0; width: clamp(150px,21vw,250px); height: auto; object-fit: contain; filter: drop-shadow(0 12px 12px rgba(74,54,25,.16)); }
-.dpt-focus-ring { position: absolute; left: 50%; top: 45%; transform: translate(-50%,-50%); width: clamp(130px,16vw,190px); height: clamp(130px,16vw,190px); border-radius: 999px; background: rgba(255,255,255,.72); border: 6px solid #ff8a37; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 9px rgba(255,217,96,.35), 0 14px 22px rgba(108,67,25,.12); }
-.dpt-teach-bee { width: 86%; height: 86%; object-fit: contain; animation: dptFloat 1.1s ease-in-out infinite; }
-.dpt-eye-line { position: absolute; right: 13%; top: 38%; font-size: clamp(44px,7vw,82px); filter: drop-shadow(0 8px 10px rgba(74,54,25,.16)); }
-.dpt-teach-side, .dpt-teach-probe, .dpt-teach-ghost, .dpt-practice-choice { position: relative; width: clamp(160px,21vw,250px); height: clamp(160px,21vw,250px); border-radius: 34px; background: rgba(255,255,255,.52); border: 5px solid rgba(255,138,55,.72); display: flex; align-items: center; justify-content: center; box-shadow: 0 12px 22px rgba(108,67,25,.10); }
-.dpt-teach-side img, .dpt-teach-ghost img { width: 80%; height: 80%; object-fit: contain; }
-.dpt-teach-symbol, .dpt-teach-arrow { color: #7a4b25; font-size: clamp(42px,6vw,76px); font-weight: 950; }
-.dpt-side-label { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); min-width: 62px; padding: 6px 14px; border-radius: 999px; background: #fff8dc; border: 4px solid #ff8a37; color: #3b2414; font-size: clamp(24px,2.7vw,34px); font-weight: 950; line-height: 1; box-shadow: 0 6px 0 rgba(231,124,32,.18); }
-.dpt-memory-hint { position: absolute; left: 50%; bottom: -4px; transform: translateX(-50%); font-size: clamp(42px,5vw,64px); font-weight: 950; color: #5d361d; }
-.dpt-teach-ghost { opacity: .34; border-style: dashed; }
-.dpt-teach-probe { background: rgba(255,247,205,.68); }
-.dpt-teach-fly { width: 72%; height: 72%; object-fit: contain; animation: dptFlyOnly 1.1s ease-in-out infinite; }
-.dpt-practice-icon-wrap { width: min(680px,92vw); display: grid; grid-template-columns: 1fr 1fr; gap: clamp(24px,5vw,56px); margin: 8px auto 2px; }
-.dpt-practice-choice { width: 100%; cursor: pointer; font-family: inherit; }
-.dpt-practice-choice.is-correct { border-color: #65b943; box-shadow: 0 0 0 9px rgba(126,198,91,.22), 0 12px 22px rgba(108,67,25,.10); }
-.dpt-practice-choice.is-wrong { border-color: #d84b38; box-shadow: 0 0 0 9px rgba(216,75,56,.16), 0 12px 22px rgba(108,67,25,.10); }
-.dpt-empty-dot { color: #7a4b25; font-size: clamp(64px,8vw,92px); font-weight: 950; }
-.dpt-icon-feedback { width: 68px; height: 68px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 48px; font-weight: 950; line-height: 1; margin: -8px auto -4px; }
-.dpt-icon-feedback--success { color: #fff; background: #65b943; }
-.dpt-icon-feedback--error { color: #fff; background: #d84b38; }
-.dpt-rule-text { margin: 18px auto; color: #2c1d12; font-size: clamp(24px,2.8vw,36px); font-weight: 900; line-height: 1.35; }
-.dpt-feedback-text { margin: 10px 0 16px; font-size: clamp(22px,2.5vw,30px); font-weight: 900; }
-.dpt-feedback-text--success { color: #368131; }
-.dpt-feedback-text--error { color: #c94d31; }
-.dpt-container { width: 100%; min-height: 100vh; display: flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 3vh 4vw; }
-.dpt-stage { position: relative; width: min(86vw,1120px); height: min(78vh,650px); max-height: calc(100vh - 48px); overflow: hidden; border-radius: 34px; border: 4px solid rgba(255,255,255,.86); background: rgba(255,255,220,.34); box-shadow: inset 0 0 0 1px rgba(255,255,255,.40); }
-.dpt-side-zone { position: absolute; top: 31%; width: 30%; height: 34%; display: flex; align-items: center; justify-content: center; padding: 0; }
-.dpt-side-zone--left { left: 13%; }
-.dpt-side-zone--right { right: 13%; }
-.dpt-side-zone.is-clickable { cursor: pointer; }
-.dpt-item, .dpt-fly, .dpt-fox, .dpt-fixation-bee { user-select: none; -webkit-user-drag: none; filter: drop-shadow(0 10px 14px rgba(74,54,25,.18)); }
-.dpt-item--glow { filter: drop-shadow(0 0 22px rgba(255,216,61,.76)) drop-shadow(0 10px 14px rgba(74,54,25,.18)); }
-.dpt-fixation-bee { position: absolute; left: 50%; top: 39%; width: clamp(88px,9vw,132px); height: auto; object-fit: contain; transform: translate(-50%,-50%); z-index: 6; animation: dptBeePulse .9s ease-in-out infinite; filter: drop-shadow(0 10px 14px rgba(74,54,25,.18)); }
-.dpt-fly { position: absolute; top: 42%; z-index: 4; transform: translateX(-50%); animation: dptFlyFloat 1.2s ease-in-out infinite; }
-.dpt-fly--left { left: 28%; }
-.dpt-fly--right { left: 72%; right: auto; }
-.dpt-fly.is-hit { animation: none; transform: translateX(-50%) scale(.82); opacity: .42; }
-.dpt-fox { position: absolute; left: 50%; bottom: 1%; width: clamp(130px,14vw,190px); height: auto; transform: translateX(-50%); transition: transform .18s ease; }
-.dpt-fox.is-happy { transform: translateX(-50%) translateY(-7px) scale(1.04); }
-.dpt-effect { position: absolute; transform: translate(-50%,-50%); width: 74px; height: 74px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 56px; font-weight: 950; z-index: 10; pointer-events: none; animation: dptEffectPop .58s ease-out forwards; }
-.dpt-effect--correct { color: #41a035; background: rgba(255,248,185,.38); box-shadow: 0 0 24px rgba(255,218,72,.52); }
-.dpt-effect--wrong { color: #d84b38; background: rgba(255,255,255,.32); }
-.dpt-result-panel { min-height: 520px; padding: 92px 72px 62px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 58px; }
-.dpt-cute-stars { position: absolute; top: -92px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; gap: 28px; z-index: 3; }
-.dpt-cute-star { font-size: clamp(94px,10vw,136px); line-height: .9; color: #fff7cb; opacity: .9; -webkit-text-stroke: 5px #235395; text-shadow: 0 8px 0 rgba(64,84,70,.18),0 14px 18px rgba(72,58,32,.14); display: inline-block; transform: rotate(-10deg); }
-.dpt-cute-star:nth-child(2) { transform: translateY(-22px) rotate(2deg); }
-.dpt-cute-star:nth-child(3) { transform: rotate(12deg); }
-.dpt-cute-star.is-on { color: #ffd83d; opacity: 1; -webkit-text-stroke: 5px #f3a91f; text-shadow: 0 6px 0 #d89a1b,0 12px 20px rgba(112,65,0,.26),0 0 20px rgba(255,246,158,.95); }
-.dpt-result-actions { width: min(100%,760px); display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 20px; }
-.dpt-result-actions .dpt-forest-button { width: 100%; min-width: 0; padding-inline: 16px; }
-@keyframes dptBeePulse { 0%,100% { transform: translate(-50%,-50%) scale(1); } 50% { transform: translate(-50%,-50%) scale(1.08); } }
-@keyframes dptFlyOnly { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-@keyframes dptFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-@keyframes dptFlyFloat { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-8px); } }
-@keyframes dptEffectPop { from { opacity: .95; transform: translate(-50%,-50%) scale(.72); } to { opacity: 0; transform: translate(-50%,-50%) scale(1.45); } }
-@media (max-width: 780px) { .dpt-center-shell,.dpt-start-shell,.dpt-result-shell { width: min(94vw,720px); } .dpt-soft-panel,.dpt-rule-card { border-radius: 42px; border-width: 5px; } .dpt-start-panel,.dpt-result-panel,.dpt-video-panel { padding: 34px 22px; } .dpt-start-content,.dpt-result-content { grid-template-columns: 1fr; gap: 26px; } .dpt-dialog-bubble::after { display: none; } .dpt-round-icon { width: 138px; height: 138px; } .dpt-result-actions { grid-template-columns: 1fr; } .dpt-video-frame { min-height: 280px; height: 52vh; } .dpt-rule-card { margin-top: 4vh; min-height: auto; } .dpt-stage { width: 92vw; height: 74vh; } .dpt-side-zone { top: 32%; width: 35%; height: 34%; } .dpt-side-zone--left { left: 6%; } .dpt-side-zone--right { right: 6%; } .dpt-fly { top: 43%; } .dpt-fly--left { left: 23.5%; } .dpt-fly--right { left: 76.5%; right: auto; } }
-@media (max-width: 780px) { .dpt-rule-card--icons { gap: 16px; } .dpt-icon-flow { min-height: 230px; gap: 14px; } .dpt-teach-side, .dpt-teach-probe, .dpt-teach-ghost, .dpt-practice-choice { width: clamp(128px,38vw,180px); height: clamp(128px,38vw,180px); border-radius: 24px; } .dpt-practice-icon-wrap { gap: 16px; } .dpt-teach-symbol, .dpt-teach-arrow { font-size: 38px; } .dpt-memory-hint { bottom: -14px; } .dpt-focus-ring { left: 55%; } .dpt-eye-line { right: 4%; } }
-
-/* ========= SRT style card + image button overrides ========= */
-.dpt-page--soft {
-  color: #4b2c16;
-  background-image:
-    radial-gradient(circle at 52% 9%, rgba(255,255,255,0.20), transparent 28%),
-    linear-gradient(rgba(255,255,255,0.22), rgba(255,255,255,0.22)),
-    var(--dpt-bg);
+.dpt-page--soft::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 52% 9%, rgba(255,255,255,0.22), transparent 28%),
+    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,239,188,0.10));
+  z-index: 0;
 }
 
 .dpt-center-shell {
+  width: min(88vw, 1180px);
+  min-height: 100vh;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 28px 0;
   position: relative;
   z-index: 1;
 }
@@ -1272,9 +779,10 @@ const dptInlineCss = `
   width: min(72vw, 860px);
 }
 
-.dpt-soft-panel,
-.dpt-rule-card {
+.dpt-soft-panel {
+  width: 100%;
   position: relative;
+  box-sizing: border-box;
   border: 7px solid #f6a51f;
   border-radius: 58px;
   background:
@@ -1286,8 +794,7 @@ const dptInlineCss = `
     inset 0 0 0 16px rgba(255, 215, 105, 0.20);
 }
 
-.dpt-soft-panel::before,
-.dpt-rule-card::before {
+.dpt-soft-panel::before {
   content: "";
   position: absolute;
   inset: 18px;
@@ -1296,8 +803,7 @@ const dptInlineCss = `
   pointer-events: none;
 }
 
-.dpt-soft-panel::after,
-.dpt-rule-card::after {
+.dpt-soft-panel::after {
   content: "";
   position: absolute;
   left: 30px;
@@ -1313,55 +819,226 @@ const dptInlineCss = `
   opacity: 0.92;
 }
 
-.dpt-start-panel,
-.dpt-result-panel,
-.dpt-video-panel,
-.dpt-rule-card > * {
-  position: relative;
-  z-index: 1;
-}
-
 .dpt-start-panel {
   min-height: 560px;
   padding: 58px 70px 74px;
-  gap: 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 34px;
 }
 
-.dpt-game-title,
-.dpt-rule-title {
-  border: 5px solid #ff9a4b;
-  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,246,213,0.98));
-  color: #3b2414;
+.dpt-game-title {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: min(100%, 420px);
+  padding: 14px 42px 16px;
+  border-radius: 20px;
+  border: 4px solid #e9a33c;
+  background:
+    linear-gradient(180deg, rgba(255, 226, 129, 0.96), rgba(255, 244, 194, 0.98));
+  color: #7a3f16;
+  font-size: clamp(34px, 4vw, 52px);
+  font-weight: 950;
+  line-height: 1.08;
+  letter-spacing: 2px;
+  text-shadow: 0 3px 0 rgba(255, 255, 255, 0.85);
   box-shadow:
-    0 8px 0 rgba(231, 124, 32, 0.18),
-    0 14px 26px rgba(108, 67, 25, 0.12),
-    inset 0 0 0 5px rgba(255, 222, 145, 0.26);
+    0 8px 0 rgba(210, 130, 37, 0.24),
+    0 14px 24px rgba(91, 57, 18, 0.12),
+    inset 0 0 0 5px rgba(255, 255, 255, 0.34);
+}
+
+.dpt-game-title::before,
+.dpt-game-title::after {
+  content: "🌿";
+  position: absolute;
+  top: 50%;
+  font-size: 28px;
+  transform: translateY(-50%);
+}
+
+.dpt-game-title::before { left: 18px; }
+.dpt-game-title::after { right: 18px; transform: translateY(-50%) scaleX(-1); }
+
+.dpt-start-content {
+  position: relative;
+  z-index: 2;
+  width: min(100%, 690px);
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) 158px;
+  align-items: center;
+  justify-content: center;
+  gap: 44px;
 }
 
 .dpt-dialog-bubble {
-  border: 5px solid #f0782e;
+  min-height: 138px;
+  border: 4px solid #f0c77b;
+  border-radius: 28px;
   background: linear-gradient(180deg, #ffffff 0%, #fff9e9 100%);
-  box-shadow:
-    0 8px 0 rgba(240, 125, 45, 0.12),
-    inset 0 0 0 6px rgba(255, 226, 150, 0.28);
+  color: #6d3717;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 30px;
+  font-size: clamp(26px, 3vw, 38px);
+  line-height: 1.32;
+  font-weight: 900;
+  box-sizing: border-box;
+  position: relative;
+  box-shadow: 0 8px 0 rgba(225, 169, 84, 0.12), inset 0 0 0 5px rgba(255, 235, 174, 0.35);
 }
 
-.dpt-round-icon,
-.dpt-avatar-guide {
+.dpt-opening-bubble {
+  min-height: 132px;
+}
+
+.dpt-dialog-bubble::before {
+  content: "";
+  position: absolute;
+  inset: 13px;
+  border-radius: 20px;
+  border: 2px dashed rgba(229, 189, 119, 0.55);
+  pointer-events: none;
+}
+
+.dpt-dialog-bubble::after {
+  content: "";
+  position: absolute;
+  right: -30px;
+  top: 50%;
+  width: 38px;
+  height: 38px;
+  background: linear-gradient(135deg, #fff 0%, #fff9e9 80%);
+  border-top: 4px solid #f0c77b;
+  border-right: 4px solid #f0c77b;
+  transform: translateY(-50%) rotate(45deg);
+  border-radius: 4px;
+}
+
+.dpt-round-icon {
+  width: 158px;
+  height: 158px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.90);
-  border: 5px solid #ff9a4b;
-  box-shadow: 0 16px 24px rgba(92, 66, 29, 0.16);
+  background: linear-gradient(180deg, #82d9ff, #48aee8);
+  border: 5px solid rgba(255,255,255,0.92);
+  outline: 3px solid rgba(72, 157, 207, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 14px;
+  box-shadow: 0 10px 0 rgba(42, 112, 165, 0.20), 0 18px 24px rgba(53, 91, 123, 0.18);
 }
 
-.dpt-round-icon img,
-.dpt-avatar-guide img {
+.dpt-round-icon::after {
+  content: "★";
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  color: #ffd948;
+  font-size: 36px;
+  -webkit-text-stroke: 2px #e29b21;
+  text-shadow: 0 3px 0 rgba(139, 96, 20, 0.14);
+}
+
+.dpt-round-icon img {
   width: 100%;
   height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
   border-radius: 50%;
   display: block;
 }
+
+.dpt-start-avatar {
+  background: linear-gradient(180deg, #84dcff, #42afe9);
+}
+
+.dpt-forest-button {
+  position: relative;
+  z-index: 2;
+  min-width: 220px;
+  min-height: 76px;
+  padding: 12px 36px;
+  border-radius: 24px;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: clamp(25px, 2.8vw, 38px);
+  font-weight: 950;
+  line-height: 1.15;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: transform 0.14s ease, filter 0.14s ease, box-shadow 0.14s ease, opacity 0.14s ease;
+  text-shadow: 0 3px 0 rgba(35, 96, 36, 0.36), 0 0 8px rgba(35, 96, 36, 0.18);
+}
+
+.dpt-forest-button::before,
+.dpt-forest-button::after {
+  content: "";
+  position: absolute;
+  width: 30px;
+  height: 22px;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 30% 55%, #e8ff9b 0 9px, transparent 10px),
+    radial-gradient(ellipse at 72% 45%, #7bc946 0 11px, transparent 12px);
+  filter: drop-shadow(0 2px 0 rgba(65, 115, 35, 0.20));
+}
+
+.dpt-forest-button::before { left: 12px; bottom: 9px; transform: rotate(-18deg); }
+.dpt-forest-button::after { right: 12px; top: 9px; transform: rotate(154deg); }
+
+.dpt-forest-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+}
+
+.dpt-forest-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.dpt-forest-button:disabled {
+  opacity: 0.52;
+  cursor: default;
+  filter: grayscale(0.18);
+}
+
+.dpt-btn-start,
+.dpt-btn-home,
+.dpt-btn-replay,
+.dpt-btn-detail,
+.dpt-btn-skip,
+.dpt-btn-next {
+  border: 4px solid rgba(255,255,255,0.86);
+  outline: 3px solid #5d9d32;
+  background: linear-gradient(180deg, #b9f235 0%, #77c927 48%, #4e9a23 100%);
+  box-shadow:
+    0 6px 0 #377721,
+    0 13px 22px rgba(61, 97, 33, 0.20),
+    inset 0 4px 0 rgba(255,255,255,0.48),
+    inset 0 -5px 0 rgba(49, 128, 31, 0.26);
+}
+
+.dpt-btn-replay {
+  outline-color: #67a833;
+}
+
+.dpt-btn-detail {
+  outline-color: #598f2e;
+}
+
+.dpt-btn-skip {
+  min-width: 260px;
+}
+
 
 .dpt-guided-action {
   position: relative;
@@ -1371,12 +1048,7 @@ const dptInlineCss = `
   isolation: isolate;
 }
 
-.dpt-image-button,
-.dpt-image-button.dpt-btn-start,
-.dpt-image-button.dpt-btn-home,
-.dpt-image-button.dpt-btn-replay,
-.dpt-image-button.dpt-btn-detail,
-.dpt-image-button.dpt-btn-skip {
+.dpt-image-button {
   min-width: 0;
   min-height: 0;
   width: clamp(188px, 18vw, 254px);
@@ -1389,6 +1061,20 @@ const dptInlineCss = `
   box-shadow: none;
   line-height: 0;
   overflow: visible;
+}
+
+.dpt-image-button.dpt-btn-start,
+.dpt-image-button.dpt-btn-home,
+.dpt-image-button.dpt-btn-replay,
+.dpt-image-button.dpt-btn-detail,
+.dpt-image-button.dpt-btn-skip,
+.dpt-image-button.dpt-btn-next {
+  min-width: 0;
+  min-height: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
 }
 
 .dpt-image-button::before,
@@ -1415,8 +1101,28 @@ const dptInlineCss = `
   transform: translateY(1px) scale(0.98);
 }
 
-.dpt-btn-skip.dpt-image-button {
+.dpt-image-button:disabled {
+  opacity: 0.56;
+}
+
+.dpt-image-button:disabled img {
+  filter: grayscale(0.35) drop-shadow(0 6px 6px rgba(74, 48, 16, 0.16));
+}
+
+.dpt-btn-skip.dpt-image-button,
+.dpt-btn-next.dpt-image-button {
   width: clamp(198px, 19vw, 266px);
+}
+
+.dpt-step-actions {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: clamp(18px, 3vw, 34px);
+  position: relative;
+  z-index: 2;
 }
 
 .dpt-mouse-guide {
@@ -1428,7 +1134,7 @@ const dptInlineCss = `
   user-select: none;
   -webkit-user-drag: none;
   filter: drop-shadow(0 8px 8px rgba(58, 38, 14, 0.24));
-  animation: dptMouseTap 1.15s ease-in-out infinite;
+  animation: dpt-mouse-tap 1.15s ease-in-out infinite;
 }
 
 .dpt-mouse-on-button {
@@ -1437,199 +1143,990 @@ const dptInlineCss = `
   transform-origin: 18% 18%;
 }
 
-@keyframes dptMouseTap {
+.dpt-mouse-on-acorn {
+  right: clamp(8px, 1.4vw, 18px);
+  top: clamp(38px, 5vw, 70px);
+  transform-origin: 18% 18%;
+}
+
+@keyframes dpt-mouse-tap {
   0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.92; }
   45% { transform: translate(-10px, -9px) scale(1.08); opacity: 1; }
   62% { transform: translate(-4px, -4px) scale(0.96); opacity: 1; }
 }
 
+.dpt-video-panel,
+.dpt-tutorial-panel {
+  min-height: 78vh;
+  padding: 48px 68px 38px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+
 .dpt-video-frame {
+  width: 100%;
+  height: min(60vh, 560px);
+  min-height: 360px;
   border: 4px solid #6fb6ec;
   border-radius: 24px;
   background: linear-gradient(180deg, #2fb5ff, #3189e5);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   box-shadow:
     0 8px 0 rgba(55, 121, 177, 0.18),
     inset 0 0 0 4px rgba(255,255,255,0.28);
 }
 
-.dpt-teaching-head {
-  width: min(100%, 860px);
+.dpt-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 前導互動教學保持原本結構，只微調在新背景中不破版 */
+.dpt-tutorial-scene {
+  width: 100%;
+  height: min(58vh, 540px);
+  min-height: 360px;
+  border: 2px solid rgba(115, 144, 82, 0.55);
+  border-radius: 26px;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  box-shadow: inset 0 0 0 999px rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(22px, 3vw, 42px);
+}
+
+.dpt-tutorial-scene::before {
+  content: "";
+  position: absolute;
+  left: 7%;
+  right: 7%;
+  bottom: 12%;
+  height: 18%;
+  border-radius: 999px;
+  background: rgba(112, 174, 77, 0.14);
+  filter: blur(2px);
+}
+
+.dpt-tutorial-grid {
+  width: min(100%, 1040px);
+  height: 100%;
+  position: relative;
+  z-index: 1;
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: minmax(132px, 0.8fr) minmax(280px, 1.45fr) minmax(168px, 0.9fr);
   align-items: center;
   justify-items: center;
-  gap: clamp(18px, 3vw, 34px);
+  column-gap: clamp(20px, 4vw, 56px);
 }
 
 .dpt-avatar-guide {
-  width: clamp(112px, 13vw, 158px);
-  height: clamp(112px, 13vw, 158px);
+  width: clamp(128px, 16vw, 182px);
+  height: clamp(128px, 16vw, 182px);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 5px solid #ff9a4b;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   padding: 10px;
+  box-shadow: 0 16px 24px rgba(92, 66, 29, 0.16);
   box-sizing: border-box;
 }
 
-.dpt-rule-icon-title {
-  margin-top: 14px;
+.dpt-avatar-guide img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 50%;
+  display: block;
 }
 
-.dpt-rule-card {
-  width: min(88vw, 1100px);
-  min-height: 76vh;
-  padding: clamp(30px, 4vw, 54px) clamp(34px, 5vw, 70px) 70px;
-}
-
-.dpt-result-actions {
+.dpt-rule-steps {
+  width: 100%;
+  min-height: 260px;
+  display: grid;
+  grid-template-rows: auto 64px auto;
   align-items: center;
+  justify-items: center;
+  gap: 10px;
 }
 
-.dpt-result-actions .dpt-image-button {
-  width: clamp(168px, 16vw, 224px);
+.dpt-guide-bubble,
+.dpt-tap-hint {
+  z-index: 2;
+  padding: 12px 24px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 3px solid rgba(255, 132, 38, 0.78);
+  color: #2c1d12;
+  font-size: clamp(22px, 2.5vw, 36px);
+  font-weight: 900;
+  box-shadow: 0 10px 18px rgba(95, 70, 30, 0.12);
+  white-space: nowrap;
 }
 
-.dpt-container,
-.dpt-stage {
+.dpt-guide-main,
+.dpt-guide-wait {
+  position: static;
+}
+
+.dpt-guide-arrow {
+  width: min(100%, 320px);
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 153, 54, 0.12), rgba(255, 134, 38, 0.92));
+  position: relative;
+  transform: rotate(-4deg);
+  transform-origin: center;
+}
+
+.dpt-guide-arrow::after {
+  content: "";
+  position: absolute;
+  right: -4px;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  border-top: 8px solid rgba(255, 134, 38, 0.92);
+  border-right: 8px solid rgba(255, 134, 38, 0.92);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.dpt-tutorial-practice {
+  min-width: 168px;
+  min-height: 240px;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  align-items: center;
+  justify-items: center;
+  gap: 16px;
+  position: relative;
+}
+
+.dpt-practice-acorn {
+  width: clamp(96px, 12vw, 136px);
+  height: clamp(96px, 12vw, 136px);
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  box-shadow: 0 12px 24px rgba(69, 49, 24, 0.18);
+  animation: dpt-practice-float 1.5s ease-in-out infinite;
+}
+
+.dpt-practice-acorn img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.dpt-practice-acorn.is-ready {
+  box-shadow: 0 0 0 9px rgba(255, 230, 102, 0.32), 0 0 30px rgba(255, 204, 60, 0.85);
+  animation: none;
+}
+
+.dpt-tap-hint {
+  font-size: clamp(18px, 2vw, 28px);
+  color: #6b4b23;
+  opacity: 0.95;
+}
+
+@keyframes dpt-practice-float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-8px) scale(1.06); }
+}
+
+.dpt-demo-effect {
+  left: 50%;
+  top: 40%;
+}
+
+.dpt-play-page {
+  min-height: 100vh;
   position: relative;
   z-index: 1;
 }
 
-@media (max-width: 780px) {
-  .dpt-start-shell,
-  .dpt-result-shell {
-    width: min(94vw, 720px);
-  }
-
-  .dpt-soft-panel,
-  .dpt-rule-card {
-    border-radius: 42px;
-    border-width: 5px;
-  }
-
-  .dpt-soft-panel::before,
-  .dpt-rule-card::before {
-    inset: 12px;
-    border-radius: 30px;
-  }
-
-  .dpt-start-panel,
-  .dpt-result-panel,
-  .dpt-video-panel {
-    padding: 34px 22px 58px;
-  }
-
-  .dpt-teaching-head {
-    grid-template-columns: 1fr;
-  }
-
-  .dpt-rule-card {
-    width: min(94vw, 720px);
-    padding-bottom: 62px;
-  }
-
-  .dpt-result-actions .dpt-image-button,
-  .dpt-image-button,
-  .dpt-image-button.dpt-btn-skip {
-    width: clamp(174px, 50vw, 230px);
-  }
-}
-
-/* ========= 教學卡片邊界修正：所有教學內容都限制在大卡片內 ========= */
-.dpt-rule-card,
-.dpt-soft-panel {
+.dpt-test-game-area {
+  position: relative;
+  width: 100%;
+  height: 100vh;
   overflow: hidden;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.dpt-rule-card--icons {
-  box-sizing: border-box;
+.dpt-test-game-area::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 45%, rgba(255,255,255,0.04), transparent 35%);
 }
 
-.dpt-teaching-head,
-.dpt-icon-flow,
-.dpt-practice-icon-wrap,
-.dpt-mini-scene {
-  max-width: 100%;
-  box-sizing: border-box;
+.dpt-idle-flash::after {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  border-radius: 32px;
+  pointer-events: none;
+  z-index: 4;
+  box-shadow: inset 0 0 40px rgba(255, 230, 120, 0.64);
+  animation: dpt-idle-flash 0.9s ease-out forwards;
 }
 
-.dpt-icon-flow {
-  width: min(100%, 760px);
-  gap: clamp(14px, 2.8vw, 34px);
-  padding-inline: 8px;
-  overflow: visible;
+@keyframes dpt-idle-flash {
+  0% { opacity: 0; }
+  35% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
-.dpt-teach-side,
-.dpt-teach-probe,
-.dpt-teach-ghost,
-.dpt-practice-choice {
-  width: clamp(138px, 18vw, 220px);
-  height: clamp(138px, 18vw, 220px);
-  flex: 0 1 auto;
+.dpt-test-item {
+  position: absolute;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 2;
+  filter: drop-shadow(0 11px 12px rgba(79, 57, 20, 0.24));
+  animation: dpt-test-item-pop 0.18s ease-out;
+  transition: transform 0.15s ease, filter 0.15s ease;
 }
 
-.dpt-practice-icon-wrap {
-  width: min(100%, 640px);
-  gap: clamp(16px, 3vw, 38px);
-  padding-inline: 8px;
+.dpt-test-item:hover {
+  transform: translate(-50%, -50%) scale(1.04);
+  filter: drop-shadow(0 13px 15px rgba(79, 57, 20, 0.28)) brightness(1.06);
 }
 
-@media (max-width: 780px) {
-  .dpt-rule-card {
-    max-height: 94vh;
-    overflow: hidden;
+.dpt-test-item:active {
+  transform: translate(-50%, -50%) scale(0.94);
+}
+
+@keyframes dpt-test-item-pop {
+  from { transform: translate(-50%, -50%) scale(0.72); opacity: 0; }
+  to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+.dpt-test-effect {
+  position: absolute;
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 5;
+  border: 5px solid rgba(255, 236, 94, 0.92);
+  background: rgba(255, 245, 158, 0.18);
+  box-shadow: 0 0 22px rgba(255, 204, 48, 0.55);
+  animation: dpt-test-effect-pop 0.42s ease-out forwards;
+}
+
+.dpt-test-effect.is-penalty {
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.86) 0 10%, rgba(255, 138, 120, 0.72) 11% 35%, rgba(255, 70, 50, 0.16) 60%, rgba(255, 70, 50, 0) 72%);
+  box-shadow:
+    0 0 0 7px rgba(255, 108, 87, 0.16),
+    0 0 24px rgba(255, 96, 70, 0.52),
+    0 0 44px rgba(209, 58, 38, 0.26);
+}
+
+@keyframes dpt-test-effect-pop {
+  from { transform: translate(-50%, -50%) scale(0.7); opacity: 0.95; }
+  to { transform: translate(-50%, -50%) scale(1.45); opacity: 0; }
+}
+
+.dpt-result-panel {
+  min-height: 500px;
+  padding: 92px 56px 60px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 44px;
+}
+
+.dpt-result-panel::before {
+  inset: 18px;
+}
+
+.dpt-cute-stars {
+  position: absolute;
+  top: -78px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  z-index: 3;
+}
+
+.dpt-cute-star {
+  font-size: clamp(82px, 8vw, 116px);
+  line-height: 0.9;
+  color: #c2cfc9;
+  opacity: 0.6;
+  -webkit-text-stroke: 7px rgba(255,255,255,0.96);
+  text-shadow:
+    0 5px 0 rgba(85, 111, 84, 0.20),
+    0 10px 16px rgba(72, 58, 32, 0.16);
+  display: inline-block;
+  transform: rotate(-8deg);
+}
+
+.dpt-cute-star:nth-child(2) {
+  transform: translateY(-12px) rotate(2deg) scale(1.15);
+}
+
+.dpt-cute-star:nth-child(3) {
+  transform: rotate(7deg);
+}
+
+.dpt-cute-star.is-on {
+  color: #ffd53d;
+  opacity: 1;
+  -webkit-text-stroke: 7px rgba(255,255,255,0.98);
+  text-shadow:
+    0 4px 0 #e39d19,
+    0 8px 16px rgba(121, 74, 6, 0.30),
+    0 0 18px rgba(255, 249, 171, 0.95);
+}
+
+.dpt-result-content {
+  width: min(100%, 720px);
+}
+
+.dpt-result-icon {
+  width: 170px;
+  height: 170px;
+  padding: 13px;
+}
+
+.dpt-result-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 24px;
+  width: 100%;
+}
+
+.dpt-result-actions .dpt-forest-button {
+  min-width: 188px;
+  min-height: 70px;
+  font-size: clamp(22px, 2.2vw, 30px);
+  border-radius: 20px;
+}
+
+.dpt-result-actions .dpt-image-button {
+  min-width: 0;
+  min-height: 0;
+  width: clamp(168px, 16vw, 232px);
+  border-radius: 18px;
+}
+
+
+/* =========================================================
+   Claymorphism visual upgrade: SRT forest test page
+   - Keeps existing RWD structure intact.
+   - Only enhances depth, glow, shadows, and motion.
+   ========================================================= */
+
+.dpt-soft-panel {
+  border-color: rgba(246, 165, 31, 0.96);
+  background:
+    radial-gradient(circle at 18% 8%, rgba(255, 255, 255, 0.88) 0 9%, transparent 29%),
+    radial-gradient(circle at 84% 18%, rgba(255, 238, 160, 0.58) 0 13%, transparent 34%),
+    linear-gradient(145deg, rgba(255, 252, 222, 0.99) 0%, rgba(255, 229, 139, 0.98) 48%, rgba(239, 178, 83, 0.96) 100%);
+  box-shadow:
+    0 22px 0 rgba(151, 87, 28, 0.18),
+    0 36px 62px rgba(66, 44, 15, 0.28),
+    0 12px 26px rgba(255, 223, 128, 0.22),
+    inset 0 12px 18px rgba(255, 255, 255, 0.72),
+    inset 0 2px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -18px 24px rgba(139, 77, 22, 0.20),
+    inset 0 -42px 72px rgba(119, 75, 21, 0.12);
+}
+
+.dpt-soft-panel::before {
+  border-color: rgba(255, 245, 205, 0.58);
+  box-shadow:
+    inset 0 2px 5px rgba(255, 255, 255, 0.50),
+    inset 0 -3px 8px rgba(139, 88, 23, 0.12);
+}
+
+.dpt-soft-panel::after {
+  filter:
+    drop-shadow(0 4px 2px rgba(60, 105, 27, 0.22))
+    drop-shadow(0 10px 10px rgba(88, 57, 19, 0.16));
+}
+
+.dpt-test-item {
+  filter:
+    drop-shadow(0 14px 13px rgba(54, 38, 15, 0.34))
+    drop-shadow(0 5px 2px rgba(118, 76, 23, 0.18))
+    drop-shadow(0 0 15px rgba(255, 219, 75, 0.62))
+    drop-shadow(0 0 32px rgba(255, 184, 28, 0.34));
+  animation: dpt-test-item-pop 0.28s cubic-bezier(0.19, 1.34, 0.32, 1) both;
+  transition:
+    transform 0.18s cubic-bezier(0.2, 1.25, 0.38, 1),
+    filter 0.18s ease;
+  will-change: transform, filter;
+}
+
+.dpt-test-item:hover {
+  transform: translate(-50%, -50%) scale(1.075) rotate(-1.5deg);
+  filter:
+    drop-shadow(0 17px 16px rgba(54, 38, 15, 0.38))
+    drop-shadow(0 6px 2px rgba(118, 76, 23, 0.20))
+    drop-shadow(0 0 19px rgba(255, 230, 97, 0.78))
+    drop-shadow(0 0 42px rgba(255, 190, 34, 0.48))
+    brightness(1.08)
+    saturate(1.06);
+}
+
+.dpt-test-item:active {
+  transform: translate(-50%, -50%) scale(0.9) rotate(1.5deg);
+  filter:
+    drop-shadow(0 8px 8px rgba(54, 38, 15, 0.30))
+    drop-shadow(0 0 18px rgba(255, 218, 72, 0.58))
+    brightness(1.12);
+}
+
+@keyframes dpt-test-item-pop {
+  0% {
+    transform: translate(-50%, -50%) scale(0.42) rotate(-7deg);
+    opacity: 0;
+    filter:
+      drop-shadow(0 4px 5px rgba(54, 38, 15, 0.18))
+      drop-shadow(0 0 4px rgba(255, 224, 88, 0.12));
   }
-
-  .dpt-icon-flow {
-    width: 100%;
-    gap: 10px;
-    min-height: 210px;
+  68% {
+    transform: translate(-50%, -50%) scale(1.12) rotate(2deg);
+    opacity: 1;
   }
-
-  .dpt-teach-side,
-  .dpt-teach-probe,
-  .dpt-teach-ghost,
-  .dpt-practice-choice {
-    width: clamp(112px, 30vw, 156px);
-    height: clamp(112px, 30vw, 156px);
-    border-width: 4px;
-  }
-
-  .dpt-teach-symbol,
-  .dpt-teach-arrow {
-    font-size: clamp(28px, 8vw, 42px);
-  }
-
-  .dpt-practice-icon-wrap {
-    gap: 12px;
+  100% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    opacity: 1;
   }
 }
 
-
-/* ========= 結果頁星星外露：不要被卡片邊界裁切 ========= */
-.dpt-soft-panel.dpt-result-panel {
-  overflow: visible;
+.dpt-test-effect {
+  width: 86px;
+  height: 86px;
+  border: 0;
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.92) 0 10%, rgba(255, 243, 128, 0.86) 11% 24%, rgba(255, 191, 44, 0.40) 25% 47%, rgba(255, 156, 20, 0.00) 70%),
+    conic-gradient(from 14deg, rgba(255,255,255,0), rgba(255,247,153,0.78), rgba(255,184,28,0.18), rgba(255,255,255,0));
+  box-shadow:
+    0 0 0 7px rgba(255, 238, 123, 0.20),
+    0 0 22px rgba(255, 218, 67, 0.86),
+    0 0 48px rgba(255, 178, 28, 0.55),
+    inset 0 0 18px rgba(255, 255, 255, 0.74);
+  mix-blend-mode: screen;
+  animation: dpt-test-effect-pop 0.54s cubic-bezier(0.12, 1.55, 0.38, 1) forwards;
+  will-change: transform, opacity, filter;
 }
 
-.dpt-result-panel .dpt-cute-stars {
-  z-index: 8;
+.dpt-test-effect::before,
+.dpt-test-effect::after {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
   pointer-events: none;
 }
 
-.dpt-result-shell {
-  padding-top: clamp(76px, 10vh, 118px);
+.dpt-test-effect::before {
+  border: 4px solid rgba(255, 245, 145, 0.70);
+  box-shadow:
+    0 0 18px rgba(255, 234, 95, 0.72),
+    inset 0 0 12px rgba(255, 255, 255, 0.50);
+}
+
+.dpt-test-effect::after {
+  inset: 10px;
+  background:
+    radial-gradient(circle, rgba(255,255,255,0.86), rgba(255,229,85,0.48) 44%, transparent 70%);
+  filter: blur(1px);
+}
+
+@keyframes dpt-test-effect-pop {
+  0% {
+    transform: translate(-50%, -50%) scale(0.28);
+    opacity: 0;
+    filter: blur(0) saturate(1.05);
+  }
+  18% {
+    transform: translate(-50%, -50%) scale(1.08);
+    opacity: 1;
+    filter: blur(0) saturate(1.22);
+  }
+  52% {
+    transform: translate(-50%, -50%) scale(1.62);
+    opacity: 0.78;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.15);
+    opacity: 0;
+    filter: blur(2px) saturate(1.15);
+  }
+}
+
+.dpt-image-button {
+  transform-origin: 50% 58%;
+  transition:
+    transform 0.2s cubic-bezier(0.18, 1.25, 0.38, 1),
+    filter 0.2s ease;
+  will-change: transform, filter;
+}
+
+.dpt-image-button img {
+  filter:
+    drop-shadow(0 10px 8px rgba(74, 48, 16, 0.26))
+    drop-shadow(0 0 14px rgba(255, 238, 150, 0.22));
+  transition: filter 0.2s ease;
+}
+
+.dpt-image-button:hover:not(:disabled) {
+  transform: translateY(-3px) scale(1.045);
+  filter: brightness(1.06) saturate(1.05);
+  animation:
+    dpt-button-breathe 1.15s ease-in-out infinite,
+    dpt-button-wobble 0.62s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.dpt-image-button:hover:not(:disabled) img {
+  filter:
+    drop-shadow(0 14px 10px rgba(74, 48, 16, 0.30))
+    drop-shadow(0 0 18px rgba(255, 238, 150, 0.38));
+}
+
+.dpt-image-button:active:not(:disabled) {
+  transform: translateY(2px) scale(0.965);
+  animation: none;
+}
+
+@keyframes dpt-button-wobble {
+  0% { transform: translateY(-3px) scale(1.045) rotate(0deg); }
+  18% { transform: translateY(-4px) scale(1.055) rotate(-2.6deg); }
+  36% { transform: translateY(-3px) scale(1.05) rotate(2.1deg); }
+  54% { transform: translateY(-4px) scale(1.052) rotate(-1.4deg); }
+  72% { transform: translateY(-3px) scale(1.047) rotate(0.8deg); }
+  100% { transform: translateY(-3px) scale(1.045) rotate(0deg); }
+}
+
+@keyframes dpt-button-breathe {
+  0%, 100% { transform: translateY(-3px) scale(1.045); }
+  50% { transform: translateY(-5px) scale(1.065); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dpt-test-item,
+  .dpt-test-effect,
+  .dpt-image-button,
+  .dpt-image-button:hover:not(:disabled) {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+  }
+}
+
+
+@media (max-width: 1024px) {
+  .dpt-start-shell,
+  .dpt-result-shell {
+    width: min(86vw, 920px);
+  }
+
+  .dpt-soft-panel {
+    border-radius: 50px;
+  }
+
+  .dpt-start-panel,
+  .dpt-result-panel {
+    padding-left: 44px;
+    padding-right: 44px;
+  }
+
+  .dpt-video-panel,
+  .dpt-tutorial-panel {
+    padding: 42px 48px 30px;
+  }
+}
+
+@media (max-width: 768px) {
+  .dpt-page--soft {
+    overflow-y: auto;
+  }
+
+  .dpt-center-shell,
+  .dpt-start-shell,
+  .dpt-result-shell {
+    width: 92vw;
+    min-height: 100svh;
+    padding: 42px 0 28px;
+  }
+
+  .dpt-soft-panel {
+    border-width: 6px;
+    border-radius: 38px;
+  }
+
+  .dpt-soft-panel::before {
+    inset: 12px;
+    border-radius: 28px;
+  }
+
+  .dpt-start-panel {
+    min-height: 540px;
+    padding: 44px 22px 40px;
+    gap: 28px;
+  }
+
+  .dpt-game-title {
+    font-size: 30px;
+    padding: 12px 24px;
+  }
+
+  .dpt-game-title::before,
+  .dpt-game-title::after {
+    display: none;
+  }
+
+  .dpt-start-content,
+  .dpt-result-content {
+    grid-template-columns: 1fr;
+    gap: 22px;
+    justify-items: center;
+  }
+
+  .dpt-dialog-bubble {
+    width: 100%;
+    min-height: 120px;
+  }
+
+  .dpt-dialog-bubble::after {
+    display: none;
+  }
+
+  .dpt-round-icon,
+  .dpt-result-icon {
+    width: 138px;
+    height: 138px;
+    padding: 10px;
+  }
+
+  .dpt-video-panel,
+  .dpt-tutorial-panel {
+    min-height: 560px;
+    padding: 34px 26px 24px;
+  }
+
+  .dpt-video-frame,
+  .dpt-tutorial-scene {
+    height: 48vh;
+    min-height: 320px;
+  }
+
+  .dpt-tutorial-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    row-gap: 14px;
+  }
+
+  .dpt-avatar-guide {
+    width: 112px;
+    height: 112px;
+  }
+
+  .dpt-rule-steps {
+    min-height: 130px;
+    grid-template-rows: auto 24px auto;
+  }
+
+  .dpt-guide-bubble,
+  .dpt-tap-hint {
+    font-size: 20px;
+    padding: 10px 16px;
+  }
+
+  .dpt-guide-arrow {
+    width: 150px;
+  }
+
+  .dpt-practice-acorn {
+    width: 92px;
+    height: 92px;
+  }
+
+  .dpt-tutorial-practice {
+    min-height: 130px;
+  }
+
+  .dpt-result-panel {
+    min-height: 590px;
+    padding: 84px 22px 40px;
+    gap: 34px;
+  }
+
+  .dpt-cute-stars {
+    top: -54px;
+    gap: 8px;
+  }
+
+  .dpt-result-actions {
+    gap: 16px;
+  }
+
+  .dpt-result-actions .dpt-forest-button {
+    min-width: min(100%, 220px);
+    min-height: 64px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dpt-center-shell,
+  .dpt-start-shell,
+  .dpt-result-shell {
+    width: 94vw;
+  }
+
+  .dpt-soft-panel {
+    border-width: 5px;
+    border-radius: 30px;
+  }
+
+  .dpt-start-panel {
+    padding: 34px 16px 30px;
+  }
+
+  .dpt-game-title {
+    font-size: 25px;
+    padding: 10px 18px;
+    min-width: auto;
+  }
+
+  .dpt-dialog-bubble {
+    padding: 18px 16px;
+    font-size: 24px;
+  }
+
+  .dpt-round-icon,
+  .dpt-result-icon {
+    width: 114px;
+    height: 114px;
+    padding: 9px;
+  }
+
+  .dpt-forest-button {
+    min-width: 150px;
+    min-height: 60px;
+    padding: 10px 22px;
+    font-size: 24px;
+  }
+
+  .dpt-video-panel,
+  .dpt-tutorial-panel {
+    min-height: 500px;
+    padding: 26px 16px 22px;
+  }
+
+  .dpt-video-frame,
+  .dpt-tutorial-scene {
+    height: 44vh;
+    min-height: 270px;
+  }
+
+  .dpt-avatar-guide {
+    width: 86px;
+    height: 86px;
+  }
+
+  .dpt-guide-bubble,
+  .dpt-tap-hint {
+    font-size: 17px;
+  }
+
+  .dpt-practice-acorn {
+    width: 76px;
+    height: 76px;
+  }
+
+  .dpt-test-item {
+    width: 96px !important;
+  }
+}
+@media (max-width: 720px) {
+  .dpt-image-button,
+  .dpt-result-actions .dpt-image-button {
+    min-width: 0;
+    min-height: 0;
+    width: min(72vw, 206px);
+    padding: 0;
+  }
+
+  .dpt-btn-skip.dpt-image-button,
+  .dpt-btn-next.dpt-image-button {
+    width: min(74vw, 214px);
+  }
+
+  .dpt-mouse-guide {
+    width: 52px;
+  }
+
+  .dpt-mouse-on-button {
+    right: -10px;
+    bottom: -14px;
+  }
+}
+
+
+
+/* DPT 正式測驗區：保留 SRT 視覺語言，但動物直接顯示，不使用卡片。 */
+.dpt-container {
+  position: relative;
+  z-index: 1;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: clamp(12px, 2vw, 28px);
+}
+
+.dpt-stage {
+  position: relative;
+  width: min(96vw, 1180px);
+  height: min(88vh, 760px);
+  overflow: visible;
+}
+
+.dpt-listen-status {
+  position: absolute;
+  z-index: 4;
+  top: 4%;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 300px;
+  padding: 13px 30px;
+  border: 4px solid #f0c77b;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #fff 0%, #fff9e9 100%);
+  color: #6d3717;
+  font-size: clamp(22px, 2.6vw, 34px);
+  font-weight: 900;
+  box-shadow: 0 8px 0 rgba(225,169,84,.12), inset 0 0 0 5px rgba(255,235,174,.35);
+}
+
+.dpt-animal-choice-row {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  justify-items: center;
+  padding: clamp(108px, 15vh, 150px) clamp(45px, 8vw, 115px) 34px;
+  gap: clamp(50px, 10vw, 150px);
+}
+
+.dpt-animal-choice {
+  width: clamp(235px, 28vw, 370px);
+  height: clamp(235px, 28vw, 370px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  opacity: .72;
+  cursor: default;
+  transition: transform .16s ease, filter .16s ease, opacity .16s ease;
+}
+
+.dpt-animal-choice img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 18px 16px rgba(74,54,25,.24));
+}
+
+.dpt-animal-choice.is-clickable {
+  cursor: pointer;
+  opacity: 1;
+  animation: dpt-animal-ready 1s ease-in-out infinite alternate;
+}
+
+.dpt-animal-choice.is-clickable:hover,
+.dpt-animal-choice.is-clickable:focus-visible {
+  transform: translateY(-8px) scale(1.045);
+  filter: brightness(1.05);
+}
+
+.dpt-animal-choice.is-clickable:active {
+  transform: translateY(2px) scale(.97);
+}
+
+.dpt-retry-audio {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  bottom: 7%;
+  transform: translateX(-50%);
+  min-width: 220px;
+  min-height: 66px;
+  padding: 12px 28px;
+  border: 4px solid rgba(255,255,255,.86);
+  outline: 3px solid #5d9d32;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #b9f235 0%, #77c927 48%, #4e9a23 100%);
+  color: #fff;
+  font-family: inherit;
+  font-size: clamp(20px,2.2vw,28px);
+  font-weight: 900;
+  box-shadow: 0 6px 0 #377721, 0 13px 22px rgba(61,97,33,.20);
+  cursor: pointer;
+}
+
+@keyframes dpt-animal-ready {
+  from { filter: drop-shadow(0 18px 16px rgba(74,54,25,.20)); }
+  to { filter: drop-shadow(0 0 24px rgba(255,218,84,.72)) drop-shadow(0 18px 16px rgba(74,54,25,.20)); }
 }
 
 @media (max-width: 780px) {
-  .dpt-result-shell {
-    padding-top: 72px;
-  }
-
-  .dpt-soft-panel.dpt-result-panel {
-    overflow: visible;
-  }
+  .dpt-animal-choice-row { padding: 100px 18px 34px; gap: 16px; }
+  .dpt-animal-choice { width: min(43vw, 260px); height: min(43vw, 260px); }
+  .dpt-listen-status { top: 3%; min-width: 220px; padding: 10px 18px; }
 }
-
 `;

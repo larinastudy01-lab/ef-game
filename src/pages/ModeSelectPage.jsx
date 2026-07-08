@@ -96,89 +96,206 @@ const TRAINING_GAME_OPTIONS = TRAINING_GAME_IDS.map((id, index) => ({
 }));
 
 const MAX_TRAINING_LEVELS = 12;
+const MAX_RECENT_LEVEL_RESULTS = 30;
 
-const RESULT_KEY_BY_GAME_ID = {
-  srt: "srtTrainingResult",
-  pm: "pmTrainingResult",
-  cbt: "cbtTrainingResult",
-  dpt: "dptTrainingResult",
-  dccs: "dccsTrainingResult",
-  lb: "lbTrainingResult",
+const RESULT_KEYS_BY_GAME_ID = {
+  srt: ["srtTrainingResult", "srtTestResult", "srtResults", "srtHistory"],
+  pm: ["pmTrainingResult", "pmTestResult", "pmResults", "pmHistory"],
+  cbt: ["cbtTrainingResult", "cbtTestResult", "cbtResults", "cbtHistory"],
+  dpt: ["dptTrainingResult", "dptTestResult", "dptResults", "dptHistory"],
+  dccs: ["dccsTrainingResult", "dccsTestResult", "dccsResults", "dccsHistory"],
+  lb: ["lbTrainingResult", "lbTestResult", "lbResults", "lbHistory"],
+};
+
+const readStorageValue = (key) =>
+  safeParse(localStorage.getItem(key)) ?? safeParse(sessionStorage.getItem(key));
+
+const asArray = (value) => (Array.isArray(value) ? value : value ? [value] : []);
+
+const getResultTimestamp = (result) => {
+  const raw =
+    result?.createdAt ||
+    result?.timestamp ||
+    result?.completedAt ||
+    result?.date ||
+    result?.playedAt;
+  const timestamp = raw ? new Date(raw).getTime() : 0;
+  return Number.isFinite(timestamp) ? timestamp : 0;
+};
+
+const normalizePercent = (value) => {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  if (number >= 0 && number <= 1) return number * 100;
+  return Math.max(0, Math.min(100, number));
+};
+
+const getScoreForRecommendation = (result) => {
+  if (!result || typeof result !== "object") return null;
+
+  const percentCandidates = [
+    result.accuracy,
+    result.correctRate,
+    result.successRate,
+    result.percentage,
+    result.percent,
+  ];
+
+  for (const value of percentCandidates) {
+    const score = normalizePercent(value);
+    if (score !== null) return score;
+  }
+
+  const correct = Number(result.correctCount ?? result.correct ?? result.hits);
+  const total = Number(result.totalCount ?? result.total ?? result.trialCount);
+  if (Number.isFinite(correct) && Number.isFinite(total) && total > 0) {
+    return Math.max(0, Math.min(100, (correct / total) * 100));
+  }
+
+  const stars = Number(result.stars ?? result.star ?? result.totalStars);
+  if (Number.isFinite(stars)) {
+    const maxStars = Number(result.maxStars) || 3;
+    return Math.max(0, Math.min(100, (stars / maxStars) * 100));
+  }
+
+  const score = Number(result.score ?? result.totalScore);
+  if (Number.isFinite(score)) {
+    const maxScore = Number(result.maxScore);
+    return Number.isFinite(maxScore) && maxScore > 0
+      ? Math.max(0, Math.min(100, (score / maxScore) * 100))
+      : Math.max(0, Math.min(100, score));
+  }
+
+  if (typeof result.isCorrect === "boolean") return result.isCorrect ? 100 : 0;
+  if (typeof result.correct === "boolean") return result.correct ? 100 : 0;
+
+  return null;
+};
+
+const extractLevelResults = (value, inheritedTimestamp = 0) => {
+  if (!value) return [];
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => extractLevelResults(item, inheritedTimestamp));
+  }
+
+  if (typeof value !== "object") return [];
+
+  const timestamp = getResultTimestamp(value) || inheritedTimestamp;
+  const nestedKeys = [
+    "levelResults",
+    "levels",
+    "roundResults",
+    "rounds",
+    "trialResults",
+    "trials",
+    "questions",
+    "records",
+    "history",
+    "sessions",
+    "results",
+  ];
+
+  const nested = nestedKeys.flatMap((key) =>
+    Array.isArray(value[key])
+      ? value[key].flatMap((item) => extractLevelResults(item, timestamp))
+      : []
+  );
+
+  const ownScore = getScoreForRecommendation(value);
+  const own = ownScore === null ? [] : [{ score: ownScore, timestamp }];
+
+  // 有單關明細時以單關為主，避免同一場的總分與單關重複計算。
+  return nested.length > 0 ? nested : own;
+};
+
+const getAllLevelResultsForGame = (gameId) => {
+  const keys = RESULT_KEYS_BY_GAME_ID[gameId] || [];
+
+  return keys
+    .flatMap((key) => asArray(readStorageValue(key)))
+    .flatMap((result) => extractLevelResults(result))
+    .filter((result) => Number.isFinite(result.score))
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, MAX_RECENT_LEVEL_RESULTS);
 };
 
 const getLatestTrainingResult = () => {
-  const results = RESULT_STORAGE_KEYS.map((key) => {
-    const data =
-      safeParse(localStorage.getItem(key)) ||
-      safeParse(sessionStorage.getItem(key));
-
-    if (!data) return null;
-
-    return {
+  const results = RESULT_STORAGE_KEYS.flatMap((key) =>
+    asArray(readStorageValue(key)).map((data) => ({
       key,
-      createdAt: new Date(data.createdAt || data.timestamp || Date.now()).getTime(),
+      createdAt: getResultTimestamp(data),
       ...data,
-    };
-  }).filter(Boolean);
+    }))
+  );
 
   return results.sort((a, b) => b.createdAt - a.createdAt)[0] || null;
 };
 
-const getScoreForRecommendation = (result) => {
-  if (!result) return null;
+const getTrainingRecommendations = () => {
+  const recommendations = TRAINING_GAME_OPTIONS.map((game, index) => {
+    const levelResults = getAllLevelResultsForGame(game.id);
+    const scores = levelResults.map((result) => result.score);
+    const averageScore = scores.length
+      ? scores.reduce((sum, score) => sum + score, 0) / scores.length
+      : null;
 
-  const scoreCandidates = [
-    result.stars,
-    result.star,
-    result.totalStars,
-    result.accuracy,
-    result.score,
-    result.totalScore,
-    result.correctRate,
-  ];
-
-  const score = scoreCandidates.find((value) => Number.isFinite(Number(value)));
-  return score === undefined ? null : Number(score);
-};
-
-const getRecommendedTrainingGameIds = () => {
-  const gameScores = TRAINING_GAME_OPTIONS.map((game, index) => {
-    const storageKey = RESULT_KEY_BY_GAME_ID[game.id];
-    const result =
-      safeParse(localStorage.getItem(storageKey)) ||
-      safeParse(sessionStorage.getItem(storageKey));
-    const score = getScoreForRecommendation(result);
+    // 越近期的關卡權重越高，讓剛完成的弱項能立即進入推薦清單。
+    const weightedScore = scores.length
+      ? scores.reduce((sum, score, scoreIndex) => {
+          const weight = Math.max(1, scores.length - scoreIndex);
+          return sum + score * weight;
+        }, 0) /
+        scores.reduce((sum, _, scoreIndex) => sum + Math.max(1, scores.length - scoreIndex), 0)
+      : null;
 
     return {
       id: game.id,
       index,
-      hasResult: score !== null,
-      score,
+      resultCount: scores.length,
+      averageScore,
+      recommendationScore: weightedScore,
     };
   });
 
-  const hasAnyResult = gameScores.some((game) => game.hasResult);
-
-  if (!hasAnyResult) {
-    return TRAINING_GAME_IDS;
-  }
-
-  return gameScores
-    .sort((a, b) => {
-      if (a.hasResult !== b.hasResult) return a.hasResult ? -1 : 1;
-      if (a.score !== b.score) return a.score - b.score;
-      return a.index - b.index;
-    })
-    .map((game) => game.id);
+  return recommendations.sort((a, b) => {
+    if (a.resultCount === 0 && b.resultCount > 0) return 1;
+    if (b.resultCount === 0 && a.resultCount > 0) return -1;
+    if (a.recommendationScore !== b.recommendationScore) {
+      return (a.recommendationScore ?? 101) - (b.recommendationScore ?? 101);
+    }
+    return a.index - b.index;
+  });
 };
 
-const buildTrainingLevelPlan = (gameIds) => {
+const getRecommendedTrainingGameIds = (recommendations) =>
+  recommendations.map((item) => item.id);
+
+const buildTrainingLevelPlan = (gameIds, recommendations = []) => {
   if (!gameIds.length) return [];
 
-  return Array.from(
-    { length: MAX_TRAINING_LEVELS },
-    (_, index) => gameIds[index % gameIds.length]
+  const recommendationMap = new Map(
+    recommendations.map((item) => [item.id, item])
   );
+
+  // 手動只選一項時仍正常排滿；自動推薦時，弱項會分配到較多關卡。
+  const weightedPool = gameIds.flatMap((gameId, index) => {
+    const item = recommendationMap.get(gameId);
+    if (!item || item.resultCount === 0) return [gameId];
+
+    const score = item.recommendationScore ?? 100;
+    const weight = score < 50 ? 4 : score < 70 ? 3 : score < 85 ? 2 : 1;
+    return Array.from({ length: weight }, () => gameId);
+  });
+
+  const plan = [];
+  let cursor = 0;
+  while (plan.length < MAX_TRAINING_LEVELS) {
+    plan.push(weightedPool[cursor % weightedPool.length]);
+    cursor += 1;
+  }
+
+  return plan;
 };
 
 const ModeSelectPage = () => {
@@ -190,8 +307,13 @@ const ModeSelectPage = () => {
   const [isTrainingSettingOpen, setIsTrainingSettingOpen] = useState(false);
   const [trainingMinutes, setTrainingMinutes] = useState(20);
   const [selectedTrainingGameIds, setSelectedTrainingGameIds] = useState([]);
+  const [isRecommendationApplied, setIsRecommendationApplied] = useState(false);
 
-  const recommendedTrainingGameIds = useMemo(() => getRecommendedTrainingGameIds(), []);
+  const trainingRecommendations = useMemo(() => getTrainingRecommendations(), []);
+  const recommendedTrainingGameIds = useMemo(
+    () => getRecommendedTrainingGameIds(trainingRecommendations),
+    [trainingRecommendations]
+  );
 
   const getTrainingGameTitles = (gameIds) =>
     TRAINING_GAME_OPTIONS.filter((game) => gameIds.includes(game.id)).map((game) => game.title);
@@ -207,6 +329,7 @@ const ModeSelectPage = () => {
   );
 
   const toggleTrainingGame = (gameId) => {
+    setIsRecommendationApplied(false);
     setSelectedTrainingGameIds((currentIds) =>
       currentIds.includes(gameId)
         ? currentIds.filter((id) => id !== gameId)
@@ -215,14 +338,17 @@ const ModeSelectPage = () => {
   };
 
   const selectAllTrainingGames = () => {
+    setIsRecommendationApplied(false);
     setSelectedTrainingGameIds(TRAINING_GAME_IDS);
   };
 
   const clearTrainingGames = () => {
+    setIsRecommendationApplied(false);
     setSelectedTrainingGameIds([]);
   };
 
   const applyRecommendedTraining = () => {
+    setIsRecommendationApplied(true);
     setSelectedTrainingGameIds(recommendedTrainingGameIds);
   };
 
@@ -245,14 +371,18 @@ const ModeSelectPage = () => {
   };
 
   const confirmTrainingSettings = () => {
-    const isUsingRecommendation = selectedTrainingGameIds.length === 0;
+    const isUsingRecommendation =
+      selectedTrainingGameIds.length === 0 || isRecommendationApplied;
     const finalTrainingGameIds = isUsingRecommendation
       ? recommendedTrainingGameIds
       : selectedTrainingGameIds;
     const finalTrainingGameTitles = isUsingRecommendation
       ? recommendedTrainingGameTitles
       : selectedTrainingGameTitles;
-    const trainingLevelPlan = buildTrainingLevelPlan(finalTrainingGameIds);
+    const trainingLevelPlan = buildTrainingLevelPlan(
+      finalTrainingGameIds,
+      isUsingRecommendation ? trainingRecommendations : []
+    );
 
     if (finalTrainingGameIds.length === 0) return;
 
@@ -272,9 +402,11 @@ const ModeSelectPage = () => {
       abilityTitles: finalTrainingGameTitles,
       trainingGameTitles: finalTrainingGameTitles,
       recommendedTrainingGameIds,
+      recommendationDetails: trainingRecommendations,
+      recommendationSource: "level-results",
       isAutoRecommended: isUsingRecommendation,
       recommendationReason: isUsingRecommendation
-        ? "未選擇訓練項目，系統自動使用推薦訓練。"
+        ? "系統依每一關的近期作答結果，優先安排需要加強的訓練。"
         : "家長手動選擇訓練項目。",
       childId: child?.id || child?.childId || null,
       createdAt: new Date().toISOString(),
@@ -400,7 +532,7 @@ const ModeSelectPage = () => {
             <div className="training-setting-heading">
               <span className="training-setting-badge">訓練設定</span>
               <h2>今天要練習多久？</h2>
-              <p>一次訓練最多 12 關。若完全沒有選擇項目，系統會自動使用推薦訓練。</p>
+              <p>一次訓練最多 12 關。若完全沒有選擇項目，系統會依照每一關的作答結果，自動優先安排需要加強的訓練。</p>
             </div>
 
             <div className="training-time-card">
@@ -441,7 +573,7 @@ const ModeSelectPage = () => {
 
             {selectedTrainingGameIds.length === 0 && (
               <div className="recommendation-notice">
-                目前沒有選擇項目，按下進入後會使用推薦訓練，並自動安排最多 12 關。
+                目前沒有選擇項目，按下進入後會依每關結果優先安排弱項，並自動安排最多 12 關。
               </div>
             )}
 

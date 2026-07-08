@@ -1,8 +1,16 @@
-import { render, screen } from '@testing-library/react';
-import App from './App';
+import { render, screen } from "@testing-library/react";
+import App from "./App";
 
-test('renders learn react link', () => {
+jest.mock("./pages/HomePage", () => function MockHomePage() {
+  return <main>首頁</main>;
+});
+
+test("renders the home route", async () => {
   render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+
+  expect(screen.getByText("載入中...")).toBeInTheDocument();
+  expect(await screen.findByText("首頁")).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: /背景音樂/ })
+  ).toBeInTheDocument();
 });

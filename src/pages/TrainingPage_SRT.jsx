@@ -1,46 +1,35 @@
-// src/pages/TrainingPage_SRT.jsx
-
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import bgImg from "../asset/SRT_testbackground.png";
+import normalImg from "../asset/acorn.png";
+import goldenImg from "../asset/golden_acorn.png";
+import rottenImg from "../asset/rotten_acorn.png";
 import levelIcon from "../asset/SRT_icon.png";
 import startAvatar from "../asset/avatar/bear.png";
 import tutorialAvatar from "../asset/avatar/chicken.png";
-import introVideo from "../asset/SRT_start.mp4";
-import endingVideo from "../asset/SRT_start.mp4";
+import introVideo from "../asset/mp4/start.mp4";
+import tutorialVideo from "../asset/mp4/SRT_step.mp4";
+import endingVideo from "../asset/mp4/SRT_end.mp4";
 import clickSoundFile from "../asset/Click_SRT.mp3";
 import homeStartBtn from "../asset/home/start.png";
 import homeSkipBtn from "../asset/home/skip.png";
+import homeNextBtn from "../asset/home/next.png";
 import homeBackBtn from "../asset/home/back.png";
 import homeAgainBtn from "../asset/home/again.png";
 import homeResultBtn from "../asset/home/result.png";
 import mouseGuideImg from "../asset/mouse.png";
 
 import ResultPage_SRT from "./ResultPage_SRT";
+import { saveUnifiedResult } from "../utils/resultManager";
+import { calculateSrtScore } from "../utils/srtScoring";
+import { analyzeSrtTraining } from "../ai/srtTrainingAnalyzer";
 
 import { createGameResult } from "../ai/gameResultTemplate";
 import { analyzePerformance } from "../ai/performanceAnalyzer";
 import { analyzeErrors } from "../ai/errorAnalyzer";
 import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
-
-/*
-  =========================================================
-  TrainingPage_SRT.jsx
-  SRT 反應力訓練頁
-
-  更新重點：
-  1. 改為地圖關卡制：從 GameMenuPage 帶入 level / stageId
-  2. 移除「簡單 / 普通 / 困難」兒童選擇畫面
-  3. 依照 SRT 測驗結果自動安排每關難度，內部使用 1～9 階細緻難度
-  4. 若尚未測驗，使用預設漸進式關卡難度，仍維持後面較難
-  5. 訓練中不顯示星級、進度條、分數條或即時分數
-  6. 完成訓練後把星級寫入 GameMenuPage 會讀取的 localStorage key
-  7. 訓練不寫入 srtTestResult，避免覆蓋正式測驗資料
-  =========================================================
-*/
-
 
 const GAME_ID = "srt";
 const COMPLETED_LEVELS_STORAGE_KEY = "ef_game_completed_training_levels";
@@ -224,6 +213,9 @@ const getTrainingStageInfo = (location) => {
     abilityLabel: state.abilityLabel || "橡實練習",
     difficultyLabel: state.difficultyLabel || "準備練習",
     dailyTrainingPlan: Array.isArray(state.dailyTrainingPlan) ? state.dailyTrainingPlan : [],
+    planId: state.planId || state.trainingPlanId || params.get("planId") || null,
+    sessionId: state.sessionId || params.get("sessionId") || null,
+    difficulty: state.difficulty || state.difficultyKey || params.get("difficulty") || null,
   };
 };
 
@@ -251,11 +243,12 @@ const difficultySettings = {
     step: 1,
     displayKey: "easy",
     label: "簡單",
-    storyLabel: "森林散步 1",
-    subtitle: "橡實最大、停留最久，先建立成功感。",
-    totalTime: 60000,
-    visibleTime: 6000,
-    nextDelay: 480,
+    storyLabel: "橡實練習 1",
+    subtitle: "3 分鐘低壓力練習，橡實最大、干擾最低。",
+    totalTime: 180000,
+    maxTrials: 60,
+    visibleTime: 2200,
+    nextDelay: 2400,
     itemSize: 146,
     normalRate: 1,
     goldenRate: 0,
@@ -267,11 +260,12 @@ const difficultySettings = {
     step: 2,
     displayKey: "easy",
     label: "簡單",
-    storyLabel: "森林散步 2",
-    subtitle: "偶爾出現金色橡實，增加正向驚喜。",
-    totalTime: 60000,
-    visibleTime: 5800,
-    nextDelay: 430,
+    storyLabel: "橡實練習 2",
+    subtitle: "3 分 30 秒練習，加入少量金色橡實。",
+    totalTime: 210000,
+    maxTrials: 70,
+    visibleTime: 2000,
+    nextDelay: 2200,
     itemSize: 138,
     normalRate: 0.95,
     goldenRate: 0.05,
@@ -283,14 +277,15 @@ const difficultySettings = {
     step: 3,
     displayKey: "easy",
     label: "簡單",
-    storyLabel: "森林散步 3",
-    subtitle: "加入少量壞橡實，提醒孩子先看清楚。",
-    totalTime: 60000,
-    visibleTime: 5600,
-    nextDelay: 390,
+    storyLabel: "橡實練習 3",
+    subtitle: "4 分鐘練習，加入少量壞橡實，開始練習看清楚再點。",
+    totalTime: 240000,
+    maxTrials: 85,
+    visibleTime: 1800,
+    nextDelay: 2000,
     itemSize: 130,
-    normalRate: 0.87,
-    goldenRate: 0.08,
+    normalRate: 0.9,
+    goldenRate: 0.05,
     rottenRate: 0.05,
   },
 
@@ -300,14 +295,15 @@ const difficultySettings = {
     displayKey: "medium",
     label: "普通",
     storyLabel: "橡實小任務 1",
-    subtitle: "開始訓練看到壞橡實時忍住不點。",
-    totalTime: 60000,
-    visibleTime: 5300,
-    nextDelay: 360,
+    subtitle: "4 分 30 秒中等負荷，訓練持續注意與抑制控制。",
+    totalTime: 270000,
+    maxTrials: 100,
+    visibleTime: 1600,
+    nextDelay: 1800,
     itemSize: 122,
     normalRate: 0.82,
-    goldenRate: 0.1,
-    rottenRate: 0.08,
+    goldenRate: 0.08,
+    rottenRate: 0.1,
   },
 
   "medium-2": {
@@ -316,14 +312,15 @@ const difficultySettings = {
     displayKey: "medium",
     label: "普通",
     storyLabel: "橡實小任務 2",
-    subtitle: "金色橡實與壞橡實穩定出現，練習辨識與抑制。",
-    totalTime: 60000,
-    visibleTime: 5000,
-    nextDelay: 330,
+    subtitle: "5 分鐘練習，觀察兒童長時間專注維持。",
+    totalTime: 300000,
+    maxTrials: 120,
+    visibleTime: 1400,
+    nextDelay: 1650,
     itemSize: 116,
     normalRate: 0.76,
-    goldenRate: 0.12,
-    rottenRate: 0.12,
+    goldenRate: 0.1,
+    rottenRate: 0.14,
   },
 
   "medium-3": {
@@ -332,14 +329,15 @@ const difficultySettings = {
     displayKey: "medium",
     label: "普通",
     storyLabel: "橡實小任務 3",
-    subtitle: "速度稍快、干擾稍多，但仍保留主要目標。",
-    totalTime: 60000,
-    visibleTime: 4700,
-    nextDelay: 300,
+    subtitle: "6 分鐘練習，速度更快、干擾更多，觀察穩定度與疲勞。",
+    totalTime: 360000,
+    maxTrials: 150,
+    visibleTime: 1250,
+    nextDelay: 1500,
     itemSize: 108,
     normalRate: 0.7,
-    goldenRate: 0.14,
-    rottenRate: 0.16,
+    goldenRate: 0.1,
+    rottenRate: 0.2,
   },
 
   "hard-1": {
@@ -348,14 +346,15 @@ const difficultySettings = {
     displayKey: "hard",
     label: "困難",
     storyLabel: "森林大挑戰 1",
-    subtitle: "進入困難階段，壞橡實比例提高。",
-    totalTime: 60000,
-    visibleTime: 4500,
-    nextDelay: 270,
+    subtitle: "6 分 30 秒高負荷練習，壞橡實比例提高。",
+    totalTime: 390000,
+    maxTrials: 170,
+    visibleTime: 1100,
+    nextDelay: 1400,
     itemSize: 102,
-    normalRate: 0.67,
-    goldenRate: 0.15,
-    rottenRate: 0.18,
+    normalRate: 0.68,
+    goldenRate: 0.08,
+    rottenRate: 0.24,
   },
 
   "hard-2": {
@@ -364,14 +363,15 @@ const difficultySettings = {
     displayKey: "hard",
     label: "困難",
     storyLabel: "森林大挑戰 2",
-    subtitle: "橡實更小、出現更快，需要更穩定的抑制控制。",
-    totalTime: 60000,
-    visibleTime: 4300,
-    nextDelay: 230,
+    subtitle: "7 分鐘高干擾練習，需要更穩定的抑制控制。",
+    totalTime: 420000,
+    maxTrials: 190,
+    visibleTime: 950,
+    nextDelay: 1300,
     itemSize: 94,
-    normalRate: 0.62,
-    goldenRate: 0.16,
-    rottenRate: 0.22,
+    normalRate: 0.64,
+    goldenRate: 0.06,
+    rottenRate: 0.3,
   },
 
   "hard-3": {
@@ -380,20 +380,22 @@ const difficultySettings = {
     displayKey: "hard",
     label: "困難",
     storyLabel: "森林大挑戰 3",
-    subtitle: "最高挑戰，干擾提高但壞橡實仍控制在 25%。",
-    totalTime: 60000,
-    visibleTime: 4100,
-    nextDelay: 200,
+    subtitle: "8 分鐘最高挑戰，觀察長時間專注、疲勞與抑制控制。",
+    totalTime: 480000,
+    maxTrials: 220,
+    visibleTime: 850,
+    nextDelay: 1200,
     itemSize: 88,
-    normalRate: 0.59,
-    goldenRate: 0.16,
-    rottenRate: 0.25,
+    normalRate: 0.6,
+    goldenRate: 0.05,
+    rottenRate: 0.35,
   },
 };
 
 const objectTypes = {
   normal: {
     key: "normal",
+    img: normalImg,
     score: 3,
     label: "普通橡實",
     hint: "接到一顆橡實！小松鼠很開心！",
@@ -402,53 +404,23 @@ const objectTypes = {
 
   golden: {
     key: "golden",
-    score: 5,
+    img: goldenImg,
+    score: 4,
     label: "金色橡實",
-    hint: "哇！金色橡實！小松鼠得到大大的能量！",
+    hint: "哇！金色橡實！小松鼠得到金色的橡實！",
     shouldClick: true,
   },
 
   rotten: {
     key: "rotten",
-    score: -1,
+    img: rottenImg,
+    score: -3,
     label: "壞掉橡實",
     hint: "這顆壞掉了，下次要幫小松鼠避開喔！",
     shouldClick: false,
   },
 };
 
-
-const SrtCssAcorn = ({ typeKey = "normal", className = "", ariaHidden = true, style }) => {
-  const safeType = ["normal", "golden", "rotten"].includes(typeKey) ? typeKey : "normal";
-
-  return (
-    <span
-      className={`srt-css-acorn srt-css-acorn-${safeType} ${className}`}
-      aria-hidden={ariaHidden ? "true" : undefined}
-      style={style}
-    >
-      <span className="srt-acorn-aura" />
-      <span className="srt-acorn-sparkle srt-acorn-sparkle-1" />
-      <span className="srt-acorn-sparkle srt-acorn-sparkle-2" />
-      <span className="srt-acorn-sparkle srt-acorn-sparkle-3" />
-      <span className="srt-acorn-gas srt-acorn-gas-1" />
-      <span className="srt-acorn-gas srt-acorn-gas-2" />
-      <span className="srt-acorn-alert srt-acorn-alert-1">!</span>
-      <span className="srt-acorn-alert srt-acorn-alert-2">!</span>
-      <span className="srt-acorn-cap" />
-      <span className="srt-acorn-body">
-        <span className="srt-acorn-crack srt-acorn-crack-1" />
-        <span className="srt-acorn-crack srt-acorn-crack-2" />
-      </span>
-    </span>
-  );
-};
-
-const idlePrompts = [
-  "等橡實出現再點！",
-  "看到好橡實就點！",
-  "壞橡實不要點！",
-];
 
 const TrainingPage_SRT = () => {
   const navigate = useNavigate();
@@ -459,25 +431,23 @@ const TrainingPage_SRT = () => {
     [location]
   );
 
-  const initialDifficulty = useMemo(
-    () =>
-      getAutoDifficultyForStage({
-        level: trainingStageInfo.level,
-        stageId: trainingStageInfo.stageId,
-        todayKey: trainingStageInfo.todayKey,
-      }),
-    [trainingStageInfo.level, trainingStageInfo.stageId, trainingStageInfo.todayKey]
-  );
+  const initialDifficulty = useMemo(() => {
+    const fixedDifficulty = trainingStageInfo.difficulty;
+    if (fixedDifficulty && difficultySettings[fixedDifficulty]) return fixedDifficulty;
 
-  /*
-    =========================================================
-    1. 畫面流程
-    =========================================================
-  */
+    return getAutoDifficultyForStage({
+      level: trainingStageInfo.level,
+      stageId: trainingStageInfo.stageId,
+      todayKey: trainingStageInfo.todayKey,
+    });
+  }, [
+    trainingStageInfo.difficulty,
+    trainingStageInfo.level,
+    trainingStageInfo.stageId,
+    trainingStageInfo.todayKey,
+  ]);
 
   const [phase, setPhase] = useState("start");
-  // start | intro | warmup | playing | ending | result
-
   const phaseRef = useRef("start");
 
   const setGamePhase = (nextPhase) => {
@@ -486,44 +456,23 @@ const TrainingPage_SRT = () => {
   };
 
   const [difficulty, setDifficulty] = useState(initialDifficulty);
-  const [timeLeft, setTimeLeft] = useState(0); // 只用於內部計時，不顯示給兒童
+  const [timeLeft, setTimeLeft] = useState(0); 
 
   const [item, setItem] = useState(null);
   const [effect, setEffect] = useState(null);
-  const [comboBurst, setComboBurst] = useState(null);
   const [falseStartWarning, setFalseStartWarning] = useState(null);
   const [showMouseGuide, setShowMouseGuide] = useState(false);
+  const [assistEffect, setAssistEffect] = useState(null);
+  const [idleFlashId, setIdleFlashId] = useState(null);
   const [hintText, setHintText] = useState("小松鼠準備好接橡實囉！");
   const [showHint, setShowHint] = useState(false);
   const [showDetailedResult, setShowDetailedResult] = useState(false);
-
-  /*
-    =========================================================
-    2. 暖身教學
-    =========================================================
-  */
-
   const [warmupStep, setWarmupStep] = useState(0);
   const [warmupItem, setWarmupItem] = useState(null);
   const [warmupMessage, setWarmupMessage] = useState(
     "先跟小松鼠一起練習一下。"
   );
   const [warmupReady, setWarmupReady] = useState(false);
-
-  /*
-    warmupStep:
-    0 = 說明
-    1 = 點普通橡實
-    2 = 點金色橡實（普通 / 困難）
-    3 = 避開壞掉橡實（普通 / 困難）
-    4 = 完成
-  */
-
-  /*
-    =========================================================
-    3. 訓練資料
-    =========================================================
-  */
 
   const [score, setScore] = useState(0);
   const [trialRecords, setTrialRecords] = useState([]);
@@ -533,13 +482,8 @@ const TrainingPage_SRT = () => {
   const trialRecordsRef = useRef([]);
   const falseClickCountRef = useRef(0);
   const repeatedClickCountRef = useRef(0);
-  const comboCountRef = useRef(0);
-
-  /*
-    =========================================================
-    4. refs
-    =========================================================
-  */
+  const finishingRef = useRef(false);
+  const startedAtRef = useRef(null);
 
   const difficultyRef = useRef(difficulty);
   const currentTrialRef = useRef(0);
@@ -547,6 +491,12 @@ const TrainingPage_SRT = () => {
   const currentItemRef = useRef(null);
   const trialLockedRef = useRef(false);
   const lastActionTimeRef = useRef(Date.now());
+  const consecutiveMissRef = useRef(0);
+  const consecutiveBackgroundClickRef = useRef(0);
+  const assistedTrialRef = useRef(false);
+  const assistTypeRef = useRef(null);
+  const assistShownAtRef = useRef(null);
+  const recentTypesRef = useRef([]);
 
   const itemTimeoutRef = useRef(null);
   const nextTrialTimeoutRef = useRef(null);
@@ -555,9 +505,11 @@ const TrainingPage_SRT = () => {
   const idleCheckRef = useRef(null);
   const hintTimeoutRef = useRef(null);
   const mouseGuideTimeoutRef = useRef(null);
+  const assistTimeoutRef = useRef(null);
+  const assistClearTimeoutRef = useRef(null);
+  const idleFlashTimeoutRef = useRef(null);
   const lastGuidanceHintTimeRef = useRef(0);
   const effectTimeoutRef = useRef(null);
-  const comboTimeoutRef = useRef(null);
   const falseStartWarningTimeoutRef = useRef(null);
   const spawnAnimationFrameRef = useRef(null);
   const warmupTimeoutRef = useRef(null);
@@ -574,12 +526,6 @@ const TrainingPage_SRT = () => {
     setDifficulty(initialDifficulty);
     difficultyRef.current = initialDifficulty;
   }, [initialDifficulty]);
-
-  /*
-    =========================================================
-    5. 初始化與清除
-    =========================================================
-  */
 
   useEffect(() => {
     clickAudioRef.current = new Audio(clickSoundFile);
@@ -598,8 +544,10 @@ const TrainingPage_SRT = () => {
     if (idleCheckRef.current) clearInterval(idleCheckRef.current);
     if (hintTimeoutRef.current) clearTimeout(hintTimeoutRef.current);
     if (mouseGuideTimeoutRef.current) clearTimeout(mouseGuideTimeoutRef.current);
+    if (assistTimeoutRef.current) clearTimeout(assistTimeoutRef.current);
+    if (assistClearTimeoutRef.current) clearTimeout(assistClearTimeoutRef.current);
+    if (idleFlashTimeoutRef.current) clearTimeout(idleFlashTimeoutRef.current);
     if (effectTimeoutRef.current) clearTimeout(effectTimeoutRef.current);
-    if (comboTimeoutRef.current) clearTimeout(comboTimeoutRef.current);
     if (falseStartWarningTimeoutRef.current) clearTimeout(falseStartWarningTimeoutRef.current);
     if (spawnAnimationFrameRef.current) cancelAnimationFrame(spawnAnimationFrameRef.current);
     if (warmupTimeoutRef.current) clearTimeout(warmupTimeoutRef.current);
@@ -611,8 +559,10 @@ const TrainingPage_SRT = () => {
     idleCheckRef.current = null;
     hintTimeoutRef.current = null;
     mouseGuideTimeoutRef.current = null;
+    assistTimeoutRef.current = null;
+    assistClearTimeoutRef.current = null;
+    idleFlashTimeoutRef.current = null;
     effectTimeoutRef.current = null;
-    comboTimeoutRef.current = null;
     falseStartWarningTimeoutRef.current = null;
     spawnAnimationFrameRef.current = null;
     warmupTimeoutRef.current = null;
@@ -631,9 +581,10 @@ const TrainingPage_SRT = () => {
     setTimeLeft(0);
     setItem(null);
     setEffect(null);
-    setComboBurst(null);
     setFalseStartWarning(null);
     setShowMouseGuide(false);
+    setAssistEffect(null);
+    setIdleFlashId(null);
     setHintText("小松鼠準備好接橡實囉！");
     setShowHint(false);
     setShowDetailedResult(false);
@@ -651,7 +602,6 @@ const TrainingPage_SRT = () => {
     trialRecordsRef.current = [];
     falseClickCountRef.current = 0;
     repeatedClickCountRef.current = 0;
-    comboCountRef.current = 0;
 
     currentTrialRef.current = 0;
     spawnTimeRef.current = null;
@@ -659,6 +609,12 @@ const TrainingPage_SRT = () => {
     trialLockedRef.current = false;
     lastActionTimeRef.current = Date.now();
     lastGuidanceHintTimeRef.current = 0;
+    consecutiveMissRef.current = 0;
+    consecutiveBackgroundClickRef.current = 0;
+    assistedTrialRef.current = false;
+    assistTypeRef.current = null;
+    assistShownAtRef.current = null;
+    recentTypesRef.current = [];
   };
 
   const addTrialRecord = (record) => {
@@ -667,13 +623,37 @@ const TrainingPage_SRT = () => {
     setTrialRecords(nextRecords);
   };
 
-  const getCurrentChildId = () => {
+  const getCurrentChildProfile = () => {
     try {
-      const selectedChild = JSON.parse(localStorage.getItem("selectedChild") || "null");
-      return selectedChild?.childId || selectedChild?.id || "unknown-child";
+      const candidateKeys = ["currentChild", "selectedChild"];
+
+      for (const key of candidateKeys) {
+        const child = JSON.parse(localStorage.getItem(key) || "null");
+        const childId = child?.childId || child?.id;
+
+        if (childId) {
+          return {
+            ...child,
+            childId,
+            id: child.id || childId,
+            name: child.name || child.nickname || "",
+          };
+        }
+      }
+
+      const storedChildId = localStorage.getItem("currentChildId");
+      if (storedChildId) {
+        return { childId: storedChildId, id: storedChildId, name: "" };
+      }
+
+      return { childId: null, id: null, name: "" };
     } catch (error) {
-      return "unknown-child";
+      return { childId: null, id: null, name: "" };
     }
+  };
+
+  const getCurrentChildId = () => {
+    return getCurrentChildProfile()?.childId || null;
   };
 
   const getAverageRt = (records) => {
@@ -683,6 +663,227 @@ const TrainingPage_SRT = () => {
 
     if (rts.length === 0) return 0;
     return Math.round(rts.reduce((sum, rt) => sum + rt, 0) / rts.length);
+  };
+
+
+  const getRtStats = (records) => {
+    const values = records
+      .filter((record) => record.trainingAction === "hit" && typeof record.reactionTime === "number")
+      .map((record) => record.reactionTime);
+
+    if (values.length === 0) {
+      return { count: 0, avg: 0, std: 0, cv: 0 };
+    }
+
+    const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
+    const variance = values.reduce((sum, value) => sum + Math.pow(value - avg, 2), 0) / values.length;
+    const std = Math.sqrt(variance);
+
+    return {
+      count: values.length,
+      avg: Math.round(avg),
+      std: Math.round(std),
+      cv: avg > 0 ? Number((std / avg).toFixed(2)) : 0,
+    };
+  };
+
+  const getSegmentSummary = (records, segmentIndex, totalSegments = 3) => {
+    const safeRecords = Array.isArray(records) ? records : [];
+    const segmentSize = Math.ceil(safeRecords.length / totalSegments) || 1;
+    const start = segmentIndex * segmentSize;
+    const segmentRecords = safeRecords.slice(start, start + segmentSize);
+    const total = segmentRecords.length;
+    const hit = segmentRecords.filter((record) => record.trainingAction === "hit").length;
+    const correctReject = segmentRecords.filter((record) => record.trainingAction === "correctAvoid").length;
+    const miss = segmentRecords.filter((record) => record.missed || record.timeout).length;
+    const falseAlarm = segmentRecords.filter((record) => record.trainingAction === "clickedRotten").length;
+    const assisted = segmentRecords.filter((record) => record.assisted).length;
+    const rtStats = getRtStats(segmentRecords);
+
+    return {
+      total,
+      hit,
+      correctReject,
+      miss,
+      falseAlarm,
+      assisted,
+      accuracy: total > 0 ? Math.round(((hit + correctReject) / total) * 100) : 0,
+      missRate: total > 0 ? Math.round((miss / total) * 100) : 0,
+      falseAlarmRate: total > 0 ? Math.round((falseAlarm / total) * 100) : 0,
+      assistedRate: total > 0 ? Math.round((assisted / total) * 100) : 0,
+      avgRT: rtStats.avg,
+      rtStd: rtStats.std,
+      rtCV: rtStats.cv,
+    };
+  };
+
+  const buildLongAttentionMetrics = (records) => {
+    const firstThird = getSegmentSummary(records, 0, 3);
+    const middleThird = getSegmentSummary(records, 1, 3);
+    const lastThird = getSegmentSummary(records, 2, 3);
+    const rtStats = getRtStats(records);
+    const assistedCount = records.filter((record) => record.assisted).length;
+    const assistedHitRts = records
+      .filter((record) => record.assisted && record.trainingAction === "hit" && typeof record.reactionTime === "number")
+      .map((record) => record.reactionTime);
+    const unassistedHitRts = records
+      .filter((record) => !record.assisted && record.trainingAction === "hit" && typeof record.reactionTime === "number")
+      .map((record) => record.reactionTime);
+
+    const average = (values) =>
+      values.length > 0 ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0;
+
+    const rtSlowing = lastThird.avgRT && firstThird.avgRT ? lastThird.avgRT - firstThird.avgRT : 0;
+    const missIncrease = lastThird.missRate - firstThird.missRate;
+    const wrongClickIncrease = lastThird.falseAlarmRate - firstThird.falseAlarmRate;
+    const assistedRateIncrease = lastThird.assistedRate - firstThird.assistedRate;
+
+    return {
+      rtStd: rtStats.std,
+      rtCV: rtStats.cv,
+      assistedCount,
+      assistedRate: records.length > 0 ? Math.round((assistedCount / records.length) * 100) : 0,
+      assistedAvgRT: average(assistedHitRts),
+      unassistedAvgRT: average(unassistedHitRts),
+      firstThird,
+      middleThird,
+      lastThird,
+      rtSlowing,
+      missIncrease,
+      wrongClickIncrease,
+      assistedRateIncrease,
+      attentionDrop: Math.max(0, missIncrease) + Math.max(0, wrongClickIncrease) + Math.max(0, Math.round(rtSlowing / 100)),
+    };
+  };
+
+  const getLevelByThreshold = (value, mildThreshold, highThreshold) => {
+    if (value >= highThreshold) return "high";
+    if (value >= mildThreshold) return "medium";
+    return "low";
+  };
+
+  const getNextDifficultyByAction = (currentDifficulty, action) => {
+    const currentStep = getDifficultyStep(currentDifficulty);
+
+    if (action === "upgrade") return getDifficultyKeyFromStep(currentStep + 1);
+    if (action === "downgrade") return getDifficultyKeyFromStep(currentStep - 1);
+
+    return currentDifficulty;
+  };
+
+  const buildRuleBasedSrtAiRecommendation = ({
+    records,
+    performanceResult,
+    errorTypes,
+    fatigueLevel,
+    longAttentionMetrics,
+    currentDifficulty,
+  }) => {
+    const totalTrials = Math.max(records.length, 1);
+    const accuracy = performanceResult?.accuracy ?? 0;
+    const avgReactionTime = performanceResult?.avgReactionTime ?? 0;
+    const falseAlarmRate = Math.round(((errorTypes?.wrongTarget || 0) / totalTrials) * 100);
+    const backgroundClickRate = Math.round(((errorTypes?.randomClick || 0) / totalTrials) * 100);
+    const missRate = Math.round(((errorTypes?.miss || 0) / totalTrials) * 100);
+    const rtCV = longAttentionMetrics?.rtCV ?? 0;
+    const assistedRate = longAttentionMetrics?.assistedRate ?? 0;
+    const attentionDrop = longAttentionMetrics?.attentionDrop ?? 0;
+    const rtSlowing = longAttentionMetrics?.rtSlowing ?? 0;
+
+    const attentionLevel =
+      attentionDrop >= 25 || missRate >= 25 || longAttentionMetrics?.missIncrease >= 15
+        ? "high_drop"
+        : attentionDrop >= 12 || missRate >= 12 || longAttentionMetrics?.missIncrease >= 8
+          ? "mild_drop"
+          : "stable";
+
+    const impulseLevel =
+      falseAlarmRate >= 30 || backgroundClickRate >= 25
+        ? "high"
+        : falseAlarmRate >= 15 || backgroundClickRate >= 12
+          ? "medium"
+          : "low";
+
+    const stabilityLevel = getLevelByThreshold(rtCV, 0.35, 0.5);
+    const assistedNeed = getLevelByThreshold(assistedRate, 20, 40);
+    const fatigueRisk =
+      fatigueLevel === "high" || rtSlowing >= 450 || attentionDrop >= 25
+        ? "high"
+        : fatigueLevel === "medium" || rtSlowing >= 250 || attentionDrop >= 12
+          ? "medium"
+          : "low";
+
+    let action = "maintain";
+
+    if (
+      accuracy >= 85 &&
+      missRate <= 10 &&
+      falseAlarmRate <= 15 &&
+      assistedRate <= 20 &&
+      rtCV <= 0.35 &&
+      fatigueRisk !== "high"
+    ) {
+      action = "upgrade";
+    }
+
+    if (
+      accuracy < 65 ||
+      missRate > 25 ||
+      falseAlarmRate > 30 ||
+      assistedRate > 40 ||
+      fatigueRisk === "high"
+    ) {
+      action = "downgrade";
+    }
+
+    const nextDifficulty = getNextDifficultyByAction(currentDifficulty, action);
+    const actionLabel =
+      action === "upgrade" ? "提高難度" : action === "downgrade" ? "降低難度" : "維持難度";
+
+    const aiTags = [
+      attentionLevel === "stable" ? "專注穩定" : attentionLevel === "mild_drop" ? "後段專注略降" : "後段專注明顯下降",
+      impulseLevel === "low" ? "衝動控制佳" : impulseLevel === "medium" ? "衝動點擊偏多" : "衝動點擊明顯",
+      stabilityLevel === "low" ? "反應穩定" : stabilityLevel === "medium" ? "反應波動偏高" : "反應波動明顯",
+      assistedNeed === "low" ? "提示需求低" : assistedNeed === "medium" ? "需要少量提示" : "提示需求高",
+    ];
+
+    const parentSummary =
+      action === "upgrade"
+        ? "孩子這次反應穩定、漏答少，也不太需要提示。下次可以稍微提高難度。"
+        : action === "downgrade"
+          ? "孩子這次可能有些吃力，後段較容易漏掉或需要提示。下次建議降低一點難度，先維持成功經驗。"
+          : "孩子這次表現大致穩定，建議下次先維持目前難度，繼續觀察後段專注狀態。";
+
+    const clinicianSummary = [
+      `AI 建議：${actionLabel}至 ${nextDifficulty}。`,
+      `Accuracy ${accuracy}%，Avg RT ${avgReactionTime}ms，RT CV ${rtCV}，miss rate ${missRate}%，assisted rate ${assistedRate}%。`,
+      `後段變慢 ${rtSlowing}ms，attention drop ${attentionDrop}，疲勞風險 ${fatigueRisk}。`,
+      "本分析僅作為訓練觀察與難度調整參考，不作為醫療診斷。"
+    ].join(" ");
+
+    return {
+      attentionLevel,
+      impulseLevel,
+      stabilityLevel,
+      fatigueRisk,
+      assistedNeed,
+      action,
+      nextDifficulty,
+      aiTags,
+      parentSummary,
+      clinicianSummary,
+      metrics: {
+        accuracy,
+        avgReactionTime,
+        missRate,
+        falseAlarmRate,
+        backgroundClickRate,
+        rtCV,
+        assistedRate,
+        attentionDrop,
+        rtSlowing,
+      },
+    };
   };
 
   const buildSrtTrainingAiResult = (records, falseClicks, repeatedClicks) => {
@@ -712,7 +913,7 @@ const TrainingPage_SRT = () => {
       (record) => record.targetType === "golden" && record.trainingAction === "hit"
     ).length;
     const rottenTotal = records.filter((record) => record.targetType === "rotten").length;
-    const clickedRottenCount = records.filter(
+    const falseAlarmCount = records.filter(
       (record) => record.trainingAction === "clickedRotten"
     ).length;
 
@@ -721,9 +922,11 @@ const TrainingPage_SRT = () => {
       goldenHitCount,
       goldenHitRate: goldenTotal > 0 ? Math.round((goldenHitCount / goldenTotal) * 100) : null,
       rottenTotal,
-      clickedRottenCount,
-      rottenClickRate: rottenTotal > 0 ? Math.round((clickedRottenCount / rottenTotal) * 100) : null,
+      falseAlarmCount,
+      rottenClickRate: rottenTotal > 0 ? Math.round((falseAlarmCount / rottenTotal) * 100) : null,
     };
+
+    const longAttentionMetrics = buildLongAttentionMetrics(records);
 
     const currentConfig = difficultySettings[difficultyRef.current] || difficultySettings["easy-1"];
     const displayDifficulty = getDisplayDifficultyKey(difficultyRef.current);
@@ -753,6 +956,15 @@ const TrainingPage_SRT = () => {
       fatigueLevel,
     });
 
+    const ruleBasedRecommendation = buildRuleBasedSrtAiRecommendation({
+      records,
+      performanceResult,
+      errorTypes,
+      fatigueLevel,
+      longAttentionMetrics,
+      currentDifficulty: difficultyRef.current,
+    });
+
     const gameResult = createGameResult({
       childId: getCurrentChildId(),
       gameId: "SRT",
@@ -774,29 +986,69 @@ const TrainingPage_SRT = () => {
       performanceResult,
       errorResult,
       fatigueLevel,
-      recommendedDifficulty,
+      recommendedDifficulty: ruleBasedRecommendation.nextDifficulty || recommendedDifficulty,
+      baselineRecommendedDifficulty: recommendedDifficulty,
       errorTypes,
       distractorMetrics,
-      parentSummary: performanceResult.parentSummary,
+      longAttentionMetrics,
+      ruleBasedRecommendation,
+      aiRecommendation: ruleBasedRecommendation,
+      parentSummary: ruleBasedRecommendation.parentSummary || performanceResult.parentSummary,
+      clinicianSummary: ruleBasedRecommendation.clinicianSummary,
+    };
+  };
+
+  const getChildStorageKey = (baseKey, childId) => `${baseKey}_${childId}`;
+
+  const buildDataQuality = (records, invalidClickCount) => {
+    const safeRecords = Array.isArray(records) ? records : [];
+    const total = safeRecords.length;
+    const timeoutCount = safeRecords.filter((record) => record.timeout === true).length;
+    const hintCount = safeRecords.filter((record) => record.assisted === true).length;
+    const timeoutRate = total > 0 ? Math.round((timeoutCount / total) * 100) : 100;
+    const hintRate = total > 0 ? Math.round((hintCount / total) * 100) : 0;
+    const invalidClickRate = total > 0 ? Math.round((invalidClickCount / total) * 100) : 0;
+    const warnings = [];
+
+    if (total < 10) warnings.push("有效題數不足");
+    if (timeoutRate >= 25) warnings.push("逾時比例偏高");
+    if (invalidClickRate >= 20) warnings.push("背景誤點比例偏高");
+    if (hintRate >= 40) warnings.push("提示使用比例偏高");
+
+    let status = "valid";
+    if (total < 5 || timeoutRate >= 50) status = "insufficient";
+    else if (warnings.length > 0) status = "usable_with_caution";
+
+    return {
+      status,
+      validTrialCount: total,
+      timeoutRate,
+      invalidClickRate,
+      hintRate,
+      warnings,
     };
   };
 
   const saveTrainingStageProgress = (stars, resultPayload) => {
+    const childId = resultPayload?.childId;
+    if (!childId) return;
+
     const starCount = clampStars(stars);
     const { stageId, level, todayKey } = trainingStageInfo;
     const levelKey = `${GAME_ID}-${level}`;
     const todayLevelKey = `${todayKey}-${GAME_ID}-${level}`;
+    const prefix = `child_${childId}`;
 
-    localStorage.setItem(`ef_game_${stageId}_completed`, "true");
-    localStorage.setItem(`ef_game_${stageId}_stars`, String(starCount));
-    localStorage.setItem(`ef_game_${GAME_ID}_level_${level}_completed`, "true");
-    localStorage.setItem(`ef_game_${GAME_ID}_level_${level}_stars`, String(starCount));
-    localStorage.setItem(`training_${GAME_ID}_level_${level}_completed`, "true");
-    localStorage.setItem(`training_${GAME_ID}_level_${level}_stars`, String(starCount));
-    localStorage.setItem(`${GAME_ID}_training_level_${level}_completed`, "true");
-    localStorage.setItem(`${GAME_ID}_training_level_${level}_stars`, String(starCount));
+    localStorage.setItem(`${prefix}_ef_game_${stageId}_completed`, "true");
+    localStorage.setItem(`${prefix}_ef_game_${stageId}_stars`, String(starCount));
+    localStorage.setItem(`${prefix}_training_${GAME_ID}_level_${level}_completed`, "true");
+    localStorage.setItem(`${prefix}_training_${GAME_ID}_level_${level}_stars`, String(starCount));
 
-    appendUniqueStorageItems(COMPLETED_LEVELS_STORAGE_KEY, [stageId, levelKey, todayLevelKey]);
+    appendUniqueStorageItems(getChildStorageKey(COMPLETED_LEVELS_STORAGE_KEY, childId), [
+      stageId,
+      levelKey,
+      todayLevelKey,
+    ]);
 
     const starEntries = [
       [stageId, { stars: starCount, gameId: GAME_ID, level, todayKey, updatedAt: resultPayload.generatedAt }],
@@ -812,7 +1064,7 @@ const TrainingPage_SRT = () => {
       "trainingStageStars",
       "trainingLevelStars",
       "gameStars",
-    ].forEach((key) => writeObjectStarMap(key, starEntries));
+    ].forEach((key) => writeObjectStarMap(getChildStorageKey(key, childId), starEntries));
   };
 
   const showStoryHint = (text, duration = 1200) => {
@@ -835,44 +1087,36 @@ const TrainingPage_SRT = () => {
     showStoryHint(text, duration);
   };
 
-  /*
-    =========================================================
-    6. 流程控制
-    =========================================================
-  */
-
   const handleStart = () => {
     resetTraining();
     setShowDetailedResult(false);
     setGamePhase("intro");
   };
 
-  const startWarmup = () => {
+  const handleIntroEnd = () => {
     clearAllTimers();
+    setGamePhase("step");
+  };
 
-    setGamePhase("warmup");
-    setWarmupStep(0);
-    setWarmupItem(null);
-    setWarmupReady(false);
-    setEffect(null);
-
-    setWarmupMessage("先試試看！");
-
-    warmupTimeoutRef.current = setTimeout(() => {
-      spawnWarmupNormal();
-    }, 1000);
+  const handleTutorialVideoEnd = () => {
+    startTraining();
   };
 
   const startCountdown = () => {
-    /*
-      新版幼兒介面不顯示數字倒數。
-      暖身完成後直接進入正式訓練，避免倒數造成壓力。
-    */
     startTraining();
   };
 
   const startTraining = () => {
     clearAllTimers();
+
+    const currentChild = getCurrentChildProfile();
+    if (!currentChild?.childId) {
+      navigate("/child-select", { replace: true });
+      return;
+    }
+
+    finishingRef.current = false;
+    startedAtRef.current = new Date().toISOString();
 
     const currentConfig = difficultySettings[difficultyRef.current] || difficultySettings["easy-1"];
 
@@ -888,6 +1132,8 @@ const TrainingPage_SRT = () => {
     setEffect(null);
     setFalseStartWarning(null);
     setShowMouseGuide(false);
+    setAssistEffect(null);
+    setIdleFlashId(null);
 
     currentTrialRef.current = 0;
     spawnTimeRef.current = null;
@@ -895,6 +1141,12 @@ const TrainingPage_SRT = () => {
     trialLockedRef.current = false;
     lastActionTimeRef.current = Date.now();
     lastGuidanceHintTimeRef.current = 0;
+    consecutiveMissRef.current = 0;
+    consecutiveBackgroundClickRef.current = 0;
+    assistedTrialRef.current = false;
+    assistTypeRef.current = null;
+    assistShownAtRef.current = null;
+    recentTypesRef.current = [];
 
     setTimeLeft(Math.ceil(currentConfig.totalTime / 1000));
     setGamePhase("playing");
@@ -918,16 +1170,17 @@ const TrainingPage_SRT = () => {
       const idleDuration = Date.now() - lastActionTimeRef.current;
       const currentItem = currentItemRef.current;
 
-      if (idleDuration >= 3600 && currentItem?.type?.shouldClick) {
-        setShowMouseGuide(true);
+      if (idleDuration >= 10000 && !currentItem) {
+        triggerIdleFlash();
       }
-    }, 700);
+    }, 1000);
 
     scheduleNextTrial(getRandomDelay(currentConfig));
   };
 
   const finishTraining = () => {
-    if (phaseRef.current === "ending" || phaseRef.current === "result") return;
+    if (finishingRef.current || phaseRef.current === "ending" || phaseRef.current === "result") return;
+    finishingRef.current = true;
 
     clearAllTimers();
 
@@ -935,46 +1188,232 @@ const TrainingPage_SRT = () => {
     setEffect(null);
     setFalseStartWarning(null);
     setShowMouseGuide(false);
+    setAssistEffect(null);
+    setIdleFlashId(null);
     setShowHint(false);
 
     currentItemRef.current = null;
     spawnTimeRef.current = null;
     trialLockedRef.current = false;
 
+    const currentChild = getCurrentChildProfile();
+    if (!currentChild?.childId) {
+      finishingRef.current = false;
+      navigate("/child-select", { replace: true });
+      return;
+    }
+
     const records = trialRecordsRef.current;
-    const aiAnalysis = buildSrtTrainingAiResult(
-      records,
-      falseClickCountRef.current,
-      repeatedClickCountRef.current
+    const invalidClicks = falseClickCountRef.current;
+    const scoringRecords = [
+      ...records,
+      ...Array.from({ length: invalidClicks }).map((_, index) => ({
+        trialIndex: `FC-${index + 1}`,
+        isCorrect: false,
+        reactionTime: null,
+        timeout: false,
+        missed: false,
+        falseClick: true,
+        targetType: "background",
+        trainingAction: "backgroundClick",
+        scoreValue: 0,
+        positionX: null,
+        positionY: null,
+        timestamp: Date.now(),
+      })),
+    ];
+
+    let scoringResult = {};
+    try {
+      scoringResult = calculateSrtScore(scoringRecords) || {};
+    } catch (error) {
+      console.error("SRT 計分失敗，改用基本結果：", error);
+    }
+
+    let aiAnalysis = {};
+    try {
+      const legacyAnalysis = buildSrtTrainingAiResult(
+        records,
+        invalidClicks,
+        repeatedClickCountRef.current
+      ) || {};
+
+      const trainingAnalysis = analyzeSrtTraining({
+        records,
+        falseClickCount: invalidClicks,
+        repeatedClickCount: repeatedClickCountRef.current,
+        difficulty: difficultyRef.current,
+        totalTime: Math.round(
+          (difficultySettings[difficultyRef.current]?.totalTime || 0) / 1000
+        ),
+        childProfile: currentChild,
+      }) || {};
+
+      aiAnalysis = {
+        ...legacyAnalysis,
+        ...trainingAnalysis,
+        performanceResult: legacyAnalysis.performanceResult || {},
+        gameResult: legacyAnalysis.gameResult || {},
+        errorResult: legacyAnalysis.errorResult || {},
+        errorTypes: legacyAnalysis.errorTypes || {},
+        distractorMetrics:
+          legacyAnalysis.distractorMetrics || trainingAnalysis.metrics || {},
+        longAttentionMetrics:
+          trainingAnalysis.segmentAnalysis || legacyAnalysis.longAttentionMetrics || {},
+        ruleBasedRecommendation:
+          trainingAnalysis.recommendation || legacyAnalysis.ruleBasedRecommendation || null,
+        aiRecommendation:
+          trainingAnalysis.recommendation || legacyAnalysis.aiRecommendation || null,
+        recommendedDifficulty:
+          trainingAnalysis.nextDifficulty ||
+          legacyAnalysis.recommendedDifficulty ||
+          difficultyRef.current,
+        parentSummary:
+          trainingAnalysis.parentSummary || legacyAnalysis.parentSummary,
+        clinicianSummary:
+          trainingAnalysis.clinicianSummary || legacyAnalysis.clinicianSummary,
+      };
+    } catch (error) {
+      console.error("SRT AI 分析失敗，不影響結果保存：", error);
+      aiAnalysis = {
+        errorTypes: {},
+        longAttentionMetrics: {},
+        parentSummary: "本次訓練已完成，進階分析暫時無法產生。",
+        clinicianSummary: "本次訓練已保存，但進階分析暫時無法產生。",
+      };
+    }
+
+    const generatedAt = new Date().toISOString();
+    const startedAt = startedAtRef.current || generatedAt;
+    const durationMs = Math.max(0, Date.parse(generatedAt) - Date.parse(startedAt));
+    const correctCount = records.filter((record) => record.isCorrect === true).length;
+    const errorCount = Math.max(records.length - correctCount, 0) + invalidClicks;
+    const reactionTimes = records
+      .filter((record) => record.trainingAction === "hit" && typeof record.reactionTime === "number")
+      .map((record) => record.reactionTime);
+    const dataQuality = buildDataQuality(records, invalidClicks);
+    const finalStars = clampStars(
+      scoringResult?.stars ??
+      aiAnalysis?.performanceResult?.stars ??
+      aiAnalysis?.gameResult?.stars ??
+      aiAnalysis?.gameResult?.scoreStars ??
+      1
     );
+    const resultId = `SRT-${currentChild.childId}-${trainingStageInfo.stageId}-${Date.now()}`;
 
     const resultPayload = {
+      resultId,
+      schemaVersion: "1.0.0",
       taskName: "Simple Reaction Time",
       taskCode: "SRT",
+      gameId: "SRT",
+      gameName: "橡實反應任務",
       mode: "training",
-      gameId: GAME_ID,
+      abilityType: "inhibition",
+      abilityLabel: "抑制控制",
+      childId: currentChild.childId,
+      childName: currentChild.name || currentChild.nickname || "",
+      planId: trainingStageInfo.planId,
+      sessionId: trainingStageInfo.sessionId,
       stageId: trainingStageInfo.stageId,
       level: trainingStageInfo.level,
       trainingOrder: trainingStageInfo.order,
       trainingTotal: trainingStageInfo.total,
       todayKey: trainingStageInfo.todayKey,
+      startedAt,
+      finishedAt: generatedAt,
+      generatedAt,
+      durationMs,
       difficulty: difficultyRef.current,
       difficultyStep: getDifficultyStep(difficultyRef.current),
       displayDifficulty: getDisplayDifficultyKey(difficultyRef.current),
+      session: {
+        planId: trainingStageInfo.planId,
+        sessionId: trainingStageInfo.sessionId,
+        stageId: trainingStageInfo.stageId,
+        order: trainingStageInfo.order,
+      },
+      summary: {
+        score,
+        stars: finalStars,
+        accuracy:
+          aiAnalysis?.metrics?.accuracy ??
+          aiAnalysis?.performanceResult?.accuracy ??
+          0,
+        avgReactionTime:
+          aiAnalysis?.metrics?.avgRT ??
+          aiAnalysis?.performanceResult?.avgReactionTime ??
+          getAverageRt(records),
+        totalTrials: records.length,
+        correctCount,
+        errorCount,
+      },
+      metrics: {
+        errorTypes: aiAnalysis?.errorTypes || {},
+        reactionTimes,
+        longAttentionMetrics: aiAnalysis?.longAttentionMetrics || {},
+        distractorMetrics: aiAnalysis?.distractorMetrics || {},
+        repeatedClickCount: repeatedClickCountRef.current,
+        invalidClickCount: invalidClicks,
+      },
+      trials: records,
       records,
+      dataQuality,
+      scoring: scoringResult,
+      analysis: aiAnalysis,
+      recommendation:
+        aiAnalysis?.recommendation || aiAnalysis?.aiRecommendation || null,
+      syncStatus: "pending",
+      score,
+      stars: finalStars,
+      accuracy:
+        aiAnalysis?.metrics?.accuracy ??
+        aiAnalysis?.performanceResult?.accuracy ??
+        0,
+      avgReactionTime:
+        aiAnalysis?.metrics?.avgRT ??
+        aiAnalysis?.performanceResult?.avgReactionTime ??
+        getAverageRt(records),
+      totalTrials: records.length,
+      correctCount,
+      errorCount,
+      errorTypes: aiAnalysis?.errorTypes || {},
+      reactionTimes,
+      longAttentionMetrics: aiAnalysis?.longAttentionMetrics || {},
+      fatigueLevel: aiAnalysis?.fatigueLevel || "low",
+      recommendedDifficulty: aiAnalysis?.recommendedDifficulty || difficultyRef.current,
+      parentSummary: aiAnalysis?.parentSummary || "本次訓練已完成。",
+      clinicianSummary: aiAnalysis?.clinicianSummary || "本次訓練已完成。",
       aiAnalysis,
-      generatedAt: new Date().toISOString(),
     };
 
-    const finalStars =
-      aiAnalysis.performanceResult?.stars ??
-      aiAnalysis.gameResult?.stars ??
-      aiAnalysis.gameResult?.scoreStars ??
-      1;
-
     saveTrainingStageProgress(finalStars, resultPayload);
-    localStorage.setItem("srtTrainingResult", JSON.stringify(resultPayload));
-    localStorage.setItem("lastSrtTrainingResult", JSON.stringify(resultPayload));
+    localStorage.setItem(
+      getChildStorageKey("srtTrainingResult", currentChild.childId),
+      JSON.stringify(resultPayload)
+    );
+    localStorage.setItem(
+      getChildStorageKey("lastSrtTrainingResult", currentChild.childId),
+      JSON.stringify(resultPayload)
+    );
+
+    try {
+      const saveResult = saveUnifiedResult({
+        rawResult: resultPayload,
+        gameId: "SRT",
+        mode: "training",
+        difficulty: getDisplayDifficultyKey(difficultyRef.current),
+        child: currentChild,
+        route: "/training-srt",
+        visibleRoles: ["child", "parent", "clinician"],
+      });
+
+      Promise.resolve(saveResult).catch((error) => {
+        console.error("SRT 雲端同步失敗，結果已保存在本機：", error);
+      });
+    } catch (error) {
+      console.error("SRT 結果同步失敗，結果已保存在本機：", error);
+    }
 
     setGamePhase("ending");
   };
@@ -985,6 +1424,8 @@ const TrainingPage_SRT = () => {
     setEffect(null);
     setFalseStartWarning(null);
     setShowMouseGuide(false);
+    setAssistEffect(null);
+    setIdleFlashId(null);
     setShowHint(false);
     setGamePhase("result");
   };
@@ -1012,12 +1453,6 @@ const TrainingPage_SRT = () => {
     const currentConfig = difficultySettings[difficultyRef.current] || difficultySettings["easy-1"];
     return currentConfig.rottenRate > 0;
   };
-
-  /*
-    =========================================================
-    7. 暖身教學邏輯
-    =========================================================
-  */
 
   const spawnWarmupNormal = () => {
     if (phaseRef.current !== "warmup") return;
@@ -1120,8 +1555,8 @@ const TrainingPage_SRT = () => {
       setEffect({
         x: warmupItem.x,
         y: warmupItem.y,
-        text: warmupItem.type.key === "golden" ? "+30" : "+10",
-        type: warmupItem.type.key === "golden" ? "bonus" : "correct",
+        text: "接到！",
+        type: "correct",
       });
 
       setWarmupItem(null);
@@ -1139,7 +1574,7 @@ const TrainingPage_SRT = () => {
     setEffect({
       x: warmupItem.x,
       y: warmupItem.y,
-      text: "-50",
+      text: "不要點",
       type: "penalty",
     });
 
@@ -1169,28 +1604,90 @@ const TrainingPage_SRT = () => {
     }
   };
 
-  /*
-    =========================================================
-    8. 產生正式訓練題目
-    =========================================================
-  */
+  const clearAssistState = () => {
+    if (assistTimeoutRef.current) {
+      clearTimeout(assistTimeoutRef.current);
+      assistTimeoutRef.current = null;
+    }
+
+    if (assistClearTimeoutRef.current) {
+      clearTimeout(assistClearTimeoutRef.current);
+      assistClearTimeoutRef.current = null;
+    }
+
+    assistedTrialRef.current = false;
+    assistTypeRef.current = null;
+    assistShownAtRef.current = null;
+    setAssistEffect(null);
+  };
+
+  const triggerIdleFlash = () => {
+    const now = Date.now();
+
+    if (idleFlashTimeoutRef.current) return;
+
+    setIdleFlashId(now);
+    idleFlashTimeoutRef.current = setTimeout(() => {
+      setIdleFlashId(null);
+      idleFlashTimeoutRef.current = null;
+    }, 900);
+  };
+
+  const getAssistConfig = (targetType) => {
+    const step = getDifficultyStep(difficultyRef.current);
+    const missCount = consecutiveMissRef.current;
+
+    if (!targetType?.shouldClick) return null;
+
+    if (step <= 2) {
+      return { delay: 1200, effect: "glow" };
+    }
+
+    if (step <= 3 && missCount >= 1) {
+      return { delay: 1050, effect: "glow" };
+    }
+
+    if (step <= 6 && missCount >= 2) {
+      return { delay: 950, effect: "shake" };
+    }
+
+    return null;
+  };
+
+  const triggerAssistEffect = (effectType) => {
+    assistedTrialRef.current = true;
+    assistTypeRef.current = effectType;
+    assistShownAtRef.current = spawnTimeRef.current
+      ? Math.round(performance.now() - spawnTimeRef.current)
+      : null;
+    setAssistEffect(effectType);
+
+    if (effectType === "shake") {
+      assistClearTimeoutRef.current = setTimeout(() => {
+        setAssistEffect(null);
+      }, 650);
+    }
+  };
 
   const getRandomPosition = () => {
-    const minX = 18;
-    const maxX = 82;
-    const minY = 22;
-    const maxY = 78;
+    const step = getDifficultyStep(difficultyRef.current);
+    const range =
+      step <= 3
+        ? { minX: 24, maxX: 76, minY: 28, maxY: 72 }
+        : step <= 6
+          ? { minX: 18, maxX: 82, minY: 22, maxY: 78 }
+          : { minX: 12, maxX: 88, minY: 16, maxY: 84 };
 
     return {
-      x: Math.random() * (maxX - minX) + minX,
-      y: Math.random() * (maxY - minY) + minY,
+      x: Math.random() * (range.maxX - range.minX) + range.minX,
+      y: Math.random() * (range.maxY - range.minY) + range.minY,
     };
   };
 
   const getRandomDelay = (currentConfig = difficultySettings[difficultyRef.current] || difficultySettings["easy-1"]) => {
     const baseDelay = Number(currentConfig?.nextDelay) || 350;
-    const minDelay = Math.max(160, Math.round(baseDelay * 0.75));
-    const maxDelay = Math.max(minDelay + 80, Math.round(baseDelay * 1.45));
+    const minDelay = Math.max(450, Math.round(baseDelay * 0.7));
+    const maxDelay = Math.max(minDelay + 160, Math.round(baseDelay * 1.6));
     return Math.round(Math.random() * (maxDelay - minDelay) + minDelay);
   };
 
@@ -1206,7 +1703,7 @@ const TrainingPage_SRT = () => {
     }, delay);
   };
 
-  const getRandomType = () => {
+  const drawRandomType = () => {
     const currentDifficulty = difficultyRef.current;
     const currentConfig = difficultySettings[currentDifficulty] || difficultySettings["easy-1"];
     const rand = Math.random();
@@ -1217,6 +1714,31 @@ const TrainingPage_SRT = () => {
     }
 
     return objectTypes.rotten;
+  };
+
+  const getRandomType = (nextTrialNumber) => {
+    const recentTypes = recentTypesRef.current;
+    const recentTwo = recentTypes.slice(-2);
+    const currentBlockTypes = recentTypes.slice(-4);
+    const clickableCount = currentBlockTypes.filter(
+      (typeKey) => typeKey === "normal" || typeKey === "golden"
+    ).length;
+
+    if (nextTrialNumber % 5 === 0 && clickableCount < 2) {
+      return objectTypes.normal;
+    }
+
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const candidate = drawRandomType();
+      const wouldRepeatSpecial =
+        (candidate.key === "rotten" || candidate.key === "golden") &&
+        recentTwo.length === 2 &&
+        recentTwo.every((typeKey) => typeKey === candidate.key);
+
+      if (!wouldRepeatSpecial) return candidate;
+    }
+
+    return objectTypes.normal;
   };
 
   const spawnTrial = () => {
@@ -1234,11 +1756,17 @@ const TrainingPage_SRT = () => {
     const currentDifficulty = difficultyRef.current;
     const currentConfig = difficultySettings[currentDifficulty] || difficultySettings["easy-1"];
 
+    if (currentConfig.maxTrials && currentTrialRef.current >= currentConfig.maxTrials) {
+      finishTraining();
+      return;
+    }
+
     const trialIndex = currentTrialRef.current + 1;
     currentTrialRef.current = trialIndex;
 
     const position = getRandomPosition();
-    const type = getRandomType();
+    const type = getRandomType(trialIndex);
+    recentTypesRef.current = [...recentTypesRef.current, type.key].slice(-24);
 
     const newItem = {
       id: `${Date.now()}-${trialIndex}`,
@@ -1254,6 +1782,7 @@ const TrainingPage_SRT = () => {
 
     setFalseStartWarning(null);
     setShowMouseGuide(false);
+    clearAssistState();
     if (mouseGuideTimeoutRef.current) {
       clearTimeout(mouseGuideTimeoutRef.current);
       mouseGuideTimeoutRef.current = null;
@@ -1269,13 +1798,15 @@ const TrainingPage_SRT = () => {
 
       spawnTimeRef.current = performance.now();
 
-      if (type.shouldClick) {
-        mouseGuideTimeoutRef.current = setTimeout(() => {
+      const assistConfig = getAssistConfig(type);
+
+      if (assistConfig) {
+        assistTimeoutRef.current = setTimeout(() => {
           if (phaseRef.current !== "playing") return;
           if (currentItemRef.current?.id !== newItem.id) return;
           if (trialLockedRef.current) return;
-          setShowMouseGuide(true);
-        }, 3400);
+          triggerAssistEffect(assistConfig.effect);
+        }, assistConfig.delay);
       }
 
       itemTimeoutRef.current = setTimeout(() => {
@@ -1283,12 +1814,6 @@ const TrainingPage_SRT = () => {
       }, currentConfig.visibleTime);
     });
   };
-
-  /*
-    =========================================================
-    9. 沒點到 / 時間到
-    =========================================================
-  */
 
   const handleTimeout = (targetItem) => {
     if (phaseRef.current !== "playing") return;
@@ -1304,10 +1829,17 @@ const TrainingPage_SRT = () => {
       clearTimeout(mouseGuideTimeoutRef.current);
       mouseGuideTimeoutRef.current = null;
     }
+    if (assistTimeoutRef.current) {
+      clearTimeout(assistTimeoutRef.current);
+      assistTimeoutRef.current = null;
+    }
 
     const currentDifficulty = difficultyRef.current;
     const currentConfig = difficultySettings[currentDifficulty] || difficultySettings["easy-1"];
     const isRotten = targetItem.type.key === "rotten";
+    const wasAssisted = assistedTrialRef.current;
+    const assistType = assistTypeRef.current;
+    const assistShownAt = assistShownAtRef.current;
 
     if (isRotten) {
       setScore((prev) => prev + 1);
@@ -1322,16 +1854,18 @@ const TrainingPage_SRT = () => {
         targetType: "rotten",
         trainingAction: "correctAvoid",
         scoreValue: 1,
+        assisted: false,
+        assistType: null,
+        assistShownAt: null,
+        reactionAfterAssist: null,
         positionX: targetItem.x,
         positionY: targetItem.y,
         timestamp: Date.now(),
       });
 
-      // 正確避開時不跳文字提示，避免每題干擾兒童。
-    } else {
-      comboCountRef.current = 0;
-      setComboBurst(null);
+      consecutiveMissRef.current = 0;
 
+    } else {
       addTrialRecord({
         trialIndex: targetItem.trialIndex,
         isCorrect: false,
@@ -1342,13 +1876,23 @@ const TrainingPage_SRT = () => {
         targetType: targetItem.type.key,
         trainingAction: "miss",
         scoreValue: 0,
+        assisted: wasAssisted,
+        assistType,
+        assistShownAt,
+        reactionAfterAssist: null,
         positionX: targetItem.x,
         positionY: targetItem.y,
         timestamp: Date.now(),
       });
 
-      // 訓練中不額外跳提示，避免每一題都干擾孩子。
+      consecutiveMissRef.current += 1;
+
     }
+
+    setAssistEffect(null);
+    assistedTrialRef.current = false;
+    assistTypeRef.current = null;
+    assistShownAtRef.current = null;
 
     setItem(null);
     currentItemRef.current = null;
@@ -1356,12 +1900,6 @@ const TrainingPage_SRT = () => {
 
     scheduleNextTrial(getRandomDelay(currentConfig));
   };
-
-  /*
-    =========================================================
-    10. 點擊正式訓練物件
-    =========================================================
-  */
 
   const handleItemClick = (event, targetItem) => {
     event.stopPropagation();
@@ -1386,6 +1924,10 @@ const TrainingPage_SRT = () => {
       clearTimeout(mouseGuideTimeoutRef.current);
       mouseGuideTimeoutRef.current = null;
     }
+    if (assistTimeoutRef.current) {
+      clearTimeout(assistTimeoutRef.current);
+      assistTimeoutRef.current = null;
+    }
     setShowMouseGuide(false);
     playClickSound();
 
@@ -1395,6 +1937,13 @@ const TrainingPage_SRT = () => {
 
     const isRotten = targetItem.type.key === "rotten";
     const scoreValue = targetItem.type.score;
+    const wasAssisted = assistedTrialRef.current;
+    const assistType = assistTypeRef.current;
+    const assistShownAt = assistShownAtRef.current;
+    const reactionAfterAssist =
+      wasAssisted && typeof assistShownAt === "number"
+        ? Math.max(0, reactionTime - assistShownAt)
+        : null;
 
     setScore((prev) => Math.max(0, prev + scoreValue));
 
@@ -1408,45 +1957,32 @@ const TrainingPage_SRT = () => {
       targetType: targetItem.type.key,
       trainingAction: isRotten ? "clickedRotten" : "hit",
       scoreValue,
+      assisted: wasAssisted,
+      assistType: wasAssisted ? assistType : null,
+      assistShownAt: wasAssisted ? assistShownAt : null,
+      reactionAfterAssist,
       positionX: targetItem.x,
       positionY: targetItem.y,
       timestamp: Date.now(),
     });
 
-    const floatingScoreText = isRotten
-      ? "-50"
-      : targetItem.type.key === "golden"
-        ? "+30"
-        : "+10";
-
     if (isRotten) {
-      comboCountRef.current = 0;
-      setComboBurst(null);
+      consecutiveMissRef.current += 1;
     } else {
-      comboCountRef.current += 1;
-
-      if (comboCountRef.current >= 3) {
-        setComboBurst({
-          id: `${targetItem.id}-combo-${comboCountRef.current}`,
-          x: targetItem.x,
-          y: targetItem.y,
-          count: comboCountRef.current,
-        });
-
-        if (comboTimeoutRef.current) clearTimeout(comboTimeoutRef.current);
-        comboTimeoutRef.current = setTimeout(() => {
-          setComboBurst(null);
-          comboTimeoutRef.current = null;
-        }, 720);
-      }
+      consecutiveMissRef.current = 0;
     }
+
+    consecutiveBackgroundClickRef.current = 0;
 
     setEffect({
       x: targetItem.x,
       y: targetItem.y,
-      text: floatingScoreText,
-      type: isRotten ? "penalty" : targetItem.type.key === "golden" ? "bonus" : "correct",
     });
+
+    setAssistEffect(null);
+    assistedTrialRef.current = false;
+    assistTypeRef.current = null;
+    assistShownAtRef.current = null;
 
     setItem(null);
     currentItemRef.current = null;
@@ -1455,16 +1991,10 @@ const TrainingPage_SRT = () => {
     if (effectTimeoutRef.current) clearTimeout(effectTimeoutRef.current);
     effectTimeoutRef.current = setTimeout(() => {
       setEffect(null);
-    }, 720);
+    }, 360);
 
     scheduleNextTrial(getRandomDelay(currentConfig));
   };
-
-  /*
-    =========================================================
-    11. 點擊空白區
-    =========================================================
-  */
 
   const handleGameAreaClick = () => {
     if (phaseRef.current !== "playing") return;
@@ -1488,26 +2018,12 @@ const TrainingPage_SRT = () => {
 
     lastActionTimeRef.current = now;
     setShowMouseGuide(false);
+    consecutiveBackgroundClickRef.current += 1;
 
-    setFalseStartWarning({
-      id: now,
-      text: currentItemRef.current ? "點橡實本身喔！" : "等橡實出現再點喔！",
-    });
-
-    if (falseStartWarningTimeoutRef.current) {
-      clearTimeout(falseStartWarningTimeoutRef.current);
+    if (consecutiveBackgroundClickRef.current >= 3 || !currentItemRef.current) {
+      triggerIdleFlash();
     }
-    falseStartWarningTimeoutRef.current = setTimeout(() => {
-      setFalseStartWarning(null);
-      falseStartWarningTimeoutRef.current = null;
-    }, 620);
   };
-
-  /*
-    =========================================================
-    12. 統計資料
-    =========================================================
-  */
 
   const resultRecords = useMemo(() => {
     if (!falseClickCount || falseClickCount <= 0) return trialRecords;
@@ -1523,6 +2039,11 @@ const TrainingPage_SRT = () => {
         targetType: "background",
         trainingAction: "backgroundClick",
         scoreValue: 0,
+        falseClickType: "backgroundClick",
+        assisted: false,
+        assistType: null,
+        assistShownAt: null,
+        reactionAfterAssist: null,
         positionX: null,
         positionY: null,
         timestamp: Date.now(),
@@ -1531,6 +2052,12 @@ const TrainingPage_SRT = () => {
 
     return [...trialRecords, ...extraFalseClickRecords];
   }, [trialRecords, falseClickCount]);
+
+  const scoringResult = useMemo(() => {
+    return calculateSrtScore(resultRecords);
+  }, [resultRecords]);
+
+  const scoringSummary = scoringResult?.summary || {};
 
   const rtRecords = useMemo(() => {
     return resultRecords
@@ -1559,23 +2086,57 @@ const TrainingPage_SRT = () => {
   }, [resultRecords]);
 
   const aiAnalysis = useMemo(() => {
-    return buildSrtTrainingAiResult(
+    const legacyAnalysis = buildSrtTrainingAiResult(
       trialRecords,
       falseClickCount,
       repeatedClickCount
     );
-  }, [trialRecords, falseClickCount, repeatedClickCount, score]);
+
+    const trainingAnalysis = analyzeSrtTraining({
+      records: trialRecords,
+      falseClickCount,
+      repeatedClickCount,
+      difficulty,
+      totalTime: Math.round((config?.totalTime || 0) / 1000),
+      childProfile: getCurrentChildProfile(),
+    });
+
+    return {
+      ...legacyAnalysis,
+      ...trainingAnalysis,
+      performanceResult: legacyAnalysis?.performanceResult || {},
+      gameResult: legacyAnalysis?.gameResult || {},
+      errorResult: legacyAnalysis?.errorResult || {},
+      errorTypes: legacyAnalysis?.errorTypes || {},
+      distractorMetrics:
+        legacyAnalysis?.distractorMetrics || trainingAnalysis?.metrics || {},
+      longAttentionMetrics:
+        trainingAnalysis?.segmentAnalysis || legacyAnalysis?.longAttentionMetrics || {},
+      ruleBasedRecommendation:
+        trainingAnalysis?.recommendation || legacyAnalysis?.ruleBasedRecommendation || null,
+      aiRecommendation:
+        trainingAnalysis?.recommendation || legacyAnalysis?.aiRecommendation || null,
+      recommendedDifficulty:
+        trainingAnalysis?.nextDifficulty ||
+        legacyAnalysis?.recommendedDifficulty ||
+        difficulty,
+      parentSummary:
+        trainingAnalysis?.parentSummary || legacyAnalysis?.parentSummary,
+      clinicianSummary:
+        trainingAnalysis?.clinicianSummary || legacyAnalysis?.clinicianSummary,
+    };
+  }, [trialRecords, falseClickCount, repeatedClickCount, score, difficulty, config]);
 
   const summaryData = useMemo(() => {
     const hitCount = resultRecords.filter(
       (record) => record.trainingAction === "hit"
     ).length;
 
-    const correctAvoidCount = resultRecords.filter(
+    const correctRejectCount = resultRecords.filter(
       (record) => record.trainingAction === "correctAvoid"
     ).length;
 
-    const clickedRottenCount = resultRecords.filter(
+    const falseAlarmCount = resultRecords.filter(
       (record) => record.trainingAction === "clickedRotten"
     ).length;
 
@@ -1584,10 +2145,16 @@ const TrainingPage_SRT = () => {
     ).length;
 
     const validTrialCount = trialRecords.length;
+    const assistedCount = resultRecords.filter((record) => record.assisted).length;
+    const longAttentionMetrics = buildLongAttentionMetrics(trialRecords);
+    const aiRecommendation =
+      aiAnalysis.recommendation ||
+      aiAnalysis.aiRecommendation ||
+      aiAnalysis.ruleBasedRecommendation;
 
     const accuracy =
       validTrialCount > 0
-        ? Math.round(((hitCount + correctAvoidCount) / validTrialCount) * 100)
+        ? Math.round(((hitCount + correctRejectCount) / validTrialCount) * 100)
         : 0;
 
     return {
@@ -1602,8 +2169,11 @@ const TrainingPage_SRT = () => {
       totalTrials: validTrialCount,
       hitCount,
       missCount,
-      correctAvoidCount,
-      clickedRottenCount,
+      correctRejectCount,
+      falseAlarmCount,
+      // 舊版 ResultPage 相容欄位；核心判定仍使用 correctReject / falseAlarm。
+      correctAvoidCount: correctRejectCount,
+      clickedRottenCount: falseAlarmCount,
       falseClickCount: backgroundClickCount,
       repeatedClickCount,
       errorTypes: aiAnalysis.errorTypes,
@@ -1612,8 +2182,17 @@ const TrainingPage_SRT = () => {
       fatigueLevel: aiAnalysis.fatigueLevel,
       recommendedDifficulty: aiAnalysis.recommendedDifficulty,
       parentSummary: aiAnalysis.parentSummary,
+      clinicianSummary: aiAnalysis.clinicianSummary,
+      aiRecommendation,
+      aiTags: aiRecommendation?.aiTags || [],
       avgRT,
       accuracy,
+      assistedCount,
+      assistedRate: validTrialCount > 0 ? Math.round((assistedCount / validTrialCount) * 100) : 0,
+      longAttentionMetrics,
+      rtCV: longAttentionMetrics.rtCV,
+      rtStd: longAttentionMetrics.rtStd,
+      attentionDrop: longAttentionMetrics.attentionDrop,
     };
   }, [
     resultRecords,
@@ -1626,15 +2205,23 @@ const TrainingPage_SRT = () => {
     repeatedClickCount,
     aiAnalysis,
     avgRT,
+    scoringResult,
+    scoringSummary,
   ]);
 
   const resultStars = useMemo(() => {
     try {
-      const data = JSON.parse(localStorage.getItem("srtTrainingResult") || "{}");
+      const childId = getCurrentChildId();
+      const data = childId
+        ? JSON.parse(localStorage.getItem(getChildStorageKey("srtTrainingResult", childId)) || "{}")
+        : {};
       const stars =
+        data?.scoring?.stars ??
+        data?.stars ??
         data?.aiAnalysis?.performanceResult?.stars ??
         data?.aiAnalysis?.gameResult?.stars ??
         data?.aiAnalysis?.gameResult?.scoreStars ??
+        summaryData?.scoringStars ??
         summaryData?.aiAnalysis?.performanceResult?.stars ??
         1;
       return clampStars(stars);
@@ -1642,12 +2229,6 @@ const TrainingPage_SRT = () => {
       return clampStars(aiAnalysis?.performanceResult?.stars ?? 1);
     }
   }, [phase, aiAnalysis, summaryData]);
-
-  /*
-    =========================================================
-    13. 畫面
-    =========================================================
-  */
 
   return (
     <div
@@ -1692,15 +2273,52 @@ const TrainingPage_SRT = () => {
                 autoPlay
                 playsInline
                 controls={false}
-                onEnded={startWarmup}
+                onEnded={handleIntroEnd}
                 className="srt-video"
               />
             </div>
-            <div className="srt-guided-action srt-guided-skip">
-              <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={startWarmup} aria-label="跳過動畫">
-                <img src={homeSkipBtn} alt="跳過動畫" />
-              </button>
-              <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+            <div className="srt-step-actions">
+              <div className="srt-guided-action srt-guided-skip">
+                <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={handleIntroEnd} aria-label="跳過動畫">
+                  <img src={homeSkipBtn} alt="跳過動畫" />
+                </button>
+              </div>
+              <div className="srt-guided-action srt-guided-next">
+                <button type="button" className="srt-forest-button srt-image-button srt-btn-next" onClick={handleIntroEnd} aria-label="下一步">
+                  <img src={homeNextBtn} alt="下一步" />
+                </button>
+                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+              </div>
+            </div>
+          </section>
+        </main>
+      )}
+
+      {phase === "step" && (
+        <main className="srt-center-shell">
+          <section className="srt-soft-panel srt-video-panel" aria-label="步驟教學影片">
+            <div className="srt-video-frame">
+              <video
+                src={tutorialVideo}
+                autoPlay
+                playsInline
+                controls={false}
+                onEnded={handleTutorialVideoEnd}
+                className="srt-video"
+              />
+            </div>
+            <div className="srt-step-actions">
+              <div className="srt-guided-action srt-guided-skip">
+                <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={startTraining} aria-label="跳過動畫">
+                  <img src={homeSkipBtn} alt="跳過動畫" />
+                </button>
+              </div>
+              <div className="srt-guided-action srt-guided-next">
+                <button type="button" className="srt-forest-button srt-image-button srt-btn-next" onClick={startTraining} aria-label="下一步">
+                  <img src={homeNextBtn} alt="下一步" />
+                </button>
+                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+              </div>
             </div>
           </section>
         </main>
@@ -1740,7 +2358,7 @@ const TrainingPage_SRT = () => {
                       onClick={handleWarmupItemClick}
                       aria-label={warmupItem.type.label}
                     >
-                      <SrtCssAcorn typeKey={warmupItem.type.key} ariaHidden={false} />
+                      <img src={warmupItem.type.img} alt={warmupItem.type.label} />
                     </button>
                   )}
                   {warmupItem && warmupItem.type.shouldClick && (
@@ -1749,7 +2367,7 @@ const TrainingPage_SRT = () => {
                   <div className="srt-tap-hint">{warmupReady ? "很好！可以開始囉" : "先試試看"}</div>
                   {effect && (
                     <div
-                      className={effect.text ? `srt-score-effect srt-score-effect-${effect.type || "correct"}` : "srt-test-effect srt-demo-effect"}
+                      className={effect.text ? `srt-score-effect ${effect.type === "correct" ? "srt-score-effect-correct" : "srt-score-effect-penalty"}` : "srt-test-effect srt-demo-effect"}
                       style={{ left: `${effect.x}%`, top: `${effect.y}%` }}
                     >
                       {effect.text || ""}
@@ -1779,7 +2397,7 @@ const TrainingPage_SRT = () => {
 
       {phase === "playing" && (
         <main className="srt-play-page">
-          <div className="srt-test-game-area" onClick={handleGameAreaClick}>
+          <div className={`srt-test-game-area ${idleFlashId ? "srt-idle-flash" : ""}`} onClick={handleGameAreaClick}>
             {item && (
               <button
                 type="button"
@@ -1793,55 +2411,17 @@ const TrainingPage_SRT = () => {
                 onClick={(event) => handleItemClick(event, item)}
                 aria-label={item.type.label}
               >
-                <SrtCssAcorn
-                  typeKey={item.type.key}
-                  className={`srt-test-item ${getDisplayDifficultyKey(difficulty) === "hard" ? "srt-game-item-hard" : ""}`}
-                  ariaHidden
-                  style={{ width: `${config.itemSize}px`, height: `${config.itemSize}px` }}
+                <img
+                  src={item.type.img}
+                  alt=""
+                  draggable={false}
+                  className={`srt-test-item ${getDisplayDifficultyKey(difficulty) === "hard" ? "srt-game-item-hard" : ""} ${assistEffect === "glow" ? "srt-assist-glow" : ""} ${assistEffect === "shake" ? "srt-assist-shake" : ""}`}
+                  style={{ width: `${config.itemSize}px` }}
                 />
               </button>
             )}
 
-            {item && showMouseGuide && item.type.shouldClick && (
-              <img
-                className="srt-mouse-guide srt-mouse-in-play"
-                src={mouseGuideImg}
-                alt="提示點擊"
-                aria-hidden="true"
-                style={{ left: `${item.x}%`, top: `${item.y}%` }}
-              />
-            )}
-
-            {effect && (
-              <div
-                className={
-                  effect.text
-                    ? `srt-score-effect srt-score-effect-${effect.type || "correct"}`
-                    : "srt-test-effect"
-                }
-                style={{ left: `${effect.x}%`, top: `${effect.y}%` }}
-              >
-                {effect.text || ""}
-              </div>
-            )}
-
-            {comboBurst && (
-              <div
-                key={comboBurst.id}
-                className="srt-combo-burst"
-                style={{ left: `${comboBurst.x}%`, top: `${comboBurst.y}%` }}
-                role="status"
-                aria-live="polite"
-              >
-                COMBO!
-              </div>
-            )}
-
-            {falseStartWarning && (
-              <div key={falseStartWarning.id} className="srt-false-start-warning" role="status" aria-live="polite">
-                {falseStartWarning.text}
-              </div>
-            )}
+            {effect && <div className="srt-test-effect" style={{ left: `${effect.x}%`, top: `${effect.y}%` }} />}
           </div>
         </main>
       )}
@@ -2201,7 +2781,8 @@ const trainingPageCss = `
 .srt-btn-home,
 .srt-btn-replay,
 .srt-btn-detail,
-.srt-btn-skip {
+.srt-btn-skip,
+.srt-btn-next {
   border: 4px solid rgba(255,255,255,0.86);
   outline: 3px solid #5d9d32;
   background: linear-gradient(180deg, #b9f235 0%, #77c927 48%, #4e9a23 100%);
@@ -2252,7 +2833,8 @@ const trainingPageCss = `
 .srt-image-button.srt-btn-home,
 .srt-image-button.srt-btn-replay,
 .srt-image-button.srt-btn-detail,
-.srt-image-button.srt-btn-skip {
+.srt-image-button.srt-btn-skip,
+.srt-image-button.srt-btn-next {
   min-width: 0;
   min-height: 0;
   border: none;
@@ -2293,8 +2875,20 @@ const trainingPageCss = `
   filter: grayscale(0.35) drop-shadow(0 6px 6px rgba(74, 48, 16, 0.16));
 }
 
-.srt-btn-skip.srt-image-button {
+.srt-btn-skip.srt-image-button,
+.srt-btn-next.srt-image-button {
   width: clamp(198px, 19vw, 266px);
+}
+
+.srt-step-actions {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: clamp(18px, 3vw, 34px);
+  position: relative;
+  z-index: 2;
 }
 
 .srt-mouse-guide {
@@ -2653,6 +3247,52 @@ const trainingPageCss = `
   to { transform: translate(-50%, -50%) scale(1.45); opacity: 0; }
 }
 
+
+.srt-assist-glow {
+  animation: srt-assist-glow 0.92s ease-in-out infinite;
+}
+
+@keyframes srt-assist-glow {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 11px 12px rgba(79, 57, 20, 0.24)) drop-shadow(0 0 0 rgba(255, 226, 87, 0));
+  }
+  50% {
+    transform: scale(1.08);
+    filter: drop-shadow(0 11px 12px rgba(79, 57, 20, 0.24)) drop-shadow(0 0 22px rgba(255, 226, 87, 0.82));
+  }
+}
+
+.srt-assist-shake {
+  animation: srt-assist-shake 0.58s ease-in-out 1;
+}
+
+@keyframes srt-assist-shake {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  20% { transform: translateX(-5px) rotate(-4deg); }
+  40% { transform: translateX(5px) rotate(4deg); }
+  60% { transform: translateX(-3px) rotate(-2deg); }
+  80% { transform: translateX(3px) rotate(2deg); }
+}
+
+.srt-idle-flash::after {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  border-radius: 32px;
+  pointer-events: none;
+  z-index: 4;
+  box-shadow: inset 0 0 38px rgba(255, 230, 120, 0.62);
+  animation: srt-idle-flash 0.9s ease-out forwards;
+}
+
+@keyframes srt-idle-flash {
+  0% { opacity: 0; }
+  35% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+
 .srt-result-panel {
   min-height: 500px;
   padding: 92px 56px 60px;
@@ -2744,591 +3384,6 @@ const trainingPageCss = `
   width: clamp(168px, 16vw, 232px);
   border-radius: 18px;
 }
-
-
-/* =========================================================
-   Hyper-dynamic CSS-only training asset pack
-   Forest claymorphism / no image assets for acorns or VFX
-   ========================================================= */
-
-.srt-soft-panel {
-  border-color: rgba(255, 171, 31, 0.98);
-  background:
-    radial-gradient(circle at 16% 8%, rgba(255, 255, 255, 0.92) 0 9%, transparent 30%),
-    radial-gradient(circle at 86% 16%, rgba(255, 231, 100, 0.56) 0 12%, transparent 34%),
-    linear-gradient(145deg, rgba(255, 254, 222, 0.99) 0%, rgba(255, 231, 132, 0.98) 46%, rgba(244, 171, 64, 0.96) 100%);
-  box-shadow:
-    0 22px 0 rgba(150, 86, 25, 0.18),
-    0 38px 66px rgba(58, 37, 12, 0.30),
-    0 16px 26px rgba(255, 218, 95, 0.20),
-    inset 0 13px 20px rgba(255, 255, 255, 0.76),
-    inset 0 2px 0 rgba(255, 255, 255, 0.96),
-    inset 0 -20px 28px rgba(137, 75, 18, 0.22),
-    inset 0 -46px 76px rgba(106, 68, 17, 0.12);
-}
-
-.srt-soft-panel::before {
-  border-color: rgba(255, 247, 205, 0.62);
-  box-shadow:
-    inset 0 2px 5px rgba(255, 255, 255, 0.54),
-    inset 0 -4px 9px rgba(139, 84, 20, 0.14);
-}
-
-.srt-test-game-area::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 16% 20%, rgba(186, 255, 81, 0.13), transparent 18%),
-    radial-gradient(circle at 82% 78%, rgba(255, 168, 36, 0.15), transparent 22%),
-    radial-gradient(circle at 62% 36%, rgba(255, 224, 80, 0.09), transparent 18%);
-  mix-blend-mode: screen;
-}
-
-.srt-css-acorn {
-  --acorn-size: 100%;
-  --cap-top: 11%;
-  --cap-height: 36%;
-  --body-top: 32%;
-  position: relative;
-  display: inline-block;
-  width: var(--acorn-size);
-  height: var(--acorn-size);
-  min-width: 58px;
-  min-height: 58px;
-  isolation: isolate;
-  transform-origin: 50% 68%;
-  filter:
-    drop-shadow(0 13px 11px rgba(48, 32, 12, 0.35))
-    drop-shadow(0 3px 1px rgba(100, 62, 20, 0.16));
-}
-
-.srt-acorn-body,
-.srt-acorn-cap,
-.srt-acorn-aura,
-.srt-acorn-sparkle,
-.srt-acorn-gas,
-.srt-acorn-alert,
-.srt-acorn-crack {
-  position: absolute;
-  pointer-events: none;
-}
-
-.srt-acorn-aura {
-  inset: -20%;
-  border-radius: 50%;
-  opacity: 0;
-  z-index: 0;
-}
-
-.srt-acorn-body {
-  left: 22%;
-  top: var(--body-top);
-  width: 56%;
-  height: 58%;
-  border-radius: 46% 46% 53% 53% / 48% 48% 60% 60%;
-  z-index: 2;
-  overflow: hidden;
-  transform: rotate(-2deg);
-}
-
-.srt-acorn-body::before {
-  content: "";
-  position: absolute;
-  inset: 7% 14% 46% 14%;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.36);
-  filter: blur(1px);
-  transform: rotate(-18deg);
-}
-
-.srt-acorn-body::after {
-  content: "";
-  position: absolute;
-  right: 7%;
-  bottom: 4%;
-  width: 34%;
-  height: 46%;
-  border-radius: 50%;
-  background: rgba(77, 35, 13, 0.10);
-  filter: blur(3px);
-}
-
-.srt-acorn-cap {
-  left: 16%;
-  top: var(--cap-top);
-  width: 68%;
-  height: var(--cap-height);
-  border-radius: 48% 48% 42% 42% / 58% 58% 40% 40%;
-  z-index: 3;
-  transform: rotate(-4deg);
-  overflow: hidden;
-}
-
-.srt-acorn-cap::before {
-  content: "";
-  position: absolute;
-  left: 45%;
-  top: -34%;
-  width: 20%;
-  height: 42%;
-  border-radius: 999px;
-  transform: rotate(18deg);
-}
-
-.srt-acorn-cap::after {
-  content: "";
-  position: absolute;
-  inset: 16% 8% 42% 8%;
-  border-radius: 999px;
-  background:
-    repeating-linear-gradient(135deg, rgba(255,255,255,0.28) 0 4px, rgba(255,255,255,0) 4px 10px);
-  opacity: 0.72;
-}
-
-.srt-css-acorn-normal .srt-acorn-body {
-  background:
-    radial-gradient(circle at 31% 24%, rgba(255, 233, 151, 0.78) 0 12%, transparent 30%),
-    linear-gradient(145deg, #d78a34 0%, #a85c25 54%, #6f3517 100%);
-  box-shadow:
-    inset 8px 8px 11px rgba(255, 204, 116, 0.32),
-    inset -8px -12px 16px rgba(75, 31, 10, 0.28);
-}
-
-.srt-css-acorn-normal .srt-acorn-cap {
-  background:
-    radial-gradient(circle at 32% 18%, rgba(255, 226, 135, 0.58), transparent 35%),
-    linear-gradient(145deg, #7d4a1e 0%, #5a3217 56%, #351a0b 100%);
-  box-shadow:
-    inset 5px 6px 8px rgba(255, 207, 116, 0.23),
-    inset -6px -9px 13px rgba(34, 15, 5, 0.24);
-}
-
-.srt-css-acorn-normal .srt-acorn-cap::before {
-  background: linear-gradient(180deg, #7b4b20, #3c1c0b);
-}
-
-.srt-css-acorn-golden {
-  filter:
-    drop-shadow(0 14px 12px rgba(55, 35, 8, 0.36))
-    drop-shadow(0 0 16px rgba(255, 224, 76, 0.78))
-    drop-shadow(0 0 36px rgba(255, 170, 28, 0.46));
-  animation: srt-golden-acorn-pulse 1.05s ease-in-out infinite;
-}
-
-.srt-css-acorn-golden .srt-acorn-aura {
-  opacity: 1;
-  background:
-    radial-gradient(circle, rgba(255, 250, 176, 0.46) 0 22%, rgba(255, 201, 42, 0.22) 38%, transparent 70%);
-  filter: blur(1px);
-  animation: srt-golden-aura-spin 2.6s linear infinite;
-}
-
-.srt-css-acorn-golden .srt-acorn-body {
-  background:
-    radial-gradient(circle at 29% 20%, #fff8c7 0 10%, transparent 28%),
-    radial-gradient(circle at 72% 70%, rgba(215, 113, 8, 0.24), transparent 32%),
-    linear-gradient(145deg, #fff27a 0%, #ffc328 43%, #e07c0f 100%);
-  box-shadow:
-    inset 9px 9px 12px rgba(255, 255, 255, 0.42),
-    inset -8px -14px 18px rgba(145, 65, 0, 0.22);
-}
-
-.srt-css-acorn-golden .srt-acorn-cap {
-  background:
-    radial-gradient(circle at 28% 18%, #fffbd2 0 8%, transparent 28%),
-    linear-gradient(145deg, #ffe66c 0%, #f6a91d 52%, #ba5c0b 100%);
-  box-shadow:
-    inset 7px 8px 10px rgba(255, 255, 255, 0.40),
-    inset -8px -10px 15px rgba(125, 55, 0, 0.22);
-}
-
-.srt-css-acorn-golden .srt-acorn-cap::before {
-  background: linear-gradient(180deg, #fff077, #bd650b);
-}
-
-.srt-css-acorn-golden .srt-acorn-sparkle {
-  opacity: 1;
-  z-index: 5;
-  color: #fff9a8;
-  width: 16%;
-  height: 16%;
-  filter: drop-shadow(0 0 8px rgba(255, 234, 96, 0.9));
-}
-
-.srt-css-acorn-golden .srt-acorn-sparkle::before,
-.srt-css-acorn-golden .srt-acorn-sparkle::after {
-  content: "";
-  position: absolute;
-  background: currentColor;
-  border-radius: 999px;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.srt-css-acorn-golden .srt-acorn-sparkle::before {
-  width: 100%;
-  height: 22%;
-}
-
-.srt-css-acorn-golden .srt-acorn-sparkle::after {
-  width: 22%;
-  height: 100%;
-}
-
-.srt-acorn-sparkle-1 { left: 5%; top: 8%; animation: srt-sparkle-twinkle 0.9s ease-in-out infinite; }
-.srt-acorn-sparkle-2 { right: 1%; top: 30%; animation: srt-sparkle-twinkle 1.15s ease-in-out infinite 0.18s; }
-.srt-acorn-sparkle-3 { left: 17%; bottom: 2%; animation: srt-sparkle-twinkle 1.25s ease-in-out infinite 0.36s; }
-
-.srt-css-acorn-rotten {
-  filter:
-    drop-shadow(0 13px 10px rgba(43, 31, 45, 0.38))
-    drop-shadow(0 0 18px rgba(122, 62, 170, 0.32));
-}
-
-.srt-css-acorn-rotten .srt-acorn-body {
-  background:
-    radial-gradient(circle at 28% 21%, rgba(255, 255, 255, 0.22) 0 9%, transparent 29%),
-    radial-gradient(circle at 63% 66%, rgba(98, 214, 82, 0.22) 0 12%, transparent 30%),
-    linear-gradient(145deg, #817087 0%, #625066 48%, #332637 100%);
-  box-shadow:
-    inset 8px 9px 12px rgba(255, 255, 255, 0.15),
-    inset -9px -14px 17px rgba(21, 12, 25, 0.34);
-}
-
-.srt-css-acorn-rotten .srt-acorn-cap {
-  background:
-    radial-gradient(circle at 30% 20%, rgba(255,255,255,0.18), transparent 30%),
-    linear-gradient(145deg, #706076 0%, #4d3b54 54%, #25192d 100%);
-  box-shadow:
-    inset 6px 7px 10px rgba(255, 255, 255, 0.12),
-    inset -8px -10px 14px rgba(18, 10, 25, 0.32);
-}
-
-.srt-css-acorn-rotten .srt-acorn-cap::before {
-  background: linear-gradient(180deg, #76617a, #281934);
-}
-
-.srt-css-acorn-rotten .srt-acorn-crack {
-  z-index: 4;
-  width: 4%;
-  height: 42%;
-  border-radius: 999px;
-  background: #241527;
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.08);
-  transform-origin: top;
-}
-
-.srt-css-acorn-rotten .srt-acorn-crack-1 {
-  left: 43%;
-  top: 16%;
-  transform: rotate(24deg);
-}
-
-.srt-css-acorn-rotten .srt-acorn-crack-2 {
-  left: 57%;
-  top: 39%;
-  height: 25%;
-  transform: rotate(-42deg);
-}
-
-.srt-css-acorn-rotten .srt-acorn-gas {
-  opacity: 1;
-  z-index: 1;
-  width: 35%;
-  height: 22%;
-  border-radius: 50%;
-  border: 3px solid rgba(187, 101, 255, 0.34);
-  border-left-color: transparent;
-  border-bottom-color: transparent;
-  filter: blur(0.2px) drop-shadow(0 0 8px rgba(161, 75, 222, 0.38));
-}
-
-.srt-acorn-gas-1 {
-  left: -14%;
-  top: 28%;
-  animation: srt-toxic-swirl 1.45s ease-in-out infinite;
-}
-
-.srt-acorn-gas-2 {
-  right: -18%;
-  top: 8%;
-  animation: srt-toxic-swirl 1.75s ease-in-out infinite 0.22s reverse;
-}
-
-.srt-css-acorn-rotten .srt-acorn-alert {
-  opacity: 1;
-  z-index: 6;
-  width: 22%;
-  height: 22%;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(180deg, #ff5d55, #9e1f49);
-  color: #fff5dd;
-  font-weight: 1000;
-  font-size: 0.32em;
-  text-shadow: 0 2px 0 rgba(70, 0, 18, 0.34);
-  box-shadow:
-    0 4px 0 rgba(85, 15, 42, 0.32),
-    0 0 14px rgba(255, 42, 75, 0.45);
-  animation: srt-alert-pop 0.86s ease-in-out infinite;
-}
-
-.srt-acorn-alert-1 { left: -8%; top: 0%; transform: rotate(-12deg); }
-.srt-acorn-alert-2 { right: -11%; top: 40%; transform: rotate(12deg) scale(0.86); animation-delay: 0.2s; }
-
-.srt-test-item {
-  animation: srt-test-item-pop 0.28s cubic-bezier(0.19, 1.34, 0.32, 1) both;
-  transition:
-    transform 0.18s cubic-bezier(0.2, 1.25, 0.38, 1),
-    filter 0.18s ease;
-  will-change: transform, filter;
-}
-
-.srt-item-hitbox:hover .srt-test-item {
-  transform: scale(1.08) rotate(-1.5deg);
-}
-
-.srt-item-hitbox:active .srt-test-item {
-  transform: scale(0.9) rotate(1.5deg);
-}
-
-@keyframes srt-test-item-pop {
-  0% { transform: scale(0.42) rotate(-7deg); opacity: 0; }
-  68% { transform: scale(1.12) rotate(2deg); opacity: 1; }
-  100% { transform: scale(1) rotate(0deg); opacity: 1; }
-}
-
-.srt-test-effect {
-  width: 86px;
-  height: 86px;
-  border: 0;
-  background:
-    radial-gradient(circle, rgba(255, 255, 255, 0.92) 0 10%, rgba(255, 243, 128, 0.86) 11% 24%, rgba(255, 191, 44, 0.40) 25% 47%, rgba(255, 156, 20, 0.00) 70%),
-    conic-gradient(from 14deg, rgba(255,255,255,0), rgba(255,247,153,0.78), rgba(255,184,28,0.18), rgba(255,255,255,0));
-  box-shadow:
-    0 0 0 7px rgba(255, 238, 123, 0.20),
-    0 0 22px rgba(255, 218, 67, 0.86),
-    0 0 48px rgba(255, 178, 28, 0.55),
-    inset 0 0 18px rgba(255, 255, 255, 0.74);
-  mix-blend-mode: screen;
-  animation: srt-test-effect-pop 0.54s cubic-bezier(0.12, 1.55, 0.38, 1) forwards;
-}
-
-@keyframes srt-test-effect-pop {
-  0% { transform: translate(-50%, -50%) scale(0.28); opacity: 0; filter: blur(0) saturate(1.05); }
-  18% { transform: translate(-50%, -50%) scale(1.08); opacity: 1; filter: blur(0) saturate(1.22); }
-  52% { transform: translate(-50%, -50%) scale(1.62); opacity: 0.78; }
-  100% { transform: translate(-50%, -50%) scale(2.15); opacity: 0; filter: blur(2px) saturate(1.15); }
-}
-
-.srt-score-effect {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  font-size: clamp(34px, 5.4vw, 74px);
-  font-weight: 1000;
-  line-height: 0.92;
-  letter-spacing: 0.5px;
-  -webkit-text-stroke: 3px #4b2510;
-  text-shadow:
-    0 4px 0 rgba(77, 32, 10, 0.42),
-    0 11px 14px rgba(52, 26, 10, 0.28),
-    0 0 18px rgba(255, 232, 118, 0.48);
-  filter: drop-shadow(0 0 16px rgba(255, 210, 68, 0.44));
-  animation: srt-float-score 0.74s cubic-bezier(0.14, 1.45, 0.3, 1) forwards;
-}
-
-.srt-score-effect-correct {
-  color: #fff3a3;
-  background: linear-gradient(180deg, #fff8b9 0%, #ffcf2f 44%, #ff8a1c 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-}
-
-.srt-score-effect-bonus {
-  color: #ffe752;
-  background: linear-gradient(180deg, #ffffff 0%, #ffef65 30%, #ffb11c 62%, #ff6c19 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-stroke: 3px #5a2c0d;
-  filter:
-    drop-shadow(0 0 12px rgba(255, 244, 135, 0.82))
-    drop-shadow(0 0 28px rgba(255, 176, 29, 0.56));
-}
-
-.srt-score-effect-penalty {
-  color: #ff594e;
-  background:
-    linear-gradient(180deg, #ffddd3 0%, #ff5546 48%, #9d1635 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-stroke: 3px #5b0719;
-  text-shadow:
-    0 4px 0 rgba(94, 0, 22, 0.52),
-    0 10px 14px rgba(51, 0, 17, 0.30);
-  filter: drop-shadow(0 0 15px rgba(255, 49, 71, 0.42));
-}
-
-.srt-score-effect-penalty::before,
-.srt-score-effect-penalty::after {
-  content: "";
-  position: absolute;
-  width: 36%;
-  height: 5px;
-  left: 32%;
-  top: 50%;
-  border-radius: 999px;
-  background: rgba(90, 7, 25, 0.78);
-  transform: rotate(16deg);
-}
-
-.srt-score-effect-penalty::after {
-  transform: rotate(-15deg);
-}
-
-.srt-combo-burst {
-  position: absolute;
-  z-index: 9;
-  transform: translate(-50%, -108%);
-  pointer-events: none;
-  font-size: clamp(36px, 7vw, 88px);
-  font-weight: 1000;
-  line-height: 0.9;
-  letter-spacing: 1px;
-  color: #ffb323;
-  background: linear-gradient(180deg, #fff8c2 0%, #ffd42e 32%, #ff8922 74%, #f15b1a 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-stroke: 5px #4b2510;
-  text-shadow:
-    0 5px 0 rgba(92, 38, 12, 0.52),
-    0 13px 15px rgba(56, 27, 8, 0.30),
-    0 0 20px rgba(255, 222, 91, 0.72);
-  filter:
-    drop-shadow(0 0 12px rgba(255, 238, 121, 0.62))
-    drop-shadow(0 0 28px rgba(255, 128, 29, 0.38));
-  animation: srt-combo-pop 0.72s cubic-bezier(0.16, 1.56, 0.34, 1) forwards;
-  white-space: nowrap;
-}
-
-.srt-combo-burst::after {
-  content: "";
-  position: absolute;
-  inset: -10% -12%;
-  border-radius: 999px;
-  background:
-    radial-gradient(circle at 18% 28%, rgba(255,255,255,0.80), transparent 8%),
-    radial-gradient(circle at 76% 18%, rgba(255,246,140,0.68), transparent 10%),
-    linear-gradient(180deg, rgba(255,255,255,0.16), transparent 48%);
-  z-index: -1;
-  filter: blur(1px);
-}
-
-.srt-image-button {
-  transform-origin: 50% 58%;
-  transition:
-    transform 0.2s cubic-bezier(0.18, 1.25, 0.38, 1),
-    filter 0.2s ease;
-  will-change: transform, filter;
-}
-
-.srt-image-button img {
-  filter:
-    drop-shadow(0 10px 8px rgba(74, 48, 16, 0.26))
-    drop-shadow(0 0 14px rgba(255, 238, 150, 0.22));
-  transition: filter 0.2s ease;
-}
-
-.srt-image-button:hover:not(:disabled) {
-  transform: translateY(-3px) scale(1.045);
-  filter: brightness(1.06) saturate(1.05);
-  animation:
-    srt-button-breathe 1.15s ease-in-out infinite,
-    srt-button-wobble 0.62s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-.srt-image-button:hover:not(:disabled) img {
-  filter:
-    drop-shadow(0 14px 10px rgba(74, 48, 16, 0.30))
-    drop-shadow(0 0 18px rgba(255, 238, 150, 0.38));
-}
-
-.srt-image-button:active:not(:disabled) {
-  transform: translateY(2px) scale(0.965);
-  animation: none;
-}
-
-@keyframes srt-golden-acorn-pulse {
-  0%, 100% { transform: translateY(0) scale(1) rotate(-1deg); }
-  50% { transform: translateY(-4px) scale(1.055) rotate(1deg); }
-}
-
-@keyframes srt-golden-aura-spin {
-  from { transform: rotate(0deg) scale(1); }
-  to { transform: rotate(360deg) scale(1.02); }
-}
-
-@keyframes srt-sparkle-twinkle {
-  0%, 100% { transform: scale(0.62) rotate(0deg); opacity: 0.55; }
-  50% { transform: scale(1.22) rotate(45deg); opacity: 1; }
-}
-
-@keyframes srt-toxic-swirl {
-  0%, 100% { transform: translate(0, 0) rotate(0deg) scale(0.86); opacity: 0.38; }
-  50% { transform: translate(6px, -8px) rotate(28deg) scale(1.1); opacity: 0.72; }
-}
-
-@keyframes srt-alert-pop {
-  0%, 100% { transform: translateY(0) scale(0.88) rotate(-8deg); }
-  50% { transform: translateY(-4px) scale(1.08) rotate(5deg); }
-}
-
-@keyframes srt-combo-pop {
-  0% { opacity: 0; transform: translate(-50%, -86%) scale(0.36) rotate(-8deg); }
-  24% { opacity: 1; transform: translate(-50%, -112%) scale(1.16) rotate(3deg); }
-  62% { opacity: 1; transform: translate(-50%, -124%) scale(1) rotate(-1deg); }
-  100% { opacity: 0; transform: translate(-50%, -156%) scale(0.92) rotate(2deg); }
-}
-
-@keyframes srt-float-score {
-  0% { opacity: 0; transform: translate(-50%, -42%) scale(0.42) rotate(-6deg); }
-  18% { opacity: 1; transform: translate(-50%, -62%) scale(1.18) rotate(2deg); }
-  58% { opacity: 1; transform: translate(-50%, -94%) scale(1.02) rotate(-1deg); }
-  100% { opacity: 0; transform: translate(-50%, -142%) scale(0.9) rotate(3deg); }
-}
-
-@keyframes srt-button-wobble {
-  0% { transform: translateY(-3px) scale(1.045) rotate(0deg); }
-  18% { transform: translateY(-4px) scale(1.055) rotate(-2.6deg); }
-  36% { transform: translateY(-3px) scale(1.05) rotate(2.1deg); }
-  54% { transform: translateY(-4px) scale(1.052) rotate(-1.4deg); }
-  72% { transform: translateY(-3px) scale(1.047) rotate(0.8deg); }
-  100% { transform: translateY(-3px) scale(1.045) rotate(0deg); }
-}
-
-@keyframes srt-button-breathe {
-  0%, 100% { transform: translateY(-3px) scale(1.045); }
-  50% { transform: translateY(-5px) scale(1.065); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .srt-css-acorn,
-  .srt-test-item,
-  .srt-test-effect,
-  .srt-score-effect,
-  .srt-combo-burst,
-  .srt-image-button,
-  .srt-image-button:hover:not(:disabled) {
-    animation-duration: 0.01ms;
-    animation-iteration-count: 1;
-    transition-duration: 0.01ms;
-  }
-}
-
 
 @media (max-width: 1024px) {
   .srt-start-shell,
@@ -3564,7 +3619,8 @@ const trainingPageCss = `
     padding: 0;
   }
 
-  .srt-btn-skip.srt-image-button {
+  .srt-btn-skip.srt-image-button,
+  .srt-btn-next.srt-image-button {
     width: min(74vw, 214px);
   }
 

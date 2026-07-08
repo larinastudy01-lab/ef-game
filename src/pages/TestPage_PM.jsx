@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { analyzePerformance } from "../ai/performanceAnalyzer";
@@ -6,6 +6,8 @@ import { analyzeErrors } from "../ai/errorAnalyzer";
 import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
 import { createGameResult } from "../ai/gameResultTemplate";
+import { saveUnifiedResult } from "../utils/resultManager";
+import { calculatePMScore } from "../utils/pmScoring";
 
 // ===== 圖片 =====
 import PM01 from "../asset/PM/PM_01.png";
@@ -23,14 +25,17 @@ import rabbitAvatar from "../asset/avatar/rabbit.png";
 
 // ===== 背景 / 前導影片 / 結束影片 =====
 import bgImage from "../asset/PM_testbackground.png";
-import introVideo from "../asset/SRT_start.mp4";
-import endingVideo from "../asset/SRT_start.mp4";
+import introVideo from "../asset/mp4/PM_start.mp4";
+import stepVideo from "../asset/mp4/PM_step.mp4";
+import endingVideo from "../asset/mp4/PM_end.mp4";
 import homeStartBtn from "../asset/home/start.png";
 import homeSkipBtn from "../asset/home/skip.png";
 import homeBackBtn from "../asset/home/back.png";
-import homeAgainBtn from "../asset/home/again.png";
 import homeResultBtn from "../asset/home/result.png";
+import homeNextBtn from "../asset/home/next.png";
 import mouseGuideImg from "../asset/mouse.png";
+
+const TEST_PAGE_ROUTE = "/test-map";
 
 const ALL_ITEMS = [
   { id: "PM01", image: PM01 },
@@ -56,6 +61,16 @@ const LEVELS = [
   { level: 6, memoryCount: 7, showTime: 3, answerTime: 10, optionCount: 8 },
   { level: 7, memoryCount: 8, showTime: 2.8, answerTime: 10, optionCount: 8 },
 ];
+
+const TRIALS_PER_MEMORY_COUNT = 2;
+
+const TEST_TRIALS = LEVELS.flatMap((levelConfig) =>
+  Array.from({ length: TRIALS_PER_MEMORY_COUNT }, (_, index) => ({
+    ...levelConfig,
+    trialInMemoryCount: index + 1,
+    plannedTrialsInMemoryCount: TRIALS_PER_MEMORY_COUNT,
+  }))
+);
 
 const DEFAULT_ERRORS = {
   miss: 0,
@@ -139,6 +154,166 @@ function safeCreateGameResult(payload) {
   }
 }
 
+function hasTwoConsecutiveErrorsInSameMemoryCount(records = []) {
+  if (!Array.isArray(records) || records.length < 2) return false;
+
+  const lastTwo = records.slice(-2);
+  return (
+    lastTwo[0]?.memoryCount === lastTwo[1]?.memoryCount &&
+    lastTwo.every((record) => record?.isCorrect !== true)
+  );
+}
+
+function hasTwoConsecutiveTimeouts(records = []) {
+  if (!Array.isArray(records) || records.length < 2) return false;
+
+  return records.slice(-2).every((record) => record?.isTimeout === true);
+}
+
+function getPMStopReason({ records, nextIndex }) {
+  if (hasTwoConsecutiveTimeouts(records)) return "two_consecutive_timeouts";
+  if (hasTwoConsecutiveErrorsInSameMemoryCount(records)) {
+    return "same_memory_two_errors";
+  }
+  if (nextIndex >= TEST_TRIALS.length) return "completed_all_trials";
+  return null;
+}
+
+function getPMStopReasonText(reason) {
+  switch (reason) {
+    case "two_consecutive_timeouts":
+      return "連續兩題逾時，測驗結束。";
+    case "same_memory_two_errors":
+      return "同一記憶數量連續兩題未通過，測驗結束。";
+    case "completed_all_trials":
+      return "已完成全部測驗題目。";
+    default:
+      return "測驗結束。";
+  }
+}
+
+
+function safeJsonParse(value, fallback = null) {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    console.warn("[TestPage_PM] JSON 解析失敗：", error);
+    return fallback;
+  }
+}
+
+function resolveCurrentChildId() {
+  const candidates = [
+    safeJsonParse(localStorage.getItem("currentChild")),
+    safeJsonParse(localStorage.getItem("selectedChild")),
+    safeJsonParse(sessionStorage.getItem("currentChild")),
+    safeJsonParse(sessionStorage.getItem("selectedChild")),
+  ];
+
+  for (const child of candidates) {
+    const childId = child?.id || child?.childId || child?.child_id;
+    if (childId) return String(childId);
+  }
+
+  return (
+    localStorage.getItem("currentChildId") ||
+    localStorage.getItem("selectedChildId") ||
+    sessionStorage.getItem("currentChildId") ||
+    sessionStorage.getItem("selectedChildId") ||
+    ""
+  );
+}
+
+function createResultId(childId) {
+  const randomPart = Math.random().toString(36).slice(2, 10);
+  return `pm-test-${childId || "unknown"}-${Date.now()}-${randomPart}`;
+}
+
+function buildPMDataQuality(records = []) {
+  const totalTrials = records.length;
+  const validTrials = records.filter((record) => !record.isTimeout);
+  const timeoutCount = records.filter((record) => record.isTimeout).length;
+  const invalidClickCount = records.reduce(
+    (sum, record) => sum + safeNonNegative(record.randomClickCount, 0),
+    0
+  );
+  const hintCount = records.filter((record) => record.hintShown).length;
+  const totalOptionTaps = records.reduce(
+    (sum, record) =>
+      sum +
+      (Array.isArray(record.tapLogs)
+        ? record.tapLogs.filter((tap) => tap.action === "select").length
+        : 0),
+    0
+  );
+
+  const timeoutRate = totalTrials > 0 ? timeoutCount / totalTrials : 1;
+  const invalidClickRate =
+    totalOptionTaps + invalidClickCount > 0
+      ? invalidClickCount / (totalOptionTaps + invalidClickCount)
+      : 0;
+  const hintRate = totalTrials > 0 ? hintCount / totalTrials : 0;
+  const warnings = [];
+
+  if (validTrials.length < 4) warnings.push("有效作答題數不足");
+  if (timeoutRate >= 0.25) warnings.push("逾時比例偏高");
+  if (invalidClickRate >= 0.2) warnings.push("背景誤觸比例偏高");
+  if (hintRate > 0) warnings.push("測驗過程曾出現提示");
+
+  let status = "valid";
+  if (validTrials.length < 2 || timeoutRate >= 0.5) {
+    status = "insufficient";
+  } else if (warnings.length > 0) {
+    status = "usable_with_caution";
+  }
+
+  return {
+    status,
+    validTrialCount: validTrials.length,
+    totalTrialCount: totalTrials,
+    timeoutCount,
+    timeoutRate,
+    invalidClickCount,
+    invalidClickRate,
+    hintCount,
+    hintRate,
+    warnings,
+  };
+}
+
+function buildMemoryCountSummary(records = []) {
+  const grouped = records.reduce((acc, record) => {
+    const key = String(record.memoryCount);
+    if (!acc[key]) {
+      acc[key] = { memoryCount: record.memoryCount, attempted: 0, correct: 0, timeout: 0 };
+    }
+    acc[key].attempted += 1;
+    if (record.isCorrect) acc[key].correct += 1;
+    if (record.isTimeout) acc[key].timeout += 1;
+    return acc;
+  }, {});
+
+  return Object.values(grouped)
+    .sort((a, b) => a.memoryCount - b.memoryCount)
+    .map((entry) => ({
+      ...entry,
+      accuracy: entry.attempted > 0 ? entry.correct / entry.attempted : 0,
+      timeoutRate: entry.attempted > 0 ? entry.timeout / entry.attempted : 0,
+      passed: entry.attempted >= TRIALS_PER_MEMORY_COUNT && entry.correct >= 1,
+    }));
+}
+
+const LEGACY_PM_TEST_RESULT_KEYS = [
+  "pmTestResult",
+  "latestPMTestResult",
+  "pictureMemoryTestResult",
+  "result_picture_memory_test",
+  "ef_game_pm_test_result",
+];
+
+const SESSION_PM_TEST_RESULT_KEYS = ["pmTestResult", "latestPMTestResult"];
+
 export default function TestPage_PM() {
   const navigate = useNavigate();
 
@@ -146,16 +321,23 @@ export default function TestPage_PM() {
   const recordsRef = useRef([]);
   const tapLogsRef = useRef([]);
   const selectedIdsRef = useRef([]);
+  const finalizeAnswerRef = useRef(null);
   const lastResultRef = useRef(null);
   const pendingResultRef = useRef(null);
+  const hasSavedUnifiedResultRef = useRef(false);
   const hasSubmittedRef = useRef(false);
   const timeoutRef = useRef(null);
   const answerTimeoutRef = useRef(null);
   const answerStartFrameRef = useRef(null);
   const levelTransitionRef = useRef(null);
+  const stopReasonRef = useRef(null);
+  const testStartedAtRef = useRef(null);
+  const resultIdRef = useRef(null);
+  const videoTransitioningRef = useRef(false);
+  const finishingRef = useRef(false);
 
   const [phase, setPhase] = useState("rules");
-  // rules -> tutorial -> introVideo -> memorize -> answer -> feedback -> endingVideo -> result
+  // rules -> introVideo -> stepVideo -> memorize -> answer -> feedback -> endingVideo -> result
 
   const [currentLevelIndex, setCurrentLevelIndex] = useState(0);
   const [currentMemorizeItems, setCurrentMemorizeItems] = useState([]);
@@ -163,33 +345,59 @@ export default function TestPage_PM() {
   const [selectedIds, setSelectedIds] = useState([]);
 
   const [feedbackText, setFeedbackText] = useState("");
-  const [feedbackType, setFeedbackType] = useState("success");
 
-  const currentLevel = LEVELS[currentLevelIndex];
+
+  const currentLevel = TEST_TRIALS[currentLevelIndex];
 
   const selectedDifficulty = useMemo(() => {
-    if (currentLevelIndex <= 1) return "easy";
-    if (currentLevelIndex <= 4) return "normal";
+    const level = currentLevel?.level ?? 1;
+    if (level <= 2) return "easy";
+    if (level <= 5) return "normal";
     return "hard";
-  }, [currentLevelIndex]);
+  }, [currentLevel]);
+
+  const clearAnswerTimers = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (answerTimeoutRef.current) clearTimeout(answerTimeoutRef.current);
+    if (answerStartFrameRef.current) cancelAnimationFrame(answerStartFrameRef.current);
+
+    timeoutRef.current = null;
+    answerTimeoutRef.current = null;
+    answerStartFrameRef.current = null;
+  }, []);
+
+  const clearAllTimers = useCallback(() => {
+    clearAnswerTimers();
+    if (levelTransitionRef.current) clearTimeout(levelTransitionRef.current);
+    levelTransitionRef.current = null;
+  }, [clearAnswerTimers]);
+
+  const writePmTestResult = useCallback((result) => {
+    const serializedResult = JSON.stringify(result);
+    const childKey = result.childId ? `pmTestResult_${result.childId}` : "pmTestResult_unassigned";
+
+    localStorage.setItem(childKey, serializedResult);
+    sessionStorage.setItem(childKey, serializedResult);
+
+    LEGACY_PM_TEST_RESULT_KEYS.forEach((key) => {
+      localStorage.setItem(key, serializedResult);
+    });
+
+    SESSION_PM_TEST_RESULT_KEYS.forEach((key) => {
+      sessionStorage.setItem(key, serializedResult);
+    });
+  }, []);
 
   useEffect(() => {
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (answerTimeoutRef.current) clearTimeout(answerTimeoutRef.current);
-      if (levelTransitionRef.current) clearTimeout(levelTransitionRef.current);
-      if (answerStartFrameRef.current) cancelAnimationFrame(answerStartFrameRef.current);
-    };
-  }, []);
+    return clearAllTimers;
+  }, [clearAllTimers]);
 
   useEffect(() => {
     selectedIdsRef.current = selectedIds;
   }, [selectedIds]);
 
   useEffect(() => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    if (answerTimeoutRef.current) clearTimeout(answerTimeoutRef.current);
-    if (answerStartFrameRef.current) cancelAnimationFrame(answerStartFrameRef.current);
+    clearAnswerTimers();
 
     if (phase === "memorize" && currentLevel) {
       timeoutRef.current = setTimeout(() => {
@@ -202,7 +410,7 @@ export default function TestPage_PM() {
       answerStartFrameRef.current = requestAnimationFrame(() => {
         answerStartRef.current = performance.now();
         answerTimeoutRef.current = setTimeout(() => {
-          finalizeAnswer({
+          finalizeAnswerRef.current?.({
             isTimeout: true,
             forceSelectedIds: selectedIdsRef.current,
           });
@@ -210,17 +418,12 @@ export default function TestPage_PM() {
       });
     }
 
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (answerTimeoutRef.current) clearTimeout(answerTimeoutRef.current);
-      if (answerStartFrameRef.current) cancelAnimationFrame(answerStartFrameRef.current);
-    };
-  }, [phase, currentLevel]);
+    return clearAnswerTimers;
+  }, [phase, currentLevel, clearAnswerTimers]);
 
 
   const resetRuntimeRefs = () => {
-    if (answerTimeoutRef.current) clearTimeout(answerTimeoutRef.current);
-    if (answerStartFrameRef.current) cancelAnimationFrame(answerStartFrameRef.current);
+    clearAnswerTimers();
     answerStartRef.current = null;
     tapLogsRef.current = [];
     selectedIdsRef.current = [];
@@ -255,30 +458,44 @@ export default function TestPage_PM() {
     setCurrentOptions(options);
     setSelectedIds([]);
     setFeedbackText("");
-    setFeedbackType("success");
     setPhase("memorize");
   };
 
   const handleStart = () => {
-    if (levelTransitionRef.current) clearTimeout(levelTransitionRef.current);
+    clearAllTimers();
     recordsRef.current = [];
     pendingResultRef.current = null;
+    stopReasonRef.current = null;
+    hasSavedUnifiedResultRef.current = false;
+    finishingRef.current = false;
+    videoTransitioningRef.current = false;
+    testStartedAtRef.current = new Date().toISOString();
+    resultIdRef.current = null;
     resetRuntimeRefs();
     setCurrentLevelIndex(0);
     setCurrentMemorizeItems([]);
     setCurrentOptions([]);
     setSelectedIds([]);
     setFeedbackText("");
-    setFeedbackType("success");
-    setPhase("tutorial");
-  };
-
-  const handleTutorialDone = () => {
     setPhase("introVideo");
   };
 
-  const handleVideoEnd = () => {
-    setupLevel(LEVELS[0]);
+  const handleIntroVideoEnd = () => {
+    if (videoTransitioningRef.current) return;
+    videoTransitioningRef.current = true;
+    setPhase("stepVideo");
+    requestAnimationFrame(() => {
+      videoTransitioningRef.current = false;
+    });
+  };
+
+  const handleStepVideoEnd = () => {
+    if (videoTransitioningRef.current) return;
+    videoTransitioningRef.current = true;
+    setupLevel(TEST_TRIALS[0]);
+    requestAnimationFrame(() => {
+      videoTransitioningRef.current = false;
+    });
   };
 
   const trackRandomClick = () => {
@@ -338,9 +555,7 @@ export default function TestPage_PM() {
     if (hasSubmittedRef.current) return;
     if (!currentLevel) return;
 
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    if (answerTimeoutRef.current) clearTimeout(answerTimeoutRef.current);
-    if (answerStartFrameRef.current) cancelAnimationFrame(answerStartFrameRef.current);
+    clearAnswerTimers();
 
     const finalSelectedIds = forceSelectedIds || selectedIdsRef.current;
     const correctIds = currentMemorizeItems.map((item) => item.id);
@@ -361,11 +576,12 @@ export default function TestPage_PM() {
       (tap) => tap.action === "deselect"
     ).length;
     const missedTargetCount = correctIds.filter((id) => !finalSelectedIds.includes(id)).length;
-    const firstTapTime = tapLogsRef.current.length > 0 ? tapLogsRef.current[0].timestamp : 0;
+    const firstOptionTap = tapLogsRef.current.find((tap) => tap.action === "select");
+    const firstTapTime = firstOptionTap?.timestamp || 0;
 
     const errorTypes = {
       ...DEFAULT_ERRORS,
-      miss: isTimeout || finalSelectedIds.length < correctIds.length ? missedTargetCount : 0,
+      miss: missedTargetCount,
       randomClick: randomClickCount,
       wrongTarget: wrongTapCount,
       repeatedClick: deselectCount,
@@ -375,7 +591,12 @@ export default function TestPage_PM() {
     const record = {
       task: "PM",
       level: currentLevel.level,
+      trialNumber: currentLevelIndex + 1,
+      trialInMemoryCount: currentLevel.trialInMemoryCount,
+      plannedTrialsInMemoryCount: currentLevel.plannedTrialsInMemoryCount,
+      plannedTotalRounds: TEST_TRIALS.length,
       difficulty: selectedDifficulty,
+      difficultyLevel: currentLevel.level,
       memoryCount: currentLevel.memoryCount,
       showTime: currentLevel.showTime,
       answerTimeLimit: currentLevel.answerTime,
@@ -388,6 +609,7 @@ export default function TestPage_PM() {
       randomClickCount,
       deselectCount,
       missedTargetCount,
+      hintShown: false,
       errorTypes,
       selectedIds: finalSelectedIds,
       correctIds,
@@ -398,19 +620,10 @@ export default function TestPage_PM() {
     hasSubmittedRef.current = true;
     pushRecord(record);
 
-    if (isTimeout) {
-      setFeedbackText("時間到了，皮皮會陪你一起看看這次結果。");
-      setFeedbackType("error");
-    } else if (isCorrect) {
-      setFeedbackText("找到了！剛剛看到的小物品都放進籃子了。");
-      setFeedbackType("success");
-    } else {
-      setFeedbackText("有幾個小物品好像拿錯了，我們一起看看結果。");
-      setFeedbackType("error");
-    }
-
+    setFeedbackText("這一題完成了。");
     setPhase("feedback");
   };
+  finalizeAnswerRef.current = finalizeAnswer;
 
   const handleSubmit = () => {
     if (phase !== "answer") return;
@@ -423,13 +636,14 @@ export default function TestPage_PM() {
     });
   };
 
-  const buildFinalResult = () => {
+  const buildFinalResult = (stopReason = stopReasonRef.current || "completed_all_trials") => {
     const records = recordsRef.current;
     const totalTrials = records.length;
     const correctTrials = records.filter((record) => record.isCorrect).length;
     const reactionTimes = records
+      .filter((record) => !record.isTimeout)
       .map((record) => record.reactionTime)
-      .filter((rt) => typeof rt === "number" && rt > 0);
+      .filter((rt) => typeof rt === "number" && Number.isFinite(rt) && rt > 0);
 
     const errorTypes = records.reduce(
       (sum, record) => {
@@ -458,6 +672,18 @@ export default function TestPage_PM() {
       .slice(Math.max(1, Math.floor(records.length / 2)))
       .reduce((sum, record) => sum + (Number(record.errorTypes?.miss) || 0), 0);
 
+    const childId = resolveCurrentChildId();
+    const dataQuality = buildPMDataQuality(records);
+    const memoryCountSummary = buildMemoryCountSummary(records);
+    const highestPresentedMemoryCount = records.reduce(
+      (max, record) => Math.max(max, safeNonNegative(record.memoryCount, 0)),
+      0
+    );
+    const highestPassedMemoryCount = memoryCountSummary.reduce(
+      (max, entry) => (entry.passed ? Math.max(max, entry.memoryCount) : max),
+      0
+    );
+
     const rawPerformanceResult = analyzePerformance({
       totalTrials,
       correctTrials,
@@ -470,7 +696,7 @@ export default function TestPage_PM() {
       ...rawPerformanceResult,
       accuracy: safeNonNegative(rawPerformanceResult?.accuracy, 0),
       avgReactionTime: safeNonNegative(rawPerformanceResult?.avgReactionTime, 0),
-      stars: Math.max(1, Math.min(3, safeNumber(rawPerformanceResult?.stars, 1))),
+      stars: Math.max(0, Math.min(3, safeNumber(rawPerformanceResult?.stars, 0))),
     };
 
     const errorResult = safeAnalyzeErrors(errorTypes);
@@ -481,21 +707,39 @@ export default function TestPage_PM() {
     });
     const fatigueLevel = safeNumber(rawFatigueLevel, 0);
 
-    const recommendedDifficulty = safeRecommendedDifficulty({
-      accuracy: performanceResult.accuracy,
-      avgReactionTime: performanceResult.avgReactionTime,
-      errorTypes,
-      fatigueLevel,
+    const recommendedDifficulty =
+      dataQuality.status === "insufficient"
+        ? "easy"
+        : safeRecommendedDifficulty({
+            accuracy: performanceResult.accuracy,
+            avgReactionTime: performanceResult.avgReactionTime,
+            errorTypes,
+            fatigueLevel,
+          });
+
+    const scoring = calculatePMScore(records, {
+      mode: "test",
+      plannedTotalRounds: TEST_TRIALS.length,
     });
 
+    // 正式結果以 pmScoring.js 為主，避免測驗頁、結果頁、家長端星星不同步。
+    const officialScore =
+      dataQuality.status === "insufficient"
+        ? 0
+        : safeNonNegative(scoring?.totalScore, 0);
+    const officialStars =
+      dataQuality.status === "insufficient"
+        ? 0
+        : Math.max(0, Math.min(3, safeNumber(scoring?.stars, 0)));
+
     const gameResult = safeCreateGameResult({
-      childId: "guest-child",
+      childId,
       gameId: "PM",
       abilityType: "memory",
       mode: "test",
-      difficulty: selectedDifficulty,
-      score: performanceResult.accuracy,
-      stars: performanceResult.stars,
+      difficulty: "adaptive_span_test",
+      score: officialScore,
+      stars: officialStars,
       accuracy: performanceResult.accuracy,
       avgReactionTime: performanceResult.avgReactionTime,
       totalPlayTime: records.reduce((sum, record) => sum + safeNonNegative(record.reactionTime, 0), 0),
@@ -504,14 +748,86 @@ export default function TestPage_PM() {
       attemptCount: totalTrials,
     });
 
+    const finishedAt = new Date().toISOString();
+    const startedAt = testStartedAtRef.current || records[0]?.createdAt || finishedAt;
+    const resultId = resultIdRef.current || createResultId(childId);
+    resultIdRef.current = resultId;
+
     return {
       ...gameResult,
+      resultId,
+      schemaVersion: "1.0.0",
+      childId,
+      gameId: "PM",
+      mode: "test",
+      startedAt,
+      finishedAt,
+      durationMs: Math.max(0, new Date(finishedAt).getTime() - new Date(startedAt).getTime()),
+      difficulty: "adaptive_span_test",
       ...performanceResult,
       ...errorResult,
+      score: officialScore,
+      totalScore: officialScore,
+      stars: officialStars,
       fatigueLevel,
       recommendedDifficulty,
+      plannedTotalRounds: TEST_TRIALS.length,
+      stopReason,
+      stopReasonText: getPMStopReasonText(stopReason),
+      scoring,
+      summary: {
+        accuracy: performanceResult.accuracy,
+        accuracyPercent: scoring?.summary?.accuracyPercent ?? Math.round(performanceResult.accuracy * 100),
+        score: officialScore,
+        totalScore: officialScore,
+        stars: officialStars,
+        completedTrials: totalTrials,
+        highestPresentedMemoryCount,
+        highestPassedMemoryCount,
+        memorySpan: highestPassedMemoryCount,
+        stopReason,
+      },
+      metrics: {
+        accuracy: performanceResult.accuracy,
+        avgReactionTime: performanceResult.avgReactionTime,
+        timeoutRate: dataQuality.timeoutRate,
+        highestPresentedMemoryCount,
+        highestPassedMemoryCount,
+        memorySpan: highestPassedMemoryCount,
+        accuracyByMemoryCount: Object.fromEntries(
+          memoryCountSummary.map((entry) => [entry.memoryCount, entry.accuracy])
+        ),
+        timeoutRateByMemoryCount: Object.fromEntries(
+          memoryCountSummary.map((entry) => [entry.memoryCount, entry.timeoutRate])
+        ),
+        memoryCountSummary,
+      },
+      dataQuality,
+      trials: records,
+      analysis: {
+        performance: {
+          ...performanceResult,
+          score: officialScore,
+          totalScore: officialScore,
+          stars: officialStars,
+        },
+        scoring,
+        errors: errorResult,
+        fatigueLevel,
+      },
+      recommendation: {
+        difficulty: recommendedDifficulty,
+        shouldAutoAdjust: dataQuality.status !== "insufficient",
+        reason:
+          dataQuality.status === "insufficient"
+            ? "本次有效作答資料不足，暫不提高難度。"
+            : errorTypes.miss > 0
+            ? "本次有漏選情形，建議維持或降低圖片數量。"
+            : "本次作答資料可供下一次難度安排參考。",
+      },
+      syncStatus: "pending",
       records,
-      visibleRoles: ["child", "parent"],
+      visibleRoles: ["child", "parent", "clinician"],
       aiSummary: {
         recommendedDifficulty,
         reason:
@@ -524,21 +840,72 @@ export default function TestPage_PM() {
     };
   };
 
-  const goResult = () => {
-    const finalResult = buildFinalResult();
+  const persistPmTestResult = (result) => {
+    const persistableResult = {
+      ...result,
+      mode: "test",
+      visibleRoles: ["child", "parent", "clinician"],
+    };
+
+    try {
+      writePmTestResult(persistableResult);
+    } catch (error) {
+      console.warn("[TestPage_PM] localStorage 儲存失敗：", error);
+    }
+
+    if (!hasSavedUnifiedResultRef.current) {
+      hasSavedUnifiedResultRef.current = true;
+      Promise.resolve(
+        saveUnifiedResult({
+          rawResult: persistableResult,
+          gameId: "PM",
+          mode: "test",
+          difficulty: "adaptive_span_test",
+          route: "/test-picture-memory",
+          visibleRoles: ["child", "parent", "clinician"],
+        })
+      )
+        .then(() => {
+          persistableResult.syncStatus = "synced";
+          if (pendingResultRef.current?.resultId === persistableResult.resultId) {
+            pendingResultRef.current = persistableResult;
+          }
+          try {
+            writePmTestResult(persistableResult);
+          } catch (error) {
+            console.warn("[TestPage_PM] syncStatus 回寫失敗：", error);
+          }
+        })
+        .catch((error) => {
+          hasSavedUnifiedResultRef.current = false;
+          persistableResult.syncStatus = "pending";
+          console.warn("[TestPage_PM] 統一結果儲存失敗，已保留本機結果：", error);
+        });
+    }
+
+    return persistableResult;
+  };
+
+  const goResult = (stopReason = "completed_all_trials") => {
+    if (finishingRef.current) return;
+    finishingRef.current = true;
+    stopReasonRef.current = stopReason;
+    const finalResult = persistPmTestResult(buildFinalResult(stopReason));
     pendingResultRef.current = finalResult;
-    localStorage.setItem("pmTestResult", JSON.stringify(finalResult));
     setPhase("endingVideo");
   };
 
   const navigateToResult = () => {
-    const finalResult = pendingResultRef.current || buildFinalResult();
-    localStorage.setItem("pmTestResult", JSON.stringify(finalResult));
+    const finalResult =
+      pendingResultRef.current ||
+      persistPmTestResult(buildFinalResult(stopReasonRef.current || "completed_all_trials"));
+
+    pendingResultRef.current = finalResult;
     navigate("/result-picture-memory", {
       state: {
         ...finalResult,
         mode: "test",
-        visibleRoles: ["child", "parent"],
+        visibleRoles: ["child", "parent", "clinician"],
       },
     });
   };
@@ -548,22 +915,24 @@ export default function TestPage_PM() {
     if (!lastRecord) return;
     if (levelTransitionRef.current) return;
 
+    const records = recordsRef.current;
     const nextIndex = currentLevelIndex + 1;
+    const stopReason = getPMStopReason({ records, nextIndex });
 
     levelTransitionRef.current = setTimeout(() => {
       levelTransitionRef.current = null;
 
-      if (lastRecord.isCorrect && nextIndex < LEVELS.length) {
-        setCurrentLevelIndex(nextIndex);
-        setupLevel(LEVELS[nextIndex]);
+      if (stopReason) {
+        goResult(stopReason);
         return;
       }
 
-      goResult();
+      setCurrentLevelIndex(nextIndex);
+      setupLevel(TEST_TRIALS[nextIndex]);
     }, 200);
   };
 
-  const resultStars = Math.max(1, Math.min(3, Number(pendingResultRef.current?.stars) || 1));
+  const resultStars = Math.max(0, Math.min(3, Number(pendingResultRef.current?.stars) || 0));
 
   return (
     <div style={styles.page(bgImage)}>
@@ -577,7 +946,6 @@ export default function TestPage_PM() {
         button[aria-label="跳過動畫"]:hover:not(:disabled),
         button[aria-label="下一步"]:hover:not(:disabled),
         button[aria-label="回到森林"]:hover:not(:disabled),
-        button[aria-label="再玩一次"]:hover:not(:disabled),
         button[aria-label="詳細結果"]:hover:not(:disabled) {
           transform: translateY(-2px) scale(1.03);
           filter: brightness(1.04);
@@ -586,7 +954,6 @@ export default function TestPage_PM() {
         button[aria-label="跳過動畫"]:active:not(:disabled),
         button[aria-label="下一步"]:active:not(:disabled),
         button[aria-label="回到森林"]:active:not(:disabled),
-        button[aria-label="再玩一次"]:active:not(:disabled),
         button[aria-label="詳細結果"]:active:not(:disabled) {
           transform: translateY(1px) scale(0.98);
         }
@@ -594,7 +961,6 @@ export default function TestPage_PM() {
           button[aria-label="進入遊戲"],
           button[aria-label="下一步"],
           button[aria-label="回到森林"],
-          button[aria-label="再玩一次"],
           button[aria-label="詳細結果"] {
             width: min(72vw, 206px) !important;
           }
@@ -627,52 +993,6 @@ export default function TestPage_PM() {
             </div>
           )}
 
-          {phase === "tutorial" && (
-            <div style={styles.card}>
-              <p style={styles.kicker}>前導教學</p>
-              <h1 style={styles.title}>先記住，再點回來</h1>
-
-              <div style={styles.tutorialRow}>
-                <div style={styles.tutorialPanel}>
-                  <p style={styles.tutorialLabel}>第一步：先看圖片</p>
-                  <div style={styles.demoGrid}>
-                    {[PM01, PM02, PM03].map((image, index) => (
-                      <div key={index} style={styles.demoCard}>
-                        <img src={image} alt="教學記憶圖片" style={styles.demoImage} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div style={styles.tutorialArrow}>→</div>
-
-                <div style={styles.tutorialPanel}>
-                  <p style={styles.tutorialLabel}>第二步：從選項點出來</p>
-                  <div style={styles.demoGrid}>
-                    {[PM01, PM05, PM02].map((image, index) => (
-                      <div
-                        key={index}
-                        style={{
-                          ...styles.demoCard,
-                          ...(index === 0 || index === 2 ? styles.demoCardSelected : {}),
-                        }}
-                      >
-                        <img src={image} alt="教學作答圖片" style={styles.demoImage} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <p style={styles.textCompact}>點滿指定數量後，再按「放進小籃子」。</p>
-              <div style={styles.guidedAction}>
-                <button type="button" style={styles.imageButton} onClick={handleTutorialDone} aria-label="進入遊戲">
-                  <img src={homeStartBtn} alt="進入遊戲" style={styles.imageButtonImg} />
-                </button>
-                <img src={mouseGuideImg} alt="提示點擊" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
-              </div>
-            </div>
-          )}
 
           {phase === "introVideo" && (
             <div style={styles.videoPanel}>
@@ -683,13 +1003,35 @@ export default function TestPage_PM() {
                   autoPlay
                   playsInline
                   controls={false}
-                  onEnded={handleVideoEnd}
+                  onEnded={handleIntroVideoEnd}
                 />
               </div>
 
               <div style={styles.guidedAction}>
-                <button type="button" style={{ ...styles.imageButton, ...styles.skipImageButton }} onClick={handleVideoEnd} aria-label="跳過動畫">
+                <button type="button" style={{ ...styles.imageButton, ...styles.skipImageButton }} onClick={handleIntroVideoEnd} aria-label="跳過動畫">
                   <img src={homeSkipBtn} alt="跳過動畫" style={styles.imageButtonImg} />
+                </button>
+                <img src={mouseGuideImg} alt="提示點擊" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
+              </div>
+            </div>
+          )}
+
+          {phase === "stepVideo" && (
+            <div style={styles.videoPanel}>
+              <div style={styles.videoFrame}>
+                <video
+                  src={stepVideo}
+                  style={styles.video}
+                  autoPlay
+                  playsInline
+                  controls={false}
+                  onEnded={handleStepVideoEnd}
+                />
+              </div>
+
+              <div style={styles.guidedAction}>
+                <button type="button" style={styles.imageButton} onClick={handleStepVideoEnd} aria-label="下一步">
+                  <img src={homeNextBtn} alt="下一步" style={styles.imageButtonImg} />
                 </button>
                 <img src={mouseGuideImg} alt="提示點擊" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
               </div>
@@ -698,11 +1040,11 @@ export default function TestPage_PM() {
 
           {phase === "memorize" && currentLevel && (
             <div style={styles.card}>
-              <p style={styles.kicker}>第 {currentLevel.level} 關</p>
+              <p style={styles.kicker}>第 {currentLevelIndex + 1} / {TEST_TRIALS.length} 題</p>
               <h1 style={styles.title}>看清楚湖裡的小物品</h1>
 
               <div style={styles.iconHint}>
-                <span>請記住這些圖片</span>
+                <span>請記住 {currentLevel.memoryCount} 個圖片</span>
               </div>
 
               <div style={styles.memoryGrid}>
@@ -717,7 +1059,7 @@ export default function TestPage_PM() {
 
           {phase === "answer" && currentLevel && (
             <div style={styles.card} onClick={trackRandomClick}>
-              <p style={styles.kicker}>第 {currentLevel.level} 關</p>
+              <p style={styles.kicker}>第 {currentLevelIndex + 1} / {TEST_TRIALS.length} 題</p>
               <h1 style={styles.title}>找回剛剛看過的物品</h1>
 
               <div style={styles.iconHint}>
@@ -767,27 +1109,24 @@ export default function TestPage_PM() {
 
           {phase === "feedback" && (
             <div style={styles.smallCard}>
-              <p style={styles.kicker}>{feedbackType === "success" ? "任務成功" : "任務完成"}</p>
+              <p style={styles.kicker}>任務完成</p>
               <h1
                 style={{
                   ...styles.title,
-                  color: feedbackType === "success" ? "#4f7d3a" : "#b65f2a",
+                  color: "#5c4033",
                 }}
               >
                 {feedbackText}
               </h1>
 
               <p style={styles.textCompact}>
-                {feedbackType === "success"
-                  ? "做得很好，我們繼續下一關。"
-                  : "這次先到這裡，接著看看完成結果。"}
+                請按下一步，準備下一題或查看結果。
               </p>
 
               <div style={styles.guidedAction}>
                 <button type="button" style={styles.imageButton} onClick={handleNext} aria-label="下一步">
-                  <img src={homeStartBtn} alt="下一步" style={styles.imageButtonImg} />
+                  <img src={homeNextBtn} alt="下一步" style={styles.imageButtonImg} />
                 </button>
-                <img src={mouseGuideImg} alt="提示點擊" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
               </div>
             </div>
           )}
@@ -801,15 +1140,24 @@ export default function TestPage_PM() {
                   autoPlay
                   playsInline
                   controls={false}
-                  onEnded={() => setPhase("result")}
+                  onEnded={() => {
+                    if (!videoTransitioningRef.current) {
+                      videoTransitioningRef.current = true;
+                      setPhase("result");
+                    }
+                  }}
                 />
               </div>
 
               <div style={styles.guidedAction}>
-                <button type="button" style={{ ...styles.imageButton, ...styles.skipImageButton }} onClick={() => setPhase("result")} aria-label="跳過動畫">
+                <button type="button" style={{ ...styles.imageButton, ...styles.skipImageButton }} onClick={() => {
+                  if (!videoTransitioningRef.current) {
+                    videoTransitioningRef.current = true;
+                    setPhase("result");
+                  }
+                }} aria-label="跳過動畫">
                   <img src={homeSkipBtn} alt="跳過動畫" style={styles.imageButtonImg} />
                 </button>
-                <img src={mouseGuideImg} alt="提示點擊" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
               </div>
             </div>
           )}
@@ -840,7 +1188,7 @@ export default function TestPage_PM() {
 
               <div style={styles.startContent}>
                 <div style={styles.dialogBubble}>
-                  關卡完成！你很認真記住圖片喔。
+                  測驗完成！你很認真記住圖片喔。
                 </div>
                 <div style={styles.roundIcon}>
                   <img src={rabbitAvatar} alt="兔子妹妹" style={styles.roundIconImage} />
@@ -849,14 +1197,10 @@ export default function TestPage_PM() {
 
               <div style={styles.resultActions}>
                 <div style={styles.guidedAction}>
-                  <button type="button" style={styles.resultImageButton} onClick={() => navigate("/test-map")} aria-label="回到森林">
+                  <button type="button" style={styles.resultImageButton} onClick={() => navigate(TEST_PAGE_ROUTE)} aria-label="回到森林">
                     <img src={homeBackBtn} alt="回到森林" style={styles.imageButtonImg} />
                   </button>
-                  <img src={mouseGuideImg} alt="提示點擊" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
                 </div>
-                <button type="button" style={styles.resultImageButton} onClick={handleStart} aria-label="再玩一次">
-                  <img src={homeAgainBtn} alt="再玩一次" style={styles.imageButtonImg} />
-                </button>
                 <button type="button" style={styles.resultImageButton} onClick={navigateToResult} aria-label="詳細結果">
                   <img src={homeResultBtn} alt="詳細結果" style={styles.imageButtonImg} />
                 </button>

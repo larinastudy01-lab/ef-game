@@ -5,7 +5,7 @@ import loginButton from "../asset/home/login.png";
 import registerButton from "../asset/home/register.png";
 import medicalLoginButton from "../asset/home/dc_register.png";
 
-const CLINICIAN_LOGIN_ROUTE = "/clinician-login";
+const CLINICIAN_DASHBOARD_ROUTE = "/clinician-dashboard";
 
 function HomePage() {
   const navigate = useNavigate();
@@ -19,7 +19,7 @@ function HomePage() {
   };
 
   const goMedicalLogin = () => {
-    navigate(CLINICIAN_LOGIN_ROUTE);
+    navigate(CLINICIAN_DASHBOARD_ROUTE);
   };
 
   return (
@@ -69,14 +69,14 @@ function HomePage() {
         .home-button-area {
           position: absolute;
           left: 50%;
-          bottom: clamp(44px, 7.4vh, 88px);
+          bottom: clamp(34px, 6.2vh, 76px);
           z-index: 3;
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: clamp(22px, 4.2vw, 72px);
+          gap: clamp(18px, 2.8vw, 44px);
           transform: translateX(-50%);
-          width: min(860px, 76vw);
+          width: min(980px, 88vw);
         }
 
         .home-image-button {
@@ -105,40 +105,25 @@ function HomePage() {
 
         .home-image-button img {
           display: block;
-          width: clamp(190px, 20vw, 300px);
+          width: clamp(170px, 18vw, 260px);
           height: auto;
           user-select: none;
           pointer-events: none;
         }
 
-        .home-image-button.is-medical {
-          position: fixed;
-          right: clamp(22px, 4vw, 58px);
-          bottom: clamp(24px, 5vh, 58px);
-          z-index: 20;
-        }
-
         .home-image-button.is-medical img {
-          width: clamp(96px, 9.5vw, 146px);
+          width: clamp(170px, 18vw, 260px);
         }
 
         @media (max-width: 980px) {
           .home-button-area {
-            width: min(720px, 82vw);
-            gap: 20px;
+            width: min(820px, 90vw);
+            gap: 16px;
           }
 
-          .home-image-button img {
-            width: clamp(160px, 26vw, 240px);
-          }
-
-          .home-image-button.is-medical {
-            right: 24px;
-            bottom: 24px;
-          }
-
+          .home-image-button img,
           .home-image-button.is-medical img {
-            width: 96px;
+            width: clamp(150px, 27vw, 220px);
           }
         }
 
@@ -148,29 +133,29 @@ function HomePage() {
           }
 
           .home-button-area {
-            bottom: 28px;
-            width: calc(100vw - 28px);
+            bottom: 20px;
+            width: calc(100vw - 24px);
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
           }
 
-          .home-image-button img {
-            width: min(250px, 72vw);
-          }
-
-          .home-image-button.is-medical {
-            position: fixed;
-            right: 16px;
-            bottom: 16px;
-          }
-
+          .home-image-button img,
           .home-image-button.is-medical img {
-            width: min(118px, 34vw);
+            width: min(240px, 68vw);
           }
         }
       `}</style>
 
-      <section className="home-button-area" aria-label="登入與註冊按鈕">
+      <section className="home-button-area" aria-label="登入、註冊與醫療人員登入按鈕">
+        <button
+          type="button"
+          className="home-image-button is-register"
+          onClick={goRegister}
+          aria-label="註冊"
+        >
+          <img src={registerButton} alt="註冊" draggable="false" />
+        </button>
+
         <button
           type="button"
           className="home-image-button is-login"
@@ -182,22 +167,13 @@ function HomePage() {
 
         <button
           type="button"
-          className="home-image-button is-register"
-          onClick={goRegister}
-          aria-label="註冊"
+          className="home-image-button is-medical"
+          onClick={goMedicalLogin}
+          aria-label="醫療人員登入"
         >
-          <img src={registerButton} alt="註冊" draggable="false" />
+          <img src={medicalLoginButton} alt="醫療人員登入" draggable="false" />
         </button>
       </section>
-
-      <button
-        type="button"
-        className="home-image-button is-medical"
-        onClick={goMedicalLogin}
-        aria-label="醫療人員登入"
-      >
-        <img src={medicalLoginButton} alt="醫療人員登入" draggable="false" />
-      </button>
     </main>
   );
 }

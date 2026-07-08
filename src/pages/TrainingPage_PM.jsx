@@ -5,6 +5,9 @@ import { analyzePerformance } from "../ai/performanceAnalyzer";
 import { analyzeErrors } from "../ai/errorAnalyzer";
 import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
+import { analyzePMTraining, calculatePMAIScore } from "../ai/pmTrainingAnalyzer";
+import { calculatePMScore } from "../utils/pmScoring";
+import { saveUnifiedResult } from "../utils/resultManager";
 
 import PM01 from "../asset/PM/PM_01.png";
 import PM02 from "../asset/PM/PM_02.png";
@@ -21,13 +24,16 @@ import rabbitAvatar from "../asset/avatar/rabbit.png";
 
 import clickSfx from "../asset/Click_SRT.mp3";
 import bgImage from "../asset/PM_testbackground.png";
-import introVideo from "../asset/SRT_start.mp4";
+import introVideo from "../asset/mp4/PM_start.mp4";
+import stepVideo from "../asset/mp4/PM_step.mp4";
+import endingVideo from "../asset/mp4/PM_end.mp4";
 import mouseGuideImg from "../asset/mouse.png";
 import homeResultBtn from "../asset/home/result.png";
 import homeAgainBtn from "../asset/home/again.png";
 import homeBackBtn from "../asset/home/back.png";
 import homeSkipBtn from "../asset/home/skip.png";
 import homeStartBtn from "../asset/home/start.png";
+import homeNextBtn from "../asset/home/next.png";
 
 const ALL_ITEMS = [
   { id: "PM01", image: PM01 },
@@ -47,7 +53,9 @@ const ALL_ITEMS = [
 const COMPLETED_LEVELS_STORAGE_KEY = "ef_game_completed_training_levels";
 const PM_STAGE_STAR_STORAGE_KEY = "ef_game_training_stage_stars";
 const MAX_LEVEL_PER_GAME = 10;
-const TRAINING_TOTAL_ROUNDS = 5;
+const SPAN_TRIALS_PER_MEMORY_COUNT = 2;
+const MAX_TRAINING_MEMORY_SPAN = 6;
+const DEFAULT_TRAINING_TOTAL_ROUNDS = 6;
 
 const clampNumber = (value, min, max) => {
   const number = Number(value);
@@ -66,6 +74,36 @@ const safeParse = (value, fallback = null) => {
     return value ? JSON.parse(value) : fallback;
   } catch {
     return fallback;
+  }
+};
+
+const safeStorageGet = (storage, key) => {
+  try {
+    return storage?.getItem(key) || null;
+  } catch (error) {
+    console.warn(`[TrainingPage_PM] 無法讀取儲存資料 (${key})：`, error);
+    return null;
+  }
+};
+
+const safeStorageSet = (key, value) => {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (error) {
+    console.warn(`[TrainingPage_PM] 無法寫入儲存資料 (${key})：`, error);
+    return false;
+  }
+};
+
+const safeStorageSetJson = (key, value) =>
+  safeStorageSet(key, JSON.stringify(value));
+
+const dispatchStorageRefresh = () => {
+  try {
+    window.dispatchEvent(new Event("storage"));
+  } catch (error) {
+    console.warn("[TrainingPage_PM] 無法通知儲存資料更新：", error);
   }
 };
 
@@ -101,22 +139,47 @@ const getTrainingStageInfo = (location) => {
   };
 };
 
-const getLatestPMTestResult = () => {
+const resolveCurrentChildId = () => {
   const possibleKeys = [
+    "currentChildId",
+    "selectedChildId",
+    "activeChildId",
+    "childId",
+  ];
+
+  for (const key of possibleKeys) {
+    const value =
+      safeStorageGet(localStorage, key) || safeStorageGet(sessionStorage, key);
+    if (value) return value;
+  }
+
+  const currentChild =
+    safeParse(safeStorageGet(localStorage, "currentChild"), null) ||
+    safeParse(safeStorageGet(sessionStorage, "currentChild"), null) ||
+    safeParse(safeStorageGet(localStorage, "selectedChild"), null) ||
+    safeParse(safeStorageGet(sessionStorage, "selectedChild"), null);
+
+  return currentChild?.id || currentChild?.childId || currentChild?.profileId || null;
+};
+
+const getLatestPMTestResult = () => {
+  const childId = resolveCurrentChildId();
+  const possibleKeys = [
+    ...(childId ? [`pmTestResult_${childId}`] : []),
     "pmTestResult",
+    "latestPMTestResult",
     "PMTestResult",
     "pictureMemoryTestResult",
     "result_picture_memory_test",
     "ef_game_pm_test_result",
-    "latestPMTestResult",
   ];
 
   for (const key of possibleKeys) {
-    const result = safeParse(localStorage.getItem(key), null);
+    const result = safeParse(safeStorageGet(localStorage, key), null);
     if (result && typeof result === "object") return result;
   }
 
-  const allResults = safeParse(localStorage.getItem("ef_game_test_results"), null);
+  const allResults = safeParse(safeStorageGet(localStorage, "ef_game_test_results"), null);
   if (allResults && typeof allResults === "object") {
     return allResults.pm || allResults.PM || allResults.pictureMemory || null;
   }
@@ -172,8 +235,8 @@ const DIFFICULTY_CONFIGS = {
     desc: "物品少、時間長，先熟悉怎麼記住與找回物品。",
     baseMemoryCount: 2,
     maxMemoryCount: 2,
-    showTime: 6.5,
-    minShowTime: 6,
+    showTime: 5,
+    minShowTime: 4.5,
     answerTime: 16,
     distractorExtra: 1,
     motion: "none",
@@ -185,8 +248,8 @@ const DIFFICULTY_CONFIGS = {
     desc: "物品稍微增加，但湖面還是很平靜。",
     baseMemoryCount: 2,
     maxMemoryCount: 3,
-    showTime: 6,
-    minShowTime: 5.5,
+    showTime: 4.5,
+    minShowTime: 4,
     answerTime: 15,
     distractorExtra: 2,
     motion: "none",
@@ -198,8 +261,8 @@ const DIFFICULTY_CONFIGS = {
     desc: "要記住更多物品，並從更多選項中找回來。",
     baseMemoryCount: 3,
     maxMemoryCount: 4,
-    showTime: 5,
-    minShowTime: 4.5,
+    showTime: 4,
+    minShowTime: 3.5,
     answerTime: 13,
     distractorExtra: 3,
     motion: "none",
@@ -211,11 +274,11 @@ const DIFFICULTY_CONFIGS = {
     desc: "湖面會有很輕微的波紋，需要更專心。",
     baseMemoryCount: 4,
     maxMemoryCount: 4,
-    showTime: 4.5,
-    minShowTime: 4,
+    showTime: 3.5,
+    minShowTime: 3,
     answerTime: 12,
     distractorExtra: 3,
-    motion: "flicker",
+    motion: "none",
     modeHint: "湖面會輕輕閃動，請專心記住真正掉進湖裡的物品。",
   },
   5: {
@@ -224,8 +287,8 @@ const DIFFICULTY_CONFIGS = {
     desc: "要記住較多物品，也要避開更多非答案選項。",
     baseMemoryCount: 4,
     maxMemoryCount: 5,
-    showTime: 4,
-    minShowTime: 3.5,
+    showTime: 3,
+    minShowTime: 2.8,
     answerTime: 10,
     distractorExtra: 4,
     motion: "flicker",
@@ -237,8 +300,8 @@ const DIFFICULTY_CONFIGS = {
     desc: "物品較多、時間較短，湖水會輕輕晃動。",
     baseMemoryCount: 5,
     maxMemoryCount: 6,
-    showTime: 3.5,
-    minShowTime: 3,
+    showTime: 2.8,
+    minShowTime: 2.5,
     answerTime: 9,
     distractorExtra: 4,
     motion: "move",
@@ -280,62 +343,100 @@ const getBroadDifficultyKey = (difficultyLevel) => {
   return "hard";
 };
 
-const calculateStageStars = ({ accuracy, avgReactionTime, timeoutCount, totalTrials, difficulty }) => {
-  if (!totalTrials) return 1;
+const getTrainingMemorySpanPlan = (difficultyLevel) => {
+  const level = clampNumber(difficultyLevel, 1, 6);
+  const config = DIFFICULTY_CONFIGS[level] || DIFFICULTY_CONFIGS[1];
+  const startSpan = clampNumber(config.baseMemoryCount || 2, 2, MAX_TRAINING_MEMORY_SPAN);
+  const endSpan = clampNumber(
+    Math.max(config.maxMemoryCount || startSpan, startSpan + 2),
+    startSpan,
+    MAX_TRAINING_MEMORY_SPAN
+  );
 
-  let stars = 1;
-  const rtTargetMap = {
-    1: 11000,
-    2: 10000,
-    3: 9000,
-    4: 8200,
-    5: 7600,
-    6: 7000,
+  return Array.from(
+    { length: endSpan - startSpan + 1 },
+    (_, index) => startSpan + index
+  );
+};
+
+const getTrainingTotalRounds = (difficultyLevel) =>
+  getTrainingMemorySpanPlan(difficultyLevel).length * SPAN_TRIALS_PER_MEMORY_COUNT;
+
+const getSpanInfoForRound = (roundNumber, difficultyLevel) => {
+  const plan = getTrainingMemorySpanPlan(difficultyLevel);
+  const safeRound = Math.max(1, Math.round(safeNumber(roundNumber, 1)));
+  const spanIndex = clampNumber(
+    Math.floor((safeRound - 1) / SPAN_TRIALS_PER_MEMORY_COUNT),
+    0,
+    Math.max(0, plan.length - 1)
+  );
+
+  return {
+    memorySpan: plan[spanIndex] || plan[0] || 2,
+    memorySpanIndex: spanIndex + 1,
+    memorySpanTotal: plan.length,
+    spanTrialIndex: ((safeRound - 1) % SPAN_TRIALS_PER_MEMORY_COUNT) + 1,
+    spanTrialTotal: SPAN_TRIALS_PER_MEMORY_COUNT,
+    spanPlan: plan,
   };
-  const rtTarget = rtTargetMap[difficulty] || 9000;
-  const timeoutRate = timeoutCount / totalTrials;
+};
 
-  if (accuracy >= 0.6 && timeoutRate <= 0.45) stars = 2;
-  if (accuracy >= 0.82 && avgReactionTime > 0 && avgReactionTime <= rtTarget && timeoutRate <= 0.25) stars = 3;
+const shouldStopBySpanFailure = (records, memorySpan) => {
+  const spanRecords = (Array.isArray(records) ? records : []).filter(
+    (record) => Number(record?.memoryCount ?? record?.memorySpan) === Number(memorySpan)
+  );
 
-  return stars;
+  if (spanRecords.length < SPAN_TRIALS_PER_MEMORY_COUNT) {
+    return { shouldStop: false, reason: null, spanRecords };
+  }
+
+  const latestSpanRecords = spanRecords.slice(-SPAN_TRIALS_PER_MEMORY_COUNT);
+  const bothFailed = latestSpanRecords.every((record) => record?.isCorrect !== true);
+  const bothTimeout = latestSpanRecords.every((record) => record?.isTimeout === true);
+
+  return {
+    shouldStop: bothFailed || bothTimeout,
+    reason: bothTimeout ? "span_two_timeouts" : bothFailed ? "span_two_failed" : null,
+    spanRecords: latestSpanRecords,
+  };
 };
 
 const saveTrainingStageProgress = ({ stageId, level, stars, finalResult }) => {
   const safeStars = clampStarCount(stars);
-  const completedLevels = safeParse(localStorage.getItem(COMPLETED_LEVELS_STORAGE_KEY), []);
+  const completedLevels = safeParse(safeStorageGet(localStorage, COMPLETED_LEVELS_STORAGE_KEY), []);
   const nextCompletedLevels = Array.isArray(completedLevels)
     ? [...new Set([...completedLevels, stageId, `pm-${level}`])]
     : [stageId, `pm-${level}`];
 
-  localStorage.setItem(COMPLETED_LEVELS_STORAGE_KEY, JSON.stringify(nextCompletedLevels));
-  localStorage.setItem(`ef_game_${stageId}_completed`, "true");
-  localStorage.setItem(`ef_game_${stageId}_stars`, String(safeStars));
-  localStorage.setItem(`ef_game_pm_level_${level}_completed`, "true");
-  localStorage.setItem(`ef_game_pm_level_${level}_stars`, String(safeStars));
-  localStorage.setItem(`training_pm_level_${level}_completed`, "true");
-  localStorage.setItem(`training_pm_level_${level}_stars`, String(safeStars));
-  localStorage.setItem(`pm_training_level_${level}_completed`, "true");
-  localStorage.setItem(`pm_training_level_${level}_stars`, String(safeStars));
+  const progressWrites = [
+    [COMPLETED_LEVELS_STORAGE_KEY, JSON.stringify(nextCompletedLevels)],
+    [`ef_game_${stageId}_completed`, "true"],
+    [`ef_game_${stageId}_stars`, String(safeStars)],
+    [`ef_game_pm_level_${level}_completed`, "true"],
+    [`ef_game_pm_level_${level}_stars`, String(safeStars)],
+    [`training_pm_level_${level}_completed`, "true"],
+    [`training_pm_level_${level}_stars`, String(safeStars)],
+    [`pm_training_level_${level}_completed`, "true"],
+    [`pm_training_level_${level}_stars`, String(safeStars)],
+  ];
 
-  const starMap = safeParse(localStorage.getItem(PM_STAGE_STAR_STORAGE_KEY), {});
+  progressWrites.forEach(([key, value]) => safeStorageSet(key, value));
+
+  const starMap = safeParse(safeStorageGet(localStorage, PM_STAGE_STAR_STORAGE_KEY), {});
   const nextStarMap = {
     ...(starMap && typeof starMap === "object" && !Array.isArray(starMap) ? starMap : {}),
     [stageId]: { stars: safeStars, gameId: "pm", level, updatedAt: new Date().toISOString() },
     [`pm-${level}`]: safeStars,
   };
-  localStorage.setItem(PM_STAGE_STAR_STORAGE_KEY, JSON.stringify(nextStarMap));
+  safeStorageSetJson(PM_STAGE_STAR_STORAGE_KEY, nextStarMap);
 
-  const resultMap = safeParse(localStorage.getItem("ef_game_training_stage_results"), {});
-  localStorage.setItem(
-    "ef_game_training_stage_results",
-    JSON.stringify({
-      ...(resultMap && typeof resultMap === "object" && !Array.isArray(resultMap) ? resultMap : {}),
-      [stageId]: finalResult,
-    })
-  );
+  const resultMap = safeParse(safeStorageGet(localStorage, "ef_game_training_stage_results"), {});
+  safeStorageSetJson("ef_game_training_stage_results", {
+    ...(resultMap && typeof resultMap === "object" && !Array.isArray(resultMap) ? resultMap : {}),
+    [stageId]: finalResult,
+  });
 
-  window.dispatchEvent(new Event("storage"));
+  dispatchStorageRefresh();
 };
 
 function shuffleArray(arr) {
@@ -381,6 +482,15 @@ const safeRecommendedDifficulty = (payload) => {
   }
 };
 
+const safeCalculatePMScore = (records, options) => {
+  try {
+    return calculatePMScore(records, options) || { stars: 1, totalScore: 0 };
+  } catch (error) {
+    console.warn("[TrainingPage_PM] PM scoring failed:", error);
+    return { stars: 1, totalScore: 0 };
+  }
+};
+
 export default function TrainingPage_PM() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -397,11 +507,18 @@ export default function TrainingPage_PM() {
   const answerStartFrameRef = useRef(null);
   const roundTransitionRef = useRef(null);
   const backgroundWarningTimerRef = useRef(null);
+  const idleHintTimerRef = useRef(null);
 
   const [phase, setPhase] = useState("rules");
-  // rules -> tutorial -> introVideo -> readyCountdown -> memorize -> answer -> result
+  // rules -> introVideo -> stepVideo -> readyCountdown -> memorize -> answer -> endingVideo -> result
 
   const [baseDifficulty] = useState(() => getStageDifficulty(trainingStage.level, pmTestResult));
+  const trainingSpanPlan = Number.isFinite(baseDifficulty)
+    ? getTrainingMemorySpanPlan(baseDifficulty)
+    : getTrainingMemorySpanPlan(1);
+  const trainingTotalRounds = trainingSpanPlan.length > 0
+    ? trainingSpanPlan.length * SPAN_TRIALS_PER_MEMORY_COUNT
+    : DEFAULT_TRAINING_TOTAL_ROUNDS;
   const [adaptiveOffset, setAdaptiveOffset] = useState(0);
   const [round, setRound] = useState(1);
 
@@ -417,6 +534,7 @@ export default function TrainingPage_PM() {
   const [feedbackType, setFeedbackType] = useState("success");
   const [lastRecord, setLastRecord] = useState(null);
   const [backgroundWarning, setBackgroundWarning] = useState(false);
+  const [idleHintActive, setIdleHintActive] = useState(false);
 
   const [motionTick, setMotionTick] = useState(0);
 
@@ -427,8 +545,10 @@ export default function TrainingPage_PM() {
   useEffect(() => {
     return () => {
       if (answerStartFrameRef.current) cancelAnimationFrame(answerStartFrameRef.current);
-      if (roundTransitionRef.current) clearTimeout(roundTransitionRef.current);
-      if (backgroundWarningTimerRef.current) clearTimeout(backgroundWarningTimerRef.current);
+      [roundTransitionRef, backgroundWarningTimerRef, idleHintTimerRef].forEach((timerRef) => {
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = null;
+      });
     };
   }, []);
 
@@ -465,12 +585,13 @@ export default function TrainingPage_PM() {
     const difficultyLevel = clampNumber(baseDifficulty + adaptiveOffset, 1, 6);
     const preset = DIFFICULTY_CONFIGS[difficultyLevel] || DIFFICULTY_CONFIGS[1];
     const roundProgress = Math.max(0, round - 1);
-    const memoryCount = Math.min(
-      preset.baseMemoryCount + Math.floor(roundProgress / 3),
-      preset.maxMemoryCount
-    );
+    const spanInfo = getSpanInfoForRound(round, baseDifficulty);
+
+    // 每個記憶跨度固定 2 題。AI 自適應只調整時間、干擾與動畫，不降低目前跨度。
+    const memoryCount = Math.min(spanInfo.memorySpan, ALL_ITEMS.length);
+
     const showTime = Math.max(
-      preset.showTime - Math.floor(roundProgress / 4) * 0.5,
+      preset.showTime - Math.floor(roundProgress / SPAN_TRIALS_PER_MEMORY_COUNT) * 0.25,
       preset.minShowTime
     );
 
@@ -480,6 +601,12 @@ export default function TrainingPage_PM() {
       broadDifficulty: getBroadDifficultyKey(difficultyLevel),
       label: `第 ${trainingStage.level} 關`,
       memoryCount,
+      memorySpan: memoryCount,
+      memorySpanIndex: spanInfo.memorySpanIndex,
+      memorySpanTotal: spanInfo.memorySpanTotal,
+      spanTrialIndex: spanInfo.spanTrialIndex,
+      spanTrialTotal: spanInfo.spanTrialTotal,
+      spanPlan: spanInfo.spanPlan,
       showTime,
       answerTime: preset.answerTime,
       adaptiveOffset,
@@ -489,16 +616,46 @@ export default function TrainingPage_PM() {
 
   const currentConfig = getDifficultyConfig();
 
+  const clearTimeoutRef = (timerRef) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+  };
+
+  const clearAnimationFrameRef = (frameRef) => {
+    if (frameRef.current) cancelAnimationFrame(frameRef.current);
+    frameRef.current = null;
+  };
+
+  const resetRoundViewState = ({ resetFeedback = true } = {}) => {
+    setSelectedIds([]);
+    setCurrentMemorizeItems([]);
+    setCurrentOptions([]);
+
+    if (resetFeedback) {
+      setFeedbackText("");
+      setFeedbackType("success");
+      setLastRecord(null);
+    }
+  };
+
+  const enterReadyCountdown = ({ resetFeedback = true } = {}) => {
+    resetRuntimeRefs();
+    resetRoundViewState({ resetFeedback });
+    answerStartRef.current = performance.now();
+    setReadyCountdown(5);
+    setPhase("readyCountdown");
+  };
+
   const resetRuntimeRefs = () => {
-    if (answerStartFrameRef.current) cancelAnimationFrame(answerStartFrameRef.current);
-    if (backgroundWarningTimerRef.current) clearTimeout(backgroundWarningTimerRef.current);
-    answerStartFrameRef.current = null;
-    backgroundWarningTimerRef.current = null;
+    clearAnimationFrameRef(answerStartFrameRef);
+    clearTimeoutRef(backgroundWarningTimerRef);
+    clearTimeoutRef(idleHintTimerRef);
     answerStartRef.current = null;
     tapLogsRef.current = [];
     selectedIdsRef.current = [];
     hasSubmittedRef.current = false;
     setBackgroundWarning(false);
+    setIdleHintActive(false);
   };
 
   const setupRound = () => {
@@ -506,9 +663,17 @@ export default function TrainingPage_PM() {
 
     const memorizeItems = shuffleArray(ALL_ITEMS).slice(0, config.memoryCount);
 
+    // 選項最多顯示 8 個，但必須先完整保留所有正確答案。
+    // 舊寫法把答案和干擾項一起洗牌後再 slice(0, 8)，會隨機切掉正確答案。
+    const maxOptionCount = Math.min(8, ALL_ITEMS.length);
+    const availableDistractorSlots = Math.max(
+      0,
+      maxOptionCount - memorizeItems.length
+    );
     const distractorCount = Math.min(
       ALL_ITEMS.length - memorizeItems.length,
-      config.memoryCount + config.distractorExtra
+      config.memoryCount + config.distractorExtra,
+      availableDistractorSlots
     );
 
     const distractors = shuffleArray(
@@ -517,7 +682,8 @@ export default function TrainingPage_PM() {
       )
     ).slice(0, distractorCount);
 
-    const options = shuffleArray([...memorizeItems, ...distractors]).slice(0, 8);
+    // 只洗牌、不再裁切，確保 memorizeItems 每一個都一定出現在選項中。
+    const options = shuffleArray([...memorizeItems, ...distractors]);
 
     resetRuntimeRefs();
 
@@ -538,6 +704,9 @@ export default function TrainingPage_PM() {
       adaptiveOffset: config.adaptiveOffset,
       round,
       memoryCount: config.memoryCount,
+      memorySpan: config.memorySpan,
+      spanTrialIndex: config.spanTrialIndex,
+      spanTrialTotal: config.spanTrialTotal,
       showTime: config.showTime,
       answerTime: config.answerTime,
       correctIds: memorizeItems.map((item) => item.id),
@@ -551,37 +720,29 @@ export default function TrainingPage_PM() {
     recordsRef.current = [];
     finalResultRef.current = null;
     resetRuntimeRefs();
+    resetRoundViewState();
 
     setRound(1);
     setAdaptiveOffset(0);
     setReadyCountdown(5);
     setMemorizeCountdown(0);
     setAnswerCountdown(15);
-    setFeedbackText("");
-    setFeedbackType("success");
-    setLastRecord(null);
-    setSelectedIds([]);
-    setCurrentMemorizeItems([]);
-    setCurrentOptions([]);
     setPhase("rules");
   };
 
   const handleStart = () => {
     playClick();
-    setPhase("tutorial");
-  };
-
-  const handleTutorialDone = () => {
-    playClick();
-    answerStartRef.current = performance.now();
-    setReadyCountdown(5);
     setPhase("introVideo");
   };
 
-  const handleVideoEnd = () => {
-    answerStartRef.current = performance.now();
-    setReadyCountdown(5);
-    setPhase("readyCountdown");
+  const handleIntroVideoEnd = () => {
+    playClick();
+    setPhase("stepVideo");
+  };
+
+  const handleStepVideoEnd = () => {
+    playClick();
+    enterReadyCountdown();
   };
 
   const handleEndingVideoEnd = () => {
@@ -628,7 +789,7 @@ export default function TrainingPage_PM() {
       setAnswerCountdown(config.answerTime);
       setPhase("answer");
       answerStartRef.current = null;
-      if (answerStartFrameRef.current) cancelAnimationFrame(answerStartFrameRef.current);
+      clearAnimationFrameRef(answerStartFrameRef);
       answerStartFrameRef.current = requestAnimationFrame(() => {
         answerStartRef.current = performance.now();
       });
@@ -663,11 +824,30 @@ export default function TrainingPage_PM() {
     return () => clearTimeout(timer);
   }, [phase, answerCountdown]);
 
+  useEffect(() => {
+    if (phase !== "answer" || hasSubmittedRef.current || selectedIds.length > 0) {
+      clearTimeoutRef(idleHintTimerRef);
+      setIdleHintActive(false);
+      return undefined;
+    }
+
+    idleHintTimerRef.current = setTimeout(() => {
+      setIdleHintActive(true);
+    }, 5500);
+
+    return () => {
+      clearTimeoutRef(idleHintTimerRef);
+    };
+  }, [phase, selectedIds.length, round]);
+
   const toggleSelect = (itemId) => {
     if (phase !== "answer") return;
     if (hasSubmittedRef.current) return;
 
     playClick();
+
+    clearTimeoutRef(idleHintTimerRef);
+    setIdleHintActive(false);
 
     const correctIds = currentMemorizeItems.map((item) => item.id);
     const prevSelected = selectedIdsRef.current;
@@ -725,23 +905,42 @@ export default function TrainingPage_PM() {
     const firstTapTime =
       tapLogsRef.current.length > 0 ? tapLogsRef.current[0].timestamp : 0;
 
+    const roundAIResult = calculatePMAIScore({
+      accuracy: isCorrect ? 1 : 0,
+      avgReactionTime: reactionTime,
+      timeoutCount: isTimeout ? 1 : 0,
+      totalTrials: 1,
+      totalWrongTapCount: wrongTapCount,
+      fatigueLevel: 0,
+      difficultyLevel: config.difficulty,
+    });
+
     const record = {
       task: "PM_TRAINING",
       level: round,
       round,
-      difficulty: config.difficulty,
+      trialIndex: round,
+      difficulty: config.broadDifficulty,
+      difficultyLevel: config.difficulty,
+      internalDifficulty: config.difficulty,
       difficultyLabel: config.shortLabel,
       stageLabel: config.label,
       broadDifficulty: config.broadDifficulty,
       motionMode: config.motion,
       adaptiveOffset: config.adaptiveOffset,
       memoryCount: config.memoryCount,
+      memorySpan: config.memorySpan,
+      memorySpanIndex: config.memorySpanIndex,
+      memorySpanTotal: config.memorySpanTotal,
+      spanTrialIndex: config.spanTrialIndex,
+      spanTrialTotal: config.spanTrialTotal,
       showTime: config.showTime,
       answerTimeLimit: config.answerTime,
 
       isCorrect,
       isTimeout,
       isFast: reactionTime > 0 && reactionTime <= 5000,
+      aiRoundScore: roundAIResult.aiScore,
 
       reactionTime,
       firstTapTime,
@@ -773,25 +972,26 @@ export default function TrainingPage_PM() {
 
     console.log("[TrainingPage_PM] record saved:", record);
 
-    if (recordsRef.current.length >= TRAINING_TOTAL_ROUNDS) {
-      handleEndTraining({ withClick: false });
+    const spanStopStatus = shouldStopBySpanFailure(recordsRef.current, config.memoryCount);
+    const isTrainingComplete = recordsRef.current.length >= trainingTotalRounds;
+
+    if (isTrainingComplete || spanStopStatus.shouldStop) {
+      handleEndTraining({
+        withClick: false,
+        earlyStopReason: spanStopStatus.reason,
+        stoppedMemorySpan: spanStopStatus.shouldStop ? config.memoryCount : null,
+      });
       return;
     }
 
-    if (roundTransitionRef.current) clearTimeout(roundTransitionRef.current);
-    const nextRound = Math.min(TRAINING_TOTAL_ROUNDS, round + 1);
+    clearTimeoutRef(roundTransitionRef);
+    const nextRound = Math.min(trainingTotalRounds, round + 1);
 
     roundTransitionRef.current = setTimeout(() => {
       roundTransitionRef.current = null;
       updateAdaptiveDifficulty();
       setRound(nextRound);
-      answerStartRef.current = performance.now();
-      setReadyCountdown(5);
-      setSelectedIds([]);
-      setCurrentMemorizeItems([]);
-      setCurrentOptions([]);
-      resetRuntimeRefs();
-      setPhase("readyCountdown");
+      enterReadyCountdown({ resetFeedback: false });
     }, 200);
   };
 
@@ -810,20 +1010,28 @@ export default function TrainingPage_PM() {
 
   const updateAdaptiveDifficulty = () => {
     const records = recordsRef.current || [];
+    const recentThree = records.slice(-3);
     const recentTwo = records.slice(-2);
-    const last = records[records.length - 1];
 
-    if (recentTwo.length === 2 && recentTwo.every((record) => record.isCorrect)) {
-      setAdaptiveOffset((prev) => clampNumber(prev + 1, -2, 2));
-      return;
+    if (recentThree.length >= 3) {
+      const recentCorrect = recentThree.filter((record) => record.isCorrect).length;
+      const recentTimeout = recentThree.filter((record) => record.isTimeout).length;
+      const recentAiScore =
+        recentThree.reduce((sum, record) => sum + safeNonNegative(record.aiRoundScore, 0), 0) /
+        recentThree.length;
+
+      if (recentCorrect === 3 && recentAiScore >= 82) {
+        setAdaptiveOffset((prev) => clampNumber(prev + 1, -2, 2));
+        return;
+      }
+
+      if (recentCorrect <= 1 || recentTimeout >= 2 || recentAiScore < 45) {
+        setAdaptiveOffset((prev) => clampNumber(prev - 1, -2, 2));
+        return;
+      }
     }
 
-    if (recentTwo.length === 2 && recentTwo.every((record) => record.isTimeout || !record.isCorrect)) {
-      setAdaptiveOffset((prev) => clampNumber(prev - 1, -2, 2));
-      return;
-    }
-
-    if (last?.isTimeout) {
+    if (recentTwo.length === 2 && recentTwo.every((record) => record.isTimeout)) {
       setAdaptiveOffset((prev) => clampNumber(prev - 1, -2, 2));
     }
   };
@@ -832,37 +1040,18 @@ export default function TrainingPage_PM() {
     playClick();
     if (roundTransitionRef.current) return;
 
-    const nextRound = Math.min(TRAINING_TOTAL_ROUNDS, round + 1);
+    const nextRound = Math.min(trainingTotalRounds, round + 1);
     roundTransitionRef.current = setTimeout(() => {
       roundTransitionRef.current = null;
       updateAdaptiveDifficulty();
       setRound(nextRound);
-      answerStartRef.current = performance.now();
-      setReadyCountdown(5);
-      setSelectedIds([]);
-      setCurrentMemorizeItems([]);
-      setCurrentOptions([]);
-      setFeedbackText("");
-      setFeedbackType("success");
-      setLastRecord(null);
-      resetRuntimeRefs();
-      setPhase("readyCountdown");
+      enterReadyCountdown();
     }, 200);
   };
 
   const handleRetrySameRound = () => {
     playClick();
-
-    answerStartRef.current = performance.now();
-    setReadyCountdown(5);
-    setSelectedIds([]);
-    setCurrentMemorizeItems([]);
-    setCurrentOptions([]);
-    setFeedbackText("");
-    setFeedbackType("success");
-    setLastRecord(null);
-    resetRuntimeRefs();
-    setPhase("readyCountdown");
+    enterReadyCountdown();
   };
 
   const handleBackToMap = () => {
@@ -870,7 +1059,7 @@ export default function TrainingPage_PM() {
     navigate("/game-menu");
   };
 
-  const handleEndTraining = ({ withClick = true } = {}) => {
+  const handleEndTraining = ({ withClick = true, earlyStopReason = null, stoppedMemorySpan = null } = {}) => {
     if (withClick) playClick();
 
     const records = recordsRef.current || [];
@@ -955,12 +1144,27 @@ export default function TrainingPage_PM() {
       reactionTimes.length > 0
         ? reactionTimes.reduce((sum, value) => sum + value, 0) / reactionTimes.length
         : 0;
-    const stars = calculateStageStars({
+    const scoring = safeCalculatePMScore(records, {
+      mode: "training",
+      plannedTotalRounds: trainingTotalRounds,
+    });
+
+    const officialScore = safeNonNegative(scoring?.totalScore, 0);
+    const stars = clampStarCount(scoring?.stars || 1);
+
+    const totalWrongTapCount = records.reduce(
+      (sum, record) => sum + safeNonNegative(record.wrongTapCount, 0),
+      0
+    );
+    const pmAIResult = analyzePMTraining({
+      records,
       accuracy,
       avgReactionTime,
       timeoutCount: errorTypes.timeout,
       totalTrials,
-      difficulty: currentConfig.difficulty,
+      totalWrongTapCount,
+      fatigueLevel,
+      difficultyLevel: currentConfig.difficulty,
     });
 
     const finalResult = {
@@ -980,33 +1184,68 @@ export default function TrainingPage_PM() {
       records,
       totalTrials,
       correctTrials,
+      plannedTotalRounds: trainingTotalRounds,
+      completedByRule: !earlyStopReason,
+      earlyStopReason,
+      stoppedMemorySpan,
+      spanTrialsPerMemoryCount: SPAN_TRIALS_PER_MEMORY_COUNT,
+      spanPlan: trainingSpanPlan,
       errorTypes,
-      stars,
+      scoring,
+      timeoutRate: pmAIResult.timeoutRate,
+      wrongTapRate: pmAIResult.wrongTapRate,
+      aiScore: pmAIResult.aiScore,
+      aiDifficultyDecision: pmAIResult.difficultyDecision,
+      aiTrainingSuggestion: pmAIResult.trainingSuggestion,
+      aiSubScores: {
+        accuracyScore: pmAIResult.accuracyScore,
+        reactionScore: pmAIResult.reactionScore,
+        stabilityScore: pmAIResult.stabilityScore,
+        focusScore: pmAIResult.focusScore,
+        fatigueScore: pmAIResult.fatigueScore,
+      },
       ...performanceResult,
+      stars,
+      score: officialScore,
+      totalScore: officialScore,
       ...errorResult,
       fatigueLevel,
       recommendedDifficulty,
-      visibleRoles: ["child", "parent"],
+      visibleRoles: ["child", "parent", "clinician"],
       createdAt: new Date().toISOString(),
     };
 
     finalResultRef.current = finalResult;
-    localStorage.setItem("pmTrainingResult", JSON.stringify(finalResult));
-    localStorage.setItem("latestPMTrainingResult", JSON.stringify(finalResult));
+
+    try {
+      saveUnifiedResult({
+        rawResult: finalResult,
+        gameId: "PM",
+        mode: "training",
+        difficulty: currentConfig.broadDifficulty,
+        route: "/training-picture-memory",
+        visibleRoles: ["child", "parent", "clinician"],
+      });
+    } catch (error) {
+      console.warn("[TrainingPage_PM] 統一結果儲存失敗：", error);
+    }
+
+    safeStorageSetJson("pmTrainingResult", finalResult);
+    safeStorageSetJson("latestPMTrainingResult", finalResult);
     saveTrainingStageProgress({
       stageId: trainingStage.stageId,
       level: trainingStage.level,
       stars,
       finalResult,
     });
-    setPhase("result");
+    setPhase("endingVideo");
   };
 
   const handleGameAreaClick = () => {
     if (phase !== "answer" || hasSubmittedRef.current) return;
 
     setBackgroundWarning(true);
-    if (backgroundWarningTimerRef.current) clearTimeout(backgroundWarningTimerRef.current);
+    clearTimeoutRef(backgroundWarningTimerRef);
     backgroundWarningTimerRef.current = setTimeout(() => {
       setBackgroundWarning(false);
     }, 450);
@@ -1051,16 +1290,16 @@ export default function TrainingPage_PM() {
           45% { transform: translate(-10px, -9px) scale(1.08); opacity: 1; }
           62% { transform: translate(-4px, -4px) scale(0.96); opacity: 1; }
         }
+        @keyframes pmIdleHint {
+          0%, 100% { transform: scale(1); box-shadow: 0 10px 20px rgba(77, 53, 30, 0.12), inset 0 -4px 0 rgba(233, 179, 91, 0.14); }
+          50% { transform: scale(1.035); box-shadow: 0 14px 24px rgba(80, 112, 58, 0.18), 0 0 0 7px rgba(139, 216, 86, 0.18); }
+        }
         button[aria-label]:hover:not(:disabled) {
           transform: translateY(-2px) scale(1.03);
           filter: brightness(1.04);
         }
         button[aria-label]:active:not(:disabled) {
           transform: translateY(1px) scale(0.98);
-        }
-        @media (max-width: 760px) {
-          .pm-tutorial-row { grid-template-columns: 1fr !important; }
-          .pm-tutorial-arrow { transform: rotate(90deg); }
         }
       `}</style>
       <div style={styles.overlay}>
@@ -1082,48 +1321,6 @@ export default function TrainingPage_PM() {
             </div>
           )}
 
-          {phase === "tutorial" && (
-            <div style={styles.card}>
-              <p style={styles.kicker}>前導教學</p>
-              <h1 style={styles.title}>先記住，再點回來</h1>
-
-              <div className="pm-tutorial-row" style={styles.tutorialRow}>
-                <div style={styles.tutorialPanel}>
-                  <p style={styles.tutorialLabel}>第一步：先看圖片</p>
-                  <div style={styles.demoGrid}>
-                    {[PM01, PM02, PM03].map((image, index) => (
-                      <div key={index} style={styles.demoCard}>
-                        <img src={image} alt="教學記憶圖片" style={styles.demoImage} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="pm-tutorial-arrow" style={styles.tutorialArrow}>→</div>
-
-                <div style={styles.tutorialPanel}>
-                  <p style={styles.tutorialLabel}>第二步：從選項點出來</p>
-                  <div style={styles.demoGrid}>
-                    {[PM01, PM05, PM02].map((image, index) => (
-                      <div
-                        key={index}
-                        style={{
-                          ...styles.demoCard,
-                          ...(index === 0 || index === 2 ? styles.demoCardSelected : {}),
-                        }}
-                      >
-                        <img src={image} alt="教學作答圖片" style={styles.demoImage} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <p style={styles.textCompact}>點滿指定數量後，再按「放進小籃子」。</p>
-              {renderImageButton({ src: homeStartBtn, alt: "開始遊戲", onClick: handleTutorialDone })}
-            </div>
-          )}
-
           {phase === "introVideo" && (
             <div style={styles.videoPanel}>
               <div style={styles.videoFrame}>
@@ -1133,7 +1330,7 @@ export default function TrainingPage_PM() {
                   autoPlay
                   playsInline
                   controls={false}
-                  onEnded={handleVideoEnd}
+                  onEnded={handleIntroVideoEnd}
                 />
               </div>
 
@@ -1141,17 +1338,35 @@ export default function TrainingPage_PM() {
                 src: homeSkipBtn,
                 alt: "跳過動畫",
                 variant: "skip",
-                onClick: () => {
-                  playClick();
-                  handleVideoEnd();
-                },
+                onClick: handleIntroVideoEnd,
+              })}
+            </div>
+          )}
+
+          {phase === "stepVideo" && (
+            <div style={styles.videoPanel}>
+              <div style={styles.videoFrame}>
+                <video
+                  src={stepVideo}
+                  style={styles.video}
+                  autoPlay
+                  playsInline
+                  controls={false}
+                  onEnded={handleStepVideoEnd}
+                />
+              </div>
+
+              {renderImageButton({
+                src: homeNextBtn,
+                alt: "下一步",
+                onClick: handleStepVideoEnd,
               })}
             </div>
           )}
 
           {phase === "readyCountdown" && (
             <div style={styles.smallCard}>
-              <p style={styles.kicker}>第 {round} / {TRAINING_TOTAL_ROUNDS} 題</p>
+              <p style={styles.kicker}>第 {round} / {trainingTotalRounds} 題｜{currentConfig.memorySpan} 張第 {currentConfig.spanTrialIndex} / {currentConfig.spanTrialTotal} 題</p>
               <h1 style={styles.title}>看清楚湖裡的小物品</h1>
               <div style={styles.bigCountdown}>{readyCountdown}</div>
               <p style={styles.textCompact}>皮皮會陪你一起看，等湖面亮起來就開始。</p>
@@ -1160,7 +1375,7 @@ export default function TrainingPage_PM() {
 
           {phase === "memorize" && (
             <div style={styles.card}>
-              <p style={styles.kicker}>第 {round} / {TRAINING_TOTAL_ROUNDS} 題</p>
+              <p style={styles.kicker}>第 {round} / {trainingTotalRounds} 題｜{currentConfig.memorySpan} 張第 {currentConfig.spanTrialIndex} / {currentConfig.spanTrialTotal} 題</p>
               <h1 style={styles.title}>看清楚湖裡的小物品</h1>
 
               <div style={styles.iconHint}>
@@ -1199,7 +1414,7 @@ export default function TrainingPage_PM() {
               }}
               onClick={handleGameAreaClick}
             >
-              <p style={styles.kicker}>第 {round} / {TRAINING_TOTAL_ROUNDS} 題</p>
+              <p style={styles.kicker}>第 {round} / {trainingTotalRounds} 題｜{currentConfig.memorySpan} 張第 {currentConfig.spanTrialIndex} / {currentConfig.spanTrialTotal} 題</p>
               <h1 style={styles.title}>找回剛剛看過的物品</h1>
 
               <div style={styles.iconHint}>
@@ -1224,6 +1439,7 @@ export default function TrainingPage_PM() {
                       }}
                       style={{
                         ...styles.optionCard,
+                        ...(idleHintActive && selectedIds.length === 0 ? styles.optionCardIdleHint : {}),
                         ...(isSelected ? styles.optionCardSelected : {}),
                       }}
                     >
@@ -1255,7 +1471,7 @@ export default function TrainingPage_PM() {
             <div style={styles.videoPanel}>
               <div style={styles.videoFrame}>
                 <video
-                  src={introVideo}
+                  src={endingVideo}
                   style={styles.video}
                   autoPlay
                   playsInline
@@ -1816,6 +2032,11 @@ const styles = {
     overflow: "hidden",
   },
 
+  optionCardIdleHint: {
+    animation: "pmIdleHint 1.05s ease-in-out 2",
+    border: "4px solid rgba(121, 200, 67, 0.7)",
+  },
+
   optionCardSelected: {
     border: "4px solid #79c843",
     background: "linear-gradient(180deg, #f4ffe7, #dfffc4)",
@@ -2031,4 +2252,3 @@ const styles = {
     transformOrigin: "18% 18%",
   },
 };
-

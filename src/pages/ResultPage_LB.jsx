@@ -25,10 +25,15 @@ import homeAgainBtn from "../asset/home/again.png";
 */
 
 const MENU_ROUTE = "/game-menu";
+const TEST_MAP_ROUTE = "/test-map";
 const TEST_ROUTE = "/test-lb";
 const TRAINING_ROUTE = "/training-lb";
 const SESSION_KEY = "LB_RESULT";
 const CLICK_SOUND_SRC = "/sounds/click.mp3";
+const HAT_GAME_ROUTE = "/hat-sticker-game";
+const HAT_SCHEDULER_KEY = "hatRewardScheduler";
+const HAT_MIN_INTERVAL = 5;
+const HAT_MAX_INTERVAL = 8;
 
 const DEFAULT_SUMMARY_DATA = {
   completedTrials: 0,
@@ -63,6 +68,78 @@ const DEFAULT_CLINICIAN_METRICS = {
   ruleBreakdown: {},
   trialLogs: [],
 };
+
+
+function safeJsonParse(value, fallback = null) {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function createRandomHatInterval() {
+  return (
+    Math.floor(Math.random() * (HAT_MAX_INTERVAL - HAT_MIN_INTERVAL + 1)) +
+    HAT_MIN_INTERVAL
+  );
+}
+
+function resolveChildId(payload) {
+  return (
+    payload?.childId ||
+    payload?.profile?.childId ||
+    payload?.result?.childId ||
+    payload?.lbResult?.childId ||
+    localStorage.getItem("currentChildId") ||
+    localStorage.getItem("selectedChildId") ||
+    "guest"
+  );
+}
+
+function getHatSchedulerStorageKey(childId) {
+  return `${HAT_SCHEDULER_KEY}_${childId || "guest"}`;
+}
+
+function evaluateHatReward({ childId, resultId }) {
+  const storageKey = getHatSchedulerStorageKey(childId);
+  const stored = safeJsonParse(localStorage.getItem(storageKey), {});
+
+  if (stored?.lastResultId === resultId) {
+    return Boolean(stored?.lastDecision);
+  }
+
+  const currentCount = Math.max(0, safeNumber(stored?.completedGameCount, 0)) + 1;
+  const targetCount = Math.max(
+    HAT_MIN_INTERVAL,
+    safeNumber(stored?.targetGameCount, createRandomHatInterval())
+  );
+  const shouldTrigger = currentCount >= targetCount;
+
+  const nextState = shouldTrigger
+    ? {
+        completedGameCount: 0,
+        targetGameCount: createRandomHatInterval(),
+        lastResultId: resultId,
+        lastDecision: true,
+        updatedAt: new Date().toISOString(),
+      }
+    : {
+        completedGameCount: currentCount,
+        targetGameCount: targetCount,
+        lastResultId: resultId,
+        lastDecision: false,
+        updatedAt: new Date().toISOString(),
+      };
+
+  localStorage.setItem(storageKey, JSON.stringify(nextState));
+  return shouldTrigger;
+}
+
+function createRewardSessionId(childId) {
+  const randomPart = Math.random().toString(36).slice(2, 9);
+  return `lb-${childId || "guest"}-${Date.now()}-${randomPart}`;
+}
 
 function safeObject(value, fallback = {}) {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -379,6 +456,376 @@ function getParentSummaryCards(clinician, parentMetrics) {
   ];
 }
 
+function getLBDetailedStars(result = {}) {
+  const stars = safeNumber(result?.stars, 0);
+  if (stars > 0) return clamp(stars, 1, 3);
+
+  const finalScore = safeNumber(result?.finalScore, 0);
+  if (finalScore >= 80) return 3;
+  if (finalScore >= 55) return 2;
+  return 1;
+}
+
+function getLBDetailedLevelInfo(payload = {}, trialLogs = []) {
+  const rawLevel =
+    payload?.config?.difficultyLevel ??
+    payload?.difficultyLevel ??
+    payload?.summaryData?.difficultyLevel ??
+    payload?.analysis?.difficultyLevel ??
+    payload?.result?.difficultyLevel ??
+    payload?.lbResult?.difficultyLevel;
+  const numericLevel = Number(rawLevel);
+
+  const recordLevels = Array.isArray(trialLogs)
+    ? trialLogs
+        .map((log) =>
+          Number(
+            log?.difficultyLevel ??
+              log?.levelIndex ??
+              log?.level ??
+              log?.trainingLevel
+          )
+        )
+        .filter((level) => Number.isFinite(level) && level > 0)
+    : [];
+
+  const level = Number.isFinite(numericLevel) && numericLevel > 0
+    ? Math.round(numericLevel)
+    : recordLevels.length > 0
+    ? Math.max(...recordLevels)
+    : 3;
+
+  const label =
+    payload?.config?.difficultyLabel ||
+    payload?.difficultyLabel ||
+    payload?.summaryData?.difficultyLabel ||
+    (level <= 1
+      ? "非常簡單"
+      : level === 2
+      ? "簡單"
+      : level === 3
+      ? "普通"
+      : level === 4
+      ? "困難"
+      : "非常困難");
+
+  if (level >= 4) {
+    return {
+      level,
+      group: "advanced",
+      label,
+      title: "進階規則切換層級",
+      meaning:
+        "這一層會提高規則切換與干擾控制的負荷，孩子需要在看見線索後快速判斷現在該依照哪一個規則行動。",
+    };
+  }
+
+  if (level >= 3) {
+    return {
+      level,
+      group: "middle",
+      label,
+      title: "穩定規則判斷層級",
+      meaning:
+        "這一層開始要求孩子不只看懂單一規則，也要在規則變化時保持彈性，重點是判斷品質與反應穩定度。",
+    };
+  }
+
+  return {
+    level,
+    group: "basic",
+    label,
+    title: "基礎規則理解層級",
+    meaning:
+      "這一層主要在建立「看清楚規則，再做出對應選擇」的流程，先讓孩子熟悉分類線索與作答節奏。",
+  };
+}
+
+function getLBDetailedStarInfo(stars) {
+  if (stars >= 3) {
+    return {
+      title: "目前層級表現穩定",
+      meaning:
+        "孩子在目前規則負荷下能穩定理解並執行任務，可以觀察是否準備好接受更高層級或更多規則切換。",
+    };
+  }
+
+  if (stars === 2) {
+    return {
+      title: "規則能力正在出現，但還需要穩定",
+      meaning:
+        "孩子已能掌握一部分規則，但遇到切換、干擾或連續作答時，表現可能會有起伏。",
+    };
+  }
+
+  return {
+    title: "仍需要較多支持與熟悉",
+    meaning:
+      "孩子目前可能還在適應規則判斷流程，建議先降低切換壓力，用短回合累積成功經驗。",
+  };
+}
+
+function countLBHintTrials(trialLogs = []) {
+  return (Array.isArray(trialLogs) ? trialLogs : []).filter(
+    (log) =>
+      log?.hintShown === true ||
+      log?.hintUsed === true ||
+      safeNumber(log?.hintCount, 0) > 0
+  ).length;
+}
+
+function getLBDetailedProfile({ clinician = {}, parentMetrics = {}, trialLogs = [] } = {}) {
+  const totalTrials = Math.max(1, safeNumber(clinician?.totalTrials, trialLogs.length));
+  const accuracy = percent(clinician?.accuracy);
+  const switchAccuracy = percent(clinician?.switchAccuracy);
+  const interferenceControl = safeNumber(
+    parentMetrics?.interferenceControl,
+    percent(clinician?.interferenceAccuracy ?? clinician?.interferenceRate)
+  );
+  const timeoutRate =
+    (safeNumber(clinician?.timeoutTrials, 0) / totalTrials) * 100;
+  const wrongRate =
+    (safeNumber(clinician?.wrongTrials, 0) / totalTrials) * 100;
+  const hintTrials = countLBHintTrials(trialLogs);
+  const hintRate = (hintTrials / totalTrials) * 100;
+  const avgReactionTime = safeNumber(clinician?.avgReactionTime, 0);
+  const rtStd = safeNumber(clinician?.rtStd, 0);
+  const maxConsecutiveErrors = safeNumber(clinician?.maxConsecutiveErrors, 0);
+  const interferenceErrors = safeNumber(clinician?.interferenceErrors, 0);
+
+  if (totalTrials <= 1 && safeNumber(clinician?.totalTrials, 0) <= 0) {
+    return {
+      key: "no_data",
+      badge: "資料",
+      tone: "normal",
+      title: "這次還沒有足夠練習資料",
+      meaning: "目前題數不足，還不適合判斷規則理解或切換能力。",
+      observation: "建議再完成一次完整練習，讓結果更能代表孩子的狀態。",
+      advice: "下一次先用基礎層級確認孩子理解玩法，再開始正式紀錄。",
+    };
+  }
+
+  if (accuracy < 50) {
+    return {
+      key: "rule_understanding_low",
+      badge: "規則",
+      tone: "watch",
+      title: "規則理解還在建立中",
+      meaning:
+        "孩子可能還沒穩定掌握目前要依照哪個線索分類，因此整體正確率較低。",
+      observation:
+        "家長可以觀察孩子是否需要先被提醒「現在看顏色」或「現在看形狀」才比較能作答。",
+      advice:
+        "下一次建議降低一階或維持基礎層級，先用單一規則練到穩定，再加入規則切換。",
+    };
+  }
+
+  if (switchAccuracy < 60) {
+    return {
+      key: "switching_difficulty",
+      badge: "切換",
+      tone: "watch",
+      title: "規則一切換時比較容易卡住",
+      meaning:
+        "孩子理解單一規則的能力可能已經出現，但在規則改變時，還需要時間放下前一個規則。",
+      observation:
+        "家長可以留意孩子是否會沿用上一題的規則，或在切換提示出現後反應變慢。",
+      advice:
+        "下一次建議維持目前層級，先練習少量、明確的切換題，並在切換前給一句簡短提示。",
+    };
+  }
+
+  if (interferenceControl < 60 || interferenceErrors >= 3) {
+    return {
+      key: "interference_sensitive",
+      badge: "干擾",
+      tone: "watch",
+      title: "遇到干擾線索時比較容易被帶走",
+      meaning:
+        "孩子可能知道規則，但當顏色、形狀或相似線索同時出現時，容易被不相關的線索影響。",
+      observation:
+        "家長可以觀察孩子是否在相似氣球或混合規則題中特別容易出錯。",
+      advice:
+        "下一次先維持層級，練習「先說出規則，再選答案」，幫助孩子把注意力放回正確線索。",
+    };
+  }
+
+  if (maxConsecutiveErrors >= 3 || wrongRate >= 45) {
+    return {
+      key: "error_chain",
+      badge: "連錯",
+      tone: "watch",
+      title: "錯誤容易連續出現",
+      meaning:
+        "孩子一旦出錯，可能比較難馬上修正策略，後面幾題容易被前面的錯誤影響。",
+      observation:
+        "家長可以觀察孩子出錯後是否變急、變慢，或需要重新確認規則才能回到任務。",
+      advice:
+        "下一次可以在錯誤後安排短暫停頓，讓孩子重新說一次規則，再繼續下一題。",
+    };
+  }
+
+  if (timeoutRate >= 25) {
+    return {
+      key: "timeout_high",
+      badge: "逾時",
+      tone: "normal",
+      title: "知道要判斷，但作答時間比較吃緊",
+      meaning:
+        "孩子可能正在思考規則，只是需要較多時間確認，因此出現逾時或慢半拍。",
+      observation:
+        "家長可以看孩子是卡在看線索、選答案，還是切換規則後需要重新整理。",
+      advice:
+        "下一次可維持目前層級，但先不催快，重點放在看清楚規則後穩定完成。",
+    };
+  }
+
+  if (hintRate >= 40) {
+    return {
+      key: "hint_needed",
+      badge: "提示",
+      tone: "normal",
+      title: "有提示時比較能穩定完成",
+      meaning:
+        "孩子在外部提醒後比較能接上任務，代表提示目前可以作為理解規則的橋梁。",
+      observation:
+        "家長可以觀察孩子需要的是開頭提示、切換提示，還是錯誤後重新提醒。",
+      advice:
+        "下一次先保留簡短提示，等孩子連續穩定後再慢慢減少提示。",
+    };
+  }
+
+  if (avgReactionTime > 3500 || rtStd > 1800) {
+    return {
+      key: "slow_or_unstable",
+      badge: "速度",
+      tone: "normal",
+      title: "反應較慢或忽快忽慢",
+      meaning:
+        "孩子能完成部分規則判斷，但反應速度或穩定度仍在建立，可能受題型與注意力波動影響。",
+      observation:
+        "家長可以觀察是否特定規則、切換題或干擾題會讓孩子明顯慢下來。",
+      advice:
+        "下一次建議維持層級，先把答題節奏穩定下來，再逐步提高速度要求。",
+    };
+  }
+
+  return {
+    key: "balanced",
+    badge: "穩定",
+    tone: "good",
+    title: "規則理解、切換與作答穩定度較平衡",
+    meaning:
+      "孩子在目前層級能理解規則，也能在多數題目中維持正確作答與穩定反應。",
+    observation:
+      "家長可以觀察孩子是否能在沒有太多提醒下完成，且遇到規則變化時仍能跟上。",
+    advice:
+      "下一次可以維持同層級再確認一次；若仍穩定，就可以小幅提高層級或增加切換題比例。",
+  };
+}
+
+function buildDetailedLBTrainingOverview({ result, clinician, parentMetrics, payload, trialLogs }) {
+  const stars = getLBDetailedStars(result);
+  const levelInfo = getLBDetailedLevelInfo(payload, trialLogs);
+  const starInfo = getLBDetailedStarInfo(stars);
+  const profile = getLBDetailedProfile({ clinician, parentMetrics, trialLogs });
+  const totalTrials = safeNumber(clinician?.totalTrials, trialLogs.length);
+
+  if (totalTrials <= 0) {
+    return {
+      title: profile.title,
+      message: profile.meaning,
+    };
+  }
+
+  return {
+    title: `${levelInfo.title}，${stars} 星：${profile.title}`,
+    message:
+      `這次屬於「${levelInfo.label}」訓練。${levelInfo.meaning} ` +
+      `本次完成 ${totalTrials} 題，整體正確率 ${formatPercent(clinician?.accuracy)}，切換題正確率 ${formatPercent(clinician?.switchAccuracy)}。` +
+      ` ${starInfo.meaning} 主要型態是「${profile.title}」：${profile.meaning}`,
+  };
+}
+
+function buildDetailedLBTrainingCards({ result, clinician, parentMetrics, payload, trialLogs }) {
+  const stars = getLBDetailedStars(result);
+  const levelInfo = getLBDetailedLevelInfo(payload, trialLogs);
+  const starInfo = getLBDetailedStarInfo(stars);
+  const profile = getLBDetailedProfile({ clinician, parentMetrics, trialLogs });
+  const hintTrials = countLBHintTrials(trialLogs);
+  const totalTrials = Math.max(1, safeNumber(clinician?.totalTrials, trialLogs.length));
+  const hintRate = Math.round((hintTrials / totalTrials) * 100);
+
+  return [
+    {
+      label: levelInfo.title,
+      value: levelInfo.group === "advanced" ? 85 : levelInfo.group === "middle" ? 70 : 55,
+      note: `目前層級：${levelInfo.label}`,
+      meaning: levelInfo.meaning,
+    },
+    {
+      label: starInfo.title,
+      value: stars >= 3 ? 90 : stars === 2 ? 68 : 42,
+      note: `${stars} 星代表本層級完成品質`,
+      meaning: starInfo.meaning,
+    },
+    {
+      label: profile.title,
+      value: profile.tone === "good" ? 88 : profile.tone === "normal" ? 66 : 44,
+      note: profile.observation,
+      meaning: profile.meaning,
+    },
+    {
+      label: "規則理解",
+      value: parentMetrics.ruleUnderstanding || percent(clinician?.accuracy),
+      note: `整體正確率 ${formatPercent(clinician?.accuracy)}`,
+      meaning:
+        "這裡看孩子是否能依照目前規則完成分類，是 LB 最基礎也最重要的觀察點。",
+    },
+    {
+      label: "規則切換",
+      value: parentMetrics.cognitiveFlexibility || percent(clinician?.switchAccuracy),
+      note: `切換題正確率 ${formatPercent(clinician?.switchAccuracy)}`,
+      meaning:
+        "這裡看孩子能不能放下前一個規則，跟上新的分類方式。",
+    },
+    {
+      label: "提示需求",
+      value: clamp(100 - hintRate, 0, 100),
+      note: `本次提示比例約 ${hintRate}%`,
+      meaning:
+        hintRate >= 40
+          ? "提示比例偏高時，代表孩子仍需要外部線索協助回到規則。"
+          : "提示需求不高，代表孩子多半能自己維持任務方向。",
+    },
+  ];
+}
+
+function buildDetailedLBTrainingSuggestion({ result, clinician, parentMetrics, payload, trialLogs }) {
+  const stars = getLBDetailedStars(result);
+  const levelInfo = getLBDetailedLevelInfo(payload, trialLogs);
+  const profile = getLBDetailedProfile({ clinician, parentMetrics, trialLogs });
+  const nextLabel =
+    payload?.analysis?.nextDifficultyLabel ||
+    payload?.nextDifficultyLabel ||
+    payload?.summaryData?.nextDifficultyLabel ||
+    "";
+
+  if (profile.key === "balanced" && stars >= 3) {
+    return `孩子在「${levelInfo.label}」表現穩定。下一次可以先維持同層級確認一次；若仍穩定，再小幅提高層級或增加規則切換題。`;
+  }
+
+  if (stars <= 1 || profile.tone === "watch") {
+    return `${profile.advice} 先不要急著提高難度，讓孩子在目前或低一階層級累積成功經驗會更穩。`;
+  }
+
+  if (nextLabel) {
+    return `${profile.advice} 系統下一次建議可參考「${nextLabel}」，但仍以孩子是否能穩定說出規則為優先。`;
+  }
+
+  return `${profile.advice} 建議累積 2 到 3 次同層級結果後，再判斷是否提高層級。`;
+}
+
 export default function ResultPage_LB() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -438,8 +885,14 @@ export default function ResultPage_LB() {
     [payload, trialLogs]
   );
 
-  const clinician = result?.clinicianMetrics || {};
-  const parentMetrics = result?.parentMetrics || {};
+  const clinician = useMemo(
+    () => result?.clinicianMetrics || {},
+    [result?.clinicianMetrics]
+  );
+  const parentMetrics = useMemo(
+    () => result?.parentMetrics || {},
+    [result?.parentMetrics]
+  );
 
   const completedTrials = safeNumber(
     payload?.completedTrials ?? payload?.summaryData?.completedTrials,
@@ -457,6 +910,80 @@ export default function ResultPage_LB() {
 
   const mode = payload?.config?.mode || payload?.mode || "test";
   const retryRoute = mode === "training" ? TRAINING_ROUTE : TEST_ROUTE;
+  const detailedTrainingOverview = useMemo(
+    () =>
+      mode === "training"
+        ? buildDetailedLBTrainingOverview({
+            result,
+            clinician,
+            parentMetrics,
+            payload,
+            trialLogs,
+          })
+        : null,
+    [mode, result, clinician, parentMetrics, payload, trialLogs]
+  );
+  const detailedTrainingCards = useMemo(
+    () =>
+      mode === "training"
+        ? buildDetailedLBTrainingCards({
+            result,
+            clinician,
+            parentMetrics,
+            payload,
+            trialLogs,
+          })
+        : null,
+    [mode, result, clinician, parentMetrics, payload, trialLogs]
+  );
+  const detailedTrainingSuggestion = useMemo(
+    () =>
+      mode === "training"
+        ? buildDetailedLBTrainingSuggestion({
+            result,
+            clinician,
+            parentMetrics,
+            payload,
+            trialLogs,
+          })
+        : "",
+    [mode, result, clinician, parentMetrics, payload, trialLogs]
+  );
+
+  const handleBackToForest = () => {
+    playClickSound();
+
+    const childId = resolveChildId(payload);
+    const resultId =
+      payload?.resultId ||
+      payload?.sessionId ||
+      payload?.completedAt ||
+      payload?.timestamp ||
+      `${location.key || "lb"}-${mode}-${completedTrials}-${result?.finalScore}-${result?.stars}`;
+
+    const shouldOpenHatGame = evaluateHatReward({ childId, resultId });
+
+    sessionStorage.removeItem(SESSION_KEY);
+
+    if (shouldOpenHatGame) {
+      const rewardSessionId = createRewardSessionId(childId);
+
+      navigate(HAT_GAME_ROUTE, {
+        replace: true,
+        state: {
+          childId,
+          rewardSessionId,
+          sessionId: rewardSessionId,
+          sourceGameId: "LB",
+          sourceMode: mode,
+          returnRoute: MENU_ROUTE,
+        },
+      });
+      return;
+    }
+
+    navigate(mode === "training" ? MENU_ROUTE : TEST_MAP_ROUTE);
+  };
 
   return (
     <div style={styles.page(backgroundImg)}>
@@ -479,9 +1006,13 @@ export default function ResultPage_LB() {
 
                 <div>
                   <p style={styles.heroEyebrow}>本次整體狀態</p>
-                  <h2 style={styles.heroTitle}>{getLBOverviewTitle(result?.stars)}</h2>
+                  <h2 style={styles.heroTitle}>
+                    {detailedTrainingOverview?.title || getLBOverviewTitle(result?.stars)}
+                  </h2>
                   <p style={styles.heroText}>
-                    {result?.parentSummary || "目前資料不足，建議重新測驗一次。"}
+                    {detailedTrainingOverview?.message ||
+                      result?.parentSummary ||
+                      "目前資料不足，建議重新測驗一次。"}
                   </p>
                 </div>
               </div>
@@ -519,6 +1050,8 @@ export default function ResultPage_LB() {
               result={result}
               clinician={clinician}
               parentMetrics={parentMetrics}
+              summaryCards={detailedTrainingCards}
+              suggestion={detailedTrainingSuggestion}
             />
 
             <section style={styles.noteBox}>
@@ -533,20 +1066,22 @@ export default function ResultPage_LB() {
             <button
               type="button"
               style={styles.resultImageButton}
-              onClick={() => handleNavigate(MENU_ROUTE)}
+              onClick={handleBackToForest}
               aria-label="回到森林"
             >
               <img src={homeBackBtn} alt="回到森林" style={styles.imageButtonImg} />
             </button>
 
-            <button
-              type="button"
-              style={styles.resultImageButton}
-              onClick={() => handleNavigate(retryRoute, { clearCache: true })}
-              aria-label="再玩一次"
-            >
-              <img src={homeAgainBtn} alt="再玩一次" style={styles.imageButtonImg} />
-            </button>
+            {mode === "training" && (
+              <button
+                type="button"
+                style={styles.resultImageButton}
+                onClick={() => handleNavigate(retryRoute, { clearCache: true })}
+                aria-label="play again"
+              >
+                <img src={homeAgainBtn} alt="play again" style={styles.imageButtonImg} />
+              </button>
+            )}
           </footer>
         </main>
       </div>
@@ -554,8 +1089,10 @@ export default function ResultPage_LB() {
   );
 }
 
-function ParentView({ result, clinician, parentMetrics }) {
-  const summaryCards = getParentSummaryCards(clinician, parentMetrics);
+function ParentView({ result, clinician, parentMetrics, summaryCards: providedSummaryCards, suggestion }) {
+  const summaryCards = Array.isArray(providedSummaryCards)
+    ? providedSummaryCards
+    : getParentSummaryCards(clinician, parentMetrics);
 
   return (
     <>
@@ -580,7 +1117,9 @@ function ParentView({ result, clinician, parentMetrics }) {
         <h2 style={styles.sectionTitle}>下一步建議</h2>
         <div style={styles.suggestionItem}>
           <span style={styles.suggestionIcon}>🌱</span>
-          <p style={styles.suggestionText}>{getParentSuggestion(result, clinician)}</p>
+          <p style={styles.suggestionText}>
+            {suggestion || getParentSuggestion(result, clinician)}
+          </p>
         </div>
       </section>
     </>
@@ -615,7 +1154,9 @@ function AbilityCard({ item }) {
       </div>
 
       <p style={styles.abilityDescription}>目前指標約 {Math.round(finalValue)}%。</p>
-      <p style={styles.abilityMeaning}>{getAbilityMeaning(item.label, finalValue)}</p>
+      <p style={styles.abilityMeaning}>
+        {item.meaning || getAbilityMeaning(item.label, finalValue)}
+      </p>
     </article>
   );
 }
@@ -633,6 +1174,7 @@ function getLBOverviewTitle(stars) {
   return "可以先從簡單線索慢慢練習";
 }
 
+// eslint-disable-next-line no-unused-vars
 function ClinicalView({ clinician, trialLogs, result }) {
   const normalizedLogs = Array.isArray(clinician?.trialLogs)
     ? clinician.trialLogs
@@ -760,6 +1302,7 @@ function ClinicalView({ clinician, trialLogs, result }) {
   );
 }
 
+// eslint-disable-next-line no-unused-vars
 function MetaPill({ label, value }) {
   return (
     <div className="lb-result-meta-pill">
@@ -778,6 +1321,7 @@ function Kpi({ label, value }) {
   );
 }
 
+// eslint-disable-next-line no-unused-vars
 function AbilityBar({ label, value, note }) {
   const finalValue = clamp(safeNumber(value, 0), 0, 100);
 
@@ -1233,6 +1777,7 @@ const styles = {
   },
 };
 
+// eslint-disable-next-line no-unused-vars
 function RadarChart({ data }) {
   const size = 310;
   const center = size / 2;

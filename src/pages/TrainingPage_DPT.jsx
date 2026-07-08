@@ -8,120 +8,60 @@ import { analyzePerformance } from "../ai/performanceAnalyzer";
 import { analyzeErrors } from "../ai/errorAnalyzer";
 import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
+import { saveUnifiedResult } from "../utils/resultManager";
+import { calculateDptScore } from "../utils/dptScoring";
+import { analyzeDptTraining } from "../ai/dptTrainingAnalyzer";
 
-/* ========= 圖片 / 影片素材 ========= */
 import backgroundImg from "../asset/DPT_testbackground.png";
-import introVideo from "../asset/SRT_start.mp4";
-import endingVideo from "../asset/SRT_start.mp4";
+import introVideo from "../asset/mp4/DPT_start.mp4";
+import stepVideo from "../asset/mp4/DPT_step.mp4";
+import endingVideo from "../asset/mp4/DPT_end.mp4";
 import startAvatar from "../asset/avatar/fox.png";
-import tutorialAvatar from "../asset/avatar/chicken.png";
-
 import homeStartBtn from "../asset/home/start.png";
+import homeNextBtn from "../asset/home/next.png";
 import homeSkipBtn from "../asset/home/skip.png";
 import homeBackBtn from "../asset/home/back.png";
 import homeAgainBtn from "../asset/home/again.png";
 import homeResultBtn from "../asset/home/result.png";
 import mouseGuideImg from "../asset/mouse.png";
 
-import foxImg from "../asset/DPT/dpt_fox.png";
-import flyImg from "../asset/DPT/dpt_fly.png";
-import beeImg from "../asset/DPT/bee.png";
+import catImg from "../asset/DPT/cat.png";
+import dogImg from "../asset/DPT/dog.png";
+import catSound from "../asset/DPT/cat.mp3";
+import dogSound from "../asset/DPT/dog.mp3";
 
-import honeyImg from "../asset/DPT/dpt_honey.png";
-import cakeImg from "../asset/DPT/dpt_cake.png";
-import giftImg from "../asset/DPT/dpt_pudding.png";
-import candyImg from "../asset/DPT/dpt_candy.png";
-import cookieImg from "../asset/DPT/dpt_cookie.png";
-import juiceImg from "../asset/DPT/dpt_pancake.png";
-
-/* ========= 路由 ========= */
 const RESULT_ROUTE = "/result-dpt";
 const FOREST_ROUTE = "/game-menu";
-
-/* ========= 訓練參數 ========= */
-const FIXATION_TIME = 550;
-const RULE_CARD_TIME = 1050;
-const ITEM_PREVIEW_TIME = 700;
-const BLANK_TIME = 180;
-const FEEDBACK_TIME = 720;
-const NEXT_TRIAL_DELAY = 420;
-
 const DIFFICULTY_CONFIG = {
-  easy: {
-    label: "簡單",
-    totalTrials: 5,
-    answerTimeLimit: 5200,
-    showRuleEveryTrial: false,
-    showMouseHint: true,
-    mouseHintDelay: 1800,
-    rulePlan: ["catchFly"],
-  },
-  normal: {
-    label: "普通",
-    totalTrials: 10,
-    answerTimeLimit: 4200,
-    showRuleEveryTrial: true,
-    showMouseHint: true,
-    mouseHintDelay: 2400,
-    rulePlan: ["catchFly", "protectSnack"],
-  },
-  hard: {
-    label: "困難",
-    totalTrials: 15,
-    answerTimeLimit: 3300,
-    showRuleEveryTrial: true,
-    showMouseHint: false,
-    mouseHintDelay: 99999,
-    rulePlan: ["catchFly", "protectSnack", "oppositeDay"],
-  },
+  easy: { label: "簡單", totalTrials: 8, answerTimeLimit: 5000, preSoundDelay: 600, hintDelay1: 2200, hintDelay2: 3400, hintLevel: "direct", allowReplay: true, maxSameRun: 2 },
+  normal: { label: "普通", totalTrials: 12, answerTimeLimit: 4000, preSoundDelay: 500, hintDelay1: 2600, hintDelay2: null, hintLevel: "neutral", allowReplay: true, maxSameRun: 2 },
+  hard: { label: "困難", totalTrials: 16, answerTimeLimit: 3200, preSoundDelay: 350, hintDelay1: 2500, hintDelay2: null, hintLevel: "attentionOnly", allowReplay: false, maxSameRun: 3 },
 };
-
-const RULES = {
-  catchFly: {
-    key: "catchFly",
-    shortLabel: "趕蒼蠅",
-    title: "趕走蒼蠅",
-    cue: "🪰",
-    parentText: "看到蒼蠅，點有蒼蠅的那邊。",
-    childText: "點蒼蠅那邊",
-    getCorrectSide: (trial) => trial.flySide,
-  },
-  protectSnack: {
-    key: "protectSnack",
-    shortLabel: "保護點心",
-    title: "保護乾淨點心",
-    cue: "🍰",
-    parentText: "不要點蒼蠅，點沒有蒼蠅的點心。",
-    childText: "點乾淨點心",
-    getCorrectSide: (trial) => (trial.flySide === "left" ? "right" : "left"),
-  },
-  oppositeDay: {
-    key: "oppositeDay",
-    shortLabel: "相反日",
-    title: "相反日",
-    cue: "↔️",
-    parentText: "看到蒼蠅時，要做相反選擇。",
-    childText: "點另一邊",
-    getCorrectSide: (trial) => (trial.flySide === "left" ? "right" : "left"),
-  },
-};
+const FEEDBACK_TIME = 420;
+const NEXT_TRIAL_DELAY = 260;
+const ANTICIPATION_RT = 150;
+const TASK_VERSION = "audio-visual-opposite-v2";
+const SCORING_VERSION = "2.0.0";
+const DPT_DIFFICULTY_KEY = "dptTrainingDifficulty";
+const DPT_SELECTED_LEVEL_KEY = "dptSelectedTrainingLevel";
 
 const asset = {
   background: backgroundImg,
   introVideo,
+  stepVideo,
   endingVideo,
   startAvatar,
-  tutorialAvatar,
   homeStartBtn,
+  homeNextBtn,
   homeSkipBtn,
   homeBackBtn,
   homeAgainBtn,
   homeResultBtn,
   mouseGuideImg,
-  fox: foxImg,
-  fly: flyImg,
-  bee: beeImg,
-  items: [honeyImg, cakeImg, giftImg, candyImg, cookieImg, juiceImg],
+  cat: catImg,
+  dog: dogImg,
+  catSound,
+  dogSound,
 };
 
 function shuffleArray(array) {
@@ -133,566 +73,694 @@ function shuffleArray(array) {
   return arr;
 }
 
-function getRandomItem(items) {
-  return items[Math.floor(Math.random() * items.length)];
+function averageRt(records) {
+  const values = records
+    .filter((record) => record.isCorrect && !record.isAnticipation)
+    .map((record) => record.reactionTime)
+    .filter(Number.isFinite);
+  if (!values.length) return null;
+  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
 }
 
-function getDifferentItem(items, usedItem) {
-  const candidates = items.filter((item) => item !== usedItem);
-  return getRandomItem(candidates.length > 0 ? candidates : items);
+function percent(part, total) {
+  return total ? Math.round((part / total) * 100) : 0;
 }
 
 function normalizeDifficulty(value) {
   if (value === "simple") return "easy";
   if (value === "medium") return "normal";
   if (value === "difficult") return "hard";
-  if (DIFFICULTY_CONFIG[value]) return value;
-  return "normal";
+  return DIFFICULTY_CONFIG[value] ? value : "normal";
+}
+function safeJsonParse(value, fallback = null) {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
 }
 
 function getInitialDifficulty() {
   try {
-    const fromGlobal = localStorage.getItem("trainingDifficulty");
-    const selectedLevel = JSON.parse(localStorage.getItem("selectedTrainingLevel") || "null");
-    return normalizeDifficulty(selectedLevel?.difficulty || fromGlobal || "normal");
-  } catch (error) {
+    const selected =
+      safeJsonParse(localStorage.getItem(DPT_SELECTED_LEVEL_KEY)) ||
+      safeJsonParse(localStorage.getItem("selectedTrainingLevel"));
+
+    return normalizeDifficulty(
+      selected?.difficulty ||
+        localStorage.getItem(DPT_DIFFICULTY_KEY) ||
+        localStorage.getItem("trainingDifficulty") ||
+        "normal"
+    );
+  } catch {
     return "normal";
   }
 }
 
-function getCurrentChildId() {
+function resolveCurrentChildId() {
   try {
-    const selectedChild = JSON.parse(localStorage.getItem("selectedChild") || "null");
-    return selectedChild?.childId || selectedChild?.id || "unknown-child";
-  } catch (error) {
-    return "unknown-child";
-  }
+    const directKeys = [
+      "currentChildId",
+      "selectedChildId",
+      "activeChildId",
+      "childId",
+      "efGameCurrentChildId",
+      "ef_game_current_child_id",
+    ];
+
+    for (const key of directKeys) {
+      const value = localStorage.getItem(key);
+      if (value && value !== "null" && value !== "undefined") return String(value);
+    }
+
+    const objectKeys = [
+      "currentChild",
+      "selectedChild",
+      "activeChild",
+      "childProfile",
+      "efGameSelectedChild",
+      "ef_game_selected_child",
+      "parentSelectedChild",
+    ];
+
+    for (const key of objectKeys) {
+      const value = safeJsonParse(localStorage.getItem(key));
+      const id = value?.childId || value?.id || value?.studentId || value?.profileId;
+      if (id) return String(id);
+    }
+  } catch {}
+
+  return null;
 }
 
-function averageRt(records) {
-  const valid = records
-    .filter((record) => record.isCorrect && typeof record.reactionTime === "number")
-    .map((record) => record.reactionTime);
-  if (valid.length === 0) return null;
-  return Math.round(valid.reduce((sum, rt) => sum + rt, 0) / valid.length);
+function getPreviousDptAnalysis(childId = resolveCurrentChildId()) {
+  try {
+    const possibleKeys = childId
+      ? [`dptTrainingResult_${childId}`, `latestDptResult_${childId}`, "dptTrainingResult", "latestDptResult"]
+      : ["dptTrainingResult_unassigned", "dptTrainingResult", "latestDptResult"];
+
+    for (const key of possibleKeys) {
+      const previousResult = safeJsonParse(localStorage.getItem(key));
+      if (previousResult?.aiAnalysis) return previousResult.aiAnalysis;
+    }
+  } catch {}
+
+  return null;
 }
 
-function buildRuleSequence(difficultyKey, totalTrials) {
-  const config = DIFFICULTY_CONFIG[difficultyKey] || DIFFICULTY_CONFIG.normal;
+function hasLimitedRun(trials, field, maxSameRun) {
+  let runValue = null;
+  let runLength = 0;
 
-  if (difficultyKey === "easy") {
-    return Array.from({ length: totalTrials }, () => config.rulePlan[0]);
+  for (const trial of trials) {
+    if (trial[field] === runValue) {
+      runLength += 1;
+    } else {
+      runValue = trial[field];
+      runLength = 1;
+    }
+
+    if (runLength > maxSameRun) return false;
   }
 
-  if (difficultyKey === "normal") {
-    const half = Math.ceil(totalTrials / 2);
-    return Array.from({ length: totalTrials }, (_, index) =>
-      index < half ? "catchFly" : "protectSnack"
-    );
+  return true;
+}
+
+function arrangeTrialsWithRunLimit(trials, maxSameRun) {
+  let best = shuffleArray(trials);
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    const candidate = shuffleArray(trials);
+    const soundOk = hasLimitedRun(candidate, "soundType", maxSameRun);
+    const positionOk = hasLimitedRun(candidate, "correctPosition", maxSameRun);
+
+    if (soundOk && positionOk) return candidate;
+
+    let score = 0;
+    ["soundType", "correctPosition"].forEach((field) => {
+      let runValue = null;
+      let runLength = 0;
+      candidate.forEach((trial) => {
+        if (trial[field] === runValue) {
+          runLength += 1;
+          if (runLength > maxSameRun) score += runLength - maxSameRun;
+        } else {
+          runValue = trial[field];
+          runLength = 1;
+        }
+      });
+    });
+
+    if (score < bestScore) {
+      bestScore = score;
+      best = candidate;
+    }
   }
 
-  const base = [];
-  while (base.length < totalTrials) {
-    base.push(...shuffleArray(config.rulePlan));
-  }
-  return base.slice(0, totalTrials);
+  return best;
 }
 
 function buildTrials(difficultyKey) {
   const config = DIFFICULTY_CONFIG[difficultyKey] || DIFFICULTY_CONFIG.normal;
-  const ruleSequence = buildRuleSequence(difficultyKey, config.totalTrials);
+  const combinations = [
+    { soundType: "cat", correctTarget: "dog", correctPosition: "left" },
+    { soundType: "cat", correctTarget: "dog", correctPosition: "right" },
+    { soundType: "dog", correctTarget: "cat", correctPosition: "left" },
+    { soundType: "dog", correctTarget: "cat", correctPosition: "right" },
+  ];
 
-  const flySides = shuffleArray(
-    Array.from({ length: config.totalTrials }, (_, index) =>
-      index % 2 === 0 ? "left" : "right"
+  const repeatCount = Math.ceil(config.totalTrials / combinations.length);
+  const baseTrials = combinations
+    .flatMap((combination) =>
+      Array.from({ length: repeatCount }, () => ({ ...combination }))
     )
-  );
+    .slice(0, config.totalTrials);
 
-  return Array.from({ length: config.totalTrials }, (_, index) => {
-    const flySide = flySides[index];
-    const leftItem = getRandomItem(asset.items);
-    const rightItem = getDifferentItem(asset.items, leftItem);
-    const ruleKey = ruleSequence[index];
-    const rule = RULES[ruleKey] || RULES.catchFly;
-    const correctSide = rule.getCorrectSide({ flySide });
+  return arrangeTrialsWithRunLimit(baseTrials, config.maxSameRun).map((trial, index) => {
+    const catPosition = trial.correctTarget === "cat"
+      ? trial.correctPosition
+      : trial.correctPosition === "left" ? "right" : "left";
+    const dogPosition = catPosition === "left" ? "right" : "left";
 
     return {
+      ...trial,
       trialIndex: index + 1,
-      ruleKey,
-      ruleLabel: rule.shortLabel,
-      flySide,
-      correctSide,
-      leftItem,
-      rightItem,
-      isSwitchTrial: index > 0 && ruleSequence[index - 1] !== ruleKey,
+      catPosition,
+      dogPosition,
+      soundSrc: trial.soundType === "cat" ? asset.catSound : asset.dogSound,
     };
   });
-}
-
-function getStars(accuracy, switchAccuracy) {
-  if (accuracy >= 85 && switchAccuracy >= 70) return 3;
-  if (accuracy >= 60) return 2;
-  return 1;
 }
 
 export default function TrainingPage_DPT() {
   const navigate = useNavigate();
   const [difficultyKey] = useState(getInitialDifficulty);
   const difficulty = DIFFICULTY_CONFIG[difficultyKey] || DIFFICULTY_CONFIG.normal;
-
   const trials = useMemo(() => buildTrials(difficultyKey), [difficultyKey]);
-
   const [phase, setPhase] = useState("start");
-  const [teachingStep, setTeachingStep] = useState(0);
-  const [practiceResult, setPracticeResult] = useState(null);
   const [trialIndex, setTrialIndex] = useState(0);
-
-  const [showFixation, setShowFixation] = useState(false);
-  const [showRuleCard, setShowRuleCard] = useState(false);
-  const [showItems, setShowItems] = useState(false);
-  const [showFly, setShowFly] = useState(false);
   const [canAnswer, setCanAnswer] = useState(false);
-  const [showMouseHint, setShowMouseHint] = useState(false);
-
-  const [feedbackSide, setFeedbackSide] = useState(null);
-  const [feedbackType, setFeedbackType] = useState(null);
-  const [flyHit, setFlyHit] = useState(false);
-  const [foxHappy, setFoxHappy] = useState(false);
-  const [randomClickWarning, setRandomClickWarning] = useState(false);
-
+  const [isPreparingSound, setIsPreparingSound] = useState(false);
+  const [audioError, setAudioError] = useState(false);
+  const [hintType, setHintType] = useState(null);
+  const [feedbackTarget, setFeedbackTarget] = useState(null);
   const [trialRecords, setTrialRecords] = useState([]);
   const [pendingResult, setPendingResult] = useState(null);
 
   const timeoutRefs = useRef([]);
-  const animationFrameRef = useRef(null);
+  const audioRef = useRef(null);
   const probeStartTimeRef = useRef(null);
   const answeredRef = useRef(false);
+  const finishingRef = useRef(false);
   const trialIndexRef = useRef(0);
   const trialRecordsRef = useRef([]);
   const randomClickCountRef = useRef(0);
+  const prematureClickCountRef = useRef(0);
   const repeatedClickCountRef = useRef(0);
   const lastPointerTimeRef = useRef(0);
+  const audioFallbackRef = useRef(false);
 
   const currentTrial = trials[trialIndex];
 
-  useEffect(() => {
-    trialIndexRef.current = trialIndex;
-  }, [trialIndex]);
-
-  useEffect(() => {
-    trialRecordsRef.current = trialRecords;
-  }, [trialRecords]);
+  useEffect(() => { trialIndexRef.current = trialIndex; }, [trialIndex]);
+  useEffect(() => { trialRecordsRef.current = trialRecords; }, [trialRecords]);
 
   function addTimeout(callback, delay) {
-    const timeoutId = window.setTimeout(() => {
-      timeoutRefs.current = timeoutRefs.current.filter((id) => id !== timeoutId);
+    const id = window.setTimeout(() => {
+      timeoutRefs.current = timeoutRefs.current.filter((value) => value !== id);
       callback();
     }, delay);
-
-    timeoutRefs.current.push(timeoutId);
-    return timeoutId;
+    timeoutRefs.current.push(id);
+    return id;
   }
 
-  function clearCurrentTimers() {
-    timeoutRefs.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+  function stopAudio() {
+    if (!audioRef.current) return;
+    audioRef.current.pause();
+    audioRef.current.currentTime = 0;
+    audioRef.current.onplaying = null;
+    audioRef.current.onerror = null;
+    audioRef.current = null;
+  }
+
+  function clearCurrentTimer() {
+    timeoutRefs.current.forEach(window.clearTimeout);
     timeoutRefs.current = [];
-
-    if (animationFrameRef.current !== null) {
-      window.cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
+    stopAudio();
   }
 
-  useEffect(() => {
-    return () => clearCurrentTimers();
-  }, []);
+  useEffect(() => () => clearCurrentTimer(), []);
 
-  function resetRound() {
-    clearCurrentTimers();
-    setTeachingStep(0);
-    setPracticeResult(null);
+  function resetTestState() {
+    clearCurrentTimer();
+    setPendingResult(null);
     setTrialIndex(0);
     setTrialRecords([]);
-    setPendingResult(null);
-    setShowFixation(false);
-    setShowRuleCard(false);
-    setShowItems(false);
-    setShowFly(false);
     setCanAnswer(false);
-    setShowMouseHint(false);
-    setFeedbackSide(null);
-    setFeedbackType(null);
-    setFlyHit(false);
-    setFoxHappy(false);
-    setRandomClickWarning(false);
-
+    setIsPreparingSound(false);
+    setAudioError(false);
+    setHintType(null);
+    setFeedbackTarget(null);
     trialIndexRef.current = 0;
     trialRecordsRef.current = [];
     randomClickCountRef.current = 0;
+    prematureClickCountRef.current = 0;
     repeatedClickCountRef.current = 0;
     lastPointerTimeRef.current = 0;
+    audioFallbackRef.current = false;
     answeredRef.current = false;
+    finishingRef.current = false;
     probeStartTimeRef.current = null;
   }
 
-
   function handleStart() {
-    resetRound();
+    resetTestState();
     setPhase("introVideo");
   }
 
   function handleIntroEnd() {
-    clearCurrentTimers();
-    setTeachingStep(0);
-    setPracticeResult(null);
+    clearCurrentTimer();
     setPhase("teaching");
   }
 
-  function nextTeachingStep() {
-    clearCurrentTimers();
-    setPracticeResult(null);
-    if (teachingStep < 3) {
-      setTeachingStep((prev) => prev + 1);
-      return;
-    }
-    startTraining();
-  }
-
-  function handlePracticeClick(side) {
-    if (teachingStep !== 3) return;
-    setPracticeResult(side === "left" ? "correct" : "wrong");
-  }
-
-  function startTraining() {
-    clearCurrentTimers();
+  function startTest() {
+    resetTestState();
     setPhase("playing");
-    setTrialIndex(0);
-    setTrialRecords([]);
-    trialIndexRef.current = 0;
-    trialRecordsRef.current = [];
-    randomClickCountRef.current = 0;
-    repeatedClickCountRef.current = 0;
-    lastPointerTimeRef.current = 0;
-    startTrial(0);
-  }
-
-  function triggerRandomClickWarning() {
-    setRandomClickWarning(true);
-    addTimeout(() => setRandomClickWarning(false), 420);
+    addTimeout(() => startTrial(0), 0);
   }
 
   function handleStagePointerDown(event) {
     if (phase !== "playing") return;
-
     const now = performance.now();
     if (lastPointerTimeRef.current && now - lastPointerTimeRef.current < 250) {
       repeatedClickCountRef.current += 1;
     }
     lastPointerTimeRef.current = now;
-
-    const isAnswerZone = event.target.closest("[data-answer-zone='true']");
-    if (!isAnswerZone) {
-      triggerRandomClickWarning();
-      if (canAnswer) {
-        randomClickCountRef.current += 1;
-      }
-    }
+    const answerZone = event.target.closest("[data-answer-zone='true']");
+    if (!answerZone) randomClickCountRef.current += 1;
+    else if (!canAnswer) prematureClickCountRef.current += 1;
   }
 
   function startTrial(index) {
-    clearCurrentTimers();
+    clearCurrentTimer();
     answeredRef.current = false;
     probeStartTimeRef.current = null;
-
-    setShowFixation(true);
-    setShowRuleCard(false);
-    setShowItems(false);
-    setShowFly(false);
     setCanAnswer(false);
-    setShowMouseHint(false);
-    setFeedbackSide(null);
-    setFeedbackType(null);
-    setFlyHit(false);
-    setFoxHappy(false);
-    setRandomClickWarning(false);
-
-    addTimeout(() => {
-      setShowFixation(false);
-      setShowRuleCard(true);
-
-      addTimeout(() => {
-        setShowRuleCard(false);
-        setShowItems(true);
-
-        addTimeout(() => {
-          setShowItems(false);
-
-          addTimeout(() => {
-            setShowFly(true);
-
-            animationFrameRef.current = window.requestAnimationFrame(() => {
-              animationFrameRef.current = null;
-
-              if (answeredRef.current || trialIndexRef.current !== index) return;
-
-              probeStartTimeRef.current = performance.now();
-              setCanAnswer(true);
-
-              if (difficulty.showMouseHint) {
-                addTimeout(() => {
-                  if (!answeredRef.current) setShowMouseHint(true);
-                }, difficulty.mouseHintDelay);
-              }
-
-              addTimeout(() => {
-                if (!answeredRef.current) handleTimeout(index);
-              }, difficulty.answerTimeLimit);
-            });
-          }, BLANK_TIME);
-        }, ITEM_PREVIEW_TIME);
-      }, RULE_CARD_TIME);
-    }, FIXATION_TIME);
+    setAudioError(false);
+    setHintType(null);
+    setFeedbackTarget(null);
+    setIsPreparingSound(true);
+    audioFallbackRef.current = false;
+    addTimeout(() => playTrialSound(index), difficulty.preSoundDelay);
   }
 
-  function handleAnswer(clickedSide) {
-    if (!canAnswer || answeredRef.current || phase !== "playing") return;
-    answeredRef.current = true;
-    clearCurrentTimers();
+  function openAnswerWindow(index, { audioFallback = false } = {}) {
+    if (answeredRef.current || trialIndexRef.current !== index) return;
 
-    const currentIndex = trialIndexRef.current;
-    const trial = trials[currentIndex];
-    if (!trial) return;
+    audioFallbackRef.current = audioFallback;
+    probeStartTimeRef.current = performance.now();
+    setIsPreparingSound(false);
+    setAudioError(audioFallback);
+    setCanAnswer(true);
+    setHintType(audioFallback ? "direct" : null);
 
-    const reactionTime = probeStartTimeRef.current
-      ? Math.round(performance.now() - probeStartTimeRef.current)
-      : null;
-    const isCorrect = clickedSide === trial.correctSide;
+    if (!audioFallback && difficulty.hintDelay1 != null) addTimeout(() => {
+      if (!answeredRef.current && trialIndexRef.current === index) setHintType(difficulty.hintLevel === "direct" ? "neutral" : difficulty.hintLevel);
+    }, difficulty.hintDelay1);
+    if (!audioFallback && difficulty.hintDelay2 != null) addTimeout(() => {
+      if (!answeredRef.current && trialIndexRef.current === index) setHintType("direct");
+    }, difficulty.hintDelay2);
+    addTimeout(() => {
+      if (!answeredRef.current && trialIndexRef.current === index) handleTimeout(index);
+    }, difficulty.answerTimeLimit);
+  }
 
-    const record = {
+  function handleAudioPlaybackFailure(index) {
+    if (answeredRef.current || trialIndexRef.current !== index) return;
+    stopAudio();
+    setIsPreparingSound(false);
+    setAudioError(true);
+    setCanAnswer(false);
+    addTimeout(() => openAnswerWindow(index, { audioFallback: true }), 450);
+  }
+
+  function playTrialSound(index) {
+    const trial = trials[index];
+    if (!trial || answeredRef.current || trialIndexRef.current !== index) return;
+    stopAudio();
+    const audio = new Audio(trial.soundSrc);
+    audio.preload = "auto";
+    audioRef.current = audio;
+    audio.onplaying = () => openAnswerWindow(index);
+    audio.onerror = () => handleAudioPlaybackFailure(index);
+    audio.play().catch(() => handleAudioPlaybackFailure(index));
+  }
+
+  function retryCurrentSound() {
+    if (!audioError || answeredRef.current) return;
+    clearCurrentTimer();
+    audioFallbackRef.current = false;
+    probeStartTimeRef.current = null;
+    setCanAnswer(false);
+    setHintType(null);
+    setFeedbackTarget(null);
+    setAudioError(false);
+    setIsPreparingSound(true);
+    playTrialSound(trialIndexRef.current);
+  }
+
+  function buildRecord({ trial, selectedTarget, selectedPosition, reactionTime, timeout }) {
+    const targetCorrect = !timeout && selectedTarget === trial.correctTarget;
+    const isAnticipation = Number.isFinite(reactionTime) && reactionTime < ANTICIPATION_RT;
+    const isCorrect = targetCorrect && !isAnticipation;
+    return {
       trialIndex: trial.trialIndex,
       mode: "training",
       difficulty: difficultyKey,
-      ruleKey: trial.ruleKey,
-      ruleLabel: trial.ruleLabel,
-      isSwitchTrial: trial.isSwitchTrial,
-      flySide: trial.flySide,
-      correctSide: trial.correctSide,
-      clickedSide,
+      difficultyKey,
+      taskVersion: TASK_VERSION,
+      soundType: trial.soundType,
+      expectedTarget: trial.correctTarget,
+      selectedTarget,
+      correctPosition: trial.correctPosition,
+      selectedPosition,
+      catPosition: trial.catPosition,
+      dogPosition: trial.dogPosition,
+      targetCorrect,
+      isAnticipation,
       isCorrect,
       reactionTime,
-      timeout: false,
-      errorType: isCorrect ? null : trial.isSwitchTrial ? "ruleSwitchError" : "wrongTarget",
-      leftItem: trial.leftItem,
-      rightItem: trial.rightItem,
+      timeout,
+      audioPlaybackFailed: audioFallbackRef.current,
+      technicalFallback: audioFallbackRef.current ? "directVisualHint" : null,
+      errorType: timeout ? "miss" : isAnticipation ? "anticipation" : targetCorrect ? null : "sameAnimalError",
+      // 暫時保留舊計分器相容欄位
+      condition: trial.soundType,
+      isIncongruent: true,
+      correctSide: trial.correctPosition,
+      clickedSide: selectedPosition,
+      targetSide: trial.correctPosition,
       timestamp: new Date().toISOString(),
     };
+  }
 
-    const updatedRecords = [...trialRecordsRef.current, record];
-    trialRecordsRef.current = updatedRecords;
-    setTrialRecords(updatedRecords);
-
+  function handleAnswer(selectedTarget, selectedPosition) {
+    if (!canAnswer || answeredRef.current || phase !== "playing") return;
+    answeredRef.current = true;
+    clearCurrentTimer();
+    const index = trialIndexRef.current;
+    const trial = trials[index];
+    if (!trial) return;
+    const reactionTime = Number.isFinite(probeStartTimeRef.current)
+      ? Math.round(performance.now() - probeStartTimeRef.current)
+      : null;
+    const record = buildRecord({ trial, selectedTarget, selectedPosition, reactionTime, timeout: false });
+    const updated = [...trialRecordsRef.current, record];
+    trialRecordsRef.current = updated;
+    setTrialRecords(updated);
     setCanAnswer(false);
-    setShowMouseHint(false);
-    setFeedbackSide(clickedSide);
-    setFeedbackType(isCorrect ? "correct" : "wrong");
-
-    if (isCorrect) {
-      setFlyHit(true);
-      setFoxHappy(true);
-    }
-
-    addTimeout(() => {
-      goNextTrial(updatedRecords, currentIndex);
-    }, FEEDBACK_TIME);
+    setFeedbackTarget(record.isCorrect ? selectedTarget : trial.correctTarget);
+    addTimeout(() => goNextTrial(updated, index), FEEDBACK_TIME);
   }
 
   function handleTimeout(index) {
-    if (answeredRef.current) return;
+    if (answeredRef.current || trialIndexRef.current !== index) return;
     answeredRef.current = true;
-    clearCurrentTimers();
-
+    clearCurrentTimer();
     const trial = trials[index];
     if (!trial) return;
-
-    const record = {
-      trialIndex: trial.trialIndex,
-      mode: "training",
-      difficulty: difficultyKey,
-      ruleKey: trial.ruleKey,
-      ruleLabel: trial.ruleLabel,
-      isSwitchTrial: trial.isSwitchTrial,
-      flySide: trial.flySide,
-      correctSide: trial.correctSide,
-      clickedSide: null,
-      isCorrect: false,
-      reactionTime: null,
-      timeout: true,
-      errorType: "miss",
-      leftItem: trial.leftItem,
-      rightItem: trial.rightItem,
-      timestamp: new Date().toISOString(),
-    };
-
-    const updatedRecords = [...trialRecordsRef.current, record];
-    trialRecordsRef.current = updatedRecords;
-    setTrialRecords(updatedRecords);
-
+    const record = buildRecord({ trial, selectedTarget: null, selectedPosition: null, reactionTime: null, timeout: true });
+    const updated = [...trialRecordsRef.current, record];
+    trialRecordsRef.current = updated;
+    setTrialRecords(updated);
     setCanAnswer(false);
-    setShowMouseHint(false);
-    setFeedbackSide(trial.correctSide);
-    setFeedbackType("hint");
-
-    addTimeout(() => {
-      goNextTrial(updatedRecords, index);
-    }, FEEDBACK_TIME);
+    setFeedbackTarget(trial.correctTarget);
+    addTimeout(() => goNextTrial(updated, index), FEEDBACK_TIME);
   }
 
-  function goNextTrial(updatedRecords, currentIndex) {
-    clearCurrentTimers();
-    setShowFixation(false);
-    setShowRuleCard(false);
-    setShowItems(false);
-    setShowFly(false);
+  function goNextTrial(records, currentIndex) {
+    clearCurrentTimer();
     setCanAnswer(false);
-    setShowMouseHint(false);
-    setFeedbackSide(null);
-    setFeedbackType(null);
-    setFlyHit(false);
-    setFoxHappy(false);
-    setRandomClickWarning(false);
-
+    setAudioError(false);
+    setIsPreparingSound(false);
     const nextIndex = currentIndex + 1;
     if (nextIndex >= trials.length) {
-      finishTraining(updatedRecords);
+      finishTraining(records);
       return;
     }
-
     trialIndexRef.current = nextIndex;
     setTrialIndex(nextIndex);
     addTimeout(() => startTrial(nextIndex), NEXT_TRIAL_DELAY);
   }
 
+  function safeScoring(records) {
+    try {
+      return calculateDptScore(records, {
+        mode: "training",
+        difficulty: difficultyKey,
+        plannedTotalRounds: trials.length,
+      }) || {};
+    } catch (error) {
+      console.error("DPT 訓練評分失敗：", error);
+      return {};
+    }
+  }
+
   function finishTraining(records) {
-    const totalTrials = records.length;
-    const correctCount = records.filter((record) => record.isCorrect).length;
-    const wrongCount = records.filter((record) => !record.isCorrect && !record.timeout).length;
-    const timeoutCount = records.filter((record) => record.timeout).length;
-    const switchRecords = records.filter((record) => record.isSwitchTrial);
-    const switchCorrect = switchRecords.filter((record) => record.isCorrect).length;
+    if (finishingRef.current) return;
+    finishingRef.current = true;
+    clearCurrentTimer();
 
-    const accuracy = totalTrials > 0 ? Math.round((correctCount / totalTrials) * 100) : 0;
-    const switchAccuracy = switchRecords.length > 0
-      ? Math.round((switchCorrect / switchRecords.length) * 100)
-      : accuracy;
+    const recordsWithMeta = records.map((record, index) => index === 0 ? {
+      ...record,
+      randomClickCount: randomClickCountRef.current,
+      prematureClickCount: prematureClickCountRef.current,
+      repeatedClickCount: repeatedClickCountRef.current,
+    } : record);
 
-    const avgReactionTime = averageRt(records);
-    const firstHalfRecords = records.slice(0, Math.ceil(records.length / 2));
-    const secondHalfRecords = records.slice(Math.ceil(records.length / 2));
-    const firstHalfRT = averageRt(firstHalfRecords) || 0;
-    const secondHalfRT = averageRt(secondHalfRecords) || 0;
-    const firstHalfMiss = firstHalfRecords.filter((record) => record.timeout).length;
-    const secondHalfMiss = secondHalfRecords.filter((record) => record.timeout).length;
+    const totalTrials = recordsWithMeta.length;
+    const correctCount = recordsWithMeta.filter((record) => record.isCorrect).length;
+    const timeoutCount = recordsWithMeta.filter((record) => record.timeout).length;
+    const wrongCount = totalTrials - correctCount - timeoutCount;
+    const accuracy = percent(correctCount, totalTrials);
+    const avgReactionTime = averageRt(recordsWithMeta);
+    const catRecords = recordsWithMeta.filter((record) => record.soundType === "cat");
+    const dogRecords = recordsWithMeta.filter((record) => record.soundType === "dog");
+    const sameAnimalErrorCount = recordsWithMeta.filter((record) => record.errorType === "sameAnimalError").length;
+    const anticipationCount = recordsWithMeta.filter((record) => record.errorType === "anticipation").length;
+    const firstHalf = recordsWithMeta.slice(0, Math.ceil(totalTrials / 2));
+    const secondHalf = recordsWithMeta.slice(Math.ceil(totalTrials / 2));
+    const firstHalfAccuracy = percent(firstHalf.filter((record) => record.isCorrect).length, firstHalf.length);
+    const secondHalfAccuracy = percent(secondHalf.filter((record) => record.isCorrect).length, secondHalf.length);
+    const attentionDrop = Math.max(firstHalfAccuracy - secondHalfAccuracy, 0);
 
     const errorTypes = {
       miss: timeoutCount,
-      randomClick: randomClickCountRef.current,
-      wrongTarget: records.filter((record) => record.errorType === "wrongTarget").length,
-      repeatedClick: repeatedClickCountRef.current,
       timeout: timeoutCount,
+      sameAnimalError: sameAnimalErrorCount,
+      wrongTarget: sameAnimalErrorCount,
+      anticipation: anticipationCount,
+      randomClick: randomClickCountRef.current,
+      prematureClick: prematureClickCountRef.current,
+      repeatedClick: repeatedClickCountRef.current,
+      distractorError: 0,
+      incongruentError: 0,
       sequenceError: 0,
-      ruleSwitchError: records.filter((record) => record.errorType === "ruleSwitchError").length,
+      ruleSwitchError: 0,
     };
 
-    const performanceResult = analyzePerformance({
-      totalTrials,
-      correctTrials: correctCount,
-      reactionTimes: records
-        .map((record) => record.reactionTime)
-        .filter((reactionTime) => typeof reactionTime === "number"),
-      errorTypes,
-      difficulty: difficultyKey,
-    });
+    const dptScoring = safeScoring(recordsWithMeta);
+    let performanceResult = {};
+    let errorResult = {};
+    let fatigueResult = {};
+    let recommendedDifficulty = "normal";
 
-    const errorResult = analyzeErrors(errorTypes);
-    const fatigueResult = analyzeFatigue({
-      firstHalfRT,
-      secondHalfRT,
-      missIncrease: Math.max(secondHalfMiss - firstHalfMiss, 0),
-    });
-    const fatigueLevel =
-      typeof fatigueResult === "object" && fatigueResult !== null
-        ? fatigueResult.fatigueLevel || "low"
-        : fatigueResult || "low";
+    try {
+      performanceResult = analyzePerformance({
+        totalTrials,
+        correctTrials: correctCount,
+        reactionTimes: recordsWithMeta.map((r) => r.reactionTime).filter(Number.isFinite),
+        errorTypes,
+        difficulty: difficultyKey,
+      }) || {};
+    } catch {}
+    try { errorResult = analyzeErrors(errorTypes) || {}; } catch {}
+    try {
+      fatigueResult = analyzeFatigue({
+        firstHalfRT: averageRt(firstHalf) || 0,
+        secondHalfRT: averageRt(secondHalf) || 0,
+        missIncrease: Math.max(secondHalf.filter((r) => r.timeout).length - firstHalf.filter((r) => r.timeout).length, 0),
+      }) || {};
+    } catch {}
 
-    const recommendedDifficulty = getRecommendedDifficulty({
-      accuracy: performanceResult.accuracy,
-      avgReactionTime: performanceResult.avgReactionTime,
-      errorTypes,
-      fatigueLevel,
-    });
+    const fatigueLevel = fatigueResult?.fatigueLevel || "low";
+    try {
+      recommendedDifficulty = getRecommendedDifficulty({
+        accuracy: performanceResult.accuracy ?? accuracy,
+        avgReactionTime: performanceResult.avgReactionTime ?? avgReactionTime,
+        errorTypes,
+        fatigueLevel,
+      });
+    } catch {}
 
-    const stars = getStars(accuracy, switchAccuracy);
+    const childId = resolveCurrentChildId();
+    const previousAnalysis = getPreviousDptAnalysis(childId);
+
+    let dptAiAnalysis = {};
+    try {
+      dptAiAnalysis = analyzeDptTraining({
+        records: recordsWithMeta,
+        difficultyKey,
+        randomClickCount: randomClickCountRef.current,
+        prematureClickCount: prematureClickCountRef.current,
+        repeatedClickCount: repeatedClickCountRef.current,
+        plannedTotalRounds: trials.length,
+        previousAnalysis,
+        requireRepeatedUpgrade: true,
+        requireRepeatedDowngrade: false,
+      }) || {};
+    } catch (error) {
+      console.error("DPT 訓練分析失敗：", error);
+    }
+
+    const scoringSummary = dptScoring.summary || {};
+    const scoringParentView = dptScoring.parentView || {};
+    const scoringClinicalView = dptScoring.clinicalView || {};
+    const finalRecommendedDifficulty =
+      dptAiAnalysis.recommendedDifficulty ||
+      recommendedDifficulty ||
+      difficultyKey;
+    const stars = Number(dptScoring.stars) || (accuracy >= 85 ? 3 : accuracy >= 65 ? 2 : 1);
+    const totalScore = Number.isFinite(Number(dptScoring.totalScore))
+      ? Number(dptScoring.totalScore)
+      : accuracy;
+    const finishedAt = new Date().toISOString();
 
     const result = {
-      taskName: "Dot Probe Task Training",
+      taskName: "聽聲音選相反動物訓練",
       taskCode: "DPT",
+      taskVersion: TASK_VERSION,
+      taskRule: "catSoundSelectDog_dogSoundSelectCat",
+      scoringVersion: dptScoring.scoringVersion || SCORING_VERSION,
       gameId: "DPT",
-      abilityType: "cognitive_flexibility",
+      abilityType: "attention_control",
       mode: "training",
       difficulty: difficultyKey,
-      difficultyLabel: difficulty.label,
-      childId: getCurrentChildId(),
+      difficultyKey,
+      difficultyLabel: dptScoring.difficultyLabel || difficulty.label,
+      expectedTrials: trials.length,
+      resultViews: ["child", "parent", "clinician"],
+      resultSource: "dptScoring",
+      childId: childId || null,
+      isFinalized: true,
 
-      resultViews: ["child", "parent"],
-      totalTrials,
-      correctCount,
-      wrongCount,
-      timeoutCount,
-      accuracy,
-      accuracyPercent: accuracy,
-      switchTotal: switchRecords.length,
-      switchCorrect,
-      switchAccuracy,
-      avgReactionTime,
+      // 頂層摘要與正式評分器一致，方便結果頁與醫療端直接取用。
+      totalTrials: scoringSummary.totalTrials ?? totalTrials,
+      completionRate: scoringSummary.completionRate ?? percent(totalTrials, trials.length),
+      correctCount: scoringSummary.correctCount ?? correctCount,
+      wrongCount: scoringSummary.wrongCount ?? wrongCount,
+      timeoutCount: scoringSummary.timeoutCount ?? timeoutCount,
+      anticipationCount: scoringSummary.anticipationCount ?? anticipationCount,
+      sameAnimalErrorCount: scoringSummary.sameAnimalErrorCount ?? sameAnimalErrorCount,
+      accuracy: scoringSummary.accuracyPercent ?? accuracy,
+      accuracyPercent: scoringSummary.accuracyPercent ?? accuracy,
+      timeoutRate: scoringSummary.timeoutRate ?? percent(timeoutCount, totalTrials),
+      anticipationRate: scoringSummary.anticipationRate ?? percent(anticipationCount, totalTrials),
+      sameAnimalErrorRate: scoringSummary.sameAnimalErrorRate ?? percent(sameAnimalErrorCount, totalTrials),
+      avgReactionTime: scoringSummary.avgReactionTime ?? avgReactionTime,
+      medianReactionTime: scoringSummary.medianReactionTime ?? null,
+      reactionTimeStd: scoringSummary.rtStd ?? null,
+      reactionTimeCv: scoringSummary.rtCv ?? null,
+      catSoundAccuracy: scoringSummary.catSoundAccuracy ?? percent(catRecords.filter((r) => r.isCorrect).length, catRecords.length),
+      dogSoundAccuracy: scoringSummary.dogSoundAccuracy ?? percent(dogRecords.filter((r) => r.isCorrect).length, dogRecords.length),
+      leftAccuracy: scoringSummary.leftAccuracy ?? 0,
+      rightAccuracy: scoringSummary.rightAccuracy ?? 0,
+      firstHalfAccuracy: scoringSummary.firstHalfAccuracy ?? firstHalfAccuracy,
+      secondHalfAccuracy: scoringSummary.secondHalfAccuracy ?? secondHalfAccuracy,
+      attentionDrop: scoringSummary.attentionDrop ?? attentionDrop,
+
       errorTypes,
       fatigueLevel,
-      fatigueAnalysis: fatigueResult,
-      recommendedDifficulty,
-      aiSuggestion: recommendedDifficulty,
+      recommendedDifficulty: finalRecommendedDifficulty,
+      aiSuggestion: finalRecommendedDifficulty,
+      aiScore: dptAiAnalysis.aiScore ?? null,
+      aiAnalysis: dptAiAnalysis,
+      recommendedHintLevel: dptAiAnalysis.recommendedHintLevel || difficulty.hintLevel,
+      nextRoundConfig: dptAiAnalysis.nextRoundConfig || null,
+
+      scoring: dptScoring,
+      clinicalView: scoringClinicalView,
+      parentView: scoringParentView,
+      childView: dptScoring.childView || null,
+      totalScore,
+      score: totalScore,
+      stars,
+      performanceLevel: dptScoring.performanceLevel || (stars >= 3 ? "good" : stars >= 2 ? "developing" : "needs_support"),
+      suggestedAction:
+        dptAiAnalysis.suggestedAction ||
+        performanceResult.suggestedAction ||
+        "建議維持目前難度，繼續練習聽完聲音後再選擇相反動物。",
+      parentSummary:
+        dptAiAnalysis.parentSummary ||
+        dptAiAnalysis.parentView?.plainLanguageSummary ||
+        scoringParentView.plainLanguageSummary ||
+        scoringParentView.summary ||
+        performanceResult.parentSummary ||
+        "",
+      warningLevel: errorResult.warningLevel || "none",
+
+      // 保留通用分析，供既有儀表板相容；正式評分與難度建議分別以 scoring、aiAnalysis 為準。
       performance: performanceResult,
       errorAnalysis: errorResult,
-      stars,
-      performanceLevel: stars >= 3 ? "good" : stars >= 2 ? "developing" : "needs_support",
-      parentSummary:
-        stars >= 3
-          ? "孩子能根據提示切換規則，認知彈性表現穩定。"
-          : stars >= 2
-            ? "孩子已能理解規則，但在換規則時仍需要一點提示。"
-            : "孩子在規則切換時較容易沿用上一題想法，建議從固定規則開始練習。",
-      suggestedAction:
-        stars >= 3
-          ? "可以嘗試困難模式，增加每題規則切換。"
-          : stars >= 2
-            ? "建議維持普通模式，練習中途換規則。"
-            : "建議先用簡單模式，讓孩子熟悉每一種規則。",
-      warningLevel: errorResult.warningLevel,
-      records,
+      fatigueAnalysis: fatigueResult,
+      records: recordsWithMeta,
       startedFrom: "TrainingPage_DPT",
-      finishedAt: new Date().toISOString(),
+      finishedAt,
+      generatedAt: dptScoring.generatedAt || dptAiAnalysis.generatedAt || finishedAt,
     };
 
-    localStorage.setItem("dptTrainingResult", JSON.stringify(result));
+    try {
+      saveUnifiedResult({
+        rawResult: result,
+        gameId: "DPT",
+        mode: "training",
+        difficulty: difficultyKey,
+        route: "/training-dpt",
+        visibleRoles: ["child", "parent", "clinician"],
+      });
+    } catch {}
+
+    try {
+      localStorage.setItem("dptTrainingResult", JSON.stringify(result));
+      localStorage.setItem("latestDptResult", JSON.stringify(result));
+      if (childId) {
+        localStorage.setItem(`dptTrainingResult_${childId}`, JSON.stringify(result));
+        localStorage.setItem(`latestDptResult_${childId}`, JSON.stringify(result));
+      } else {
+        localStorage.setItem("dptTrainingResult_unassigned", JSON.stringify(result));
+      }
+      localStorage.setItem("latestDptResultMode", "training");
+      localStorage.setItem("latestDptResultVersion", TASK_VERSION);
+      localStorage.setItem(DPT_DIFFICULTY_KEY, finalRecommendedDifficulty);
+      localStorage.setItem(
+        DPT_SELECTED_LEVEL_KEY,
+        JSON.stringify({
+          gameId: "DPT",
+          difficulty: finalRecommendedDifficulty,
+          hintLevel: dptAiAnalysis.recommendedHintLevel || difficulty.hintLevel,
+          source: "DPTTrainingAnalyzer",
+          taskVersion: TASK_VERSION,
+          updatedAt: finishedAt,
+        })
+      );
+    } catch (error) {
+      console.error("儲存 DPT 訓練結果失敗：", error);
+    }
+
     setPendingResult(result);
     setPhase("endingVideo");
-  }
-
-  function handleEndingVideoEnd() {
-    setPhase("result");
-  }
-
-  function handleReplay() {
-    resetRound();
-    setPhase("introVideo");
   }
 
   function goResultPage() {
@@ -700,64 +768,35 @@ export default function TrainingPage_DPT() {
     navigate(RESULT_ROUTE, { state: pendingResult, replace: true });
   }
 
-  const resultStars = Math.max(1, Math.min(3, Number(pendingResult?.stars) || 1));
+  function handleEndingVideoEnd() { setPhase("result"); }
+  function handleReplay() { resetTestState(); setPhase("introVideo"); }
 
-  const framelessZoneStyle = {
-    border: "none",
-    outline: "none",
-    boxShadow: "none",
-    background: "transparent",
-  };
-
-  const largeItemStyle = {
-    width: "clamp(180px, 21vw, 292px)",
-    height: "clamp(180px, 21vw, 292px)",
-    objectFit: "contain",
-  };
-
-  const largeFlyStyle = {
-    width: "clamp(82px, 8.5vw, 124px)",
-    height: "clamp(82px, 8.5vw, 124px)",
-    objectFit: "contain",
-  };
+  const resultStars = Math.max(
+    1,
+    Math.min(
+      3,
+      Number(pendingResult?.scoring?.stars) ||
+        Number(pendingResult?.stars) ||
+        1
+    )
+  );
 
   if (phase === "start") {
     return (
-      <div
-        className="dpt-page dpt-page--soft"
-        style={{ "--dpt-bg": `url(${asset.background})` }}
-      >
+      <div className="dpt-page dpt-page--soft" style={{ "--dpt-bg": `url(${asset.background})` }}>
         <style>{dptInlineCss}</style>
         <main className="dpt-center-shell dpt-start-shell">
           <section className="dpt-soft-panel dpt-start-panel" aria-label="開始畫面">
-            <div className="dpt-game-title">幫狐狸守住點心</div>
-
+            <div className="dpt-game-title">聽聲音找動物訓練</div>
             <div className="dpt-start-content">
-              <div className="dpt-dialog-bubble dpt-opening-bubble">
-                小狐狸想請你一起保護點心。
-              </div>
-
-              <div className="dpt-round-icon dpt-start-avatar">
-                <img src={asset.startAvatar} alt="開始角色" draggable="false" />
-              </div>
+              <div className="dpt-dialog-bubble dpt-opening-bubble">貓叫要點狗狗，狗叫要點貓咪喔！一起來練習吧！</div>
+              <div className="dpt-round-icon dpt-start-avatar"><img src={asset.startAvatar} alt="開始角色" draggable="false" /></div>
             </div>
-
             <div className="dpt-guided-action dpt-guided-start">
-              <button
-                type="button"
-                className="dpt-forest-button dpt-image-button dpt-btn-start"
-                onClick={handleStart}
-                aria-label="進入遊戲"
-              >
+              <button type="button" className="dpt-forest-button dpt-image-button dpt-btn-start" onClick={handleStart} aria-label="進入遊戲">
                 <img src={asset.homeStartBtn} alt="進入遊戲" draggable="false" />
               </button>
-              <img
-                className="dpt-mouse-guide dpt-mouse-on-button"
-                src={asset.mouseGuideImg}
-                alt="提示點擊"
-                aria-hidden="true"
-                draggable="false"
-              />
+              <img className="dpt-mouse-guide dpt-mouse-on-button" src={asset.mouseGuideImg} alt="" aria-hidden="true" draggable="false" />
             </div>
           </section>
         </main>
@@ -765,158 +804,28 @@ export default function TrainingPage_DPT() {
     );
   }
 
-  if (phase === "introVideo") {
+  if (phase === "introVideo" || phase === "teaching" || phase === "endingVideo") {
+    const isIntro = phase === "introVideo";
+    const isTeaching = phase === "teaching";
+    const videoSrc = isIntro ? asset.introVideo : isTeaching ? asset.stepVideo : asset.endingVideo;
+    const onEnded = isIntro ? handleIntroEnd : isTeaching ? undefined : handleEndingVideoEnd;
+    const onAction = isIntro ? handleIntroEnd : isTeaching ? startTest : handleEndingVideoEnd;
+    const actionImage = isTeaching ? asset.homeNextBtn : asset.homeSkipBtn;
+    const actionButtonClass = isTeaching ? "dpt-btn-next" : "dpt-btn-skip";
+    const actionLabel = isTeaching ? "下一步" : "跳過動畫";
     return (
       <div className="dpt-page dpt-page--soft" style={{ "--dpt-bg": `url(${asset.background})` }}>
         <style>{dptInlineCss}</style>
         <main className="dpt-center-shell">
-          <section className="dpt-soft-panel dpt-video-panel" aria-label="前導動畫">
+          <section className="dpt-soft-panel dpt-video-panel" aria-label="遊戲影片">
             <div className="dpt-video-frame">
-              <video className="dpt-video" src={asset.introVideo} autoPlay muted playsInline controls={false} preload="auto" onEnded={handleIntroEnd}>
-                你的瀏覽器不支援影片播放。
-              </video>
+              <video className="dpt-video" src={videoSrc} autoPlay muted playsInline controls={false} preload="auto" onEnded={onEnded}>你的瀏覽器不支援影片播放。</video>
             </div>
-            <div className="dpt-guided-action dpt-guided-skip">
-              <button type="button" className="dpt-forest-button dpt-image-button dpt-btn-skip" onClick={handleIntroEnd} aria-label="跳過動畫">
-                <img src={asset.homeSkipBtn} alt="跳過動畫" draggable="false" />
+            <div className="dpt-guided-action dpt-guided-next">
+              <button type="button" className={`dpt-forest-button dpt-image-button ${actionButtonClass}`} onClick={onAction} aria-label={actionLabel}>
+                <img src={actionImage} alt={actionLabel} draggable="false" />
               </button>
-              <img className="dpt-mouse-guide dpt-mouse-on-button" src={asset.mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
-            </div>
-          </section>
-        </main>
-      </div>
-    );
-  }
-
-  if (phase === "teaching") {
-    const teachingScreens = [
-      {
-        key: "focus",
-        title: "看中間",
-        content: (
-          <div className="dpt-icon-flow dpt-icon-flow--single">
-            <div className="dpt-mini-scene dpt-mini-scene--focus">
-              <img className="dpt-teach-fox" src={asset.fox} alt="狐狸" draggable="false" />
-              <div className="dpt-focus-ring">
-                <img className="dpt-teach-bee" src={asset.bee} alt="中間小蜜蜂" draggable="false" />
-              </div>
-            </div>
-          </div>
-        ),
-      },
-      {
-        key: "remember",
-        title: "記住左右",
-        content: (
-          <div className="dpt-icon-flow">
-            <div className="dpt-teach-side dpt-teach-side--left">
-              <span className="dpt-side-label">左</span>
-              <img src={asset.items[0]} alt="左邊圖片" draggable="false" />
-            </div>
-            <div className="dpt-teach-symbol">＋</div>
-            <div className="dpt-teach-side dpt-teach-side--right">
-              <span className="dpt-side-label">右</span>
-              <img src={asset.items[1]} alt="右邊圖片" draggable="false" />
-            </div>
-          </div>
-        ),
-      },
-      {
-        key: "probe",
-        title: "圖片不見，找蒼蠅",
-        content: (
-          <div className="dpt-icon-flow">
-            <div className="dpt-teach-ghost">
-              <img src={asset.items[2]} alt="消失的左圖" draggable="false" />
-            </div>
-            <div className="dpt-teach-arrow">→</div>
-            <div className="dpt-teach-probe">
-              <img className="dpt-teach-fly" src={asset.fly} alt="小蒼蠅" draggable="false" />
-              <span className="dpt-side-label">左</span>
-            </div>
-          </div>
-        ),
-      },
-      {
-        key: "answer",
-        title: "點蒼蠅那一邊",
-        content: (
-          <div className="dpt-practice-icon-wrap">
-            <button
-              type="button"
-              className={[
-                "dpt-practice-choice",
-                practiceResult === "correct" ? "is-correct" : "",
-              ].join(" ")}
-              onClick={() => handlePracticeClick("left")}
-              aria-label="教學左邊"
-            >
-              <span className="dpt-side-label">左</span>
-              <img className="dpt-teach-fly" src={asset.fly} alt="左邊小蒼蠅" draggable="false" />
-            </button>
-            <button
-              type="button"
-              className={[
-                "dpt-practice-choice",
-                practiceResult === "wrong" ? "is-wrong" : "",
-              ].join(" ")}
-              onClick={() => handlePracticeClick("right")}
-              aria-label="教學右邊"
-            >
-              <span className="dpt-side-label">右</span>
-              <span className="dpt-empty-dot">?</span>
-            </button>
-          </div>
-        ),
-      },
-    ];
-    const screen = teachingScreens[teachingStep] || teachingScreens[0];
-    const buttonLabel = screen.key === "answer" ? "開始遊戲" : "下一步";
-
-    return (
-      <div className="dpt-page dpt-page--soft" style={{ "--dpt-bg": `url(${asset.background})` }}>
-        <style>{dptInlineCss}</style>
-        <div className="dpt-rule-card dpt-rule-card--icons">
-          <div className="dpt-teaching-head">
-            <div className="dpt-avatar-guide"><img src={asset.tutorialAvatar} alt="小助手" draggable="false" /></div>
-            <div>
-              <h1 className="dpt-rule-title">幫狐狸守住點心</h1>
-              <h2 className="dpt-rule-icon-title">{screen.title}</h2>
-            </div>
-          </div>
-
-          {screen.content}
-
-          {practiceResult === "correct" && <div className="dpt-icon-feedback dpt-icon-feedback--success">✓</div>}
-          {practiceResult === "wrong" && <div className="dpt-icon-feedback dpt-icon-feedback--error">↺</div>}
-
-          <div className="dpt-guided-action dpt-guided-start">
-            <button type="button" className="dpt-forest-button dpt-image-button dpt-btn-start" onClick={nextTeachingStep} aria-label={buttonLabel}>
-              <img src={asset.homeStartBtn} alt={buttonLabel} draggable="false" />
-            </button>
-            <img className="dpt-mouse-guide dpt-mouse-on-button" src={asset.mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (phase === "endingVideo") {
-    return (
-      <div className="dpt-page dpt-page--soft" style={{ "--dpt-bg": `url(${asset.background})` }}>
-        <style>{dptInlineCss}</style>
-        <main className="dpt-center-shell">
-          <section className="dpt-soft-panel dpt-video-panel" aria-label="結束動畫">
-            <div className="dpt-video-frame">
-              <video className="dpt-video" src={asset.endingVideo} autoPlay muted playsInline controls={false} preload="auto" onEnded={handleEndingVideoEnd}>
-                你的瀏覽器不支援影片播放。
-              </video>
-            </div>
-            <div className="dpt-guided-action dpt-guided-skip">
-              <button type="button" className="dpt-forest-button dpt-image-button dpt-btn-skip" onClick={handleEndingVideoEnd} aria-label="跳過動畫">
-                <img src={asset.homeSkipBtn} alt="跳過動畫" draggable="false" />
-              </button>
-              <img className="dpt-mouse-guide dpt-mouse-on-button" src={asset.mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
+              <img className="dpt-mouse-guide dpt-mouse-on-button" src={asset.mouseGuideImg} alt="" aria-hidden="true" draggable="false" />
             </div>
           </section>
         </main>
@@ -929,29 +838,22 @@ export default function TrainingPage_DPT() {
       <div className="dpt-page dpt-page--soft" style={{ "--dpt-bg": `url(${asset.background})` }}>
         <style>{dptInlineCss}</style>
         <main className="dpt-center-shell dpt-result-shell">
-          <section className="dpt-soft-panel dpt-result-panel" aria-label="訓練結果">
+          <section className="dpt-soft-panel dpt-result-panel" aria-label="測驗結果">
             <div className="dpt-cute-stars" aria-label={`${resultStars} 顆星`}>
-              {[1, 2, 3].map((star) => <span key={star} className={`dpt-cute-star ${star <= resultStars ? "is-on" : ""}`}>★</span>)}
+              {[1,2,3].map((star) => <span key={star} className={`dpt-cute-star ${star <= resultStars ? "is-on" : ""}`}>★</span>)}
             </div>
-
             <div className="dpt-start-content dpt-result-content">
-              <div className="dpt-dialog-bubble">
-                關卡完成！你很認真幫狐狸守住點心喔。
-              </div>
+              <div className="dpt-dialog-bubble">關卡完成！你很認真聽聲音並找到相反的動物。</div>
               <div className="dpt-round-icon dpt-result-icon"><img src={asset.startAvatar} alt="狐狸角色" draggable="false" /></div>
             </div>
-
             <div className="dpt-result-actions">
               <div className="dpt-guided-action dpt-guided-result-main">
                 <button type="button" className="dpt-forest-button dpt-image-button dpt-btn-home" onClick={() => navigate(FOREST_ROUTE)} aria-label="回到森林">
                   <img src={asset.homeBackBtn} alt="回到森林" draggable="false" />
                 </button>
-                <img className="dpt-mouse-guide dpt-mouse-on-button" src={asset.mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
+                <img className="dpt-mouse-guide dpt-mouse-on-button" src={asset.mouseGuideImg} alt="" aria-hidden="true" draggable="false" />
               </div>
-
-              <button type="button" className="dpt-forest-button dpt-image-button dpt-btn-replay" onClick={handleReplay} aria-label="再玩一次">
-                <img src={asset.homeAgainBtn} alt="再玩一次" draggable="false" />
-              </button>
+              <button type="button" className="dpt-forest-button dpt-image-button" onClick={handleReplay} aria-label="再玩一次"><img src={asset.homeAgainBtn} alt="再玩一次" draggable="false" /></button>
               <button type="button" className="dpt-forest-button dpt-image-button dpt-btn-detail" onClick={goResultPage} aria-label="詳細結果">
                 <img src={asset.homeResultBtn} alt="詳細結果" draggable="false" />
               </button>
@@ -962,73 +864,26 @@ export default function TrainingPage_DPT() {
     );
   }
 
+  const leftTarget = currentTrial?.catPosition === "left" ? "cat" : "dog";
+  const rightTarget = leftTarget === "cat" ? "dog" : "cat";
+
   return (
     <div className="dpt-page dpt-page--soft" style={{ "--dpt-bg": `url(${asset.background})` }}>
       <style>{dptInlineCss}</style>
       <div className="dpt-container">
-        <div className={`dpt-stage ${randomClickWarning ? "is-random-warning" : ""}`} onPointerDownCapture={handleStagePointerDown}>
-          {randomClickWarning && (
-            <div className="dpt-random-click-warning" role="status" aria-live="polite">
-              先看清楚再點喔！
-            </div>
-          )}
-
-          {showFixation && <img className="dpt-fixation-bee" src={asset.bee} alt="注視蜜蜂" draggable="false" />}
-
-
-          <button
-            type="button"
-            className={`dpt-side-zone dpt-side-zone--left ${canAnswer ? "is-clickable" : ""} ${feedbackSide === "left" && feedbackType === "correct" ? "is-correct" : ""} ${feedbackSide === "left" && feedbackType === "wrong" ? "is-wrong" : ""} ${feedbackSide === "left" && feedbackType === "hint" ? "is-hint" : ""}`}
-            style={framelessZoneStyle}
-            onClick={() => handleAnswer("left")}
-            disabled={!canAnswer}
-            aria-label="左邊"
-            data-answer-zone="true"
-          >
-            {showItems && currentTrial?.leftItem && <img className="dpt-item" src={currentTrial.leftItem} alt="左邊點心" draggable="false" style={largeItemStyle} />}
-          </button>
-
-          <button
-            type="button"
-            className={`dpt-side-zone dpt-side-zone--right ${canAnswer ? "is-clickable" : ""} ${feedbackSide === "right" && feedbackType === "correct" ? "is-correct" : ""} ${feedbackSide === "right" && feedbackType === "wrong" ? "is-wrong" : ""} ${feedbackSide === "right" && feedbackType === "hint" ? "is-hint" : ""}`}
-            style={framelessZoneStyle}
-            onClick={() => handleAnswer("right")}
-            disabled={!canAnswer}
-            aria-label="右邊"
-            data-answer-zone="true"
-          >
-            {showItems && currentTrial?.rightItem && <img className="dpt-item" src={currentTrial.rightItem} alt="右邊點心" draggable="false" style={largeItemStyle} />}
-          </button>
-
-          {showFly && (
-            <img
-              className={`dpt-fly ${currentTrial?.flySide === "left" ? "dpt-fly--left" : "dpt-fly--right"} ${flyHit ? "is-hit" : ""}`}
-              src={asset.fly}
-              alt="蒼蠅"
-              draggable="false"
-              style={largeFlyStyle}
-            />
-          )}
-
-          {showMouseHint && currentTrial && (
-            <img
-              className={`dpt-mouse-guide dpt-mouse-answer-hint ${currentTrial.correctSide === "left" ? "is-left" : "is-right"}`}
-              src={asset.mouseGuideImg}
-              alt="提示點擊"
-              aria-hidden="true"
-              draggable="false"
-            />
-          )}
-
-
-          {feedbackSide && (
-            <div
-              className={`dpt-effect ${feedbackType === "correct" ? "dpt-effect--correct" : "dpt-effect--wrong"}`}
-              style={{ left: feedbackSide === "left" ? "28%" : "72%", top: "32%" }}
-            >
-              {feedbackType === "correct" ? "✓" : "×"}
-            </div>
-          )}
+        <div className="dpt-stage" onPointerDownCapture={handleStagePointerDown}>
+          <div className="dpt-listen-status" aria-live="polite">
+            {audioError ? "聲音沒有成功播放，請依提示選擇或重新播放" : isPreparingSound ? "請準備聽聲音" : canAnswer ? "請選擇相反的動物" : "請稍候"}
+          </div>
+          <div className="dpt-animal-choice-row" aria-label="選擇動物">
+            <button type="button" className={`dpt-animal-choice ${canAnswer ? "is-clickable" : ""} ${hintType === "neutral" ? "is-neutral-hint" : ""} ${hintType === "direct" && leftTarget === currentTrial?.correctTarget ? "is-direct-hint" : ""} ${feedbackTarget === leftTarget ? "is-feedback" : ""}`} onClick={() => handleAnswer(leftTarget, "left")} data-answer-zone="true" aria-disabled={!canAnswer}>
+              <img src={leftTarget === "cat" ? asset.cat : asset.dog} alt={leftTarget === "cat" ? "貓咪" : "狗狗"} draggable="false" />
+            </button>
+            <button type="button" className={`dpt-animal-choice ${canAnswer ? "is-clickable" : ""} ${hintType === "neutral" ? "is-neutral-hint" : ""} ${hintType === "direct" && rightTarget === currentTrial?.correctTarget ? "is-direct-hint" : ""} ${feedbackTarget === rightTarget ? "is-feedback" : ""}`} onClick={() => handleAnswer(rightTarget, "right")} data-answer-zone="true" aria-disabled={!canAnswer}>
+              <img src={rightTarget === "cat" ? asset.cat : asset.dog} alt={rightTarget === "cat" ? "貓咪" : "狗狗"} draggable="false" />
+            </button>
+          </div>
+          {audioError && <button type="button" className="dpt-retry-audio" onClick={retryCurrentSound}>重新播放聲音</button>}
         </div>
       </div>
     </div>
@@ -1040,10 +895,10 @@ const dptInlineCss = `
 .dpt-page *,
 .dpt-forest-button,
 .dpt-image-button,
-.dpt-side-zone,
-.dpt-practice-choice {
+.dpt-arrow-button {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
 .dpt-page--soft {
@@ -1059,95 +914,37 @@ const dptInlineCss = `
 
 .dpt-center-shell { width: min(90vw, 1220px); min-height: 100vh; margin: 0 auto; display: flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 28px 0; }
 .dpt-start-shell, .dpt-result-shell { width: min(78vw, 960px); }
-.dpt-soft-panel, .dpt-rule-card { width: 100%; background: linear-gradient(180deg, rgba(255,238,174,.98), rgba(255,229,151,.98)); border: 7px solid #ff8426; border-radius: 72px; box-sizing: border-box; box-shadow: 0 18px 34px rgba(108,67,25,.12); }
+.dpt-soft-panel { width: 100%; background: linear-gradient(180deg, rgba(255,238,174,.98), rgba(255,229,151,.98)); border: 7px solid #ff8426; border-radius: 72px; box-sizing: border-box; box-shadow: 0 18px 34px rgba(108,67,25,.12); }
 .dpt-start-panel { min-height: 500px; padding: 52px 72px 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 44px; }
-.dpt-game-title, .dpt-rule-title { display: inline-flex; align-items: center; justify-content: center; padding: 12px 34px; border-radius: 999px; border: 4px solid #ff8a37; background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,246,213,.98)); color: #3b2414; font-size: clamp(30px,3.8vw,48px); font-weight: 950; line-height: 1.08; letter-spacing: 1px; box-shadow: 0 8px 0 rgba(231,124,32,.2), 0 14px 26px rgba(108,67,25,.12); margin: 0; }
+.dpt-game-title { display: inline-flex; align-items: center; justify-content: center; padding: 12px 34px; border-radius: 999px; border: 4px solid #ff8a37; background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,246,213,.98)); color: #3b2414; font-size: clamp(30px,3.8vw,48px); font-weight: 950; line-height: 1.08; letter-spacing: 1px; box-shadow: 0 8px 0 rgba(231,124,32,.2), 0 14px 26px rgba(108,67,25,.12); margin: 0; }
 .dpt-start-content { width: min(100%,760px); display: grid; grid-template-columns: minmax(300px,1fr) 170px; align-items: center; justify-content: center; gap: 64px; }
-.dpt-dialog-bubble { min-height: 138px; border: 5px solid #f0782e; border-radius: 28px; background: linear-gradient(180deg,#fff 0%,#fff9e9 100%); color: #1e1711; display: flex; align-items: center; justify-content: center; padding: 18px 30px; font-size: clamp(26px,3vw,38px); line-height: 1.32; font-weight: 900; box-sizing: border-box; position: relative; box-shadow: 0 8px 0 rgba(240,125,45,.12), inset 0 0 0 6px rgba(255,226,150,.28); }
-.dpt-dialog-bubble::after { content: ""; position: absolute; right: -44px; top: 50%; width: 46px; height: 40px; background: #fff9e9; border-top: 5px solid #f0782e; border-right: 5px solid #f0782e; transform: translateY(-50%) skewX(-32deg) rotate(12deg); }
+.dpt-dialog-bubble { min-height: 138px; border: 5px solid #f0782e; border-radius: 28px; background: linear-gradient(180deg,#fff 0%,#fff9e9 100%); color: #1e1711; display: flex; align-items: center; justify-content: center; padding: 18px 30px; font-size: clamp(26px,3vw,38px); line-height: 1.32; font-weight: 900; box-sizing: border-box; box-shadow: 0 8px 0 rgba(240,125,45,.12), inset 0 0 0 6px rgba(255,226,150,.28); }
 .dpt-round-icon { width: 170px; height: 170px; border-radius: 999px; background: linear-gradient(180deg,#4e82d5,#2f68c2); border: 3px solid #173466; display: flex; align-items: center; justify-content: center; overflow: hidden; box-sizing: border-box; padding: 10px; box-shadow: 0 10px 20px rgba(44,83,139,.18); }
 .dpt-round-icon img { width: 100%; height: 100%; max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 50%; display: block; }
-.dpt-forest-button, .dpt-start-button, .dpt-main-button { min-width: 184px; min-height: 72px; padding: 12px 34px; border-radius: 14px; color: #fff; font-family: inherit; font-size: clamp(23px,2.5vw,32px); font-weight: 900; line-height: 1.15; cursor: pointer; transition: transform .14s ease, filter .14s ease, box-shadow .14s ease, opacity .14s ease; }
-.dpt-forest-button:hover:not(:disabled), .dpt-start-button:hover:not(:disabled), .dpt-main-button:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.04); }
-.dpt-btn-start, .dpt-start-button, .dpt-main-button { border: 2px solid #2d6e31; background: linear-gradient(180deg,#7ec65b,#66a83f); box-shadow: 0 4px 0 rgba(34,92,35,.34), 0 10px 18px rgba(67,93,38,.16); }
-.dpt-btn-skip { border: 2px solid #74513a; background: linear-gradient(180deg,#b28a68,#8e664f); box-shadow: 0 4px 0 rgba(84,56,38,.34),0 10px 18px rgba(84,56,38,.14); }
-.dpt-btn-home { border: 2px solid #2d6e31; background: linear-gradient(180deg,#7ac65a,#5fa742); box-shadow: 0 4px 0 rgba(34,92,35,.34),0 10px 18px rgba(67,93,38,.14); }
-.dpt-btn-replay { border: 2px solid #b45f18; background: linear-gradient(180deg,#ffbc58,#f08a2a); box-shadow: 0 4px 0 rgba(154,86,22,.34),0 10px 18px rgba(154,86,22,.14); }
-.dpt-btn-detail { border: 2px solid #2c5e9a; background: linear-gradient(180deg,#75a8ff,#4d80d8); box-shadow: 0 4px 0 rgba(38,78,137,.34),0 10px 18px rgba(38,78,137,.14); }
+.dpt-forest-button { min-width: 184px; min-height: 72px; padding: 12px 34px; border-radius: 14px; color: #fff; font-family: inherit; font-size: clamp(23px,2.5vw,32px); font-weight: 900; line-height: 1.15; cursor: pointer; transition: transform .14s ease, filter .14s ease; border: 2px solid #74513a; background: linear-gradient(180deg,#b28a68,#8e664f); box-shadow: 0 4px 0 rgba(84,56,38,.34),0 10px 18px rgba(84,56,38,.14); }
+.dpt-forest-button:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.04); }
+.dpt-image-button { display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; background: transparent; box-shadow: none; min-width: 0; min-height: 0; }
+.dpt-image-button img { width: clamp(126px, 13vw, 190px); height: auto; display: block; object-fit: contain; }
+.dpt-guided-action { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+.dpt-mouse-guide { position: absolute; width: clamp(54px, 6vw, 86px); height: auto; pointer-events: none; filter: drop-shadow(0 10px 10px rgba(74,54,25,.18)); animation: dptMouseTap 1s ease-in-out infinite; }
+.dpt-mouse-on-button { right: -34px; bottom: -24px; }
 .dpt-video-panel { min-height: 78vh; padding: 48px 72px 34px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; }
 .dpt-video-frame { width: 100%; height: min(60vh,560px); min-height: 360px; border: 2px solid rgba(97,123,74,.55); border-radius: 22px; background: rgba(255,255,255,.38); overflow: hidden; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
 .dpt-video { width: 100%; height: 100%; object-fit: cover; display: block; }
-.dpt-rule-card { width: min(90vw,1120px); min-height: 72vh; margin: 8vh auto 0; padding: clamp(28px,4vw,52px); }
-.dpt-rule-card--icons { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(18px,2.3vw,28px); }
-.dpt-rule-icon-title { margin: 0; color: #3b2414; font-size: clamp(28px,3.2vw,44px); font-weight: 950; line-height: 1.15; }
-.dpt-icon-flow { position: relative; width: min(760px,92vw); min-height: clamp(230px,30vw,330px); display: flex; align-items: center; justify-content: center; gap: clamp(20px,4vw,52px); margin: 2px auto 4px; }
-.dpt-icon-flow--single { min-height: clamp(260px,32vw,360px); }
-.dpt-mini-scene { position: relative; width: min(650px,88vw); height: clamp(250px,31vw,340px); }
-.dpt-teach-fox { position: absolute; left: 8%; bottom: 0; width: clamp(150px,21vw,250px); height: auto; object-fit: contain; filter: drop-shadow(0 12px 12px rgba(74,54,25,.16)); }
-.dpt-focus-ring { position: absolute; left: 50%; top: 45%; transform: translate(-50%,-50%); width: clamp(130px,16vw,190px); height: clamp(130px,16vw,190px); border-radius: 999px; background: rgba(255,255,255,.72); border: 6px solid #ff8a37; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 9px rgba(255,217,96,.35), 0 14px 22px rgba(108,67,25,.12); }
-.dpt-teach-bee { width: 86%; height: 86%; object-fit: contain; animation: dptFloat 1.1s ease-in-out infinite; }
-.dpt-eye-line { position: absolute; right: 13%; top: 38%; font-size: clamp(44px,7vw,82px); filter: drop-shadow(0 8px 10px rgba(74,54,25,.16)); }
-.dpt-teach-side, .dpt-teach-probe, .dpt-teach-ghost, .dpt-practice-choice { position: relative; width: clamp(160px,21vw,250px); height: clamp(160px,21vw,250px); border-radius: 34px; background: rgba(255,255,255,.52); border: 5px solid rgba(255,138,55,.72); display: flex; align-items: center; justify-content: center; box-shadow: 0 12px 22px rgba(108,67,25,.10); }
-.dpt-teach-side img, .dpt-teach-ghost img { width: 80%; height: 80%; object-fit: contain; }
-.dpt-teach-symbol, .dpt-teach-arrow { color: #7a4b25; font-size: clamp(42px,6vw,76px); font-weight: 950; }
-.dpt-side-label { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); min-width: 62px; padding: 6px 14px; border-radius: 999px; background: #fff8dc; border: 4px solid #ff8a37; color: #3b2414; font-size: clamp(24px,2.7vw,34px); font-weight: 950; line-height: 1; box-shadow: 0 6px 0 rgba(231,124,32,.18); }
-.dpt-memory-hint { position: absolute; left: 50%; bottom: -4px; transform: translateX(-50%); font-size: clamp(42px,5vw,64px); font-weight: 950; color: #5d361d; }
-.dpt-teach-ghost { opacity: .34; border-style: dashed; }
-.dpt-teach-probe { background: rgba(255,247,205,.68); }
-.dpt-teach-fly { width: 72%; height: 72%; object-fit: contain; animation: dptFlyOnly 1.1s ease-in-out infinite; }
-.dpt-practice-icon-wrap { width: min(680px,92vw); display: grid; grid-template-columns: 1fr 1fr; gap: clamp(24px,5vw,56px); margin: 8px auto 2px; }
-.dpt-practice-choice { width: 100%; cursor: pointer; font-family: inherit; }
-.dpt-practice-choice.is-correct { border-color: #65b943; box-shadow: 0 0 0 9px rgba(126,198,91,.22), 0 12px 22px rgba(108,67,25,.10); }
-.dpt-practice-choice.is-wrong { border-color: #d84b38; box-shadow: 0 0 0 9px rgba(216,75,56,.16), 0 12px 22px rgba(108,67,25,.10); }
-.dpt-empty-dot { color: #7a4b25; font-size: clamp(64px,8vw,92px); font-weight: 950; }
-.dpt-icon-feedback { width: 68px; height: 68px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 48px; font-weight: 950; line-height: 1; margin: -8px auto -4px; }
-.dpt-icon-feedback--success { color: #fff; background: #65b943; }
-.dpt-icon-feedback--error { color: #fff; background: #d84b38; }
-.dpt-rule-text { margin: 18px auto; color: #2c1d12; font-size: clamp(24px,2.8vw,36px); font-weight: 900; line-height: 1.35; }
-.dpt-feedback-text { margin: 10px 0 16px; font-size: clamp(22px,2.5vw,30px); font-weight: 900; }
-.dpt-feedback-text--success { color: #368131; }
-.dpt-feedback-text--error { color: #c94d31; }
-.dpt-container { width: 100%; min-height: 100vh; display: flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 3vh 4vw; }
-.dpt-stage { position: relative; width: min(86vw,1120px); height: min(78vh,650px); max-height: calc(100vh - 48px); overflow: hidden; border-radius: 34px; border: 4px solid rgba(255,255,255,.86); background: rgba(255,255,220,.34); box-shadow: inset 0 0 0 1px rgba(255,255,255,.40); }
-.dpt-side-zone { position: absolute; top: 31%; width: 30%; height: 34%; display: flex; align-items: center; justify-content: center; padding: 0; }
-.dpt-side-zone--left { left: 13%; }
-.dpt-side-zone--right { right: 13%; }
-.dpt-side-zone.is-clickable { cursor: pointer; }
-.dpt-item, .dpt-fly, .dpt-fox, .dpt-fixation-bee { user-select: none; -webkit-user-drag: none; filter: drop-shadow(0 10px 14px rgba(74,54,25,.18)); }
-.dpt-item--glow { filter: drop-shadow(0 0 22px rgba(255,216,61,.76)) drop-shadow(0 10px 14px rgba(74,54,25,.18)); }
-.dpt-fixation-bee { position: absolute; left: 50%; top: 39%; width: clamp(88px,9vw,132px); height: auto; object-fit: contain; transform: translate(-50%,-50%); z-index: 6; animation: dptBeePulse .9s ease-in-out infinite; filter: drop-shadow(0 10px 14px rgba(74,54,25,.18)); }
-.dpt-fly { position: absolute; top: 42%; z-index: 4; transform: translateX(-50%); animation: dptFlyFloat 1.2s ease-in-out infinite; }
-.dpt-fly--left { left: 28%; }
-.dpt-fly--right { left: 72%; right: auto; }
-.dpt-fly.is-hit { animation: none; transform: translateX(-50%) scale(.82); opacity: .42; }
-.dpt-fox { position: absolute; left: 50%; bottom: 1%; width: clamp(130px,14vw,190px); height: auto; transform: translateX(-50%); transition: transform .18s ease; }
-.dpt-fox.is-happy { transform: translateX(-50%) translateY(-7px) scale(1.04); }
-.dpt-effect { position: absolute; transform: translate(-50%,-50%); width: 74px; height: 74px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 56px; font-weight: 950; z-index: 10; pointer-events: none; animation: dptEffectPop .58s ease-out forwards; }
-.dpt-effect--correct { color: #41a035; background: rgba(255,248,185,.38); box-shadow: 0 0 24px rgba(255,218,72,.52); }
-.dpt-effect--wrong { color: #d84b38; background: rgba(255,255,255,.32); }
-.dpt-result-panel { min-height: 520px; padding: 92px 72px 62px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 58px; }
-.dpt-cute-stars { position: absolute; top: -92px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; gap: 28px; z-index: 3; }
-.dpt-cute-star { font-size: clamp(94px,10vw,136px); line-height: .9; color: #fff7cb; opacity: .9; -webkit-text-stroke: 5px #235395; text-shadow: 0 8px 0 rgba(64,84,70,.18),0 14px 18px rgba(72,58,32,.14); display: inline-block; transform: rotate(-10deg); }
-.dpt-cute-star:nth-child(2) { transform: translateY(-22px) rotate(2deg); }
-.dpt-cute-star:nth-child(3) { transform: rotate(12deg); }
-.dpt-cute-star.is-on { color: #ffd83d; opacity: 1; -webkit-text-stroke: 5px #f3a91f; text-shadow: 0 6px 0 #d89a1b,0 12px 20px rgba(112,65,0,.26),0 0 20px rgba(255,246,158,.95); }
-.dpt-result-actions { width: min(100%,760px); display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 20px; }
-.dpt-result-actions .dpt-forest-button { width: 100%; min-width: 0; padding-inline: 16px; }
-@keyframes dptBeePulse { 0%,100% { transform: translate(-50%,-50%) scale(1); } 50% { transform: translate(-50%,-50%) scale(1.08); } }
-@keyframes dptFlyOnly { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-@keyframes dptFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-@keyframes dptFlyFloat { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-8px); } }
-@keyframes dptEffectPop { from { opacity: .95; transform: translate(-50%,-50%) scale(.72); } to { opacity: 0; transform: translate(-50%,-50%) scale(1.45); } }
-@media (max-width: 780px) { .dpt-center-shell,.dpt-start-shell,.dpt-result-shell { width: min(94vw,720px); } .dpt-soft-panel,.dpt-rule-card { border-radius: 42px; border-width: 5px; } .dpt-start-panel,.dpt-result-panel,.dpt-video-panel { padding: 34px 22px; } .dpt-start-content,.dpt-result-content { grid-template-columns: 1fr; gap: 26px; } .dpt-dialog-bubble::after { display: none; } .dpt-round-icon { width: 138px; height: 138px; } .dpt-result-actions { grid-template-columns: 1fr; } .dpt-video-frame { min-height: 280px; height: 52vh; } .dpt-rule-card { margin-top: 4vh; min-height: auto; } .dpt-stage { width: 92vw; height: 74vh; } .dpt-side-zone { top: 32%; width: 35%; height: 34%; } .dpt-side-zone--left { left: 6%; } .dpt-side-zone--right { right: 6%; } .dpt-fly { top: 43%; } .dpt-fly--left { left: 23.5%; } .dpt-fly--right { left: 76.5%; right: auto; } }
-@media (max-width: 780px) { .dpt-rule-card--icons { gap: 16px; } .dpt-icon-flow { min-height: 230px; gap: 14px; } .dpt-teach-side, .dpt-teach-probe, .dpt-teach-ghost, .dpt-practice-choice { width: clamp(128px,38vw,180px); height: clamp(128px,38vw,180px); border-radius: 24px; } .dpt-practice-icon-wrap { gap: 16px; } .dpt-teach-symbol, .dpt-teach-arrow { font-size: 38px; } .dpt-memory-hint { bottom: -14px; } .dpt-focus-ring { left: 55%; } .dpt-eye-line { right: 4%; } }
+.dpt-result-panel { min-height: 520px; padding: 48px 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; }
+.dpt-cute-stars { font-size: clamp(48px, 7vw, 86px); letter-spacing: 10px; line-height: 1; color: rgba(114,83,46,.25); }
+.dpt-cute-star.is-on { color: #ffc531; text-shadow: 0 8px 0 rgba(160,98,24,.18), 0 12px 18px rgba(115,73,14,.18); }
+.dpt-result-actions { display: flex; align-items: center; justify-content: center; gap: 22px; flex-wrap: wrap; }
 
-/* ========= SRT style card + image button overrides ========= */
-.dpt-page--soft {
-  color: #4b2c16;
-  background-image:
-    radial-gradient(circle at 52% 9%, rgba(255,255,255,0.20), transparent 28%),
-    linear-gradient(rgba(255,255,255,0.22), rgba(255,255,255,0.22)),
-    var(--dpt-bg);
+.dpt-page--soft::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 52% 9%, rgba(255,255,255,.22), transparent 28%),
+    linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,239,188,.1));
+  z-index: 0;
 }
 
 .dpt-center-shell {
@@ -1160,32 +957,37 @@ const dptInlineCss = `
   width: min(72vw, 860px);
 }
 
-.dpt-soft-panel,
-.dpt-rule-card {
+.dpt-soft-panel {
   position: relative;
-  border: 7px solid #f6a51f;
+  border-color: rgba(246,165,31,.96);
   border-radius: 58px;
   background:
-    linear-gradient(180deg, rgba(255, 252, 225, 0.98), rgba(255, 237, 168, 0.98));
+    radial-gradient(circle at 18% 8%, rgba(255,255,255,.88) 0 9%, transparent 29%),
+    radial-gradient(circle at 84% 18%, rgba(255,238,160,.58) 0 13%, transparent 34%),
+    linear-gradient(145deg, rgba(255,252,222,.99) 0%, rgba(255,229,139,.98) 48%, rgba(239,178,83,.96) 100%);
   box-shadow:
-    0 18px 0 rgba(202, 116, 24, 0.13),
-    0 24px 42px rgba(95, 64, 22, 0.16),
-    inset 0 0 0 8px rgba(255, 255, 255, 0.45),
-    inset 0 0 0 16px rgba(255, 215, 105, 0.20);
+    0 22px 0 rgba(151,87,28,.18),
+    0 36px 62px rgba(66,44,15,.28),
+    0 12px 26px rgba(255,223,128,.22),
+    inset 0 12px 18px rgba(255,255,255,.72),
+    inset 0 2px 0 rgba(255,255,255,.92),
+    inset 0 -18px 24px rgba(139,77,22,.2),
+    inset 0 -42px 72px rgba(119,75,21,.12);
 }
 
-.dpt-soft-panel::before,
-.dpt-rule-card::before {
+.dpt-soft-panel::before {
   content: "";
   position: absolute;
   inset: 18px;
   border-radius: 42px;
-  border: 2px dashed rgba(230, 170, 67, 0.42);
+  border: 2px dashed rgba(255,245,205,.58);
   pointer-events: none;
+  box-shadow:
+    inset 0 2px 5px rgba(255,255,255,.5),
+    inset 0 -3px 8px rgba(139,88,23,.12);
 }
 
-.dpt-soft-panel::after,
-.dpt-rule-card::after {
+.dpt-soft-panel::after {
   content: "";
   position: absolute;
   left: 30px;
@@ -1198,77 +1000,103 @@ const dptInlineCss = `
     radial-gradient(circle at 8% 15%, #a4da58 0 9px, transparent 10px),
     radial-gradient(circle at 92% 42%, #8bc947 0 13px, transparent 14px),
     radial-gradient(circle at 88% 18%, #a4da58 0 9px, transparent 10px);
-  opacity: 0.92;
-}
-
-.dpt-start-panel,
-.dpt-result-panel,
-.dpt-video-panel,
-.dpt-rule-card > * {
-  position: relative;
-  z-index: 1;
+  filter:
+    drop-shadow(0 4px 2px rgba(60,105,27,.22))
+    drop-shadow(0 10px 10px rgba(88,57,19,.16));
+  opacity: .92;
 }
 
 .dpt-start-panel {
   min-height: 560px;
   padding: 58px 70px 74px;
-  gap: 36px;
+  gap: 34px;
 }
 
 .dpt-game-title,
-.dpt-rule-title {
-  border: 5px solid #ff9a4b;
-  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,246,213,0.98));
-  color: #3b2414;
+.dpt-start-content,
+.dpt-guided-action,
+.dpt-result-actions {
+  position: relative;
+  z-index: 2;
+}
+
+.dpt-game-title {
+  min-width: min(100%, 420px);
+  padding: 14px 42px 16px;
+  border-radius: 20px;
+  border-color: #e9a33c;
+  background: linear-gradient(180deg, rgba(255,226,129,.96), rgba(255,244,194,.98));
+  color: #7a3f16;
+  font-size: clamp(34px, 4vw, 52px);
+  letter-spacing: 2px;
+  text-shadow: 0 3px 0 rgba(255,255,255,.85);
   box-shadow:
-    0 8px 0 rgba(231, 124, 32, 0.18),
-    0 14px 26px rgba(108, 67, 25, 0.12),
-    inset 0 0 0 5px rgba(255, 222, 145, 0.26);
+    0 8px 0 rgba(210,130,37,.24),
+    0 14px 24px rgba(91,57,18,.12),
+    inset 0 0 0 5px rgba(255,255,255,.34);
+}
+
+.dpt-start-content {
+  width: min(100%, 690px);
+  grid-template-columns: minmax(300px, 1fr) 158px;
+  gap: 44px;
 }
 
 .dpt-dialog-bubble {
-  border: 5px solid #f0782e;
-  background: linear-gradient(180deg, #ffffff 0%, #fff9e9 100%);
-  box-shadow:
-    0 8px 0 rgba(240, 125, 45, 0.12),
-    inset 0 0 0 6px rgba(255, 226, 150, 0.28);
-}
-
-.dpt-round-icon,
-.dpt-avatar-guide {
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.90);
-  border: 5px solid #ff9a4b;
-  box-shadow: 0 16px 24px rgba(92, 66, 29, 0.16);
-}
-
-.dpt-round-icon img,
-.dpt-avatar-guide img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  border-radius: 50%;
-  display: block;
-}
-
-.dpt-guided-action {
+  border: 4px solid #f0c77b;
+  color: #6d3717;
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  isolation: isolate;
+  box-shadow: 0 8px 0 rgba(225,169,84,.12), inset 0 0 0 5px rgba(255,235,174,.35);
 }
 
-.dpt-image-button,
-.dpt-image-button.dpt-btn-start,
-.dpt-image-button.dpt-btn-home,
-.dpt-image-button.dpt-btn-replay,
-.dpt-image-button.dpt-btn-detail,
-.dpt-image-button.dpt-btn-skip {
-  min-width: 0;
-  min-height: 0;
+.dpt-dialog-bubble::before {
+  content: "";
+  position: absolute;
+  inset: 13px;
+  border-radius: 20px;
+  border: 2px dashed rgba(229,189,119,.55);
+  pointer-events: none;
+}
+
+.dpt-dialog-bubble::after {
+  content: "";
+  position: absolute;
+  right: -30px;
+  top: 50%;
+  width: 38px;
+  height: 38px;
+  background: linear-gradient(135deg, #fff 0%, #fff9e9 80%);
+  border-top: 4px solid #f0c77b;
+  border-right: 4px solid #f0c77b;
+  transform: translateY(-50%) rotate(45deg);
+  border-radius: 4px;
+}
+
+.dpt-round-icon {
+  position: relative;
+  width: 158px;
+  height: 158px;
+  background: linear-gradient(180deg, #82d9ff, #48aee8);
+  border: 5px solid rgba(255,255,255,.92);
+  outline: 3px solid rgba(72,157,207,.65);
+  padding: 14px;
+  box-shadow: 0 10px 0 rgba(42,112,165,.2), 0 18px 24px rgba(53,91,123,.18);
+}
+
+.dpt-forest-button {
+  position: relative;
+  z-index: 2;
+  min-width: 220px;
+  min-height: 76px;
+  border-radius: 24px;
+  font-size: clamp(25px, 2.8vw, 38px);
+  font-weight: 950;
+  letter-spacing: 1px;
+  transition: transform .2s cubic-bezier(.18,1.25,.38,1), filter .2s ease, opacity .14s ease;
+}
+
+.dpt-image-button {
   width: clamp(188px, 18vw, 254px);
-  height: auto;
   padding: 0;
   border: none;
   outline: none;
@@ -1277,58 +1105,55 @@ const dptInlineCss = `
   box-shadow: none;
   line-height: 0;
   overflow: visible;
+  transform-origin: 50% 58%;
+  will-change: transform, filter;
 }
 
-.dpt-image-button::before,
-.dpt-image-button::after {
-  display: none;
+.dpt-image-button.dpt-btn-start,
+.dpt-image-button.dpt-btn-home,
+.dpt-image-button.dpt-btn-replay,
+.dpt-image-button.dpt-btn-detail,
+.dpt-image-button.dpt-btn-skip,
+.dpt-image-button.dpt-btn-next {
+  min-width: 0;
+  min-height: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
 }
 
 .dpt-image-button img {
   width: 100%;
-  height: auto;
-  display: block;
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
-  filter: drop-shadow(0 8px 8px rgba(74, 48, 16, 0.22));
+  filter:
+    drop-shadow(0 10px 8px rgba(74,48,16,.26))
+    drop-shadow(0 0 14px rgba(255,238,150,.22));
+  transition: filter .2s ease;
 }
 
 .dpt-image-button:hover:not(:disabled) {
-  transform: translateY(-2px) scale(1.03);
-  filter: brightness(1.04);
+  transform: translateY(-3px) scale(1.045);
+  filter: brightness(1.06) saturate(1.05);
+  animation: dptButtonBreathe 1.15s ease-in-out infinite, dptButtonWobble .62s cubic-bezier(.34,1.56,.64,1) both;
+}
+
+.dpt-image-button:hover:not(:disabled) img {
+  filter:
+    drop-shadow(0 14px 10px rgba(74,48,16,.3))
+    drop-shadow(0 0 18px rgba(255,238,150,.38));
 }
 
 .dpt-image-button:active:not(:disabled) {
-  transform: translateY(1px) scale(0.98);
+  transform: translateY(2px) scale(.965);
+  animation: none;
 }
 
-.dpt-btn-skip.dpt-image-button {
+.dpt-btn-skip.dpt-image-button,
+.dpt-btn-next.dpt-image-button {
   width: clamp(198px, 19vw, 266px);
-}
-
-.dpt-mouse-guide {
-  position: absolute;
-  width: clamp(48px, 5.2vw, 78px);
-  height: auto;
-  z-index: 8;
-  pointer-events: none;
-  user-select: none;
-  -webkit-user-drag: none;
-  filter: drop-shadow(0 8px 8px rgba(58, 38, 14, 0.24));
-  animation: dptMouseTap 1.15s ease-in-out infinite;
-}
-
-.dpt-mouse-on-button {
-  right: -18px;
-  bottom: -18px;
-  transform-origin: 18% 18%;
-}
-
-@keyframes dptMouseTap {
-  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.92; }
-  45% { transform: translate(-10px, -9px) scale(1.08); opacity: 1; }
-  62% { transform: translate(-4px, -4px) scale(0.96); opacity: 1; }
 }
 
 .dpt-video-frame {
@@ -1336,200 +1161,217 @@ const dptInlineCss = `
   border-radius: 24px;
   background: linear-gradient(180deg, #2fb5ff, #3189e5);
   box-shadow:
-    0 8px 0 rgba(55, 121, 177, 0.18),
-    inset 0 0 0 4px rgba(255,255,255,0.28);
+    0 8px 0 rgba(55,121,177,.18),
+    inset 0 0 0 4px rgba(255,255,255,.28);
 }
 
-.dpt-teaching-head {
-  width: min(100%, 860px);
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  justify-items: center;
-  gap: clamp(18px, 3vw, 34px);
+.dpt-result-panel {
+  min-height: 500px;
+  padding: 92px 56px 60px;
+  gap: 44px;
 }
 
-.dpt-avatar-guide {
-  width: clamp(112px, 13vw, 158px);
-  height: clamp(112px, 13vw, 158px);
+.dpt-cute-stars {
+  position: absolute;
+  top: -78px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  padding: 10px;
-  box-sizing: border-box;
+  gap: 24px;
+  z-index: 3;
+  letter-spacing: 0;
 }
 
-.dpt-rule-icon-title {
-  margin-top: 14px;
+.dpt-cute-star {
+  font-size: clamp(82px, 8vw, 116px);
+  line-height: .9;
+  color: #c2cfc9;
+  opacity: .6;
+  -webkit-text-stroke: 7px rgba(255,255,255,.96);
+  text-shadow: 0 5px 0 rgba(85,111,84,.2), 0 10px 16px rgba(72,58,32,.16);
+  display: inline-block;
+  transform: rotate(-8deg);
 }
 
-.dpt-rule-card {
-  width: min(88vw, 1100px);
-  min-height: 76vh;
-  padding: clamp(30px, 4vw, 54px) clamp(34px, 5vw, 70px) 70px;
-}
+.dpt-cute-star:nth-child(2) { transform: translateY(-12px) rotate(2deg) scale(1.15); }
+.dpt-cute-star:nth-child(3) { transform: rotate(7deg); }
 
-.dpt-result-actions {
-  align-items: center;
+.dpt-cute-star.is-on {
+  color: #ffd53d;
+  opacity: 1;
+  -webkit-text-stroke: 7px rgba(255,255,255,.98);
+  text-shadow:
+    0 4px 0 #e39d19,
+    0 8px 16px rgba(121,74,6,.3),
+    0 0 18px rgba(255,249,171,.95);
 }
 
 .dpt-result-actions .dpt-image-button {
-  width: clamp(168px, 16vw, 224px);
+  width: clamp(168px, 16vw, 232px);
 }
 
-.dpt-container,
-.dpt-stage {
-  position: relative;
-  z-index: 1;
+@keyframes dptButtonWobble {
+  0% { rotate: 0deg; }
+  24% { rotate: -2.2deg; }
+  52% { rotate: 1.6deg; }
+  78% { rotate: -.8deg; }
+  100% { rotate: 0deg; }
 }
+
+@keyframes dptButtonBreathe {
+  0%, 100% { scale: 1; }
+  50% { scale: 1.015; }
+}
+
+.dpt-container { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; box-sizing: border-box; padding: clamp(12px, 2vw, 28px); }
+.dpt-stage { position: relative; width: min(96vw, 1180px); height: min(82vh, 720px); border-radius: 42px; background: rgba(255,255,255,.38); border: 6px solid rgba(255,132,38,.65); box-shadow: inset 0 0 0 8px rgba(255,255,255,.25), 0 22px 44px rgba(108,67,25,.16); overflow: hidden; }
+.dpt-fixation-bee { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); width: clamp(92px, 11vw, 150px); height: auto; object-fit: contain; filter: drop-shadow(0 12px 12px rgba(74,54,25,.18)); animation: dptFloat 1.05s ease-in-out infinite; }
+.dpt-food-pair { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; align-items: center; pointer-events: none; }
+.dpt-food-zone { display: flex; align-items: center; justify-content: center; }
+.dpt-item { filter: drop-shadow(0 14px 14px rgba(74,54,25,.16)); transition: transform .2s ease, filter .2s ease; }
+.dpt-item--glow { transform: scale(1.08); filter: drop-shadow(0 0 24px rgba(255,199,62,.9)) drop-shadow(0 14px 14px rgba(74,54,25,.16)); animation: dptGlow 0.8s ease-in-out infinite alternate; }
+.dpt-fly { position: absolute; top: 44%; transform: translate(-50%, -50%); filter: drop-shadow(0 10px 14px rgba(74,54,25,.18)); }
+.dpt-fly--left { left: 42%; }
+.dpt-fly--right { left: 58%; }
+.dpt-fly.is-hit { animation: dptFlyHit .35s ease-out both; }
+.dpt-fly.is-attention-hint { animation: dptAttentionPulse .42s ease-in-out 0s 3 both; }
+.dpt-arrow-actions { position: absolute; left: 50%; bottom: clamp(22px, 5vh, 58px); transform: translateX(-50%); display: flex; align-items: center; justify-content: center; gap: clamp(72px, 14vw, 180px); }
+.dpt-arrow-actions.is-neutral-hint .dpt-arrow-button.is-clickable { animation: dptNeutralHint .38s ease-in-out 0s 3 both; }
+.dpt-arrow-button { width: clamp(110px, 13vw, 170px); height: clamp(90px, 10vw, 142px); border: none; background: transparent; padding: 0; cursor: pointer; opacity: .45; transition: transform .14s ease, opacity .14s ease, filter .14s ease; }
+.dpt-arrow-button img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
+.dpt-arrow-button.is-clickable { opacity: 1; }
+.dpt-arrow-button.is-clickable:hover { transform: translateY(-4px) scale(1.03); }
+.dpt-arrow-button.is-soft-correct { filter: drop-shadow(0 0 14px rgba(87, 203, 105, .72)); }
+.dpt-arrow-button.is-soft-wrong { filter: drop-shadow(0 0 10px rgba(221, 90, 70, .55)); }
+
+@keyframes dptMouseTap { 0%, 100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-6px,-6px) scale(.96); } }
+@keyframes dptFloat { 0%, 100% { transform: translate(-50%, -50%) translateY(0); } 50% { transform: translate(-50%, -50%) translateY(-10px); } }
+@keyframes dptGlow { from { filter: drop-shadow(0 0 12px rgba(255,199,62,.65)) drop-shadow(0 14px 14px rgba(74,54,25,.16)); } to { filter: drop-shadow(0 0 28px rgba(255,199,62,.95)) drop-shadow(0 14px 14px rgba(74,54,25,.16)); } }
+@keyframes dptFlyHit { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(.2) rotate(16deg); opacity: .15; } }
+@keyframes dptAttentionPulse { 0%, 100% { transform: translate(-50%, -50%) scale(1); filter: drop-shadow(0 10px 14px rgba(74,54,25,.18)); } 50% { transform: translate(-50%, -50%) scale(1.16); filter: drop-shadow(0 0 18px rgba(255,216,61,.78)); } }
+@keyframes dptNeutralHint { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
 
 @media (max-width: 780px) {
-  .dpt-start-shell,
-  .dpt-result-shell {
-    width: min(94vw, 720px);
-  }
-
-  .dpt-soft-panel,
-  .dpt-rule-card {
-    border-radius: 42px;
-    border-width: 5px;
-  }
-
-  .dpt-soft-panel::before,
-  .dpt-rule-card::before {
-    inset: 12px;
-    border-radius: 30px;
-  }
-
-  .dpt-start-panel,
-  .dpt-result-panel,
-  .dpt-video-panel {
-    padding: 34px 22px 58px;
-  }
-
-  .dpt-teaching-head {
-    grid-template-columns: 1fr;
-  }
-
-  .dpt-rule-card {
-    width: min(94vw, 720px);
-    padding-bottom: 62px;
-  }
-
-  .dpt-result-actions .dpt-image-button,
-  .dpt-image-button,
-  .dpt-image-button.dpt-btn-skip {
-    width: clamp(174px, 50vw, 230px);
-  }
-}
-
-/* ========= 教學卡片邊界修正：所有教學內容都限制在大卡片內 ========= */
-.dpt-rule-card,
-.dpt-soft-panel {
-  overflow: hidden;
-}
-
-.dpt-rule-card--icons {
-  box-sizing: border-box;
-}
-
-.dpt-teaching-head,
-.dpt-icon-flow,
-.dpt-practice-icon-wrap,
-.dpt-mini-scene {
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-.dpt-icon-flow {
-  width: min(100%, 760px);
-  gap: clamp(14px, 2.8vw, 34px);
-  padding-inline: 8px;
-  overflow: visible;
-}
-
-.dpt-teach-side,
-.dpt-teach-probe,
-.dpt-teach-ghost,
-.dpt-practice-choice {
-  width: clamp(138px, 18vw, 220px);
-  height: clamp(138px, 18vw, 220px);
-  flex: 0 1 auto;
-}
-
-.dpt-practice-icon-wrap {
-  width: min(100%, 640px);
-  gap: clamp(16px, 3vw, 38px);
-  padding-inline: 8px;
-}
-
-@media (max-width: 780px) {
-  .dpt-rule-card {
-    max-height: 94vh;
-    overflow: hidden;
-  }
-
-  .dpt-icon-flow {
-    width: 100%;
-    gap: 10px;
-    min-height: 210px;
-  }
-
-  .dpt-teach-side,
-  .dpt-teach-probe,
-  .dpt-teach-ghost,
-  .dpt-practice-choice {
-    width: clamp(112px, 30vw, 156px);
-    height: clamp(112px, 30vw, 156px);
-    border-width: 4px;
-  }
-
-  .dpt-teach-symbol,
-  .dpt-teach-arrow {
-    font-size: clamp(28px, 8vw, 42px);
-  }
-
-  .dpt-practice-icon-wrap {
-    gap: 12px;
-  }
+  .dpt-start-content, .dpt-result-content { grid-template-columns: 1fr; gap: 28px; }
+  .dpt-start-panel, .dpt-result-panel, .dpt-video-panel { padding: 28px 22px; border-radius: 40px; }
+  .dpt-round-icon { width: 132px; height: 132px; margin: 0 auto; }
+  .dpt-arrow-actions { gap: clamp(36px, 10vw, 96px); }
+  .dpt-fly--left { left: 40%; }
+  .dpt-fly--right { left: 60%; }
 }
 
 
-/* ========= 結果頁星星外露：不要被卡片邊界裁切 ========= */
-.dpt-soft-panel.dpt-result-panel {
-  overflow: visible;
+/* 貓狗反向選擇：保留原本卡片與場景，只替換遊戲核心 */
+.dpt-animal-choice-row {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  justify-items: center;
+  padding: clamp(70px, 10vh, 110px) clamp(70px, 8vw, 130px) clamp(150px, 20vh, 190px);
+  gap: clamp(70px, 12vw, 190px);
 }
 
-.dpt-result-panel .dpt-cute-stars {
-  z-index: 8;
+.dpt-animal-choice {
+  width: clamp(220px, 25vw, 330px);
+  height: clamp(220px, 25vw, 330px);
+  border: 6px solid rgba(255,255,255,.92);
+  outline: 4px solid #f3a33b;
+  border-radius: 38px;
+  background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,245,205,.94));
+  box-shadow: 0 12px 0 rgba(205,125,35,.20), 0 20px 28px rgba(87,58,24,.16), inset 0 0 0 8px rgba(255,224,134,.26);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  cursor: default;
+  opacity: .78;
+  transition: transform .15s ease, filter .15s ease, opacity .15s ease, box-shadow .15s ease;
+}
+
+.dpt-animal-choice img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
   pointer-events: none;
+  filter: drop-shadow(0 12px 12px rgba(74,54,25,.16));
 }
 
-.dpt-result-shell {
-  padding-top: clamp(76px, 10vh, 118px);
+.dpt-animal-choice.is-clickable {
+  cursor: pointer;
+  opacity: 1;
+  animation: dptAnimalReady 1s ease-in-out infinite alternate;
+}
+
+.dpt-animal-choice.is-clickable:hover,
+.dpt-animal-choice.is-clickable:focus-visible {
+  transform: translateY(-7px) scale(1.035);
+  filter: brightness(1.04);
+  outline-color: #74b947;
+}
+
+.dpt-animal-choice.is-clickable:active {
+  transform: translateY(2px) scale(.98);
+}
+
+.dpt-listen-status {
+  position: absolute;
+  z-index: 3;
+  top: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 280px;
+  padding: 12px 26px;
+  border: 4px solid #f0c77b;
+  border-radius: 999px;
+  background: rgba(255,255,255,.94);
+  color: #6d3717;
+  font-size: clamp(22px, 2.6vw, 34px);
+  font-weight: 900;
+  box-shadow: 0 7px 0 rgba(225,169,84,.14);
+}
+
+.dpt-retry-audio {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  bottom: 72px;
+  transform: translateX(-50%);
+  border: 4px solid rgba(255,255,255,.9);
+  border-radius: 22px;
+  padding: 13px 28px;
+  background: linear-gradient(180deg,#ffba62,#e87731);
+  color: #fff;
+  font-family: inherit;
+  font-size: clamp(20px,2.2vw,28px);
+  font-weight: 900;
+  box-shadow: 0 7px 0 #b95324;
+  cursor: pointer;
+}
+
+.dpt-animal-choice.is-neutral-hint { animation: dptNeutralHint .38s ease-in-out 0s 3 both; }
+.dpt-animal-choice.is-direct-hint { box-shadow: 0 0 0 10px rgba(112,190,72,.28), 0 0 32px rgba(112,190,72,.75); transform: scale(1.06); }
+.dpt-animal-choice.is-feedback { filter: drop-shadow(0 0 20px rgba(93,190,76,.8)); }
+@keyframes dptNeutralHint { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-7px); } 75% { transform: translateX(7px); } }
+
+@keyframes dptAnimalReady {
+  from { box-shadow: 0 12px 0 rgba(205,125,35,.20), 0 20px 28px rgba(87,58,24,.16), inset 0 0 0 8px rgba(255,224,134,.26); }
+  to { box-shadow: 0 12px 0 rgba(205,125,35,.20), 0 20px 38px rgba(117,180,61,.34), inset 0 0 0 8px rgba(255,224,134,.26); }
 }
 
 @media (max-width: 780px) {
-  .dpt-result-shell {
-    padding-top: 72px;
+  .dpt-animal-choice-row {
+    padding: 92px 28px 135px;
+    gap: 24px;
   }
-
-  .dpt-soft-panel.dpt-result-panel {
-    overflow: visible;
+  .dpt-animal-choice {
+    width: min(38vw, 240px);
+    height: min(38vw, 240px);
+    border-radius: 28px;
+    padding: 14px;
   }
+  .dpt-listen-status { top: 34px; min-width: 230px; }
 }
-
-
-
-/* Training DPT keeps the same visual system as TestPage_DPT. */
-.dpt-training-teach-scene { display: flex; align-items: center; justify-content: center; gap: clamp(18px, 3vw, 34px); flex-wrap: wrap; }
-.dpt-big-rule-card { width: clamp(160px, 22vw, 240px); min-height: 150px; border-radius: 36px; border: 4px solid rgba(255,132,38,.9); background: rgba(255,255,255,.86); box-shadow: 0 12px 22px rgba(108,67,25,.14); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #3b2414; }
-.dpt-big-rule-card span { font-size: clamp(38px, 5vw, 62px); line-height: 1; }
-.dpt-big-rule-card strong { font-size: clamp(22px, 2.5vw, 32px); font-weight: 950; }
-.dpt-rule-card--icons .dpt-guided-action { margin-top: clamp(18px, 2.6vw, 32px); }
-.dpt-random-click-warning { position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%); z-index: 10; padding: 10px 20px; border-radius: 999px; background: rgba(255,255,255,.94); border: 3px solid rgba(255,132,38,.75); color: #3b2414; font-weight: 950; box-shadow: 0 8px 18px rgba(108,67,25,.14); pointer-events: none; }
-.dpt-mouse-answer-hint { position: absolute; z-index: 9; width: clamp(70px, 8vw, 108px); top: 58%; pointer-events: none; animation: dptMouseTap 1s ease-in-out infinite; }
-.dpt-mouse-answer-hint.is-left { left: 23%; }
-.dpt-mouse-answer-hint.is-right { right: 23%; }
 `;

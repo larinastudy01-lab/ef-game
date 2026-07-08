@@ -102,12 +102,8 @@ const getSupabaseErrorMessage = (error) => {
     return "新增失敗：生日欄位無法寫入，請確認 patients table 有 birth_date 欄位。";
   }
 
-  if (message.includes("clinician_id")) {
-    return "新增失敗：無法綁定醫療端帳號，請確認 patients table 有 clinician_id 欄位。";
-  }
-
-  if (message.includes("age")) {
-    return "新增失敗：年齡欄位無法寫入，請確認 patients table 的 age 欄位為數字型態。";
+  if (message.includes("guardian_id")) {
+    return "新增失敗：無法綁定家長帳號，請確認 patients table 有 guardian_id 欄位。";
   }
 
   if (message.includes("permission") || message.includes("row-level security") || message.includes("RLS")) {
@@ -190,7 +186,7 @@ function AddPatientPage() {
       } = await supabase.auth.getUser();
 
       if (userError || !user?.id) {
-        setFormError("請先登入醫療端帳號，再新增孩子資料。");
+        setFormError("請先登入家長帳號，再新增孩子資料。");
         navigate("/login", { replace: true });
         return;
       }
@@ -202,10 +198,9 @@ function AddPatientPage() {
       }
 
       const payload = {
-        clinician_id: user.id,
+        guardian_id: user.id,
         nickname: nickname.trim(),
         birth_date: birthDate,
-        age: ageInfo.years,
         gender,
         avatar: selectedAvatar.key,
       };
@@ -246,12 +241,12 @@ function AddPatientPage() {
           <p style={eyebrowStyle}>家長端｜新增兒童</p>
           <h1 style={titleStyle}>建立孩子的小小檔案</h1>
           <p style={descStyle}>
-            只需要填寫暱稱、生日、性別與頭像。平台不會要求身分證、地址或其他不必要的敏感資料。
+            只需要填寫暱稱、生日、性別與頭像。平台不會要求身分證、地址或其他不必要的敏感資料。新增後會綁定目前登入的家長帳號。
           </p>
 
           <div style={privacyBoxStyle}>
             <strong>資料保護提醒</strong>
-            <span>孩子資料僅供家長與授權醫療端查看，後續測驗與訓練紀錄也會綁定此孩子檔案。</span>
+            <span>孩子資料會綁定目前家長帳號，後續測驗與訓練紀錄也會綁定此孩子檔案，授權後醫療端才能查看。</span>
           </div>
         </section>
 
@@ -261,7 +256,7 @@ function AddPatientPage() {
               <h2 style={sectionTitleStyle}>新增孩子資料</h2>
               <p style={sectionDescStyle}>生日會用於計算年齡，未來可支援常模比較與醫療端追蹤。</p>
             </div>
-            <button type="button" onClick={() => navigate("/dashboard")} disabled={isSubmitting} style={isSubmitting ? secondaryButtonDisabledStyle : secondaryButtonStyle}>
+            <button type="button" onClick={() => navigate("/child-select")} disabled={isSubmitting} style={isSubmitting ? secondaryButtonDisabledStyle : secondaryButtonStyle}>
               稍後再新增
             </button>
           </div>

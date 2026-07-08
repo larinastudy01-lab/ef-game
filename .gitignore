@@ -26,3 +26,6 @@ Thumbs.db
 
 # misc
 coverage/
+.cache/
+*.zip
+.env.rag

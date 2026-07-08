@@ -15,10 +15,15 @@ import homeResultBtn from "../asset/home/result.png";
 import mouseGuideImg from "../asset/mouse.png";
 
 import "../styles/GamePage_CBT.css";
+import { saveUnifiedResult } from "../utils/resultManager";
+import { calculateCBTScore } from "../utils/cbtScoring";
 
 const SHOW_SPEED = 700;
 const GAP_SPEED = 260;
-const TOTAL_TRAINING_ROUNDS = 8;
+const TOTAL_TRAINING_ROUNDS = 24;
+const TRIALS_PER_MEMORY_SPAN = 2;
+const MIN_TRAINING_MEMORY_SPAN = 2;
+const MAX_TRAINING_MEMORY_SPAN = 7;
 const COMPLETED_LEVELS_STORAGE_KEY = "ef_game_completed_training_levels";
 const STAGE_STARS_STORAGE_KEY = "ef_game_training_stage_stars";
 const CBT_TRAINING_HISTORY_KEY = "ef_game_cbt_training_history";
@@ -26,9 +31,9 @@ const CBT_TRAINING_RESULT_KEY = "ef_game_cbt_training_result";
 
 const BOARD_WIDTH = 760;
 const BOARD_HEIGHT = 455;
-const STONE_SIZE = 128;
-const WARMUP_STONE_SIZE = 128;
-const MIN_STONE_DISTANCE = 150;
+const STONE_SIZE = 190;
+const WARMUP_STONE_SIZE = 190;
+const MIN_STONE_DISTANCE = 190;
 
 const WARMUP_SEQUENCE = [0, 1];
 const PERSON_WALK_MS = 260;
@@ -64,6 +69,10 @@ const MICRO_DIFFICULTY_CONFIG = {
     hintLevel: 3,
     allowActiveReplay: true,
     replayLimit: 2,
+    idleHintDelay: 5000,
+    spatialSimilarity: "low",
+    pathComplexity: "simple",
+    reverseMode: false,
     distractor: { enabled: false, count: 0, interval: 0, duration: 0, avoidNextTarget: true },
   },
   veryEasy2: {
@@ -79,6 +88,10 @@ const MICRO_DIFFICULTY_CONFIG = {
     hintLevel: 3,
     allowActiveReplay: true,
     replayLimit: 2,
+    idleHintDelay: 5000,
+    spatialSimilarity: "low",
+    pathComplexity: "simple",
+    reverseMode: false,
     distractor: { enabled: false, count: 0, interval: 0, duration: 0, avoidNextTarget: true },
   },
   veryEasy3: {
@@ -94,6 +107,10 @@ const MICRO_DIFFICULTY_CONFIG = {
     hintLevel: 2,
     allowActiveReplay: true,
     replayLimit: 1,
+    idleHintDelay: 6000,
+    spatialSimilarity: "low",
+    pathComplexity: "simple",
+    reverseMode: false,
     distractor: { enabled: false, count: 0, interval: 0, duration: 0, avoidNextTarget: true },
   },
   easy1: {
@@ -109,6 +126,10 @@ const MICRO_DIFFICULTY_CONFIG = {
     hintLevel: 2,
     allowActiveReplay: true,
     replayLimit: 2,
+    idleHintDelay: 6000,
+    spatialSimilarity: "low",
+    pathComplexity: "simple",
+    reverseMode: false,
     distractor: { enabled: false, count: 0, interval: 0, duration: 0, avoidNextTarget: true },
   },
   easy2: {
@@ -124,7 +145,11 @@ const MICRO_DIFFICULTY_CONFIG = {
     hintLevel: 2,
     allowActiveReplay: true,
     replayLimit: 1,
-    distractor: { enabled: true, startRound: 4, count: 1, interval: 4700, duration: 420, avoidNextTarget: true },
+    idleHintDelay: 6000,
+    spatialSimilarity: "low",
+    pathComplexity: "simple",
+    reverseMode: false,
+    distractor: { enabled: false, count: 0, interval: 0, duration: 0, avoidNextTarget: true },
   },
   easy3: {
     label: "基礎 3",
@@ -139,7 +164,11 @@ const MICRO_DIFFICULTY_CONFIG = {
     hintLevel: 1,
     allowActiveReplay: true,
     replayLimit: 1,
-    distractor: { enabled: true, startRound: 3, count: 1, interval: 4300, duration: 450, avoidNextTarget: true },
+    idleHintDelay: 6000,
+    spatialSimilarity: "low",
+    pathComplexity: "simple",
+    reverseMode: false,
+    distractor: { enabled: false, count: 0, interval: 0, duration: 0, avoidNextTarget: true },
   },
   normal1: {
     label: "穩定 1",
@@ -154,7 +183,11 @@ const MICRO_DIFFICULTY_CONFIG = {
     hintLevel: 1,
     allowActiveReplay: true,
     replayLimit: 1,
-    distractor: { enabled: true, startRound: 0, count: 1, interval: 3800, duration: 500, avoidNextTarget: true },
+    idleHintDelay: 7000,
+    spatialSimilarity: "medium",
+    pathComplexity: "simple",
+    reverseMode: false,
+    distractor: { enabled: false, count: 0, interval: 0, duration: 0, avoidNextTarget: true },
   },
   normal2: {
     label: "穩定 2",
@@ -169,7 +202,11 @@ const MICRO_DIFFICULTY_CONFIG = {
     hintLevel: 1,
     allowActiveReplay: true,
     replayLimit: 1,
-    distractor: { enabled: true, startRound: 0, count: 1, interval: 3500, duration: 560, avoidNextTarget: true },
+    idleHintDelay: 7000,
+    spatialSimilarity: "medium",
+    pathComplexity: "simple",
+    reverseMode: false,
+    distractor: { enabled: true, startRound: 4, count: 1, interval: 4200, duration: 420, avoidNextTarget: true },
   },
   normal3: {
     label: "穩定 3",
@@ -184,7 +221,11 @@ const MICRO_DIFFICULTY_CONFIG = {
     hintLevel: 0,
     allowActiveReplay: true,
     replayLimit: 1,
-    distractor: { enabled: true, startRound: 0, count: 1, interval: 3300, duration: 580, avoidNextTarget: true },
+    idleHintDelay: 7500,
+    spatialSimilarity: "medium",
+    pathComplexity: "crossing",
+    reverseMode: false,
+    distractor: { enabled: true, startRound: 3, count: 1, interval: 4000, duration: 450, avoidNextTarget: true },
   },
   advanced1: {
     label: "進階 1",
@@ -199,6 +240,10 @@ const MICRO_DIFFICULTY_CONFIG = {
     hintLevel: 0,
     allowActiveReplay: true,
     replayLimit: 1,
+    idleHintDelay: 8000,
+    spatialSimilarity: "medium",
+    pathComplexity: "crossing",
+    reverseMode: false,
     distractor: { enabled: true, startRound: 0, count: 1, interval: 3000, duration: 620, avoidNextTarget: true },
   },
   advanced2: {
@@ -214,7 +259,11 @@ const MICRO_DIFFICULTY_CONFIG = {
     hintLevel: 0,
     allowActiveReplay: false,
     replayLimit: 0,
-    distractor: { enabled: true, startRound: 0, count: 1, interval: 2800, duration: 650, avoidNextTarget: true },
+    idleHintDelay: null,
+    spatialSimilarity: "medium",
+    pathComplexity: "crossing",
+    reverseMode: false,
+    distractor: { enabled: true, startRound: 1, count: 1, interval: 3300, duration: 560, avoidNextTarget: true },
   },
   advanced3: {
     label: "進階 3",
@@ -229,7 +278,11 @@ const MICRO_DIFFICULTY_CONFIG = {
     hintLevel: 0,
     allowActiveReplay: false,
     replayLimit: 0,
-    distractor: { enabled: true, startRound: 0, count: 1, interval: 2600, duration: 680, avoidNextTarget: true },
+    idleHintDelay: null,
+    spatialSimilarity: "high",
+    pathComplexity: "crossing",
+    reverseMode: "rare",
+    distractor: { enabled: true, startRound: 1, count: 1, interval: 3100, duration: 580, avoidNextTarget: true },
   },
   hard1: {
     label: "挑戰 1",
@@ -244,6 +297,10 @@ const MICRO_DIFFICULTY_CONFIG = {
     hintLevel: 0,
     allowActiveReplay: false,
     replayLimit: 0,
+    idleHintDelay: null,
+    spatialSimilarity: "high",
+    pathComplexity: "zigzag",
+    reverseMode: "rare",
     distractor: { enabled: true, startRound: 0, count: 1, interval: 2500, duration: 680, avoidNextTarget: true },
   },
   hard2: {
@@ -259,6 +316,10 @@ const MICRO_DIFFICULTY_CONFIG = {
     hintLevel: 0,
     allowActiveReplay: false,
     replayLimit: 0,
+    idleHintDelay: null,
+    spatialSimilarity: "high",
+    pathComplexity: "zigzag",
+    reverseMode: "rare",
     distractor: { enabled: true, startRound: 0, count: 2, interval: 2400, duration: 680, avoidNextTarget: true },
   },
   hard3: {
@@ -274,6 +335,10 @@ const MICRO_DIFFICULTY_CONFIG = {
     hintLevel: 0,
     allowActiveReplay: false,
     replayLimit: 0,
+    idleHintDelay: null,
+    spatialSimilarity: "high",
+    pathComplexity: "zigzag",
+    reverseMode: "rare",
     distractor: { enabled: true, startRound: 0, count: 2, interval: 2300, duration: 700, avoidNextTarget: true },
   },
   expert1: {
@@ -289,6 +354,10 @@ const MICRO_DIFFICULTY_CONFIG = {
     hintLevel: 0,
     allowActiveReplay: false,
     replayLimit: 0,
+    idleHintDelay: null,
+    spatialSimilarity: "high",
+    pathComplexity: "zigzag",
+    reverseMode: "rare",
     distractor: { enabled: true, startRound: 0, count: 2, interval: 2200, duration: 720, avoidNextTarget: true },
   },
   expert2: {
@@ -304,6 +373,10 @@ const MICRO_DIFFICULTY_CONFIG = {
     hintLevel: 0,
     allowActiveReplay: false,
     replayLimit: 0,
+    idleHintDelay: null,
+    spatialSimilarity: "high",
+    pathComplexity: "zigzag",
+    reverseMode: "rare",
     distractor: { enabled: true, startRound: 0, count: 2, interval: 2100, duration: 740, avoidNextTarget: true },
   },
   expert3: {
@@ -319,6 +392,10 @@ const MICRO_DIFFICULTY_CONFIG = {
     hintLevel: 0,
     allowActiveReplay: false,
     replayLimit: 0,
+    idleHintDelay: null,
+    spatialSimilarity: "high",
+    pathComplexity: "zigzag",
+    reverseMode: "rare",
     distractor: { enabled: true, startRound: 0, count: 2, interval: 2000, duration: 760, avoidNextTarget: true },
   },
 };
@@ -338,11 +415,18 @@ function shuffleArray(array) {
   return next;
 }
 
-function createRandomBlocks(count) {
+function getMinStoneDistance(spatialSimilarity = "low") {
+  if (spatialSimilarity === "high") return 150;
+  if (spatialSimilarity === "medium") return 165;
+  return MIN_STONE_DISTANCE;
+}
+
+function createRandomBlocks(count, spatialSimilarity = "low") {
   const blocks = [];
-  const paddingX = 86;
-  const paddingY = 72;
+  const paddingX = 115;
+  const paddingY = 95;
   const maxTry = 900;
+  const minDistance = getMinStoneDistance(spatialSimilarity);
 
   for (let i = 0; i < count; i += 1) {
     let candidate = null;
@@ -358,7 +442,7 @@ function createRandomBlocks(count) {
       candidate = { top, left };
 
       const safe = blocks.every(
-        (block) => distance(block, candidate) >= MIN_STONE_DISTANCE
+        (block) => distance(block, candidate) >= minDistance
       );
 
       if (safe) break;
@@ -377,20 +461,33 @@ function createRandomBlocks(count) {
   return blocks;
 }
 
-function createSequence(level, blockCount, previousLast = null) {
+function getPathDistance(blocks, from, to) {
+  if (!blocks?.[from] || !blocks?.[to]) return 0;
+  return distance(blocks[from], blocks[to]);
+}
+
+function createSequence(level, blockCount, previousLast = null, pathComplexity = "simple", blocks = []) {
   const seq = [];
 
   for (let i = 0; i < level; i += 1) {
-    let next;
+    const candidates = Array.from({ length: blockCount }, (_, index) => index).filter((index) => (
+      (i === 0 || index !== seq[i - 1]) &&
+      (i !== 0 || previousLast === null || index !== previousLast)
+    ));
 
-    do {
-      next = Math.floor(Math.random() * blockCount);
-    } while (
-      (i > 0 && next === seq[i - 1]) ||
-      (i === 0 && previousLast !== null && next === previousLast)
+    if (pathComplexity === "simple" || i === 0 || blocks.length === 0) {
+      seq.push(candidates[Math.floor(Math.random() * candidates.length)]);
+      continue;
+    }
+
+    const previous = seq[i - 1];
+    const sorted = [...candidates].sort((a, b) =>
+      getPathDistance(blocks, previous, b) - getPathDistance(blocks, previous, a)
     );
 
-    seq.push(next);
+    const poolSize = pathComplexity === "zigzag" ? Math.min(3, sorted.length) : Math.min(4, sorted.length);
+    const pool = sorted.slice(0, poolSize);
+    seq.push(pool[Math.floor(Math.random() * pool.length)]);
   }
 
   return seq;
@@ -476,9 +573,10 @@ function getAdaptiveMicroDifficulty({
 
 function getAdaptiveSequenceLength(roundIndex, microDifficulty, correctStreak, wrongStreak) {
   const config = getConfigByMicroDifficulty(microDifficulty);
-  let level = config.minLevel + Math.floor(roundIndex / 2);
+  const roundProgressBonus = roundIndex >= 5 ? 1 : 0;
+  let level = config.minLevel + roundProgressBonus;
 
-  if (correctStreak >= 2) level += 1;
+  if (correctStreak >= 3) level += 1;
   if (wrongStreak >= 2) level -= 1;
 
   return Math.max(config.minLevel, Math.min(config.maxLevel, level));
@@ -620,11 +718,189 @@ function getInitialMicroDifficultyForTrainingLevel(trainingLevel) {
   const levelMaxIndex = getLevelMaxMicroIndex(trainingLevel);
   const suggested = getSuggestedMicroDifficultyFromTest();
   const suggestedIndex = suggested ? MICRO_DIFFICULTY_RANK[suggested] : null;
-  const protectedMax = Number.isFinite(suggestedIndex)
+  const startIndex = Number.isFinite(suggestedIndex)
     ? Math.min(levelMaxIndex, Math.max(baseIndex, suggestedIndex))
-    : levelMaxIndex;
+    : baseIndex;
 
-  return MICRO_DIFFICULTY_ORDER[Math.min(protectedMax, baseIndex)] || "easy1";
+  return MICRO_DIFFICULTY_ORDER[startIndex] || "easy1";
+}
+
+function classifyCbtErrorPattern({ correct, input = [], target = [], errorType }) {
+  if (correct) return "clean_correct";
+  if (errorType === "timeout") return "timeout_error";
+
+  const firstMismatchIndex = input.findIndex((value, index) => value !== target[index]);
+  const firstErrorPosition = firstMismatchIndex >= 0 ? firstMismatchIndex + 1 : input.length + 1;
+
+  if (input.length < target.length && firstMismatchIndex < 0) return "omission_error";
+  if (input.length > target.length) return "extra_tap_error";
+  if (firstErrorPosition <= 2) return "early_error";
+  if (firstErrorPosition >= Math.max(3, target.length - 1)) return "late_error";
+
+  const sameMembers = input.length === target.length && input.every((value) => target.includes(value));
+  if (sameMembers) return "order_error";
+
+  return "location_error";
+}
+
+function average(values) {
+  const safeValues = values.map(Number).filter((value) => Number.isFinite(value));
+  if (safeValues.length <= 0) return 0;
+  return safeValues.reduce((sum, value) => sum + value, 0) / safeValues.length;
+}
+
+function calculateCbtTrainingAiAnalysis(history) {
+  const safeHistory = Array.isArray(history) ? history : [];
+  const total = safeHistory.length;
+
+  if (total <= 0) {
+    return {
+      performanceScore: 0,
+      performanceLevel: "insufficient_data",
+      recommendedAction: "collect_more_data",
+      mainWeakness: "insufficient_data",
+      parentSummary: "本次資料不足，建議再完成一次訓練後觀察。",
+      metrics: {},
+    };
+  }
+
+  const correctItems = safeHistory.filter((item) => item.correct || item.isCorrect);
+  const wrongItems = safeHistory.filter((item) => !(item.correct || item.isCorrect));
+  const cleanCorrectItems = safeHistory.filter((item) =>
+    (item.correct || item.isCorrect) &&
+    !item.usedReplay &&
+    !item.timeout &&
+    !item.idleHintShown &&
+    !item.rescueUsed &&
+    !item.isRescueAttempt
+  );
+  const rescueCorrectItems = safeHistory.filter((item) =>
+    (item.correct || item.isCorrect) && (item.rescueUsed || item.isRescueAttempt || item.replayCount > 0)
+  );
+
+  const accuracy = correctItems.length / total;
+  const cleanAccuracy = cleanCorrectItems.length / total;
+  const timeoutRate = safeHistory.filter((item) => item.timeout || item.isTimeout).length / total;
+  const replayRate = safeHistory.filter((item) => item.usedReplay || Number(item.replayCount || 0) > 0).length / total;
+  const idleHintRate = safeHistory.filter((item) => item.idleHintShown).length / total;
+  const supportNeedRate = replayRate * 0.4 + idleHintRate * 0.3 + timeoutRate * 0.3;
+
+  const errorDenominator = Math.max(wrongItems.length, 1);
+  const earlyErrorRate = wrongItems.filter((item) =>
+    item.errorPattern === "early_error" || Number(item.firstErrorPosition || 99) <= 2
+  ).length / errorDenominator;
+  const lateErrorRate = wrongItems.filter((item) => item.errorPattern === "late_error").length / errorDenominator;
+  const orderErrorRate = wrongItems.filter((item) => item.errorPattern === "order_error").length / errorDenominator;
+  const locationErrorRate = wrongItems.filter((item) => item.errorPattern === "location_error").length / errorDenominator;
+
+  const midpoint = Math.ceil(total / 2);
+  const firstHalf = safeHistory.slice(0, midpoint);
+  const secondHalf = safeHistory.slice(midpoint);
+  const firstHalfAccuracy = firstHalf.length > 0
+    ? firstHalf.filter((item) => item.correct || item.isCorrect).length / firstHalf.length
+    : 0;
+  const secondHalfAccuracy = secondHalf.length > 0
+    ? secondHalf.filter((item) => item.correct || item.isCorrect).length / secondHalf.length
+    : firstHalfAccuracy;
+  const fatigueDrop = Math.max(0, firstHalfAccuracy - secondHalfAccuracy);
+
+  const targetSpan = Math.max(...safeHistory.map((item) => Number(item.sequenceLength || item.length || 0)), 1);
+  const independentSpan = cleanCorrectItems.reduce(
+    (max, item) => Math.max(max, Number(item.sequenceLength || item.length || 0)),
+    0
+  );
+  const assistedSpan = rescueCorrectItems.reduce(
+    (max, item) => Math.max(max, Number(item.sequenceLength || item.length || 0)),
+    independentSpan
+  );
+  const unstableSpan = correctItems.reduce(
+    (max, item) => Math.max(max, Number(item.sequenceLength || item.length || 0)),
+    assistedSpan
+  );
+
+  const spanScore = Math.min(independentSpan / targetSpan, 1) * 15;
+  const stabilityScore = Math.max(0, 1 - fatigueDrop) * 10;
+  const independenceScore = Math.max(0, 1 - supportNeedRate) * 10;
+  const performanceScore = Math.round(
+    accuracy * 45 +
+    cleanAccuracy * 20 +
+    spanScore +
+    stabilityScore +
+    independenceScore
+  );
+
+  let recommendedAction = "maintain_difficulty";
+  let mainWeakness = "stable";
+
+  if (accuracy < 0.55 && earlyErrorRate >= 0.4) {
+    recommendedAction = "decrease_sequence_length";
+    mainWeakness = "memory_overload";
+  } else if (locationErrorRate >= 0.45) {
+    recommendedAction = "reduce_spatial_load";
+    mainWeakness = "spatial_location_memory";
+  } else if (orderErrorRate >= 0.45) {
+    recommendedAction = "keep_span_reduce_path_complexity";
+    mainWeakness = "order_memory";
+  } else if (timeoutRate >= 0.3 && accuracy >= 0.5) {
+    recommendedAction = "increase_answer_time";
+    mainWeakness = "slow_recall";
+  } else if (idleHintRate >= 0.35) {
+    recommendedAction = "increase_nonverbal_support";
+    mainWeakness = "attention_initiation";
+  } else if (fatigueDrop >= 0.3) {
+    recommendedAction = "reduce_fatigue_load";
+    mainWeakness = "fatigue_attention_drop";
+  } else if (performanceScore >= 85) {
+    recommendedAction = "increase_two_steps";
+  } else if (performanceScore >= 70) {
+    recommendedAction = "increase_slightly";
+  } else if (performanceScore < 40) {
+    recommendedAction = "decrease_two_steps";
+    mainWeakness = "overall_difficulty_too_high";
+  } else if (performanceScore < 55) {
+    recommendedAction = "decrease_slightly";
+    mainWeakness = "unstable_performance";
+  }
+
+  const performanceLevel =
+    performanceScore >= 85 ? "excellent" :
+    performanceScore >= 70 ? "stable" :
+    performanceScore >= 55 ? "practice_zone" :
+    performanceScore >= 40 ? "difficult" :
+    "overloaded";
+
+  const parentSummary = `孩子目前可獨立記住 ${independentSpan || 0} 步，提示或重看後可完成 ${assistedSpan || independentSpan || 0} 步；本次主要建議為「${recommendedAction}」。`;
+
+  return {
+    performanceScore,
+    performanceLevel,
+    recommendedAction,
+    mainWeakness,
+    parentSummary,
+    metrics: {
+      total,
+      accuracy,
+      cleanAccuracy,
+      timeoutRate,
+      replayRate,
+      idleHintRate,
+      supportNeedRate,
+      earlyErrorRate,
+      lateErrorRate,
+      orderErrorRate,
+      locationErrorRate,
+      firstHalfAccuracy,
+      secondHalfAccuracy,
+      fatigueDrop,
+      independentSpan,
+      assistedSpan,
+      unstableSpan,
+      targetSpan,
+      avgReactionTime: average(safeHistory.map((item) => item.reactionTime || item.answerTime || 0)),
+      avgFirstTapTime: average(safeHistory.map((item) => item.firstTapTime || 0)),
+      avgTapInterval: average(safeHistory.map((item) => item.averageTapInterval || 0)),
+    },
+  };
 }
 
 function getTrainingScoreSummary(history) {
@@ -635,46 +911,35 @@ function getTrainingScoreSummary(history) {
       stars: 1,
       score: 0,
       accuracy: 0,
+      cleanAccuracy: 0,
       avgReactionTime: 0,
       timeoutCount: 0,
       replayCount: 0,
       rescueCount: 0,
+      aiAnalysis: calculateCbtTrainingAiAnalysis(history),
     };
   }
 
+  const aiAnalysis = calculateCbtTrainingAiAnalysis(history);
+  const metrics = aiAnalysis.metrics || {};
   const correctCount = history.filter((item) => item.correct || item.isCorrect).length;
   const accuracy = correctCount / total;
-  const validReactionTimes = history
-    .map((item) => Number(item.reactionTime || item.answerTime || 0))
-    .filter((value) => value > 0);
-  const avgReactionTime =
-    validReactionTimes.length > 0
-      ? validReactionTimes.reduce((sum, value) => sum + value, 0) / validReactionTimes.length
-      : 0;
+  const avgReactionTime = Math.round(Number(metrics.avgReactionTime || 0));
   const timeoutCount = history.filter((item) => item.timeout || item.isTimeout).length;
   const replayCount = history.reduce((sum, item) => sum + Number(item.replayCount || 0), 0);
   const rescueCount = history.filter((item) => item.rescueUsed || item.isRescueAttempt).length;
-
-  const speedScore = avgReactionTime <= 0
-    ? 10
-    : Math.max(0, Math.min(15, 15 * (1 - Math.max(0, avgReactionTime - 5000) / 9000)));
-  const noTimeoutScore = Math.max(0, 10 - timeoutCount * 4);
-  const lowReplayScore = Math.max(0, 5 - replayCount * 1.5 - rescueCount * 1.5);
-  const score = Math.round(
-    accuracy * 70 +
-    speedScore +
-    noTimeoutScore +
-    lowReplayScore
-  );
+  const score = clampNumber(aiAnalysis.performanceScore, 0, 100);
 
   return {
     stars: score >= 85 ? 3 : score >= 60 ? 2 : 1,
     score,
     accuracy,
+    cleanAccuracy: metrics.cleanAccuracy || 0,
     avgReactionTime,
     timeoutCount,
     replayCount,
     rescueCount,
+    aiAnalysis,
   };
 }
 
@@ -1608,6 +1873,77 @@ const cbtTrainingTouchCss = `
   text-shadow: 0 8px 16px rgba(136, 88, 17, 0.26), 0 0 22px rgba(255, 214, 46, 0.42);
 }
 
+.cbt-board.is-idle-hint {
+  animation: cbt-idle-board-nudge 0.75s ease-in-out 1;
+}
+
+.cbt-board.is-idle-hint::after {
+  content: "";
+  position: absolute;
+  inset: 20px;
+  border-radius: 36px;
+  border: 5px solid rgba(255, 220, 90, 0.42);
+  box-shadow: 0 0 30px rgba(255, 218, 90, 0.35);
+  pointer-events: none;
+  animation: cbt-idle-soft-pulse 0.85s ease-in-out 1;
+}
+
+@keyframes cbt-idle-board-nudge {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  45% { transform: translateX(5px); }
+  70% { transform: translateX(-3px); }
+}
+
+@keyframes cbt-idle-soft-pulse {
+  0% { opacity: 0; transform: scale(0.98); }
+  35% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.02); }
+}
+
+
+/* CBT training play screen matches TestPage_CBT: large stones directly on lake background. */
+.cbt-play-card-minimal.cbt-test-card {
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  overflow: visible !important;
+}
+
+.cbt-play-card-minimal .cbt-subtitle {
+  color: #fff4c7 !important;
+  text-shadow:
+    0 3px 0 rgba(18, 76, 91, 0.95),
+    0 0 10px rgba(8, 54, 70, 0.72);
+}
+
+.cbt-play-card-minimal .cbt-quiet-prompt {
+  color: #ffffff !important;
+  text-shadow:
+    0 2px 0 rgba(18, 76, 91, 0.95),
+    0 0 8px rgba(8, 54, 70, 0.76);
+}
+
+.cbt-play-card-minimal .cbt-board,
+.cbt-board {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.cbt-block {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
 `;
 
 export default function TrainingPage_CBT() {
@@ -1659,6 +1995,7 @@ export default function TrainingPage_CBT() {
   const [correctStreak, setCorrectStreak] = useState(0);
   const [wrongStreak, setWrongStreak] = useState(0);
   const [roundReplayCount, setRoundReplayCount] = useState(0);
+  const [idleHintActive, setIdleHintActive] = useState(false);
   const [, setTrainingHistory] = useState([]);
 
   const clickAudioRef = useRef(null);
@@ -1673,15 +2010,28 @@ export default function TrainingPage_CBT() {
   const lastSequenceLastRef = useRef(null);
   const blockSetRef = useRef({ group: null, blocks: [] });
   const totalReplayCountRef = useRef(0);
+  const unifiedResultSavedRef = useRef(false);
   const roundReplayCountRef = useRef(0);
   const rescueUsedRef = useRef(false);
+  const idleHintShownRef = useRef(false);
+  const idleHintCountRef = useRef(0);
+  const idleBeforeFirstTapMsRef = useRef(null);
+  const firstTapTimeRef = useRef(null);
   const [roundRescueUsed, setRoundRescueUsed] = useState(false);
+  const currentMemorySpanRef = useRef(MIN_TRAINING_MEMORY_SPAN);
+  const currentSpanTrialCountRef = useRef(0);
+  const currentSpanWrongCountRef = useRef(0);
+  const currentSpanTimeoutCountRef = useRef(0);
+  const progressedTrialCountRef = useRef(0);
+  const stopReasonRef = useRef(null);
 
   const config = getConfigByMicroDifficulty(currentMicroDifficulty);
   const difficulty = getMacroDifficultyFromMicro(currentMicroDifficulty);
   const canReplayThisRound = roundReplayCount < Number(config.replayLimit || 0);
-  const canUseFeedbackReplay = feedbackType === "wrong" && canReplayThisRound;
-  const shouldOfferRescueRetry = feedbackType === "wrongRescue";
+  // 訓練規則改為「每個記憶跨度固定兩題」：答錯或逾時後直接進下一題，
+  // 不在同一題提供補救重播，避免把重試誤算成同一跨度的第三題。
+  const canUseFeedbackReplay = false;
+  const shouldOfferRescueRetry = false;
 
   const isWarmup =
     phase === "warmupShow" ||
@@ -1745,48 +2095,57 @@ export default function TrainingPage_CBT() {
     setSelectedIndex(null);
     setWrongIndex(null);
     setDistractorIndices([]);
+    setIdleHintActive(false);
     setPersonIndex(null);
     setIsWalking(false);
     setMessage("");
     setFeedbackType("neutral");
   }
 
-  function startWarmup() {
+  function resetTrainingSession({ resetBlocks = false } = {}) {
     clearSequenceTimers();
     setCorrectStreak(0);
     setWrongStreak(0);
     setRoundReplayCount(0);
     setTrainingHistory([]);
+
     historyRef.current = [];
     lastSequenceLastRef.current = null;
     blockSetRef.current = { group: null, blocks: [] };
     totalReplayCountRef.current = 0;
+    currentMemorySpanRef.current = MIN_TRAINING_MEMORY_SPAN;
+    currentSpanTrialCountRef.current = 0;
+    currentSpanWrongCountRef.current = 0;
+    currentSpanTimeoutCountRef.current = 0;
+    progressedTrialCountRef.current = 0;
+    stopReasonRef.current = null;
+    unifiedResultSavedRef.current = false;
     roundReplayCountRef.current = 0;
     rescueUsedRef.current = false;
-    setRoundRescueUsed(false);
+    idleHintShownRef.current = false;
+    idleHintCountRef.current = 0;
+    idleBeforeFirstTapMsRef.current = null;
+    firstTapTimeRef.current = null;
 
+    setIdleHintActive(false);
+    setRoundRescueUsed(false);
     setRoundIndex(0);
+    resetBoardState();
+
+    if (resetBlocks) {
+      setBlocks(createRandomBlocks(5));
+    }
+  }
+
+  function startWarmup() {
+    resetTrainingSession();
     setBlocks(createRandomBlocks(5));
     setSequence(WARMUP_SEQUENCE);
-    resetBoardState();
     setPhase("warmupShow");
   }
 
   function startTraining() {
-    clearSequenceTimers();
-    setCorrectStreak(0);
-    setWrongStreak(0);
-    setRoundReplayCount(0);
-    setTrainingHistory([]);
-    historyRef.current = [];
-    lastSequenceLastRef.current = null;
-    blockSetRef.current = { group: null, blocks: [] };
-    totalReplayCountRef.current = 0;
-    roundReplayCountRef.current = 0;
-    rescueUsedRef.current = false;
-    setRoundRescueUsed(false);
-
-    setRoundIndex(0);
+    resetTrainingSession();
     startRound(0, 0, 0);
   }
 
@@ -1804,25 +2163,39 @@ export default function TrainingPage_CBT() {
       history: historyRef.current,
     });
     const roundConfig = getConfigByMicroDifficulty(nextMicroDifficulty);
-    const level = getAdaptiveSequenceLength(
+    const configuredLevel = getAdaptiveSequenceLength(
       targetRound,
       nextMicroDifficulty,
       nextCorrectStreak,
       nextWrongStreak
+    );
+    if (!Number.isFinite(Number(currentMemorySpanRef.current))) {
+      currentMemorySpanRef.current = clampNumber(
+        configuredLevel,
+        MIN_TRAINING_MEMORY_SPAN,
+        MAX_TRAINING_MEMORY_SPAN
+      );
+    }
+    const level = clampNumber(
+      currentMemorySpanRef.current,
+      MIN_TRAINING_MEMORY_SPAN,
+      MAX_TRAINING_MEMORY_SPAN
     );
 
     const blockGroup = `${nextMicroDifficulty}-${Math.floor(targetRound / 4)}`;
     let newBlocks = blockSetRef.current.blocks;
 
     if (blockSetRef.current.group !== blockGroup || newBlocks.length !== roundConfig.blockCount) {
-      newBlocks = createRandomBlocks(roundConfig.blockCount);
+      newBlocks = createRandomBlocks(roundConfig.blockCount, roundConfig.spatialSimilarity);
       blockSetRef.current = { group: blockGroup, blocks: newBlocks };
     }
 
     const newSequence = createSequence(
       level,
       roundConfig.blockCount,
-      lastSequenceLastRef.current
+      lastSequenceLastRef.current,
+      roundConfig.pathComplexity,
+      newBlocks
     );
 
     lastSequenceLastRef.current = newSequence[newSequence.length - 1] ?? null;
@@ -1832,6 +2205,11 @@ export default function TrainingPage_CBT() {
     setRoundReplayCount(0);
     roundReplayCountRef.current = 0;
     rescueUsedRef.current = false;
+    idleHintShownRef.current = false;
+    idleHintCountRef.current = 0;
+    idleBeforeFirstTapMsRef.current = null;
+    firstTapTimeRef.current = null;
+    setIdleHintActive(false);
     setRoundRescueUsed(false);
     setBlocks(newBlocks);
     setSequence(newSequence);
@@ -1893,6 +2271,22 @@ export default function TrainingPage_CBT() {
 
   function recordTrainingTrial({ correct, input, errorType }) {
     const reactionTime = getReactionTimeMs();
+    const firstMismatchIndex = input.findIndex((value, index) => value !== sequence[index]);
+    const firstErrorPosition = correct
+      ? null
+      : firstMismatchIndex >= 0
+        ? firstMismatchIndex + 1
+        : input.length + 1;
+    const errorPattern = classifyCbtErrorPattern({
+      correct,
+      input,
+      target: sequence,
+      errorType,
+    });
+    const averageTapInterval = average(stepReactionTimesRef.current);
+    const firstTapTime = firstTapTimeRef.current && answerStartRef.current
+      ? Math.max(0, firstTapTimeRef.current - answerStartRef.current)
+      : null;
 
     const trial = {
       trialIndex: roundIndex + 1,
@@ -1919,6 +2313,10 @@ export default function TrainingPage_CBT() {
       level: sequence.length,
       length: sequence.length,
       sequenceLength: sequence.length,
+      memorySpan: sequence.length,
+      spanTrialNumber: currentSpanTrialCountRef.current + 1,
+      trialsPerMemorySpan: TRIALS_PER_MEMORY_SPAN,
+      stopRule: "finish_when_two_wrong_or_two_timeout_in_same_span",
       blockCount: config.blockCount,
 
       sequence,
@@ -1930,27 +2328,34 @@ export default function TrainingPage_CBT() {
       clickedSequence: input,
       inputLength: input.length,
       targetLength: sequence.length,
-      firstErrorPosition: correct
-        ? null
-        : input.findIndex((value, index) => value !== sequence[index]) >= 0
-          ? input.findIndex((value, index) => value !== sequence[index]) + 1
-          : input.length + 1,
+      firstErrorPosition,
+      errorPattern,
 
       reactionTime,
       answerTime: reactionTime,
       timeUsed: reactionTime,
+      firstTapTime,
+      averageTapInterval,
       remainingTime: timeLeft,
       replayCount: roundReplayCountRef.current,
       usedReplay: roundReplayCountRef.current > 0,
       totalReplayCount: totalReplayCountRef.current,
       hintLevel: Number(config.hintLevel || 0),
       hintAvailable: Number(config.hintLevel || 0) > 0,
+      idleHintShown: idleHintShownRef.current,
+      idleHintCount: idleHintCountRef.current,
+      idleBeforeFirstTapMs: idleBeforeFirstTapMsRef.current,
       activeReplayAllowed: Boolean(config.allowActiveReplay),
       rescueUsed: roundRescueUsed,
       isRescueAttempt: rescueUsedRef.current,
+      rescueCorrect: correct && Boolean(rescueUsedRef.current),
+      cleanCorrect: correct && !rescueUsedRef.current && roundReplayCountRef.current <= 0 && !idleHintShownRef.current,
 
       distractorEnabled: Boolean(config.distractor?.enabled),
       distractorCount: config.distractor?.count || 0,
+      spatialSimilarity: config.spatialSimilarity || "low",
+      pathComplexity: config.pathComplexity || "simple",
+      reverseMode: config.reverseMode || false,
 
       createdAt: new Date().toISOString(),
     };
@@ -1963,6 +2368,92 @@ export default function TrainingPage_CBT() {
     return nextHistory;
   }
 
+  function saveUnifiedCbtTrainingResult(summary, finalHistory) {
+    if (unifiedResultSavedRef.current) return;
+
+    const safeHistory = Array.isArray(finalHistory) ? finalHistory : [];
+    const scoring = summary?.scoring || calculateCBTScore(safeHistory);
+    const totalTrials = Number(scoring?.summary?.totalTrials || safeHistory.length || 0);
+    const correctCount = Number(scoring?.summary?.correctCount || 0);
+    const errorCount = Math.max(totalTrials - correctCount, 0);
+    const avgReactionTime = Math.round(Number(scoring?.summary?.averageReactionTime || summary?.scoreSummary?.avgReactionTime || 0));
+    const finishedAt = new Date().toISOString();
+    const startedAt = safeHistory[0]?.createdAt || null;
+    const accuracyPercent = Number(scoring?.summary?.accuracyPercent ?? (totalTrials > 0 ? Math.round((correctCount / totalTrials) * 10000) / 100 : 0));
+
+    const resultPayload = {
+      ...summary,
+      gameId: "CBT",
+      gameName: "石頭記憶訓練",
+      taskCode: "CBT",
+      taskName: "Corsi Block Tapping",
+      mode: "training",
+      resultType: "training",
+      source: "training",
+
+      scoring,
+      summary: scoring?.summary,
+      parentView: scoring?.parentView,
+      clinicalView: scoring?.clinicalView,
+      childView: scoring?.childView,
+      aiAnalysis: scoring?.aiAnalysis,
+
+      stars: scoring?.stars || summary?.stars || 1,
+      score: scoring?.totalScore || summary?.score || 0,
+      totalScore: scoring?.totalScore || summary?.score || 0,
+      recommendedDifficulty: scoring?.recommendedDifficulty,
+      recommendedAction: scoring?.recommendedAction,
+      recommendationReason: scoring?.recommendationReason,
+      mainWeakness: scoring?.mainWeakness,
+
+      totalTrials,
+      totalQuestions: totalTrials,
+      correctCount,
+      errorCount,
+      accuracy: accuracyPercent,
+      avgReactionTime,
+      averageReactionTime: avgReactionTime,
+
+      cbtHistory: safeHistory,
+      trials: safeHistory,
+      history: safeHistory,
+      records: safeHistory,
+
+      stopReason: stopReasonRef.current,
+      trialsPerMemorySpan: TRIALS_PER_MEMORY_SPAN,
+      finalMemorySpan: currentMemorySpanRef.current,
+
+      startedAt,
+      finishedAt,
+      createdAt: finishedAt,
+      updatedAt: finishedAt,
+
+      visibleRoles: ["child", "parent", "clinician"],
+      visibleResultRoles: ["child", "parent", "clinician"],
+      hideMedicalResult: false,
+    };
+
+    unifiedResultSavedRef.current = true;
+
+    try {
+      localStorage.setItem(CBT_TRAINING_RESULT_KEY, JSON.stringify(resultPayload));
+      localStorage.setItem("cbtTrainingResult", JSON.stringify(resultPayload));
+      localStorage.setItem("latestCBTTrainingResult", JSON.stringify(resultPayload));
+    } catch (error) {
+      console.warn("CBT 訓練結果儲存失敗：", error);
+    }
+
+    saveUnifiedResult({
+      rawResult: resultPayload,
+      gameId: "CBT",
+      mode: "training",
+      difficulty: resultPayload.microDifficulty || resultPayload.difficulty || "default",
+      route: "/training-cbt",
+      visibleRoles: ["child", "parent", "clinician"],
+      saveLegacy: false,
+    });
+  }
+
   function goResultPage(finalHistory = historyRef.current, showDetail = false) {
     const correctCount = finalHistory.filter(
       (item) => item.correct || item.isCorrect
@@ -1973,8 +2464,16 @@ export default function TrainingPage_CBT() {
       return Math.max(max, item.length || item.sequenceLength || 0);
     }, 0);
 
-    const scoreSummary = getTrainingScoreSummary(finalHistory);
-    const stars = scoreSummary.stars;
+    const scoring = calculateCBTScore(finalHistory);
+    const scoreSummary = {
+      ...getTrainingScoreSummary(finalHistory),
+      scoring,
+      score: scoring.totalScore,
+      stars: scoring.stars,
+      aiAnalysis: scoring.aiAnalysis,
+    };
+    const aiAnalysis = scoring.aiAnalysis || scoreSummary.aiAnalysis || calculateCbtTrainingAiAnalysis(finalHistory);
+    const stars = scoring.stars;
     const totalQuestions = finalHistory.length || TOTAL_TRAINING_ROUNDS;
     const summary = {
       source: "training",
@@ -1990,8 +2489,28 @@ export default function TrainingPage_CBT() {
       difficultyMacro: config.macro,
       testSuggestedMicroDifficulty,
       stars,
-      score: scoreSummary.score,
+      score: scoring.totalScore,
+      totalScore: scoring.totalScore,
       scoreSummary,
+      scoring,
+      summary: scoring.summary,
+      parentView: scoring.parentView,
+      clinicalView: scoring.clinicalView,
+      childView: scoring.childView,
+      aiAnalysis,
+      aiPerformanceScore: aiAnalysis.performanceScore,
+      aiRecommendedAction: aiAnalysis.recommendedAction,
+      aiMainWeakness: aiAnalysis.mainWeakness,
+      recommendedDifficulty: scoring.recommendedDifficulty,
+      recommendedAction: scoring.recommendedAction,
+      recommendationReason: scoring.recommendationReason,
+      mainWeakness: scoring.mainWeakness,
+      stopReason: stopReasonRef.current,
+      trialsPerMemorySpan: TRIALS_PER_MEMORY_SPAN,
+      finalMemorySpan: currentMemorySpanRef.current,
+      independentSpan: aiAnalysis.metrics?.independentSpan || 0,
+      assistedSpan: aiAnalysis.metrics?.assistedSpan || 0,
+      fatigueDrop: aiAnalysis.metrics?.fatigueDrop || 0,
       correctCount,
       bestSpan,
       totalQuestions,
@@ -2010,6 +2529,8 @@ export default function TrainingPage_CBT() {
       history: finalHistory,
       summary,
     });
+
+    saveUnifiedCbtTrainingResult(summary, finalHistory);
 
     if (!showDetail) {
       setFinalSummary(summary);
@@ -2034,29 +2555,8 @@ export default function TrainingPage_CBT() {
   }
 
   function restartTraining() {
-    clearSequenceTimers();
-    historyRef.current = [];
-    userSequenceRef.current = [];
-    stepReactionTimesRef.current = [];
-    rescueUsedRef.current = false;
-    lockedRef.current = false;
-    walkingLockRef.current = false;
-    totalReplayCountRef.current = 0;
+    resetTrainingSession({ resetBlocks: true });
     setFinalSummary(null);
-    setTrainingHistory([]);
-    setRoundIndex(0);
-    setCorrectStreak(0);
-    setWrongStreak(0);
-    setRoundReplayCount(0);
-    setFeedbackType(null);
-    setMessage("");
-    setUserInput([]);
-    setSelectedIndex(null);
-    setWrongIndex(null);
-    setPersonIndex(null);
-    setIsWalking(false);
-    setDistractorIndices([]);
-    setBlocks(createRandomBlocks(5));
     setPhase("ready");
   }
 
@@ -2090,28 +2590,62 @@ export default function TrainingPage_CBT() {
     });
 
     const nextWrongStreak = wrongStreak + 1;
-    const canRescueThisRound = !rescueUsedRef.current;
-
     setCorrectStreak(0);
     setWrongStreak(nextWrongStreak);
-    setFeedbackType(canRescueThisRound ? "wrongRescue" : "wrong");
-
-    if (canRescueThisRound) {
-      setMessage(errorType === "timeout" ? "沒關係，再看一次。" : "差一點，再看一次。");
-    } else {
-      setMessage(errorType === "timeout" ? "下一題再試試。" : "下一題再加油。");
-    }
+    setFeedbackType("wrong");
+    setMessage(errorType === "timeout" ? "下一題再試試。" : "下一題再加油。");
 
     setPhase("feedback");
 
     return finalHistory;
   }
 
+  function updateMemorySpanProgress(lastTrial) {
+    const wasCorrect = Boolean(lastTrial?.correct || lastTrial?.isCorrect);
+    const wasTimeout = Boolean(lastTrial?.timeout || lastTrial?.isTimeout || lastTrial?.errorType === "timeout");
+
+    currentSpanTrialCountRef.current += 1;
+    if (!wasCorrect) currentSpanWrongCountRef.current += 1;
+    if (wasTimeout) currentSpanTimeoutCountRef.current += 1;
+
+    if (currentSpanTrialCountRef.current < TRIALS_PER_MEMORY_SPAN) {
+      return { shouldFinish: false };
+    }
+
+    if (currentSpanWrongCountRef.current >= TRIALS_PER_MEMORY_SPAN) {
+      stopReasonRef.current = "two_wrong_same_memory_span";
+      return { shouldFinish: true };
+    }
+
+    if (currentSpanTimeoutCountRef.current >= TRIALS_PER_MEMORY_SPAN) {
+      stopReasonRef.current = "two_timeout_same_memory_span";
+      return { shouldFinish: true };
+    }
+
+    if (currentMemorySpanRef.current >= MAX_TRAINING_MEMORY_SPAN) {
+      stopReasonRef.current = "max_memory_span_reached";
+      return { shouldFinish: true };
+    }
+
+    currentMemorySpanRef.current += 1;
+    currentSpanTrialCountRef.current = 0;
+    currentSpanWrongCountRef.current = 0;
+    currentSpanTimeoutCountRef.current = 0;
+
+    return { shouldFinish: false };
+  }
+
   function goNextRound() {
     clearSequenceTimers();
-    const nextRoundIndex = roundIndex + 1;
+    const finalHistory = historyRef.current;
+    if (progressedTrialCountRef.current >= finalHistory.length) return;
 
-    if (nextRoundIndex >= TOTAL_TRAINING_ROUNDS) {
+    const lastTrial = finalHistory[finalHistory.length - 1];
+    progressedTrialCountRef.current = finalHistory.length;
+    const decision = updateMemorySpanProgress(lastTrial);
+
+    if (decision.shouldFinish || roundIndex + 1 >= TOTAL_TRAINING_ROUNDS) {
+      if (!stopReasonRef.current) stopReasonRef.current = "max_training_rounds_reached";
       setPhase("finish");
 
       setSequenceTimer(() => {
@@ -2121,7 +2655,7 @@ export default function TrainingPage_CBT() {
       return;
     }
 
-    startRound(nextRoundIndex);
+    startRound(roundIndex + 1);
   }
 
 
@@ -2190,10 +2724,22 @@ export default function TrainingPage_CBT() {
     const nextUserSeqLength = nextUserSeq.length;
     const correctIndex = sequence[nextUserSeqLength - 1];
 
+    const now = Date.now();
+    if (!firstTapTimeRef.current) {
+      firstTapTimeRef.current = now;
+      if (answerStartRef.current) {
+        const firstTapDelay = Math.max(0, now - answerStartRef.current);
+        if (idleHintShownRef.current && idleBeforeFirstTapMsRef.current === null) {
+          idleBeforeFirstTapMsRef.current = firstTapDelay;
+        }
+      }
+    }
+    setIdleHintActive(false);
+
     if (lastClickTimeRef.current) {
       stepReactionTimesRef.current = [
         ...stepReactionTimesRef.current,
-        Math.max(0, Date.now() - lastClickTimeRef.current),
+        Math.max(0, now - lastClickTimeRef.current),
       ];
     }
 
@@ -2332,6 +2878,37 @@ export default function TrainingPage_CBT() {
     return () => clearSequenceTimer(timer);
   }, [phase, timeLeft]);
 
+  useEffect(() => {
+    if (phase !== "answer") {
+      setIdleHintActive(false);
+      return;
+    }
+
+    const delay = Number(config.idleHintDelay || 0);
+    if (!delay || delay <= 0) return;
+    if (idleHintShownRef.current) return;
+    if (userSequenceRef.current.length > 0) return;
+    if (lockedRef.current || walkingLockRef.current) return;
+
+    const timer = setSequenceTimer(() => {
+      if (phase !== "answer") return;
+      if (userSequenceRef.current.length > 0) return;
+
+      idleHintShownRef.current = true;
+      idleHintCountRef.current += 1;
+      if (answerStartRef.current && idleBeforeFirstTapMsRef.current === null) {
+        idleBeforeFirstTapMsRef.current = Date.now() - answerStartRef.current;
+      }
+      setIdleHintActive(true);
+
+      setSequenceTimer(() => {
+        setIdleHintActive(false);
+      }, 900);
+    }, delay);
+
+    return () => clearSequenceTimer(timer);
+  }, [phase, currentMicroDifficulty, userInput.length]);
+
   return (
     <div
       className="cbt-page"
@@ -2373,7 +2950,7 @@ export default function TrainingPage_CBT() {
       )}
 
       {(phase === "warmupShow" || phase === "warmupAnswer") && (
-        <div className="cbt-card cbt-card--wide cbt-play-card-minimal">
+        <div className="cbt-card cbt-card--wide cbt-test-card cbt-play-card-minimal">
           <h2 className="cbt-subtitle">
             {phase === "warmupShow" ? "看亮燈" : "換你點"}
           </h2>
@@ -2416,7 +2993,7 @@ export default function TrainingPage_CBT() {
       )}
 
       {(phase === "show" || phase === "answer") && (
-        <div className="cbt-card cbt-card--wide cbt-play-card-minimal">
+        <div className="cbt-card cbt-card--wide cbt-test-card cbt-play-card-minimal">
           <h2 className="cbt-subtitle">
             {phase === "show" ? "看亮燈" : "換你點"}
           </h2>
@@ -2437,6 +3014,7 @@ export default function TrainingPage_CBT() {
             disabled={phase !== "answer" || lockedRef.current}
             onBlockClick={handleBlockClick}
             stoneSize={STONE_SIZE}
+            idleHintActive={idleHintActive}
           />
         </div>
       )}
@@ -2515,7 +3093,7 @@ export default function TrainingPage_CBT() {
 
           <div className="cbt-result-content">
             <div className="cbt-dialog-bubble">
-              關卡完成！你很認真記住圖片喔。
+              練習完成！你很認真記住石頭路線喔。
             </div>
             <div className="cbt-round-avatar">
               <img src={startAvatar} alt="小鹿頭像" draggable="false" />
@@ -2623,10 +3201,11 @@ function CBTBoard({
   disabled,
   onBlockClick,
   stoneSize,
+  idleHintActive = false,
 }) {
   return (
     <div
-      className="cbt-board"
+      className={["cbt-board", idleHintActive ? "is-idle-hint" : ""].filter(Boolean).join(" ")}
       style={{
         width: BOARD_WIDTH,
         height: BOARD_HEIGHT,

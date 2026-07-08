@@ -1,78 +1,81 @@
 // src/pages/TestPage_LB.jsx
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import calculateLBScore from "../utils/lbScoring";
+import { saveUnifiedResult } from "../utils/resultManager";
 
 import backgroundImg from "../asset/LB/background.png";
 import sheepImg from "../asset/LB/sheep.png";
 import homeImg from "../asset/LB/home.png";
-import houseNumber01Img from "../asset/LB/house number_01.png";
-import introVideo from "../asset/SRT_start.mp4";
-import endingVideo from "../asset/SRT_start.mp4";
+import green01Img from "../asset/LB/green_01.png";
+import green02Img from "../asset/LB/green_02.png";
+import green03Img from "../asset/LB/green_03.png";
+import green04Img from "../asset/LB/green_04.png";
+import green05Img from "../asset/LB/green_05.png";
+import green06Img from "../asset/LB/green_06.png";
+import green07Img from "../asset/LB/green_07.png";
+import green08Img from "../asset/LB/green_08.png";
+import green09Img from "../asset/LB/green_09.png";
+import green10Img from "../asset/LB/green_10.png";
+import red01Img from "../asset/LB/red_01.png";
+import red02Img from "../asset/LB/red_02.png";
+import red03Img from "../asset/LB/red_03.png";
+import red04Img from "../asset/LB/red_04.png";
+import red05Img from "../asset/LB/red_05.png";
+import red06Img from "../asset/LB/red_06.png";
+import blue01Img from "../asset/LB/blue_01.png";
+import blue02Img from "../asset/LB/blue_02.png";
+import blue03Img from "../asset/LB/blue_03.png";
+import blue04Img from "../asset/LB/blue_04.png";
+import blue05Img from "../asset/LB/blue_05.png";
+import blue06Img from "../asset/LB/blue_06.png";
+import blue07Img from "../asset/LB/blue_07.png";
+import storyVideo from "../asset/mp4/LB_start.mp4";
+import tutorialVideo from "../asset/mp4/LB_step.mp4";
+import endingVideo from "../asset/mp4/LB_end.mp4";
 import homeStartBtn from "../asset/home/start.png";
 import homeSkipBtn from "../asset/home/skip.png";
 import homeBackBtn from "../asset/home/back.png";
-import homeAgainBtn from "../asset/home/again.png";
 import homeResultBtn from "../asset/home/result.png";
+import homeSendBtn from "../asset/home/send.png";
 import mouseGuideImg from "../asset/mouse.png";
 
 /*
-  TestPage_LB.jsx — clean restart version
+  TestPage_LB.jsx
 
-  這版故意從最簡單開始：
-  1. 不做複雜 grid。
-  2. 加入互動式前導教學，正式測驗不顯示答案提示。
-  3. 畫面維持寬版：背景、遊戲卡片、門牌區、底部訊息、提交答案。
-  4. 三關規則保留：
-     - 第一關：1 → 10
-     - 第二關：10 → 1
-     - 第三關：紅1 → 藍1 → 紅2 → 藍2 ... → 紅10 → 藍10
-  5. 結束後寫入 sessionStorage/localStorage，再導向 /result-lb。
-
-  先讓版面穩定，再慢慢加動畫、影片、AI 分析。
+  使用全部指定門牌圖檔：green_01～green_10、red_01～red_06、blue_01～blue_07。
+  流程：開始卡片 → LB_start.mp4 → LB_step.mp4 → 兩關測驗 → LB_end.mp4 → 結果。
+  第二關共顯示 20 個門牌：10 個正確目標與 10 個相反顏色的干擾項。
+  已移除反向數字關卡，並保留原本卡片與美術樣式。
 */
 
 const RESULT_ROUTE = "/result-lb";
 const SESSION_KEY = "LB_RESULT";
 const LOCAL_KEY = "lbTestResult";
 
-const ANSWER_LIMIT_MS = 10000;
+const DOORPLATE_IMAGES = {
+  green: {
+    1: green01Img, 2: green02Img, 3: green03Img, 4: green04Img, 5: green05Img,
+    6: green06Img, 7: green07Img, 8: green08Img, 9: green09Img, 10: green10Img,
+  },
+  red: {
+    1: red01Img, 2: red02Img, 3: red03Img, 4: red04Img, 5: red05Img, 6: red06Img,
+  },
+  blue: {
+    1: blue01Img, 2: blue02Img, 3: blue03Img, 4: blue04Img, 5: blue05Img,
+    6: blue06Img, 7: blue07Img,
+  },
+};
 
-const TUTORIAL_STEPS = [
-  {
-    id: "forward",
-    order: "1",
-    iconLine: ["1", "→", "2", "→", "3", "→"],
-    sequence: ["1", "2", "3", "4"],
-    choices: ["1", "2", "3", "4"],
-  },
-  {
-    id: "backward",
-    order: "2",
-    iconLine: [ "4", "→", "3", "→", "2", "→"],
-    sequence: ["4", "3", "2", "1"],
-    choices: ["1", "2", "3", "4"],
-  },
-  {
-    id: "red-blue",
-    order: "3",
-    iconLine: ["red-1", "→", "blue-1", "→", "red-2", "→"],
-    sequence: ["red-1", "blue-1", "red-2", "blue-2"],
-    choices: ["red-1", "blue-1", "red-2", "blue-2"],
-  },
-];
-
-function getTutorialNumber(value) {
-  if (value.startsWith("red-")) return value.replace("red-", "");
-  if (value.startsWith("blue-")) return value.replace("blue-", "");
-  return value;
+function getDoorplateImage(item) {
+  const color = item.color === "cream" ? "green" : item.color;
+  return DOORPLATE_IMAGES[color]?.[item.number] || DOORPLATE_IMAGES.green?.[item.number] || "";
 }
 
-function getTutorialColor(value) {
-  if (value.startsWith("red-")) return "red";
-  if (value.startsWith("blue-")) return "blue";
-  return "cream";
+function usesColorFallback(item) {
+  if (item.color !== "red" && item.color !== "blue") return false;
+  return !DOORPLATE_IMAGES[item.color]?.[item.number];
 }
 
 const STAGES = [
@@ -90,82 +93,106 @@ const STAGES = [
     sequence: Array.from({ length: 10 }, (_, index) => `n-${index + 1}`),
   },
   {
-    id: "backward",
-    title: "第二關",
-    subtitle: "請從 10 點回 1",
-    ruleText: "10 → 9 → 8 → ... → 1",
-    items: Array.from({ length: 10 }, (_, index) => ({
-      key: `n-${10 - index}`,
-      number: 10 - index,
-      color: "cream",
-      label: `${10 - index}`,
-    })),
-    sequence: Array.from({ length: 10 }, (_, index) => `n-${10 - index}`),
-  },
-  {
     id: "red-blue",
-    title: "第三關",
-    subtitle: "請照門牌顏色交替點",
-    ruleText: "看顏色點門牌",
+    title: "第二關",
+    subtitle: "請依序點紅 1、藍 2、紅 3、藍 4……藍 10",
+    ruleText: "紅 1 → 藍 2 → 紅 3 → 藍 4 → … → 紅 9 → 藍 10",
+    // 每個數字各有紅、藍兩個門牌；其中一個是目標，另一個是干擾項。
+    // 正確規則：奇數選紅色、偶數選藍色，共 10 個目標 + 10 個干擾項。
     items: Array.from({ length: 10 }, (_, index) => {
       const number = index + 1;
       return [
-        {
-          key: `red-${number}`,
-          number,
-          color: "red",
-          label: `${number}`,
-        },
-        {
-          key: `blue-${number}`,
-          number,
-          color: "blue",
-          label: `${number}`,
-        },
+        { key: `red-${number}`, number, color: "red", label: `${number}` },
+        { key: `blue-${number}`, number, color: "blue", label: `${number}` },
       ];
     }).flat(),
-    sequence: Array.from({ length: 10 }, (_, index) => {
-      const number = index + 1;
-      return [`red-${number}`, `blue-${number}`];
-    }).flat(),
+    sequence: [
+      "red-1", "blue-2", "red-3", "blue-4", "red-5",
+      "blue-6", "red-7", "blue-8", "red-9", "blue-10",
+    ],
   },
 ];
 
-const SIMPLE_POSITIONS_10 = [
-  { left: "16%", top: "24%" },
-  { left: "72%", top: "18%" },
-  { left: "35%", top: "34%" },
-  { left: "84%", top: "42%" },
-  { left: "22%", top: "61%" },
-  { left: "55%", top: "27%" },
-  { left: "68%", top: "66%" },
-  { left: "43%", top: "72%" },
-  { left: "12%", top: "46%" },
-  { left: "88%", top: "69%" },
-];
+function toPercentPosition(x, y) {
+  return { left: `${x}%`, top: `${y}%` };
+}
 
-const SIMPLE_POSITIONS_20 = [
-  { left: "11%", top: "20%" },
-  { left: "28%", top: "13%" },
-  { left: "48%", top: "22%" },
-  { left: "66%", top: "14%" },
-  { left: "82%", top: "25%" },
-  { left: "18%", top: "39%" },
-  { left: "37%", top: "47%" },
-  { left: "57%", top: "37%" },
-  { left: "76%", top: "46%" },
-  { left: "90%", top: "58%" },
-  { left: "9%", top: "64%" },
-  { left: "25%", top: "73%" },
-  { left: "44%", top: "66%" },
-  { left: "62%", top: "75%" },
-  { left: "79%", top: "68%" },
-  { left: "21%", top: "55%" },
-  { left: "52%", top: "56%" },
-  { left: "69%", top: "31%" },
-  { left: "34%", top: "27%" },
-  { left: "86%", top: "38%" },
-];
+const ROUTE_POSITIONS = {
+  forward: {
+    // 依照正確順序由左到右微幅 S 型排列，送出後連線不會互相交叉。
+    route: [
+      toPercentPosition(12, 66),
+      toPercentPosition(22, 52),
+      toPercentPosition(32, 64),
+      toPercentPosition(42, 50),
+      toPercentPosition(52, 62),
+      toPercentPosition(62, 48),
+      toPercentPosition(72, 60),
+      toPercentPosition(80, 46),
+      toPercentPosition(87, 34),
+      toPercentPosition(91, 52),
+    ],
+    distractors: [],
+  },
+  "red-blue": {
+    // 正確路線：紅1 → 藍2 → 紅3 → 藍4……一路靠近小屋，不交叉。
+    route: [
+      toPercentPosition(12, 66),
+      toPercentPosition(22, 53),
+      toPercentPosition(32, 65),
+      toPercentPosition(42, 52),
+      toPercentPosition(52, 64),
+      toPercentPosition(62, 51),
+      toPercentPosition(72, 62),
+      toPercentPosition(80, 48),
+      toPercentPosition(87, 36),
+      toPercentPosition(91, 54),
+    ],
+    // 干擾門牌放在路線上下方，避免跟正確路線擠在同一條線上。
+    distractors: [
+      toPercentPosition(10, 31),
+      toPercentPosition(21, 30),
+      toPercentPosition(33, 34),
+      toPercentPosition(45, 30),
+      toPercentPosition(57, 34),
+      toPercentPosition(69, 31),
+      toPercentPosition(78, 72),
+      toPercentPosition(65, 76),
+      toPercentPosition(49, 75),
+      toPercentPosition(30, 76),
+    ],
+  },
+};
+
+function buildStageItems(stage) {
+  const layout = ROUTE_POSITIONS[stage.id] || { route: [], distractors: [] };
+  const positionByKey = new Map();
+
+  stage.sequence.forEach((key, index) => {
+    if (layout.route[index]) positionByKey.set(key, layout.route[index]);
+  });
+
+  let distractorIndex = 0;
+  return stage.items.map((item, index) => {
+    const fallbackPosition = {
+      left: `${12 + (index % 5) * 18}%`,
+      top: `${18 + Math.floor(index / 5) * 24}%`,
+    };
+
+    if (!positionByKey.has(item.key)) {
+      positionByKey.set(
+        item.key,
+        layout.distractors[distractorIndex] || layout.route[index] || fallbackPosition
+      );
+      distractorIndex += 1;
+    }
+
+    return {
+      ...item,
+      position: positionByKey.get(item.key) || fallbackPosition,
+    };
+  });
+}
 
 function nowISO() {
   return new Date().toISOString();
@@ -176,6 +203,50 @@ function safeNumber(value, fallback = 0) {
   return Number.isFinite(number) ? number : fallback;
 }
 
+function safeJsonParse(value, fallback = null) {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function resolveCurrentChildId() {
+  if (typeof window === "undefined") return null;
+
+  const candidates = [
+    safeJsonParse(localStorage.getItem("currentChild"), {}),
+    safeJsonParse(localStorage.getItem("selectedChild"), {}),
+    safeJsonParse(sessionStorage.getItem("currentChild"), {}),
+    safeJsonParse(sessionStorage.getItem("selectedChild"), {}),
+  ];
+
+  for (const child of candidates) {
+    const childId = child?.childId || child?.id || child?.child_id;
+    if (childId) return String(childId);
+  }
+
+  return (
+    localStorage.getItem("currentChildId") ||
+    localStorage.getItem("selectedChildId") ||
+    sessionStorage.getItem("currentChildId") ||
+    sessionStorage.getItem("selectedChildId") ||
+    null
+  );
+}
+
+function getStageRuleType(stageId) {
+  return stageId === "red-blue" ? "redBlueAlternating" : "forwardSequence";
+}
+
+function isStageSwitchTrial(stageId, stepIndex) {
+  return stageId === "red-blue" && stepIndex > 0;
+}
+
+function hasStageInterference(stageId) {
+  return stageId === "red-blue";
+}
+
 function getExpectedText(item) {
   if (!item) return "";
   if (item.color === "red") return `紅 ${item.number}`;
@@ -183,18 +254,30 @@ function getExpectedText(item) {
   return `${item.number}`;
 }
 
-function buildStageItems(stage) {
-  const positions = stage.items.length > 10 ? SIMPLE_POSITIONS_20 : SIMPLE_POSITIONS_10;
-  const offsetMap = { forward: 3, backward: 7, "red-blue": 11 };
-  const offset = offsetMap[stage.id] || 0;
+function createSelectionLog({ item, stageStartedAt, previousSelectedAt, order }) {
+  const selectedAt = Date.now();
 
-  return stage.items.map((item, index) => ({
-    ...item,
-    position: positions[(index + offset) % positions.length] || {
-      left: `${15 + (index % 5) * 17}%`,
-      top: `${18 + Math.floor(index / 5) * 20}%`,
-    },
-  }));
+  return {
+    key: item.key,
+    selectedAt,
+    selectedAtISO: new Date(selectedAt).toISOString(),
+    order,
+    cumulativeTime: Math.max(0, selectedAt - stageStartedAt),
+    reactionTime: Math.max(0, selectedAt - previousSelectedAt),
+  };
+}
+
+function normalizeSelectionLogs(logs, stageStartedAt) {
+  return logs.map((log, index) => {
+    const previousSelectedAt = index > 0 ? logs[index - 1].selectedAt : stageStartedAt;
+
+    return {
+      ...log,
+      order: index + 1,
+      reactionTime: Math.max(0, log.selectedAt - previousSelectedAt),
+      cumulativeTime: Math.max(0, log.selectedAt - stageStartedAt),
+    };
+  });
 }
 
 function buildSimpleSummary({ trials, startedAt, endedAt, completed }) {
@@ -227,8 +310,11 @@ function buildSimpleSummary({ trials, startedAt, endedAt, completed }) {
     endedAt,
     totalTrials: total,
     correct,
+    correctTrials: correct,
     wrong,
+    wrongTrials: wrong,
     timeout,
+    timeoutTrials: timeout,
     accuracy,
     averageReactionTime,
     stars,
@@ -248,13 +334,9 @@ function createResultPayload({ trials, stageRecords, startedAt, completed }) {
   let scoreResult = null;
   try {
     if (typeof calculateLBScore === "function") {
-      scoreResult = calculateLBScore({
+      scoreResult = calculateLBScore(trials, {
         mode: "test",
-        trials,
-        stageRecords,
-        startedAt,
-        endedAt,
-        completed,
+        difficulty: "normal",
       });
     }
   } catch (error) {
@@ -264,7 +346,15 @@ function createResultPayload({ trials, stageRecords, startedAt, completed }) {
   return {
     ...summary,
     ...(scoreResult || {}),
-    summary,
+    summary: {
+      ...summary,
+      finalScore: scoreResult?.finalScore ?? summary.accuracy,
+      stars: scoreResult?.stars ?? summary.stars,
+    },
+    scoring: scoreResult || null,
+    trialLogs: trials,
+    records: trials,
+    stageRecords,
     raw: {
       trials,
       stageRecords,
@@ -296,11 +386,16 @@ function DoorplateButton({ item, disabled, completed, isWrong, isCorrect, onClic
         event.stopPropagation();
         onClick(item);
       }}
-      disabled={disabled || completed}
+      disabled={disabled}
       aria-label={getExpectedText(item)}
     >
-      <img src={houseNumber01Img} alt="" aria-hidden="true" draggable="false" />
-      <span>{item.label}</span>
+      <img
+        className={usesColorFallback(item) ? "lb-doorplate-color-fallback" : ""}
+        src={getDoorplateImage(item)}
+        alt={`${item.color} ${item.number}`}
+        draggable="false"
+      />
+      {completed && <b className="lb-select-order">✓</b>}
     </button>
   );
 }
@@ -309,14 +404,11 @@ function TestPageLB() {
   const navigate = useNavigate();
 
   const [phase, setPhase] = useState("start");
-  const [tutorialStep, setTutorialStep] = useState(0);
-  const [tutorialCompletedKeys, setTutorialCompletedKeys] = useState([]);
-  const [tutorialMessage, setTutorialMessage] = useState("輪到你點點看。");
-  const [tutorialErrorKey, setTutorialErrorKey] = useState("");
-  const [tutorialSuccessKey, setTutorialSuccessKey] = useState("");
   const [stageIndex, setStageIndex] = useState(0);
-  const [stepIndex, setStepIndex] = useState(0);
   const [completedKeys, setCompletedKeys] = useState([]);
+  const [routeKeys, setRouteKeys] = useState([]);
+  const [routeVisible, setRouteVisible] = useState(false);
+  const [submittedCorrect, setSubmittedCorrect] = useState(null);
   const [trials, setTrials] = useState([]);
   const [stageRecords, setStageRecords] = useState([]);
   const [message, setMessage] = useState("請依照前導教學中的規則完成測驗。");
@@ -327,54 +419,56 @@ function TestPageLB() {
 
   const startedAtRef = useRef(nowISO());
   const stageStartedAtRef = useRef(Date.now());
-  const stepStartedAtRef = useRef(Date.now());
+  const selectionLogsRef = useRef([]);
   const finishedRef = useRef(false);
   const timeoutRef = useRef(null);
-  const introVideoRef = useRef(null);
+  const storyVideoRef = useRef(null);
+  const tutorialVideoRef = useRef(null);
   const endingVideoRef = useRef(null);
 
   const currentStage = STAGES[stageIndex];
   const displayItems = useMemo(() => buildStageItems(currentStage), [currentStage]);
-  const expectedKey = currentStage.sequence[stepIndex];
-  const expectedItem = currentStage.items.find((item) => item.key === expectedKey);
-  const stageDone = stepIndex >= currentStage.sequence.length;
+  const stageDone = completedKeys.length === currentStage.sequence.length;
+  const routePolylinePoints = routeKeys
+    .map((key) => displayItems.find((item) => item.key === key))
+    .filter(Boolean)
+    .map((item) => `${parseFloat(item.position.left)},${parseFloat(item.position.top)}`)
+    .join(" ");
 
-  const pauseVideo = (videoRef) => {
+  const pauseVideo = useCallback((videoRef) => {
     const video = videoRef.current;
     if (video && !video.paused) video.pause();
-  };
+  }, []);
 
-  const pauseAllVideos = () => {
-    pauseVideo(introVideoRef);
+  const pauseAllVideos = useCallback(() => {
+    pauseVideo(storyVideoRef);
+    pauseVideo(tutorialVideoRef);
     pauseVideo(endingVideoRef);
-  };
+  }, [pauseVideo]);
 
-  const setGamePhase = (nextPhase) => {
+  const setGamePhase = useCallback((nextPhase) => {
     pauseAllVideos();
     setPhase(nextPhase);
-  };
+  }, [pauseAllVideos]);
 
   useEffect(() => {
     return () => {
       window.clearTimeout(timeoutRef.current);
       pauseAllVideos();
     };
-  }, []);
+  }, [pauseAllVideos]);
 
   const resetWholeTest = () => {
     window.clearTimeout(timeoutRef.current);
     finishedRef.current = false;
     startedAtRef.current = nowISO();
     stageStartedAtRef.current = Date.now();
-    stepStartedAtRef.current = Date.now();
-    setTutorialStep(0);
-    setTutorialCompletedKeys([]);
-    setTutorialMessage("輪到你點點看。");
-    setTutorialErrorKey("");
-    setTutorialSuccessKey("");
+    selectionLogsRef.current = [];
     setStageIndex(0);
-    setStepIndex(0);
     setCompletedKeys([]);
+    setRouteKeys([]);
+    setRouteVisible(false);
+    setSubmittedCorrect(null);
     setTrials([]);
     setStageRecords([]);
     setMessage("請依照前導教學中的規則完成測驗。");
@@ -386,100 +480,35 @@ function TestPageLB() {
 
   const handleStart = () => {
     resetWholeTest();
-    setGamePhase("introVideo");
+    setGamePhase("storyVideo");
   };
 
-  const handleIntroVideoEnd = () => {
-    resetTutorialStep(0);
-    setGamePhase("intro");
+  const handleStoryVideoEnd = () => {
+    setGamePhase("tutorialVideo");
+  };
+
+  const handleTutorialVideoEnd = () => {
+    startGame();
   };
 
   const handleEndingVideoEnd = () => {
     setGamePhase("result");
   };
 
-  useEffect(() => {
-    if (phase !== "playing" || stageDone) return undefined;
-
-    stepStartedAtRef.current = Date.now();
-    const timerId = window.setTimeout(() => {
-      handleTimeout();
-    }, ANSWER_LIMIT_MS);
-
-    return () => {
-      window.clearTimeout(timerId);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, stageIndex, stepIndex, stageDone]);
-
   const resetStageState = (nextStageIndex) => {
     window.clearTimeout(timeoutRef.current);
     setStageIndex(nextStageIndex);
-    setStepIndex(0);
     setCompletedKeys([]);
+    setRouteKeys([]);
+    setRouteVisible(false);
+    setSubmittedCorrect(null);
     setWrongKey("");
     setCorrectKey("");
     setIsLocked(false);
     stageStartedAtRef.current = Date.now();
-    stepStartedAtRef.current = Date.now();
+    selectionLogsRef.current = [];
 
     setMessage("請依照剛剛記住的規則繼續完成測驗。");
-  };
-
-  const currentTutorial = TUTORIAL_STEPS[tutorialStep];
-  const tutorialExpectedKey = currentTutorial?.sequence[tutorialCompletedKeys.length];
-  const tutorialDone = Boolean(
-    currentTutorial && tutorialCompletedKeys.length >= currentTutorial.sequence.length
-  );
-
-  const resetTutorialStep = (nextStep) => {
-    setTutorialStep(nextStep);
-    setTutorialCompletedKeys([]);
-    setTutorialErrorKey("");
-    setTutorialSuccessKey("");
-    setTutorialMessage("輪到你點點看。");
-  };
-
-  const handleTutorialChoice = (choice) => {
-    if (!currentTutorial || tutorialDone) return;
-
-    if (choice === tutorialExpectedKey) {
-      setTutorialCompletedKeys((previous) => [...previous, choice]);
-      setTutorialSuccessKey(choice);
-      setTutorialErrorKey("");
-      setTutorialMessage("很好！");
-
-      window.clearTimeout(timeoutRef.current);
-      timeoutRef.current = window.setTimeout(() => {
-        setTutorialSuccessKey("");
-      }, 280);
-      return;
-    }
-
-    setTutorialErrorKey(choice);
-    setTutorialMessage("再試一次。");
-    window.clearTimeout(timeoutRef.current);
-    timeoutRef.current = window.setTimeout(() => {
-      setTutorialErrorKey("");
-    }, 420);
-  };
-
-  const goNextTutorial = () => {
-    if (!tutorialDone) {
-      setTutorialMessage("先完成小練習。");
-      return;
-    }
-
-    if (tutorialStep >= TUTORIAL_STEPS.length - 1) {
-      startGame();
-      return;
-    }
-
-    resetTutorialStep(tutorialStep + 1);
-  };
-
-  const goPreviousTutorial = () => {
-    resetTutorialStep(Math.max(0, tutorialStep - 1));
   };
 
   const startGame = () => {
@@ -490,99 +519,52 @@ function TestPageLB() {
     setGamePhase("playing");
   };
 
-  const recordTrial = ({ item, correct, errorType }) => {
-    const reactionTime = Math.max(0, Date.now() - stepStartedAtRef.current);
-
-    const trial = {
-      gameId: "LB",
-      mode: "test",
-      stageId: currentStage.id,
-      stageTitle: currentStage.title,
-      stepIndex,
-      expectedKey,
-      expectedNumber: expectedItem?.number ?? null,
-      expectedColor: expectedItem?.color ?? null,
-      clickedKey: item?.key ?? null,
-      clickedNumber: item?.number ?? null,
-      clickedColor: item?.color ?? null,
-      correct,
-      errorType: correct ? null : errorType,
-      reactionTime,
-      timestamp: nowISO(),
-    };
-
-    setTrials((previous) => [...previous, trial]);
-  };
-
-  const goNextStep = (clickedItem) => {
-    setCompletedKeys((previous) => [...previous, clickedItem.key]);
-    setStepIndex((previous) => previous + 1);
-    setCorrectKey(clickedItem.key);
-    setMessage("已記錄，請繼續完成測驗。");
-
-    window.clearTimeout(timeoutRef.current);
-    timeoutRef.current = window.setTimeout(() => {
-      setCorrectKey("");
-    }, 350);
-  };
-
   const handleNumberClick = (item) => {
-    if (phase !== "playing" || isLocked || stageDone || finishedRef.current) return;
+    if (phase !== "playing" || isLocked || routeVisible || finishedRef.current) return;
 
-    const isCorrect = item.key === expectedKey;
-    recordTrial({
-      item,
-      correct: isCorrect,
-      errorType: isCorrect ? null : "sequenceError",
+    setCompletedKeys((previous) => {
+      if (previous.includes(item.key)) {
+        const next = previous.filter((key) => key !== item.key);
+        selectionLogsRef.current = normalizeSelectionLogs(
+          selectionLogsRef.current.filter((log) => log.key !== item.key),
+          stageStartedAtRef.current
+        );
+        setMessage("已取消這個門牌，請繼續選擇。");
+        return next;
+      }
+
+      if (previous.length >= currentStage.sequence.length) {
+        setMessage(`這一段只要選 ${currentStage.sequence.length} 個門牌，可先取消再重選。`);
+        return previous;
+      }
+
+      const next = [...previous, item.key];
+      const previousSelectedAt =
+        selectionLogsRef.current.at(-1)?.selectedAt || stageStartedAtRef.current;
+      selectionLogsRef.current = [
+        ...selectionLogsRef.current,
+        createSelectionLog({
+          item,
+          stageStartedAt: stageStartedAtRef.current,
+          previousSelectedAt,
+          order: next.length,
+        }),
+      ];
+      setMessage(
+        next.length === currentStage.sequence.length
+          ? "選好了，請按送出答案。"
+          : `已選 ${next.length} 個，請繼續。`
+      );
+      return next;
     });
-
-    if (isCorrect) {
-      goNextStep(item);
-      return;
-    }
-
-    setWrongKey(item.key);
-    setMessage("順序不太對，請照規則繼續。");
-    setIsLocked(true);
-
-    window.clearTimeout(timeoutRef.current);
-    timeoutRef.current = window.setTimeout(() => {
-      setWrongKey("");
-      setIsLocked(false);
-    }, 450);
   };
 
   const handleBlankClick = () => {
-    if (phase !== "playing" || isLocked || stageDone || finishedRef.current) return;
-
-    recordTrial({
-      item: null,
-      correct: false,
-      errorType: "randomClick",
-    });
-
-    setMessage("請點門牌，不要點空白處。");
+    if (phase !== "playing" || isLocked || routeVisible || finishedRef.current) return;
+    setMessage("請點門牌；再次點同一個門牌可以取消。");
   };
 
-  const handleTimeout = () => {
-    if (phase !== "playing" || isLocked || stageDone || finishedRef.current) return;
-
-    recordTrial({
-      item: null,
-      correct: false,
-      errorType: "timeout",
-    });
-
-    setMessage("這一步時間到了，請繼續完成測驗。");
-    setIsLocked(true);
-
-    timeoutRef.current = window.setTimeout(() => {
-      setIsLocked(false);
-      setStepIndex((previous) => previous + 1);
-    }, 500);
-  };
-
-  const saveStageRecord = () => {
+  const saveStageRecord = ({ selectedKeys = completedKeys, correctSteps = 0 } = {}) => {
     const now = Date.now();
     const stageRecord = {
       stageId: currentStage.id,
@@ -590,8 +572,17 @@ function TestPageLB() {
       startedAt: new Date(stageStartedAtRef.current).toISOString(),
       endedAt: new Date(now).toISOString(),
       durationMs: Math.max(0, now - stageStartedAtRef.current),
-      completedSteps: completedKeys.length,
+      completedSteps: selectedKeys.length,
+      correctSteps,
+      selectedOrder: [...selectedKeys],
       totalSteps: currentStage.sequence.length,
+      accuracy: currentStage.sequence.length
+        ? Math.round((correctSteps / currentStage.sequence.length) * 100)
+        : 0,
+      ruleType: getStageRuleType(currentStage.id),
+      hasInterference: hasStageInterference(currentStage.id),
+      difficulty: currentStage.id === "red-blue" ? "hard" : "normal",
+      difficultyLevel: currentStage.id === "red-blue" ? 4 : 3,
     };
 
     setStageRecords((previous) => [...previous, stageRecord]);
@@ -599,21 +590,81 @@ function TestPageLB() {
   };
 
   const handleSubmitStage = () => {
-    if (!stageDone || isLocked) return;
+    if (!stageDone || isLocked || routeVisible) return;
 
-    const currentRecord = saveStageRecord();
-    const nextStageIndex = stageIndex + 1;
+    const selectedKeys = [...completedKeys];
+    const submittedAt = Date.now();
+    const itemByKey = new Map(currentStage.items.map((item) => [item.key, item]));
+    const selectionLogByKey = new Map(selectionLogsRef.current.map((log) => [log.key, log]));
+    const fallbackReactionTime = Math.max(
+      0,
+      Math.round((submittedAt - stageStartedAtRef.current) / Math.max(1, selectedKeys.length))
+    );
+    const submittedTrials = selectedKeys.map((key, index) => {
+      const item = itemByKey.get(key);
+      const expected = currentStage.sequence[index];
+      const expectedItem = itemByKey.get(expected);
+      const selectionLog = selectionLogByKey.get(key);
+      const reactionTime = selectionLog?.reactionTime ?? fallbackReactionTime;
 
-    if (nextStageIndex < STAGES.length) {
-      setGamePhase("stageComplete");
-      setMessage(`${currentStage.title}完成。`);
-      return;
-    }
-
-    finishGame({
-      completed: true,
-      extraStageRecord: currentRecord,
+      return {
+        gameId: "LB",
+        mode: "test",
+        stageId: currentStage.id,
+        stageTitle: currentStage.title,
+        stepIndex: index,
+        expectedKey: expected,
+        expectedNumber: expectedItem?.number ?? null,
+        expectedColor: expectedItem?.color ?? null,
+        clickedKey: item?.key ?? null,
+        clickedNumber: item?.number ?? null,
+        clickedColor: item?.color ?? null,
+        correct: key === expected,
+        isCorrect: key === expected,
+        status: key === expected ? "correct" : "wrong",
+        errorType: key === expected ? null : "sequenceError",
+        rule: getStageRuleType(currentStage.id),
+        ruleType: getStageRuleType(currentStage.id),
+        isSwitch: isStageSwitchTrial(currentStage.id, index),
+        switchTrial: isStageSwitchTrial(currentStage.id, index),
+        hasInterference: hasStageInterference(currentStage.id),
+        hasDistractor: hasStageInterference(currentStage.id),
+        difficulty: currentStage.id === "red-blue" ? "hard" : "normal",
+        difficultyLevel: currentStage.id === "red-blue" ? 4 : 3,
+        reactionTime: Math.max(0, Math.round(reactionTime)),
+        cumulativeTime: selectionLog?.cumulativeTime ?? Math.max(0, submittedAt - stageStartedAtRef.current),
+        selectionOrder: selectionLog?.order ?? index + 1,
+        timestamp: selectionLog?.selectedAtISO ?? nowISO(),
+      };
     });
+
+    const correctSteps = submittedTrials.filter((trial) => trial.correct).length;
+    const isAllCorrect = correctSteps === currentStage.sequence.length;
+    const currentRecord = saveStageRecord({ selectedKeys, correctSteps });
+    const nextStageIndex = stageIndex + 1;
+    const mergedTrials = [...trials, ...submittedTrials];
+
+    setTrials(mergedTrials);
+    setRouteKeys(selectedKeys);
+    setRouteVisible(true);
+    setSubmittedCorrect(isAllCorrect);
+    setIsLocked(true);
+    setMessage(isAllCorrect ? "完成！路線連起來了。" : "答案已送出，現在顯示你走的路線。");
+
+    window.clearTimeout(timeoutRef.current);
+    timeoutRef.current = window.setTimeout(() => {
+      if (nextStageIndex < STAGES.length) {
+        setGamePhase("stageComplete");
+        setMessage(`${currentStage.title}完成。`);
+        return;
+      }
+
+      finishGame({
+        completed: true,
+        extraStageRecord: currentRecord,
+        finalTrials: mergedTrials,
+      });
+    }, 1500);
   };
 
   const goNextStage = () => {
@@ -624,7 +675,7 @@ function TestPageLB() {
     setGamePhase("playing");
   };
 
-  const finishGame = ({ completed, extraStageRecord = null }) => {
+  const finishGame = ({ completed, extraStageRecord = null, finalTrials = trials }) => {
     if (finishedRef.current) return;
     finishedRef.current = true;
 
@@ -633,17 +684,42 @@ function TestPageLB() {
       : [...stageRecords];
 
     const resultPayload = createResultPayload({
-      trials,
+      trials: finalTrials,
       stageRecords: finalStageRecords,
       startedAt: startedAtRef.current,
       completed,
     });
 
     try {
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(resultPayload));
-      localStorage.setItem(LOCAL_KEY, JSON.stringify(resultPayload));
+      const serializedResult = JSON.stringify(resultPayload);
+      const childId = resolveCurrentChildId();
+
+      sessionStorage.setItem(SESSION_KEY, serializedResult);
+      sessionStorage.setItem("latestLBTestResult", serializedResult);
+
+      localStorage.setItem(LOCAL_KEY, serializedResult);
+      localStorage.setItem("latestLBTestResult", serializedResult);
+      localStorage.setItem("LB_TEST_RESULT", serializedResult);
+
+      if (childId) {
+        localStorage.setItem(`lbTestResult_${childId}`, serializedResult);
+        localStorage.setItem(`latestLBTestResult_${childId}`, serializedResult);
+      }
     } catch (error) {
       console.warn("[TestPage_LB] failed to save result", error);
+    }
+
+    try {
+      saveUnifiedResult({
+        rawResult: resultPayload,
+        gameId: "LB",
+        mode: "test",
+        difficulty: "normal",
+        route: "/test-linking-balloons",
+        visibleRoles: ["child", "parent", "clinician"],
+      });
+    } catch (error) {
+      console.warn("[TestPage_LB] failed to save unified result", error);
     }
 
     setResultPayload(resultPayload);
@@ -654,6 +730,7 @@ function TestPageLB() {
     navigate(RESULT_ROUTE, {
       replace: true,
       state: {
+        ...resultPayload,
         result: resultPayload,
         gameId: "LB",
         mode: "test",
@@ -662,10 +739,6 @@ function TestPageLB() {
   };
 
   const resultStars = Math.max(1, Math.min(3, Number(resultPayload?.stars || resultPayload?.summary?.stars || 1)));
-
-  const progressPercent = currentStage.sequence.length
-    ? Math.min(100, Math.round((stepIndex / currentStage.sequence.length) * 100))
-    : 0;
 
   if (phase === "start") {
     return (
@@ -692,26 +765,18 @@ function TestPageLB() {
     );
   }
 
-  if (phase === "introVideo") {
+  if (phase === "storyVideo") {
     return (
       <div className="lb-simple-page lb-srt-skin">
         <LBResetStyle />
         <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-video-panel" aria-label="開始動畫">
+          <section className="lb-soft-panel lb-video-panel" aria-label="故事動畫">
             <div className="lb-video-frame">
-              <video
-                ref={introVideoRef}
-                src={introVideo}
-                autoPlay
-                playsInline
-                controls={false}
-                onEnded={handleIntroVideoEnd}
-                className="lb-video"
-              />
+              <video ref={storyVideoRef} src={storyVideo} autoPlay playsInline controls={false} onEnded={handleStoryVideoEnd} className="lb-video" />
             </div>
             <div className="lb-guided-action lb-guided-skip">
-              <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleIntroVideoEnd} aria-label="跳過動畫">
-                <img src={homeSkipBtn} alt="跳過動畫" />
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleStoryVideoEnd} aria-label="跳過故事動畫">
+                <img src={homeSkipBtn} alt="跳過故事動畫" />
               </button>
               <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
             </div>
@@ -721,102 +786,20 @@ function TestPageLB() {
     );
   }
 
-  if (phase === "intro") {
-    const isLastTutorial = tutorialStep >= TUTORIAL_STEPS.length - 1;
-
+  if (phase === "tutorialVideo") {
     return (
       <div className="lb-simple-page lb-srt-skin">
         <LBResetStyle />
-        <main className="lb-simple-card lb-intro-card lb-rule-panel">
-          <div className="lb-intro-visual" aria-hidden="true">
-            <img className="lb-intro-sheep" src={sheepImg} alt="綿羊奶奶" draggable="false" />
-          </div>
-
-          <section className="lb-tutorial-content" aria-label="互動式前導教學">
-            <p className="lb-kicker">Linking Balloons</p>
-            <h1>幫綿羊奶奶走回家</h1>
-            <div className="lb-rule-card" aria-label={`前導教學 ${currentTutorial.order}`}>
-              <div className="lb-rule-icons" aria-hidden="true">
-                {currentTutorial.iconLine.map((icon, index) => {
-                  const color = getTutorialColor(icon);
-                  return (
-                    <span
-                      key={`${icon}-${index}`}
-                      className={[
-                        color === "red" ? "is-red" : "",
-                        color === "blue" ? "is-blue" : "",
-                        icon === "→" ? "is-arrow" : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" ")}
-                    >
-                      {color === "red" || color === "blue" ? getTutorialNumber(icon) : icon}
-                    </span>
-                  );
-                })}
-              </div>
+        <main className="lb-center-shell">
+          <section className="lb-soft-panel lb-video-panel" aria-label="前導教學影片">
+            <div className="lb-video-frame">
+              <video ref={tutorialVideoRef} src={tutorialVideo} autoPlay playsInline controls={false} onEnded={handleTutorialVideoEnd} className="lb-video" />
             </div>
-
-            <div className="lb-tutorial-board" aria-label="互動練習門牌">
-              {currentTutorial.choices.map((choice) => {
-                const isCompleted = tutorialCompletedKeys.includes(choice);
-                const isExpected = choice === tutorialExpectedKey;
-                const isError = choice === tutorialErrorKey;
-                const isSuccess = choice === tutorialSuccessKey;
-
-                return (
-                  <button
-                    key={choice}
-                    type="button"
-                    className={[
-                      "lb-tutorial-chip",
-                      choice.startsWith("red-") ? "is-red" : "",
-                      choice.startsWith("blue-") ? "is-blue" : "",
-                      isCompleted ? "is-completed" : "",
-                      isExpected ? "is-expected" : "",
-                      isError ? "is-error" : "",
-                      isSuccess ? "is-success" : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    onClick={() => handleTutorialChoice(choice)}
-                    disabled={isCompleted || tutorialDone}
-                    aria-label={choice.startsWith("red-") ? `紅色 ${getTutorialNumber(choice)}` : choice.startsWith("blue-") ? `藍色 ${getTutorialNumber(choice)}` : getTutorialNumber(choice)}
-                  >
-                    {getTutorialNumber(choice)}
-                  </button>
-                );
-              })}
-            </div>
-
-
-            <p className={tutorialDone ? "lb-tutorial-message is-done" : "lb-tutorial-message"}>
-              {tutorialDone ? "完成！" : tutorialMessage}
-            </p>
-
-            <div className="lb-tutorial-dots" aria-label="教學進度">
-              {TUTORIAL_STEPS.map((step, index) => (
-                <span key={step.id} className={index === tutorialStep ? "is-active" : ""} />
-              ))}
-            </div>
-
-            <div className="lb-tutorial-actions">
-              <button
-                type="button"
-                className="lb-secondary-button"
-                onClick={goPreviousTutorial}
-                disabled={tutorialStep === 0}
-              >
-                上一步
+            <div className="lb-guided-action lb-guided-skip">
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleTutorialVideoEnd} aria-label="跳過前導教學">
+                <img src={homeSkipBtn} alt="跳過前導教學" />
               </button>
-              <button
-                type="button"
-                className="lb-primary-button"
-                onClick={goNextTutorial}
-                disabled={!tutorialDone}
-              >
-                {isLastTutorial ? "開始測驗" : "下一步"}
-              </button>
+              <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
             </div>
           </section>
         </main>
@@ -830,11 +813,9 @@ function TestPageLB() {
     return (
       <div className="lb-simple-page lb-srt-skin">
         <LBResetStyle />
-        <main className="lb-simple-card lb-stage-card lb-stage-panel">
-          <div className="lb-intro-visual" aria-hidden="true">
-            <img className="lb-stage-home" src={homeImg} alt="小屋" draggable="false" />
-          </div>
-          <section className="lb-tutorial-content">
+        <main className="lb-stage-open" aria-label={`${currentStage.title}完成`}>
+          <img className="lb-stage-home" src={homeImg} alt="小屋" draggable="false" />
+          <section className="lb-stage-open-content">
             <p className="lb-kicker">Linking Balloons</p>
             <h1>{currentStage.title}完成</h1>
             <p>很好，準備走下一段小路。</p>
@@ -900,9 +881,6 @@ function TestPageLB() {
                 </button>
                 <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
               </div>
-              <button type="button" className="lb-forest-button lb-image-button lb-btn-replay" onClick={handleStart} aria-label="再玩一次">
-                <img src={homeAgainBtn} alt="再玩一次" />
-              </button>
               <button type="button" className="lb-forest-button lb-image-button lb-btn-detail" onClick={goDetailedResult} aria-label="詳細結果">
                 <img src={homeResultBtn} alt="詳細結果" />
               </button>
@@ -917,20 +895,16 @@ function TestPageLB() {
     <div className="lb-simple-page lb-srt-skin">
       <LBResetStyle />
       <main className="lb-game-card lb-playing-panel">
-        <header className="lb-game-top">
-          <div>
-            <p className="lb-kicker">LB 測驗</p>
-            <h1>{currentStage.title}</h1>
-          </div>
-</header>
-
-        <section className="lb-progress-wrap" aria-label="目前進度">
-          <div className="lb-progress-bar">
-            <div style={{ width: `${progressPercent}%` }} />
-          </div>
-        </section>
-
         <section className="lb-play-board" onClick={handleBlankClick}>
+          {routeVisible && routeKeys.length > 1 && routePolylinePoints && (
+            <svg className="lb-route-layer" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              <polyline className="lb-route-outline" points={routePolylinePoints} />
+              <polyline
+                points={routePolylinePoints}
+                className={submittedCorrect ? "lb-route-main is-correct" : "lb-route-main is-submitted"}
+              />
+            </svg>
+          )}
           <img className="lb-map-home" src={homeImg} alt="終點小屋" draggable="false" />
           {displayItems.map((item) => (
             <DoorplateButton
@@ -946,17 +920,20 @@ function TestPageLB() {
         </section>
 
         <footer className="lb-game-footer">
-          <div className="lb-message">
+          <div className="lb-message" aria-live="polite">
             <strong>{message}</strong>
+            <span>
+              {completedKeys.length}/{currentStage.sequence.length}
+            </span>
           </div>
-
           <button
             type="button"
             className="lb-submit-button"
             onClick={handleSubmitStage}
             disabled={!stageDone || isLocked}
+            aria-label="送出答案"
           >
-            {stageIndex + 1 >= STAGES.length ? "看結果" : "提交答案"}
+            <img src={homeSendBtn} alt="送出答案" draggable="false" />
           </button>
         </footer>
       </main>
@@ -1091,6 +1068,45 @@ function LBResetStyle() {
       .lb-stage-card {
         grid-template-columns: minmax(210px, 0.85fr) minmax(390px, 1.15fr);
         text-align: left;
+      }
+
+      .lb-stage-open {
+        width: min(980px, calc(100vw - 48px));
+        min-height: min(520px, calc(100dvh - 56px));
+        display: grid;
+        grid-template-columns: minmax(240px, 0.9fr) minmax(360px, 1.1fr);
+        align-items: center;
+        justify-content: center;
+        gap: clamp(32px, 7vw, 88px);
+        padding: clamp(24px, 4vw, 54px);
+      }
+
+      .lb-stage-open-content {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        gap: clamp(12px, 2vh, 20px);
+        padding: clamp(18px, 2.5vw, 30px);
+      }
+
+      .lb-stage-open-content h1 {
+        margin: 0;
+        color: #744018;
+        font-size: clamp(38px, 5.3vw, 68px);
+        font-weight: 950;
+        line-height: 1.05;
+        letter-spacing: 0.035em;
+        text-shadow: 0 4px 0 rgba(255, 255, 255, 0.82), 0 8px 18px rgba(93, 63, 34, 0.18);
+      }
+
+      .lb-stage-open-content > p:not(.lb-kicker) {
+        margin: 0;
+        color: #5d3f22;
+        font-size: clamp(18px, 2.1vw, 27px);
+        font-weight: 900;
+        line-height: 1.45;
+        text-shadow: 0 2px 0 rgba(255, 255, 255, 0.78);
       }
 
       .lb-stage-home {
@@ -1475,6 +1491,65 @@ function LBResetStyle() {
         transition: width 0.2s ease;
       }
 
+
+      .lb-route-layer {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 2;
+        pointer-events: none;
+        overflow: visible;
+      }
+
+      .lb-route-outline {
+        fill: none;
+        stroke: rgba(255, 255, 232, 0.96);
+        stroke-width: 9.4;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        vector-effect: non-scaling-stroke;
+        filter: drop-shadow(0 4px 5px rgba(62, 42, 18, 0.34));
+        animation: lbDrawRoute 1.15s ease forwards;
+      }
+
+      .lb-route-main {
+        fill: none;
+        stroke: rgba(255, 137, 38, 0.98);
+        stroke-width: 5.4;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        vector-effect: non-scaling-stroke;
+        filter: drop-shadow(0 0 5px rgba(255, 218, 82, 0.70));
+        animation: lbDrawRoute 1.15s ease forwards;
+      }
+
+      .lb-route-main.is-correct {
+        stroke: rgba(255, 91, 36, 1);
+        stroke-width: 6.4;
+      }
+
+      .lb-select-order {
+        position: absolute;
+        right: -7px;
+        top: -8px;
+        width: 25px;
+        height: 25px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        border: 3px solid #fff;
+        background: #79b84a;
+        color: #fff;
+        font-size: 14px;
+        box-shadow: 0 3px 8px rgba(49, 92, 32, .28);
+      }
+
+      @keyframes lbDrawRoute {
+        from { stroke-dashoffset: 45; opacity: 0; }
+        to { stroke-dashoffset: 0; opacity: 1; }
+      }
+
       .lb-play-board {
         position: relative;
         flex: 1 1 auto;
@@ -1551,6 +1626,20 @@ function LBResetStyle() {
           drop-shadow(0 12px 12px rgba(80, 58, 31, 0.20));
       }
 
+      .lb-doorplate-red img.lb-doorplate-color-fallback {
+        filter:
+          sepia(1) saturate(5.5) hue-rotate(320deg) brightness(1.02)
+          drop-shadow(0 8px 0 rgba(144, 84, 31, 0.10))
+          drop-shadow(0 12px 12px rgba(80, 58, 31, 0.20));
+      }
+
+      .lb-doorplate-blue img.lb-doorplate-color-fallback {
+        filter:
+          sepia(1) saturate(5) hue-rotate(165deg) brightness(0.98)
+          drop-shadow(0 8px 0 rgba(144, 84, 31, 0.10))
+          drop-shadow(0 12px 12px rgba(80, 58, 31, 0.20));
+      }
+
       .lb-doorplate span {
         position: absolute;
         left: 50%;
@@ -1593,9 +1682,10 @@ function LBResetStyle() {
       }
 
       .lb-doorplate.is-completed {
-        opacity: 0.34;
-        pointer-events: none;
-        filter: grayscale(0.25);
+        opacity: 0.86;
+        filter:
+          brightness(1.08)
+          drop-shadow(0 0 14px rgba(255, 221, 86, 0.70));
       }
 
       .lb-doorplate.is-correct {
@@ -1657,11 +1747,24 @@ function LBResetStyle() {
       }
 
       .lb-submit-button {
-        min-width: 150px;
+        min-width: clamp(150px, 16vw, 210px);
         min-height: 58px;
-        padding: 11px 22px;
-        font-size: clamp(18px, 2vw, 25px);
+        padding: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        box-shadow: none;
+        overflow: visible;
         white-space: nowrap;
+      }
+
+      .lb-submit-button img {
+        display: block;
+        width: 100%;
+        max-height: 72px;
+        object-fit: contain;
+        filter: drop-shadow(0 7px 0 rgba(55, 119, 33, 0.3));
+        pointer-events: none;
       }
 
       @keyframes lbFloat {
@@ -2309,9 +2412,105 @@ function LBResetStyle() {
         flex-wrap: wrap;
       }
 
-      .lb-playing-panel .lb-game-top { display: none; }
-      .lb-playing-panel .lb-play-board { min-height: 0; height: calc(100% - 104px); }
-      .lb-playing-panel .lb-game-footer { min-height: 82px; }
+      /* 正式遊戲畫面：移除大型卡片與綠色內框，門牌、路線及小屋直接放在森林背景上。 */
+      .lb-playing-panel {
+        width: 100%;
+        max-width: none;
+        height: 100%;
+        min-height: 0;
+        padding: 0;
+        border: 0;
+        outline: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        overflow: visible;
+        gap: 0;
+      }
+
+      .lb-playing-panel::before,
+      .lb-playing-panel::after {
+        display: none;
+      }
+
+      .lb-playing-panel .lb-game-top {
+        display: none;
+      }
+
+      .lb-playing-panel .lb-progress-wrap {
+        display: none;
+      }
+
+      .lb-playing-panel .lb-play-board {
+        position: absolute;
+        inset: 28px 34px 96px;
+        min-height: 0;
+        height: auto;
+        border: 0;
+        outline: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        overflow: visible;
+      }
+
+      .lb-playing-panel .lb-play-board::before,
+      .lb-playing-panel .lb-play-board::after {
+        display: none;
+      }
+
+      .lb-playing-panel .lb-map-home {
+        right: 2%;
+        bottom: 0;
+        width: clamp(118px, 14vw, 188px);
+        max-height: 188px;
+        mix-blend-mode: multiply;
+        filter: drop-shadow(0 12px 14px rgba(54, 82, 42, 0.26));
+      }
+
+      .lb-playing-panel .lb-doorplate {
+        width: clamp(66px, 7.8vw, 104px);
+        height: clamp(66px, 7.8vw, 104px);
+      }
+
+      .lb-playing-panel .lb-game-footer {
+        position: fixed;
+        z-index: 20;
+        left: 50%;
+        right: auto;
+        bottom: clamp(14px, 2.4vh, 28px);
+        transform: translateX(-50%);
+        width: min(92vw, 680px);
+        min-height: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(10px, 1.6vw, 16px);
+        pointer-events: none;
+      }
+
+      .lb-playing-panel .lb-message {
+        flex: 1 1 auto;
+        min-height: clamp(50px, 5.6vh, 66px);
+        padding: 8px 14px;
+        pointer-events: none;
+      }
+
+      .lb-playing-panel .lb-submit-button {
+        min-width: clamp(168px, 15vw, 230px);
+        min-height: clamp(56px, 6.2vh, 76px);
+        pointer-events: auto;
+      }
+
+      @media (max-width: 760px) {
+        .lb-playing-panel .lb-play-board {
+          inset: 18px 12px 92px;
+        }
+
+        .lb-playing-panel .lb-game-footer {
+          bottom: 12px;
+        }
+      }
 
       @keyframes lbMouseTap {
         0%, 100% { transform: translate(0, 0) rotate(-6deg) scale(1); }
@@ -2344,6 +2543,25 @@ function LBResetStyle() {
         .lb-result-actions { gap: 10px; }
       }
 
+
+      @media (max-width: 760px) {
+        .lb-stage-open {
+          grid-template-columns: 1fr;
+          min-height: auto;
+          gap: 18px;
+          text-align: center;
+        }
+
+        .lb-stage-open .lb-stage-home {
+          width: min(230px, 58vw);
+          margin-inline: auto;
+        }
+
+        .lb-stage-open-content {
+          align-items: center;
+          text-align: center;
+        }
+      }
     `}</style>
   );
 }

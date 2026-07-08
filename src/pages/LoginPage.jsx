@@ -66,7 +66,7 @@ function LoginPage() {
 
     if (CLINICIAN_ROLES.includes(role)) {
       await supabase.auth.signOut();
-      showMessage("這裡是家長登入入口，醫療人員請使用首頁右上角的「醫療人員入口」。", "error");
+      showMessage("這裡是使用者登入入口，醫療人員請使用首頁右上角的「醫療人員入口」。", "error");
       return false;
     }
 
@@ -173,14 +173,14 @@ function LoginPage() {
     <div className="login-page">
       <style>{styles}</style>
 
-      <main className="login-stage" aria-label="家長登入頁面">
-        <section className="login-panel" aria-label="家長登入表單">
+      <main className="login-stage" aria-label="使用者登入頁面">
+        <section className="login-panel" aria-label="使用者登入表單">
           <div className="login-avatar" aria-hidden="true">
             🐥
           </div>
 
           <header className="login-header">
-            <h1>家長登入</h1>
+            <h1>使用者登入</h1>
             <p>請輸入家長帳號資料</p>
           </header>
 
@@ -265,13 +265,24 @@ const styles = `
   .login-panel {
     position: absolute;
     right: clamp(58px, 6.3vw, 112px);
-    top: clamp(34px, 7.4vh, 74px);
-    width: clamp(382px, 30vw, 485px);
-    padding: 0 clamp(24px, 3vw, 42px);
+    top: clamp(30px, 5.8vh, 62px);
+    width: clamp(410px, 31.5vw, 520px);
+    padding: clamp(28px, 3.3vh, 38px) clamp(28px, 3vw, 44px) clamp(24px, 3vh, 34px);
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: stretch;
+    border-radius: clamp(30px, 3vw, 42px);
+    background:
+      linear-gradient(180deg, rgba(255, 253, 244, 0.88), rgba(255, 245, 222, 0.78)),
+      radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0) 58%);
+    border: 4px solid rgba(255, 233, 183, 0.78);
+    box-shadow:
+      0 20px 44px rgba(53, 77, 42, 0.18),
+      0 8px 20px rgba(124, 88, 33, 0.13),
+      inset 0 1px 0 rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
   }
 
   .login-avatar {
@@ -304,9 +315,10 @@ const styles = `
 
   .login-header p {
     margin: 16px 0 0;
-    color: #6f6049;
+    color: #5d503f;
     font-size: clamp(15px, 1.25vw, 18px);
-    font-weight: 900;
+    font-weight: 950;
+    text-shadow: 0 2px 0 rgba(255, 255, 255, 0.64);
   }
 
   .login-form {
@@ -323,9 +335,10 @@ const styles = `
 
   .field-group label,
   .password-row label {
-    color: #6d5030;
+    color: #5f4326;
     font-size: clamp(15px, 1.2vw, 18px);
     font-weight: 950;
+    text-shadow: 0 2px 0 rgba(255, 255, 255, 0.62);
   }
 
   .password-row {
@@ -465,9 +478,9 @@ const styles = `
     .login-panel {
       right: 4.5vw;
       top: 6vh;
-      width: min(43vw, 440px);
-      padding-left: 22px;
-      padding-right: 22px;
+      width: min(45vw, 470px);
+      padding-left: 26px;
+      padding-right: 26px;
     }
 
     .login-header {
@@ -509,7 +522,8 @@ const styles = `
       background: linear-gradient(180deg, rgba(255, 253, 242, 0.94), rgba(255, 245, 221, 0.92));
       border: 4px solid rgba(255, 228, 174, 0.95);
       box-shadow: 0 18px 36px rgba(94, 74, 35, 0.22);
-      backdrop-filter: blur(4px);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
     }
   }
 
