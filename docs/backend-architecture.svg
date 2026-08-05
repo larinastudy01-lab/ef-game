@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1200" viewBox="0 0 1600 1200" role="img" aria-labelledby="title desc">
+  <title id="title">EF Game 後端系統架構圖</title>
+  <desc id="desc">展示 React 用戶端、Supabase 後端、Express 臨床助理 API、RAG 知識檢索、OpenAI 與研究分析資料流。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f7fafc"/><stop offset="1" stop-color="#edf5fb"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#17324d" flood-opacity=".14"/></filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#52697d"/></marker>
+    <marker id="arrowAI" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#8957b5"/></marker>
+    <style>
+      text{font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif;fill:#23384a}.title{font-size:34px;font-weight:800}.subtitle{font-size:15px;fill:#637789}.lane{font-size:20px;font-weight:800}.nodeTitle{font-size:17px;font-weight:800}.nodeSub{font-size:12px;fill:#5f7382}.small{font-size:11px;fill:#677b89}.label{font-size:12px;font-weight:700;fill:#536a7d}.box{stroke-width:2;filter:url(#shadow)}.client{fill:#eaf4ff;stroke:#4f8fca}.api{fill:#edf9f4;stroke:#4b9b78}.auth{fill:#fff7df;stroke:#d1a331}.db{fill:#eff8ed;stroke:#65a45d}.rag{fill:#f5efff;stroke:#8d63bd}.ai{fill:#f9efff;stroke:#985ab5}.analysis{fill:#fff1ec;stroke:#d47755}.ops{fill:#f1f4f6;stroke:#8294a2}.flow{fill:none;stroke:#52697d;stroke-width:2.3;marker-end:url(#arrow)}.data{fill:none;stroke:#4f8fca;stroke-width:2.2;marker-end:url(#arrow)}.aiFlow{fill:none;stroke:#8957b5;stroke-width:2.3;marker-end:url(#arrowAI)}.dash{stroke-dasharray:7 5}.boundary{fill:#fff;fill-opacity:.52;stroke:#c8d4dc;stroke-width:1.5}
+    </style>
+  </defs>
+  <rect width="1600" height="1200" fill="url(#bg)"/>
+  <text x="60" y="58" class="title">EF Game 後端系統架構圖</text>
+  <text x="60" y="88" class="subtitle">Supabase 負責身分、權限與行為資料；Node.js API 負責 AI / RAG 臨床助理；研究分析保留可重現的資料譜系。</text>
+
+  <rect class="boundary" x="40" y="120" width="1520" height="165" rx="24"/><text x="65" y="153" class="lane">1. 用戶端與存取入口</text>
+  <rect class="boundary" x="40" y="310" width="1520" height="350" rx="24"/><text x="65" y="343" class="lane">2. 核心後端服務</text>
+  <rect class="boundary" x="40" y="685" width="1520" height="270" rx="24"/><text x="65" y="718" class="lane">3. 資料層與研究譜系</text>
+  <rect class="boundary" x="40" y="980" width="1520" height="155" rx="24"/><text x="65" y="1013" class="lane">4. 離線匯入、部署與安全邊界</text>
+
+  <g><rect class="box client" x="100" y="180" width="290" height="76" rx="18"/><text x="245" y="211" text-anchor="middle" class="nodeTitle">React 遊戲與專業儀表板</text><text x="245" y="235" text-anchor="middle" class="nodeSub">GitHub Pages · Browser · Supabase JS</text></g>
+  <g><rect class="box auth" x="535" y="180" width="260" height="76" rx="18"/><text x="665" y="211" text-anchor="middle" class="nodeTitle">用戶身分</text><text x="665" y="235" text-anchor="middle" class="nodeSub">家長／幼兒／臨床專業人員</text></g>
+  <g><rect class="box client" x="940" y="180" width="260" height="76" rx="18"/><text x="1070" y="211" text-anchor="middle" class="nodeTitle">Supabase Client API</text><text x="1070" y="235" text-anchor="middle" class="nodeSub">Auth · REST · RPC · anon key</text></g>
+  <g><rect class="box api" x="1290" y="180" width="220" height="76" rx="18"/><text x="1400" y="211" text-anchor="middle" class="nodeTitle">Express API</text><text x="1400" y="235" text-anchor="middle" class="nodeSub">POST /api/clinical-assistant</text></g>
+  <path class="flow" d="M390 218H535"/><path class="data" d="M795 218H940"/><path class="flow" d="M390 232C760 285 1120 285 1290 232"/>
+
+  <g><rect class="box auth" x="90" y="390" width="270" height="105" rx="18"/><text x="225" y="425" text-anchor="middle" class="nodeTitle">Supabase Auth + RLS</text><text x="225" y="452" text-anchor="middle" class="nodeSub">登入、Session、Row Level Security</text><text x="225" y="476" text-anchor="middle" class="small">clinician_patient_access 控制可見個案</text></g>
+  <g><rect class="box db" x="440" y="390" width="300" height="105" rx="18"/><text x="590" y="425" text-anchor="middle" class="nodeTitle">PostgreSQL 業務資料</text><text x="590" y="452" text-anchor="middle" class="nodeSub">profiles · patients · game_results</text><text x="590" y="476" text-anchor="middle" class="small">parent_reminders · clinician_notes</text></g>
+  <g><rect class="box api" x="830" y="375" width="300" height="135" rx="18"/><text x="980" y="410" text-anchor="middle" class="nodeTitle">Clinical Assistant Handler</text><text x="980" y="437" text-anchor="middle" class="nodeSub">輸入驗證 · 個案脈絡 · Prompt 組裝</text><text x="980" y="461" text-anchor="middle" class="small">知識檢索 → 來源整理 → 答覆產生</text><text x="980" y="485" text-anchor="middle" class="small">無設定時回傳可說明的降級結果</text></g>
+  <g><rect class="box rag" x="1220" y="355" width="290" height="115" rx="18"/><text x="1365" y="391" text-anchor="middle" class="nodeTitle">RAG 向量檢索</text><text x="1365" y="418" text-anchor="middle" class="nodeSub">multilingual-e5-small embeddings</text><text x="1365" y="442" text-anchor="middle" class="small">RPC: match_clinical_knowledge</text></g>
+  <g><rect class="box ai" x="1220" y="520" width="290" height="100" rx="18"/><text x="1365" y="556" text-anchor="middle" class="nodeTitle">OpenAI Responses API</text><text x="1365" y="583" text-anchor="middle" class="nodeSub">根據個案與文獻脈絡產生回應</text><text x="1365" y="605" text-anchor="middle" class="small">API key 只保留在伺服器環境</text></g>
+  <path class="flow" d="M225 495V555H590V495"/><text x="390" y="546" class="label">JWT + RLS policy</text>
+  <path class="data" d="M740 442H830"/><text x="785" y="431" text-anchor="middle" class="label">個案資料</text>
+  <path class="aiFlow" d="M1130 422H1220"/><text x="1175" y="411" text-anchor="middle" class="label">查詢向量</text>
+  <path class="aiFlow" d="M1220 570H1130"/><text x="1175" y="559" text-anchor="middle" class="label">AI 回應</text>
+  <path class="aiFlow" d="M1365 470V520"/><text x="1380" y="500" class="label">文獻脈絡</text>
+
+  <g><rect class="box db" x="90" y="755" width="350" height="145" rx="18"/><text x="265" y="791" text-anchor="middle" class="nodeTitle">不可變原始行為資料</text><text x="265" y="819" text-anchor="middle" class="nodeSub">research_participants → behavioral_sessions</text><text x="265" y="843" text-anchor="middle" class="small">behavioral_task_sessions → behavioral_trials</text><text x="265" y="867" text-anchor="middle" class="small">behavioral_trial_derivations（版本化）</text></g>
+  <g><rect class="box analysis" x="510" y="755" width="310" height="145" rx="18"/><text x="665" y="791" text-anchor="middle" class="nodeTitle">分析與特徵工程</text><text x="665" y="819" text-anchor="middle" class="nodeSub">Quality → Features → Statistics</text><text x="665" y="843" text-anchor="middle" class="small">ML → XAI → Longitudinal</text><text x="665" y="867" text-anchor="middle" class="small">參與者分組驗證，防止 data leakage</text></g>
+  <g><rect class="box analysis" x="890" y="755" width="300" height="145" rx="18"/><text x="1040" y="791" text-anchor="middle" class="nodeTitle">適性推薦與實驗</text><text x="1040" y="819" text-anchor="middle" class="nodeSub">recommendation_decisions</text><text x="1040" y="843" text-anchor="middle" class="small">ml_experiments · experiment_registry</text><text x="1040" y="867" text-anchor="middle" class="small">policy / reward / code version</text></g>
+  <g><rect class="box rag" x="1260" y="755" width="250" height="145" rx="18"/><text x="1385" y="791" text-anchor="middle" class="nodeTitle">臨床知識庫</text><text x="1385" y="819" text-anchor="middle" class="nodeSub">clinical_knowledge_documents</text><text x="1385" y="843" text-anchor="middle" class="small">clinical_knowledge_chunks</text><text x="1385" y="867" text-anchor="middle" class="small">pgvector embedding + metadata</text></g>
+  <path class="data" d="M440 827H510"/><path class="data" d="M820 827H890"/>
+  <path class="aiFlow dash" d="M1385 755V650H1490V470"/><text x="1400" y="680" class="label">向量與文獻片段</text>
+  <path class="flow dash" d="M665 755V690H590V495"/><text x="682" y="690" class="label">讀取與寫回研究結果</text>
+
+  <g><rect class="box ops" x="90" y="1040" width="310" height="66" rx="16"/><text x="245" y="1068" text-anchor="middle" class="nodeTitle">知識庫離線匯入</text><text x="245" y="1091" text-anchor="middle" class="nodeSub">PDF → 切塊 → Embedding → Supabase</text></g>
+  <g><rect class="box ops" x="500" y="1040" width="300" height="66" rx="16"/><text x="650" y="1068" text-anchor="middle" class="nodeTitle">Supabase Migrations</text><text x="650" y="1091" text-anchor="middle" class="nodeSub">Schema · RPC · RLS · rollback</text></g>
+  <g><rect class="box ops" x="900" y="1040" width="280" height="66" rx="16"/><text x="1040" y="1068" text-anchor="middle" class="nodeTitle">GitHub Actions</text><text x="1040" y="1091" text-anchor="middle" class="nodeSub">測試 · Build · Pages 部署</text></g>
+  <g><rect class="box auth" x="1280" y="1040" width="230" height="66" rx="16"/><text x="1395" y="1068" text-anchor="middle" class="nodeTitle">密鑰邊界</text><text x="1395" y="1091" text-anchor="middle" class="nodeSub">service role / OpenAI 不進瀏覽器</text></g>
+  <path class="aiFlow dash" d="M245 1040V930H1385V900"/><path class="flow dash" d="M650 1040V930H590V900"/><path class="flow" d="M1180 1073H1280"/>
+  <text x="60" y="1170" class="small">圖例：藍線＝應用資料流　紫線＝ AI / RAG 流程　虛線＝離線或版本化流程　·　研究原型，不用於臨床診斷</text>
+</svg>
