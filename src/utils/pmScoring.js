@@ -3,7 +3,7 @@
 const DEFAULT_TIMEOUT_RT = 10000;
 const FALLBACK_STD_SPREAD = 8000;
 const MAX_PM_DIFFICULTY_LEVEL = 7;
-const MAX_PM_MEMORY_SPAN = 8;
+const MAX_PM_MEMORY_SPAN = 7;
 const TRAINING_SPAN_TRIAL_COUNT = 2;
 const MIN_COMPLETION_RATE_FOR_STARS = 0.3;
 
@@ -441,10 +441,12 @@ export function getPMBasicStats(inputRecords = []) {
       ? Math.max(...correctRecords.map((r) => Number(r.level || r.trialIndex || 0)))
       : 0;
 
+  const passedMemorySpans = buildSpanSummaries(records)
+    .filter((summary) => summary.correctCount >= TRAINING_SPAN_TRIAL_COUNT)
+    .map((summary) => summary.memorySpan);
+
   const memorySpan =
-    correctRecords.length > 0
-      ? Math.max(...correctRecords.map((r) => getRecordMemorySpan(r)))
-      : 0;
+    passedMemorySpans.length > 0 ? Math.max(...passedMemorySpans) : 0;
 
   const successfulDifficultyLevels = correctRecords
     .map(getRecordDifficultyLevel)
@@ -1085,7 +1087,7 @@ function buildTrainingSpanText({
   const lastSpan = summaries[summaries.length - 1]?.memorySpan;
 
   const bestPassedSpan = summaries
-    .filter((summary) => summary.correctCount > 0)
+    .filter((summary) => summary.correctCount >= TRAINING_SPAN_TRIAL_COUNT)
     .reduce((best, summary) => Math.max(best, summary.memorySpan || 0), 0);
 
   const baseText = `本次訓練從 ${firstSpan} 張圖片開始，最後進行到 ${lastSpan} 張圖片；目前可成功答對的最高跨度約為 ${bestPassedSpan || 0} 張。`;

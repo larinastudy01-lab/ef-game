@@ -9,44 +9,46 @@ import { analyzePMTraining, calculatePMAIScore } from "../ai/pmTrainingAnalyzer"
 import { calculatePMScore } from "../utils/pmScoring";
 import { saveUnifiedResult } from "../utils/resultManager";
 
-import PM01 from "../asset/PM/PM_01.png";
-import PM02 from "../asset/PM/PM_02.png";
-import PM03 from "../asset/PM/PM_03.png";
-import PM04 from "../asset/PM/PM_04.png";
-import PM05 from "../asset/PM/PM_05.png";
-import PM06 from "../asset/PM/PM_06.png";
-import PM07 from "../asset/PM/PM_07.png";
-import PM08 from "../asset/PM/PM_08.png";
-import PM09 from "../asset/PM/PM_09.png";
-import PM10 from "../asset/PM/PM_10.png";
-import PM11 from "../asset/PM/PM_11.png";
-import rabbitAvatar from "../asset/avatar/rabbit.png";
+import PM01 from "../asset/PM/PM_01.webp";
+import PM02 from "../asset/PM/PM_02.webp";
+import PM03 from "../asset/PM/PM_03.webp";
+import PM04 from "../asset/PM/PM_04.webp";
+import PM05 from "../asset/PM/PM_05.webp";
+import PM06 from "../asset/PM/PM_06.webp";
+import PM07 from "../asset/PM/PM_07.webp";
+import PM08 from "../asset/PM/PM_08.webp";
+import PM09 from "../asset/PM/PM_09.webp";
+import PM10 from "../asset/PM/PM_10.webp";
+import PM11 from "../asset/PM/PM_11.webp";
+import PM12 from "../asset/PM/PM_12.webp";
+import rabbitAvatar from "../asset/avatar/rabbit.webp";
 
-import clickSfx from "../asset/Click_SRT.mp3";
-import bgImage from "../asset/PM_testbackground.png";
+import clickSfx from "../asset/Click.mp3";
+import bgImage from "../asset/PM/PM_background.webp";
 import introVideo from "../asset/mp4/PM_start.mp4";
 import stepVideo from "../asset/mp4/PM_step.mp4";
 import endingVideo from "../asset/mp4/PM_end.mp4";
-import mouseGuideImg from "../asset/mouse.png";
-import homeResultBtn from "../asset/home/result.png";
-import homeAgainBtn from "../asset/home/again.png";
-import homeBackBtn from "../asset/home/back.png";
-import homeSkipBtn from "../asset/home/skip.png";
-import homeStartBtn from "../asset/home/start.png";
-import homeNextBtn from "../asset/home/next.png";
+import mouseGuideImg from "../asset/mouse.webp";
+import homeResultBtn from "../asset/home/result.webp";
+import homeAgainBtn from "../asset/home/again.webp";
+import homeBackBtn from "../asset/home/back.webp";
+import homeSkipBtn from "../asset/home/skip.webp";
+import homeStartBtn from "../asset/home/start.webp";
+import homeNextBtn from "../asset/home/next.webp";
 
 const ALL_ITEMS = [
-  { id: "PM01", image: PM01 },
-  { id: "PM02", image: PM02 },
-  { id: "PM03", image: PM03 },
-  { id: "PM04", image: PM04 },
-  { id: "PM05", image: PM05 },
-  { id: "PM06", image: PM06 },
-  { id: "PM07", image: PM07 },
-  { id: "PM08", image: PM08 },
-  { id: "PM09", image: PM09 },
-  { id: "PM10", image: PM10 },
-  { id: "PM11", image: PM11 },
+  { id: "PM01", image: PM01, alt: "生日蛋糕" },
+  { id: "PM02", image: PM02, alt: "藍色水壺" },
+  { id: "PM03", image: PM03, alt: "紫色禮物盒" },
+  { id: "PM04", image: PM04, alt: "彩色棒棒糖" },
+  { id: "PM05", image: PM05, alt: "黃色帽子" },
+  { id: "PM06", image: PM06, alt: "黃色鞋子" },
+  { id: "PM07", image: PM07, alt: "莓果果醬" },
+  { id: "PM08", image: PM08, alt: "綠色樹葉" },
+  { id: "PM09", image: PM09, alt: "黃色小鴨" },
+  { id: "PM10", image: PM10, alt: "綠色手錶" },
+  { id: "PM11", image: PM11, alt: "金色湯匙" },
+  { id: "PM12", image: PM12, alt: "彩虹吊飾" },
 ];
 
 
@@ -54,8 +56,24 @@ const COMPLETED_LEVELS_STORAGE_KEY = "ef_game_completed_training_levels";
 const PM_STAGE_STAR_STORAGE_KEY = "ef_game_training_stage_stars";
 const MAX_LEVEL_PER_GAME = 10;
 const SPAN_TRIALS_PER_MEMORY_COUNT = 2;
-const MAX_TRAINING_MEMORY_SPAN = 6;
+const MAX_TRAINING_MEMORY_SPAN = 7;
 const DEFAULT_TRAINING_TOTAL_ROUNDS = 6;
+const MAX_RECOGNITION_OPTION_COUNT = 12;
+const TRAINING_SHOW_TIME_BY_DIFFICULTY = {
+  easy: 5,
+  normal: 4,
+  hard: 3,
+};
+
+const getRecognitionOptionCount = (memoryCount, itemPoolSize = ALL_ITEMS.length) => {
+  const safeMemoryCount = Math.max(1, Number(memoryCount) || 1);
+  const targetOptionCount =
+    safeMemoryCount >= 6
+      ? MAX_RECOGNITION_OPTION_COUNT
+      : safeMemoryCount * 2;
+
+  return Math.min(targetOptionCount, itemPoolSize);
+};
 
 const clampNumber = (value, min, max) => {
   const number = Number(value);
@@ -343,6 +361,10 @@ const getBroadDifficultyKey = (difficultyLevel) => {
   return "hard";
 };
 
+const getTrainingShowTime = (difficultyLevel) =>
+  TRAINING_SHOW_TIME_BY_DIFFICULTY[getBroadDifficultyKey(difficultyLevel)] ||
+  TRAINING_SHOW_TIME_BY_DIFFICULTY.normal;
+
 const getTrainingMemorySpanPlan = (difficultyLevel) => {
   const level = clampNumber(difficultyLevel, 1, 6);
   const config = DIFFICULTY_CONFIGS[level] || DIFFICULTY_CONFIGS[1];
@@ -358,9 +380,6 @@ const getTrainingMemorySpanPlan = (difficultyLevel) => {
     (_, index) => startSpan + index
   );
 };
-
-const getTrainingTotalRounds = (difficultyLevel) =>
-  getTrainingMemorySpanPlan(difficultyLevel).length * SPAN_TRIALS_PER_MEMORY_COUNT;
 
 const getSpanInfoForRound = (roundNumber, difficultyLevel) => {
   const plan = getTrainingMemorySpanPlan(difficultyLevel);
@@ -530,9 +549,9 @@ export default function TrainingPage_PM() {
   const [memorizeCountdown, setMemorizeCountdown] = useState(0);
   const [answerCountdown, setAnswerCountdown] = useState(15);
 
-  const [feedbackText, setFeedbackText] = useState("");
-  const [feedbackType, setFeedbackType] = useState("success");
-  const [lastRecord, setLastRecord] = useState(null);
+  const [, setFeedbackText] = useState("");
+  const [, setFeedbackType] = useState("success");
+  const [, setLastRecord] = useState(null);
   const [backgroundWarning, setBackgroundWarning] = useState(false);
   const [idleHintActive, setIdleHintActive] = useState(false);
 
@@ -584,16 +603,12 @@ export default function TrainingPage_PM() {
   const getDifficultyConfig = () => {
     const difficultyLevel = clampNumber(baseDifficulty + adaptiveOffset, 1, 6);
     const preset = DIFFICULTY_CONFIGS[difficultyLevel] || DIFFICULTY_CONFIGS[1];
-    const roundProgress = Math.max(0, round - 1);
     const spanInfo = getSpanInfoForRound(round, baseDifficulty);
 
     // 每個記憶跨度固定 2 題。AI 自適應只調整時間、干擾與動畫，不降低目前跨度。
     const memoryCount = Math.min(spanInfo.memorySpan, ALL_ITEMS.length);
 
-    const showTime = Math.max(
-      preset.showTime - Math.floor(roundProgress / SPAN_TRIALS_PER_MEMORY_COUNT) * 0.25,
-      preset.minShowTime
-    );
+    const showTime = getTrainingShowTime(difficultyLevel);
 
     return {
       ...preset,
@@ -663,18 +678,10 @@ export default function TrainingPage_PM() {
 
     const memorizeItems = shuffleArray(ALL_ITEMS).slice(0, config.memoryCount);
 
-    // 選項最多顯示 8 個，但必須先完整保留所有正確答案。
-    // 舊寫法把答案和干擾項一起洗牌後再 slice(0, 8)，會隨機切掉正確答案。
-    const maxOptionCount = Math.min(8, ALL_ITEMS.length);
-    const availableDistractorSlots = Math.max(
-      0,
-      maxOptionCount - memorizeItems.length
-    );
-    const distractorCount = Math.min(
-      ALL_ITEMS.length - memorizeItems.length,
-      config.memoryCount + config.distractorExtra,
-      availableDistractorSlots
-    );
+    // 選項最多顯示 12 個，但必須先完整保留所有正確答案。
+    // 舊寫法把答案和干擾項一起洗牌後再 slice，會隨機切掉正確答案。
+    const optionCount = getRecognitionOptionCount(config.memoryCount);
+    const distractorCount = Math.max(0, optionCount - memorizeItems.length);
 
     const distractors = shuffleArray(
       ALL_ITEMS.filter(
@@ -697,21 +704,6 @@ export default function TrainingPage_PM() {
     setLastRecord(null);
     setPhase("memorize");
 
-    console.log("[TrainingPage_PM] setup round:", {
-      stageLabel: config.label,
-      difficultyLevel: config.difficulty,
-      difficultyLabel: config.shortLabel,
-      adaptiveOffset: config.adaptiveOffset,
-      round,
-      memoryCount: config.memoryCount,
-      memorySpan: config.memorySpan,
-      spanTrialIndex: config.spanTrialIndex,
-      spanTrialTotal: config.spanTrialTotal,
-      showTime: config.showTime,
-      answerTime: config.answerTime,
-      correctIds: memorizeItems.map((item) => item.id),
-      optionIds: options.map((item) => item.id),
-    });
   };
 
   const handleRestartStage = () => {
@@ -778,6 +770,8 @@ export default function TrainingPage_PM() {
     }, 1000);
 
     return () => clearTimeout(timer);
+    // setupRound consumes refs/current state at the countdown boundary.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, readyCountdown]);
 
   useEffect(() => {
@@ -802,6 +796,8 @@ export default function TrainingPage_PM() {
     }, 500);
 
     return () => clearTimeout(timer);
+    // Difficulty is sampled only when memorization ends, not on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, memorizeCountdown]);
 
   useEffect(() => {
@@ -822,6 +818,8 @@ export default function TrainingPage_PM() {
     }, 1000);
 
     return () => clearTimeout(timer);
+    // finalizeAnswer reads refs and must not recreate the countdown timer each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, answerCountdown]);
 
   useEffect(() => {
@@ -930,6 +928,7 @@ export default function TrainingPage_PM() {
       adaptiveOffset: config.adaptiveOffset,
       memoryCount: config.memoryCount,
       memorySpan: config.memorySpan,
+      optionCount: currentOptions.length,
       memorySpanIndex: config.memorySpanIndex,
       memorySpanTotal: config.memorySpanTotal,
       spanTrialIndex: config.spanTrialIndex,
@@ -969,8 +968,6 @@ export default function TrainingPage_PM() {
       setFeedbackText("這次找錯了，兔子妹妹還需要你再幫一次。");
       setFeedbackType("error");
     }
-
-    console.log("[TrainingPage_PM] record saved:", record);
 
     const spanStopStatus = shouldStopBySpanFailure(recordsRef.current, config.memoryCount);
     const isTrainingComplete = recordsRef.current.length >= trainingTotalRounds;
@@ -1034,24 +1031,6 @@ export default function TrainingPage_PM() {
     if (recentTwo.length === 2 && recentTwo.every((record) => record.isTimeout)) {
       setAdaptiveOffset((prev) => clampNumber(prev - 1, -2, 2));
     }
-  };
-
-  const handleNext = () => {
-    playClick();
-    if (roundTransitionRef.current) return;
-
-    const nextRound = Math.min(trainingTotalRounds, round + 1);
-    roundTransitionRef.current = setTimeout(() => {
-      roundTransitionRef.current = null;
-      updateAdaptiveDifficulty();
-      setRound(nextRound);
-      enterReadyCountdown();
-    }, 200);
-  };
-
-  const handleRetrySameRound = () => {
-    playClick();
-    enterReadyCountdown();
   };
 
   const handleBackToMap = () => {
@@ -1255,7 +1234,7 @@ export default function TrainingPage_PM() {
   const resultStars = clampStarCount(finalResultRef.current?.stars || 1);
 
   const buttonMouse = (
-    <img
+    <img width={1024} height={1024}
       src={mouseGuideImg}
       alt="提示點擊"
       aria-hidden="true"
@@ -1276,7 +1255,7 @@ export default function TrainingPage_PM() {
         aria-label={alt}
         disabled={disabled}
       >
-        <img src={src} alt={alt} style={styles.imageButtonImg} />
+        <img loading="lazy" src={src} alt={alt} style={styles.imageButtonImg} />
       </button>
       {buttonMouse}
     </div>
@@ -1305,7 +1284,7 @@ export default function TrainingPage_PM() {
       <div style={styles.overlay}>
         <div style={styles.container}>
           {phase === "rules" && (
-            <div style={styles.startPanel}>
+            <div className="game-start-card-artwork" style={styles.startPanel}>
               <div style={styles.gameTitle}>圖片記憶任務</div>
 
               <div style={styles.startContent}>
@@ -1313,7 +1292,7 @@ export default function TrainingPage_PM() {
                   幫兔子妹妹記住湖邊的小物品。
                 </div>
                 <div style={styles.roundIcon}>
-                  <img src={rabbitAvatar} alt="兔子妹妹" style={styles.roundIconImage} />
+                  <img width={512} height={512} loading="lazy" src={rabbitAvatar} alt="兔子妹妹" style={styles.roundIconImage} />
                 </div>
               </div>
 
@@ -1322,7 +1301,7 @@ export default function TrainingPage_PM() {
           )}
 
           {phase === "introVideo" && (
-            <div style={styles.videoPanel}>
+            <div className="game-start-card-artwork" style={styles.videoPanel}>
               <div style={styles.videoFrame}>
                 <video
                   src={introVideo}
@@ -1344,7 +1323,7 @@ export default function TrainingPage_PM() {
           )}
 
           {phase === "stepVideo" && (
-            <div style={styles.videoPanel}>
+            <div className="game-start-card-artwork" style={styles.videoPanel}>
               <div style={styles.videoFrame}>
                 <video
                   src={stepVideo}
@@ -1398,7 +1377,7 @@ export default function TrainingPage_PM() {
 
                   return (
                     <div key={item.id} style={styles.memoryCard}>
-                      <img src={item.image} alt={item.id} style={imageStyle} />
+                      <img src={item.image} alt={item.alt} width="162" height="162" loading="lazy" style={imageStyle} />
                     </div>
                   );
                 })}
@@ -1443,7 +1422,7 @@ export default function TrainingPage_PM() {
                         ...(isSelected ? styles.optionCardSelected : {}),
                       }}
                     >
-                      <img src={item.image} alt={item.id} style={styles.optionImage} />
+                      <img src={item.image} alt={item.alt} width="162" height="162" loading="lazy" style={styles.optionImage} />
                     </button>
                   );
                 })}
@@ -1468,7 +1447,7 @@ export default function TrainingPage_PM() {
           )}
 
           {phase === "endingVideo" && (
-            <div style={styles.videoPanel}>
+            <div className="game-start-card-artwork" style={styles.videoPanel}>
               <div style={styles.videoFrame}>
                 <video
                   src={endingVideo}
@@ -1493,12 +1472,12 @@ export default function TrainingPage_PM() {
           )}
 
           {phase === "result" && (
-            <div style={styles.resultPanel}>
+            <div className="game-result-card-artwork" style={styles.resultPanel}>
               <div style={styles.starRow} aria-label={`${resultStars} 顆星`}>
                 {[1, 2, 3].map((star, index) => {
                   const curveStyles = [styles.starLeft, styles.starCenter, styles.starRight];
                   return (
-                    <span key={star} style={{ ...styles.starShell, ...curveStyles[index] }}>
+                    <span key={star} className={`game-result-star ${star <= resultStars ? "is-earned" : ""}`} style={{ ...styles.starShell, ...curveStyles[index] }}>
                       <svg viewBox="0 0 100 95" style={styles.starSvg} aria-hidden="true">
                         <path
                           d="M50 3 L61.8 34.2 L95 36.1 L69 56.8 L77.6 89 L50 71.2 L22.4 89 L31 56.8 L5 36.1 L38.2 34.2 Z"
@@ -1519,22 +1498,22 @@ export default function TrainingPage_PM() {
               <div style={styles.startContent}>
                 <div style={styles.dialogBubble}>訓練完成！跟著小手回到森林吧。</div>
                 <div style={styles.roundIcon}>
-                  <img src={rabbitAvatar} alt="兔子妹妹" style={styles.roundIconImage} />
+                  <img width={512} height={512} loading="lazy" src={rabbitAvatar} alt="兔子妹妹" style={styles.roundIconImage} />
                 </div>
               </div>
 
               <div style={styles.resultActions}>
                 <div style={styles.guidedAction}>
                   <button type="button" style={styles.resultImageButton} onClick={handleBackToMap} aria-label="回到森林">
-                    <img src={homeBackBtn} alt="回到森林" style={styles.imageButtonImg} />
+                    <img width={1024} height={341} loading="lazy" src={homeBackBtn} alt="回到森林" style={styles.imageButtonImg} />
                   </button>
-                  <img src={mouseGuideImg} alt="提示回到森林" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
+                  <img width={1024} height={1024} loading="lazy" src={mouseGuideImg} alt="提示回到森林" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
                 </div>
                 <button type="button" style={styles.resultImageButton} onClick={handleRestartStage} aria-label="再玩一次">
-                  <img src={homeAgainBtn} alt="再玩一次" style={styles.imageButtonImg} />
+                  <img width={1024} height={341} loading="lazy" src={homeAgainBtn} alt="再玩一次" style={styles.imageButtonImg} />
                 </button>
                 <button type="button" style={styles.resultImageButton} onClick={navigateToResult} aria-label="詳細結果">
-                  <img src={homeResultBtn} alt="詳細結果" style={styles.imageButtonImg} />
+                  <img width={1024} height={341} loading="lazy" src={homeResultBtn} alt="詳細結果" style={styles.imageButtonImg} />
                 </button>
               </div>
             </div>

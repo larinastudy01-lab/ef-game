@@ -5,41 +5,18 @@ import { useNavigate } from "react-router-dom";
 import calculateLBScore from "../utils/lbScoring";
 import { saveUnifiedResult } from "../utils/resultManager";
 
-import backgroundImg from "../asset/LB/background.png";
-import sheepImg from "../asset/LB/sheep.png";
-import homeImg from "../asset/LB/home.png";
-import green01Img from "../asset/LB/green_01.png";
-import green02Img from "../asset/LB/green_02.png";
-import green03Img from "../asset/LB/green_03.png";
-import green04Img from "../asset/LB/green_04.png";
-import green05Img from "../asset/LB/green_05.png";
-import green06Img from "../asset/LB/green_06.png";
-import green07Img from "../asset/LB/green_07.png";
-import green08Img from "../asset/LB/green_08.png";
-import green09Img from "../asset/LB/green_09.png";
-import green10Img from "../asset/LB/green_10.png";
-import red01Img from "../asset/LB/red_01.png";
-import red02Img from "../asset/LB/red_02.png";
-import red03Img from "../asset/LB/red_03.png";
-import red04Img from "../asset/LB/red_04.png";
-import red05Img from "../asset/LB/red_05.png";
-import red06Img from "../asset/LB/red_06.png";
-import blue01Img from "../asset/LB/blue_01.png";
-import blue02Img from "../asset/LB/blue_02.png";
-import blue03Img from "../asset/LB/blue_03.png";
-import blue04Img from "../asset/LB/blue_04.png";
-import blue05Img from "../asset/LB/blue_05.png";
-import blue06Img from "../asset/LB/blue_06.png";
-import blue07Img from "../asset/LB/blue_07.png";
+import backgroundImg from "../asset/LB/LB_background.webp";
+import homeImg from "../asset/LB/grandma_sheep_house.webp";
+import blowingBubblesImg from "../asset/LB/blowing_bubbles.webp";
 import storyVideo from "../asset/mp4/LB_start.mp4";
 import tutorialVideo from "../asset/mp4/LB_step.mp4";
 import endingVideo from "../asset/mp4/LB_end.mp4";
-import homeStartBtn from "../asset/home/start.png";
-import homeSkipBtn from "../asset/home/skip.png";
-import homeBackBtn from "../asset/home/back.png";
-import homeResultBtn from "../asset/home/result.png";
-import homeSendBtn from "../asset/home/send.png";
-import mouseGuideImg from "../asset/mouse.png";
+import homeStartBtn from "../asset/home/start.webp";
+import homeSkipBtn from "../asset/home/skip.webp";
+import homeBackBtn from "../asset/home/back.webp";
+import homeResultBtn from "../asset/home/result.webp";
+import homeSendBtn from "../asset/home/send.webp";
+import mouseGuideImg from "../asset/mouse.webp";
 
 /*
   TestPage_LB.jsx
@@ -54,29 +31,17 @@ const RESULT_ROUTE = "/result-lb";
 const SESSION_KEY = "LB_RESULT";
 const LOCAL_KEY = "lbTestResult";
 
-const DOORPLATE_IMAGES = {
-  green: {
-    1: green01Img, 2: green02Img, 3: green03Img, 4: green04Img, 5: green05Img,
-    6: green06Img, 7: green07Img, 8: green08Img, 9: green09Img, 10: green10Img,
-  },
-  red: {
-    1: red01Img, 2: red02Img, 3: red03Img, 4: red04Img, 5: red05Img, 6: red06Img,
-  },
-  blue: {
-    1: blue01Img, 2: blue02Img, 3: blue03Img, 4: blue04Img, 5: blue05Img,
-    6: blue06Img, 7: blue07Img,
-  },
-};
+const doorplateAssets = require.context("../asset/LB", false, /(?:blue|yellow)_\d{2}\.webp$/);
+const walkAssets = require.context("../asset/LB/walk", false, /\.webp$/);
+const WALK_IMAGES = walkAssets.keys().sort().map(walkAssets);
 
 function getDoorplateImage(item) {
-  const color = item.color === "cream" ? "green" : item.color;
-  return DOORPLATE_IMAGES[color]?.[item.number] || DOORPLATE_IMAGES.green?.[item.number] || "";
+  const color = item.color === "blue" ? "blue" : "yellow";
+  const number = String(Math.min(30, Math.max(1, Number(item.number) || 1))).padStart(2, "0");
+  return doorplateAssets(`./${color}_${number}.webp`);
 }
 
-function usesColorFallback(item) {
-  if (item.color !== "red" && item.color !== "blue") return false;
-  return !DOORPLATE_IMAGES[item.color]?.[item.number];
-}
+function usesColorFallback() { return false; }
 
 const STAGES = [
   {
@@ -280,7 +245,13 @@ function normalizeSelectionLogs(logs, stageStartedAt) {
   });
 }
 
-function buildSimpleSummary({ trials, startedAt, endedAt, completed }) {
+function buildSimpleSummary({
+  trials,
+  startedAt,
+  endedAt,
+  completed,
+  totalSelectionTime = 0,
+}) {
   const total = trials.length;
   const correct = trials.filter((trial) => trial.correct).length;
   const wrong = trials.filter((trial) => !trial.correct && trial.errorType !== "timeout").length;
@@ -317,18 +288,27 @@ function buildSimpleSummary({ trials, startedAt, endedAt, completed }) {
     timeoutTrials: timeout,
     accuracy,
     averageReactionTime,
+    totalSelectionTime,
+    totalPlayTime: totalSelectionTime,
+    totalReactionTime: totalSelectionTime,
+    totalResponseTime: totalSelectionTime,
     stars,
   };
 }
 
 function createResultPayload({ trials, stageRecords, startedAt, completed }) {
   const endedAt = nowISO();
+  const totalSelectionTime = stageRecords.reduce(
+    (sum, record) => sum + safeNumber(record.selectionTimeMs ?? record.durationMs, 0),
+    0
+  );
   const summary = buildSimpleSummary({
     trials,
     stageRecords,
     startedAt,
     endedAt,
     completed,
+    totalSelectionTime,
   });
 
   let scoreResult = null;
@@ -355,12 +335,18 @@ function createResultPayload({ trials, stageRecords, startedAt, completed }) {
     trialLogs: trials,
     records: trials,
     stageRecords,
+    totalSelectionTime,
+    totalPlayTime: totalSelectionTime,
+    totalReactionTime: totalSelectionTime,
+    totalResponseTime: totalSelectionTime,
     raw: {
       trials,
       stageRecords,
       startedAt,
       endedAt,
       completed,
+      totalSelectionTime,
+      totalPlayTime: totalSelectionTime,
     },
   };
 }
@@ -414,6 +400,7 @@ function TestPageLB() {
   const [message, setMessage] = useState("請依照前導教學中的規則完成測驗。");
   const [wrongKey, setWrongKey] = useState("");
   const [correctKey, setCorrectKey] = useState("");
+  const [walkImageIndex, setWalkImageIndex] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
   const [resultPayload, setResultPayload] = useState(null);
 
@@ -564,14 +551,46 @@ function TestPageLB() {
     setMessage("請點門牌；再次點同一個門牌可以取消。");
   };
 
+  const handleUndoLastSelection = () => {
+    if (
+      phase !== "playing" ||
+      isLocked ||
+      routeVisible ||
+      finishedRef.current ||
+      completedKeys.length === 0
+    ) {
+      return;
+    }
+
+    setCompletedKeys((previous) => {
+      const removedKey = previous.at(-1);
+      const next = previous.slice(0, -1);
+      selectionLogsRef.current = normalizeSelectionLogs(
+        selectionLogsRef.current.filter((log) => log.key !== removedKey),
+        stageStartedAtRef.current
+      );
+      return next;
+    });
+    setMessage("已退回上一個門牌，可以重新選。");
+  };
+
   const saveStageRecord = ({ selectedKeys = completedKeys, correctSteps = 0 } = {}) => {
     const now = Date.now();
+    const finalSelectionLog = selectionLogsRef.current.at(-1);
+    const selectionTimeMs =
+      selectedKeys.length >= currentStage.sequence.length && finalSelectionLog
+        ? Math.max(0, finalSelectionLog.cumulativeTime)
+        : Math.max(0, now - stageStartedAtRef.current);
     const stageRecord = {
       stageId: currentStage.id,
       stageTitle: currentStage.title,
       startedAt: new Date(stageStartedAtRef.current).toISOString(),
       endedAt: new Date(now).toISOString(),
       durationMs: Math.max(0, now - stageStartedAtRef.current),
+      selectionTimeMs,
+      totalSelectionTime: selectionTimeMs,
+      totalPlayTime: selectionTimeMs,
+      totalReactionTime: selectionTimeMs,
       completedSteps: selectedKeys.length,
       correctSteps,
       selectedOrder: [...selectedKeys],
@@ -646,6 +665,7 @@ function TestPageLB() {
 
     setTrials(mergedTrials);
     setRouteKeys(selectedKeys);
+    setWalkImageIndex(Math.floor(Math.random() * Math.max(1, WALK_IMAGES.length)));
     setRouteVisible(true);
     setSubmittedCorrect(isAllCorrect);
     setIsLocked(true);
@@ -745,19 +765,19 @@ function TestPageLB() {
       <div className="lb-simple-page lb-srt-skin">
         <LBResetStyle />
         <main className="lb-center-shell lb-start-shell">
-          <section className="lb-soft-panel lb-start-panel" aria-label="LB 測驗開始">
+          <section className="lb-soft-panel lb-start-panel game-start-card-artwork" aria-label="LB 測驗開始">
             <h1 className="lb-game-title">Linking Balloons</h1>
             <div className="lb-start-content">
               <div className="lb-dialog-bubble">幫綿羊奶奶照順序找到門牌，一起走回家。</div>
               <div className="lb-round-icon lb-start-avatar">
-                <img src={sheepImg} alt="綿羊奶奶" />
+                <img width={1024} height={1024} loading="lazy" src={blowingBubblesImg} alt="綿羊奶奶和朋友們" />
               </div>
             </div>
             <div className="lb-guided-action lb-guided-start">
               <button type="button" className="lb-forest-button lb-image-button lb-btn-start" onClick={handleStart} aria-label="開始">
-                <img src={homeStartBtn} alt="開始" />
+                <img width={1024} height={341} src={homeStartBtn} alt="開始" />
               </button>
-              <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
             </div>
           </section>
         </main>
@@ -770,15 +790,15 @@ function TestPageLB() {
       <div className="lb-simple-page lb-srt-skin">
         <LBResetStyle />
         <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-video-panel" aria-label="故事動畫">
+          <section className="lb-soft-panel lb-video-panel game-start-card-artwork" aria-label="故事動畫">
             <div className="lb-video-frame">
               <video ref={storyVideoRef} src={storyVideo} autoPlay playsInline controls={false} onEnded={handleStoryVideoEnd} className="lb-video" />
             </div>
             <div className="lb-guided-action lb-guided-skip">
               <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleStoryVideoEnd} aria-label="跳過故事動畫">
-                <img src={homeSkipBtn} alt="跳過故事動畫" />
+                <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過故事動畫" />
               </button>
-              <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
             </div>
           </section>
         </main>
@@ -791,15 +811,15 @@ function TestPageLB() {
       <div className="lb-simple-page lb-srt-skin">
         <LBResetStyle />
         <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-video-panel" aria-label="前導教學影片">
+          <section className="lb-soft-panel lb-video-panel game-start-card-artwork" aria-label="前導教學影片">
             <div className="lb-video-frame">
               <video ref={tutorialVideoRef} src={tutorialVideo} autoPlay playsInline controls={false} onEnded={handleTutorialVideoEnd} className="lb-video" />
             </div>
             <div className="lb-guided-action lb-guided-skip">
               <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleTutorialVideoEnd} aria-label="跳過前導教學">
-                <img src={homeSkipBtn} alt="跳過前導教學" />
+                <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過前導教學" />
               </button>
-              <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
             </div>
           </section>
         </main>
@@ -814,7 +834,7 @@ function TestPageLB() {
       <div className="lb-simple-page lb-srt-skin">
         <LBResetStyle />
         <main className="lb-stage-open" aria-label={`${currentStage.title}完成`}>
-          <img className="lb-stage-home" src={homeImg} alt="小屋" draggable="false" />
+          <img width={1024} height={1024} loading="lazy" className="lb-stage-home" src={homeImg} alt="小屋" draggable="false" />
           <section className="lb-stage-open-content">
             <p className="lb-kicker">Linking Balloons</p>
             <h1>{currentStage.title}完成</h1>
@@ -833,7 +853,7 @@ function TestPageLB() {
       <div className="lb-simple-page lb-srt-skin">
         <LBResetStyle />
         <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-video-panel" aria-label="結束動畫">
+          <section className="lb-soft-panel lb-video-panel game-start-card-artwork" aria-label="結束動畫">
             <div className="lb-video-frame">
               <video
                 ref={endingVideoRef}
@@ -847,9 +867,9 @@ function TestPageLB() {
             </div>
             <div className="lb-guided-action lb-guided-skip">
               <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleEndingVideoEnd} aria-label="跳過動畫">
-                <img src={homeSkipBtn} alt="跳過動畫" />
+                <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過動畫" />
               </button>
-              <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
             </div>
           </section>
         </main>
@@ -862,7 +882,7 @@ function TestPageLB() {
       <div className="lb-simple-page lb-srt-skin">
         <LBResetStyle />
         <main className="lb-center-shell lb-result-shell">
-          <section className="lb-soft-panel lb-result-panel" aria-label="測驗結果">
+          <section className="lb-soft-panel lb-result-panel game-result-card-artwork" aria-label="測驗結果">
             <div className="lb-cute-stars" aria-label={`${resultStars} 顆星`}>
               {[1, 2, 3].map((star) => (
                 <span key={star} className={`lb-cute-star ${star <= resultStars ? "is-on" : ""}`}>★</span>
@@ -871,18 +891,18 @@ function TestPageLB() {
             <div className="lb-start-content lb-result-content">
               <div className="lb-dialog-bubble">完成了！你有照順序找到門牌屋。</div>
               <div className="lb-round-icon lb-result-icon">
-                <img src={homeImg} alt="門牌屋" />
+                <img width={1024} height={1024} loading="lazy" src={homeImg} alt="門牌屋" />
               </div>
             </div>
             <div className="lb-result-actions">
               <div className="lb-guided-action lb-guided-result-main">
                 <button type="button" className="lb-forest-button lb-image-button lb-btn-home" onClick={() => navigate("/test-map")} aria-label="回到森林">
-                  <img src={homeBackBtn} alt="回到森林" />
+                  <img width={1024} height={341} loading="lazy" src={homeBackBtn} alt="回到森林" />
                 </button>
-                <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+                <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
               </div>
               <button type="button" className="lb-forest-button lb-image-button lb-btn-detail" onClick={goDetailedResult} aria-label="詳細結果">
-                <img src={homeResultBtn} alt="詳細結果" />
+                <img width={1024} height={341} loading="lazy" src={homeResultBtn} alt="詳細結果" />
               </button>
             </div>
           </section>
@@ -905,7 +925,21 @@ function TestPageLB() {
               />
             </svg>
           )}
-          <img className="lb-map-home" src={homeImg} alt="終點小屋" draggable="false" />
+          <img width={1024} height={1024} loading="lazy" className="lb-map-home" src={homeImg} alt="綿羊奶奶的房子" draggable="false" />
+          {routeVisible && routeKeys.length > 0 && WALK_IMAGES.length > 0 && (() => {
+            const lastItem = displayItems.find((item) => item.key === routeKeys[routeKeys.length - 1]);
+            if (!lastItem) return null;
+            const walkImg = WALK_IMAGES[walkImageIndex % WALK_IMAGES.length];
+            return (
+              <img loading="lazy"
+                className="lb-route-walker"
+                src={walkImg}
+                alt="沿著答案路線前進的朋友"
+                draggable="false"
+                style={{ left: lastItem.position.left, top: lastItem.position.top }}
+              />
+            );
+          })()}
           {displayItems.map((item) => (
             <DoorplateButton
               key={item.key}
@@ -928,12 +962,21 @@ function TestPageLB() {
           </div>
           <button
             type="button"
+            className="lb-undo-button"
+            onClick={handleUndoLastSelection}
+            disabled={completedKeys.length === 0 || isLocked}
+            aria-label="退回上一個門牌"
+          >
+            退回
+          </button>
+          <button
+            type="button"
             className="lb-submit-button"
             onClick={handleSubmitStage}
             disabled={!stageDone || isLocked}
             aria-label="送出答案"
           >
-            <img src={homeSendBtn} alt="送出答案" draggable="false" />
+            <img width={1024} height={341} loading="lazy" src={homeSendBtn} alt="送出答案" draggable="false" />
           </button>
         </footer>
       </main>
@@ -1368,6 +1411,7 @@ function LBResetStyle() {
 
       .lb-primary-button,
       .lb-secondary-button,
+      .lb-undo-button,
       .lb-submit-button {
         position: relative;
         border: 4px solid rgba(255, 255, 255, 0.86);
@@ -1393,7 +1437,8 @@ function LBResetStyle() {
           inset 0 -5px 0 rgba(49, 128, 31, 0.26);
       }
 
-      .lb-secondary-button {
+      .lb-secondary-button,
+      .lb-undo-button {
         outline: 3px solid #d28525;
         background: linear-gradient(180deg, #ffd868 0%, #f6a83b 52%, #d97a25 100%);
         box-shadow:
@@ -1412,8 +1457,17 @@ function LBResetStyle() {
         white-space: nowrap;
       }
 
+      .lb-undo-button {
+        min-width: 96px;
+        min-height: 54px;
+        padding: 0 18px;
+        font-size: clamp(17px, 1.6vw, 22px);
+        white-space: nowrap;
+      }
+
       .lb-primary-button:hover:not(:disabled),
       .lb-secondary-button:hover:not(:disabled),
+      .lb-undo-button:hover:not(:disabled),
       .lb-submit-button:hover:not(:disabled) {
         transform: translateY(-2px) scale(1.025);
         filter: brightness(1.05);
@@ -1421,12 +1475,14 @@ function LBResetStyle() {
 
       .lb-primary-button:active:not(:disabled),
       .lb-secondary-button:active:not(:disabled),
+      .lb-undo-button:active:not(:disabled),
       .lb-submit-button:active:not(:disabled) {
         transform: translateY(1px) scale(0.98);
       }
 
       .lb-primary-button:disabled,
       .lb-secondary-button:disabled,
+      .lb-undo-button:disabled,
       .lb-submit-button:disabled {
         opacity: 0.48;
         cursor: not-allowed;
@@ -2502,6 +2558,12 @@ function LBResetStyle() {
         pointer-events: auto;
       }
 
+      .lb-playing-panel .lb-undo-button {
+        min-width: clamp(82px, 9vw, 112px);
+        min-height: clamp(48px, 5.4vh, 62px);
+        pointer-events: auto;
+      }
+
       @media (max-width: 760px) {
         .lb-playing-panel .lb-play-board {
           inset: 18px 12px 92px;
@@ -2509,6 +2571,17 @@ function LBResetStyle() {
 
         .lb-playing-panel .lb-game-footer {
           bottom: 12px;
+          width: 96vw;
+          gap: 8px;
+        }
+
+        .lb-playing-panel .lb-submit-button {
+          min-width: 128px;
+        }
+
+        .lb-playing-panel .lb-undo-button {
+          min-width: 76px;
+          padding-inline: 12px;
         }
       }
 

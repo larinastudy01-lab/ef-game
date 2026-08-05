@@ -30,7 +30,7 @@ const ABILITY_AREAS = {
     title: "反應森林",
     subtitle: "練習專心看目標，不亂點",
     story: "波波和皮皮要幫小松鼠接橡實，也要幫狐狸夫婦趕走蒼蠅。",
-    games: ["SRT", "DPT"],
+    games: ["SRT", "SSG"],
   },
   flexibility: {
     title: "變化森林",
@@ -64,13 +64,13 @@ const GAME_CONFIG = {
     route: "/training-srt",
     storageKey: "srtTrainingResult",
   },
-  DPT: {
-    name: "趕走蒼蠅",
-    character: "狐狸夫婦",
+  SSG: {
+    name: "SSG 聲音符號遊戲",
+    character: "貓咪與狗狗",
     ability: "inhibition",
     description: "找到搗亂蒼蠅，幫派對順利開始。",
-    route: "/training-dot-probe",
-    storageKey: "dptTrainingResult",
+    route: "/training-ssg",
+    storageKey: "ssgTrainingResult",
   },
   LB: {
     name: "回家小路",
@@ -127,6 +127,15 @@ const getStoredResult = (storageKey) => {
   return (
     safeParse(localStorage.getItem(storageKey)) ||
     safeParse(sessionStorage.getItem(storageKey))
+  );
+};
+
+const getCurrentChild = () => {
+  return (
+    safeParse(localStorage.getItem("currentChild")) ||
+    safeParse(sessionStorage.getItem("currentChild")) ||
+    safeParse(localStorage.getItem("selectedChild")) ||
+    safeParse(sessionStorage.getItem("selectedChild"))
   );
 };
 
@@ -227,6 +236,7 @@ const warningTextMap = {
 
 const TrainingMapPage = () => {
   const navigate = useNavigate();
+  const currentChild = useMemo(() => getCurrentChild(), []);
   const [selectedAbility, setSelectedAbility] = useState("memory");
   const [selectedGameId, setSelectedGameId] = useState(null);
 
@@ -251,6 +261,9 @@ const TrainingMapPage = () => {
 
     navigate(game.route, {
       state: {
+        child: currentChild,
+        currentChild,
+        childId: currentChild?.childId || currentChild?.id || null,
         gameId: selectedGameId,
         difficulty,
         fromTrainingMap: true,
@@ -264,6 +277,9 @@ const TrainingMapPage = () => {
 
     navigate(game.route, {
       state: {
+        child: currentChild,
+        currentChild,
+        childId: currentChild?.childId || currentChild?.id || null,
         gameId: recommendation.gameId,
         difficulty: recommendation.difficulty,
         fromTrainingMap: true,

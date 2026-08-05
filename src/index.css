@@ -11,3 +11,105 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Shared artwork for every test/training start card. */
+.game-start-card-artwork {
+  position: relative;
+  border: 0 !important;
+  background-image: url("./asset/home/gamecard.webp") !important;
+  background-position: center !important;
+  background-size: 107% 107% !important;
+  background-repeat: no-repeat !important;
+  box-shadow: none !important;
+  filter: none !important;
+  overflow: hidden !important;
+}
+
+.game-start-card-artwork::before,
+.game-start-card-artwork::after {
+  display: none !important;
+}
+
+/* Video steps need more room than the start/instruction cards. */
+.game-start-card-artwork:has(video) {
+  width: min(96vw, 1380px) !important;
+  min-height: min(92vh, 900px) !important;
+}
+
+@media (max-width: 768px) {
+  .game-start-card-artwork:has(video) {
+    width: 96vw !important;
+    min-height: min(88vh, 720px) !important;
+  }
+}
+
+/* Compact result card shared by all tests and training activities. */
+.game-result-card-artwork {
+  position: relative !important;
+  width: min(84vw, 860px) !important;
+  min-height: min(68vh, 610px) !important;
+  border: 0 !important;
+  background-image: url("./asset/home/gamecard.webp") !important;
+  background-position: center !important;
+  background-size: 107% 107% !important;
+  background-repeat: no-repeat !important;
+  box-shadow: none !important;
+  filter: none !important;
+  overflow: visible !important;
+}
+
+.game-result-card-artwork::before,
+.game-result-card-artwork::after {
+  display: none !important;
+}
+
+.srt-cute-star,
+.ssg-cute-star,
+.lb-cute-star,
+.Dcss-cute-star,
+.cbt-result-stars > span,
+.cbt-cute-star-shell,
+.game-result-star {
+  display: inline-block !important;
+  width: 150px !important;
+  height: 150px !important;
+  color: transparent !important;
+  font-size: 0 !important;
+  background: url("./asset/home/icon/一星_no_bg.webp") center / contain no-repeat !important;
+  opacity: 0.28;
+  filter: grayscale(1);
+}
+
+.srt-cute-star.is-on,
+.ssg-cute-star.is-on,
+.lb-cute-star.is-on,
+.Dcss-cute-star.is-on,
+.cbt-result-stars > span.is-earned,
+.cbt-cute-star-shell:has(.is-on),
+.game-result-star.is-earned {
+  opacity: 1;
+  filter: none;
+}
+
+.cbt-cute-star-shell svg,
+.game-result-star svg {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .game-result-card-artwork {
+    width: 92vw !important;
+    min-height: min(64vh, 560px) !important;
+  }
+
+  .srt-cute-star,
+  .ssg-cute-star,
+  .lb-cute-star,
+  .Dcss-cute-star,
+  .cbt-result-stars > span,
+  .cbt-cute-star-shell,
+  .game-result-star {
+    width: clamp(68px, 18vw, 100px) !important;
+    height: clamp(68px, 18vw, 100px) !important;
+  }
+}

@@ -353,7 +353,8 @@ video.cbt-video {
 
 .cbt-stone {
   width: calc(100% * var(--cbt-stone-scale));
-  height: calc(100% * var(--cbt-stone-scale));
+  height: auto;
+  aspect-ratio: 360 / 203;
   object-fit: contain;
   transform: translate(-16%, -16%);
   transition: transform 0.2s ease, filter 0.2s ease, opacity 0.2s ease;
@@ -413,6 +414,7 @@ video.cbt-video {
 .cbt-person {
   position: absolute;
   width: var(--cbt-person-width);
+  height: auto;
   left: 50%;
   top: -26px;
   transform: translateX(-50%);

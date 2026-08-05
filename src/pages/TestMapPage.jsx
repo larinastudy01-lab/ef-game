@@ -1,21 +1,22 @@
 import React, { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import gameMapBackground from "../asset/GameMap.png";
-import srtIcon from "../asset/SRT_icon.png";
-import pmIcon from "../asset/PM_icon.png";
-import cbtIcon from "../asset/CBT_icon.png";
-import dptIcon from "../asset/DPT_icon.png";
-import dccsIcon from "../asset/DCCS_icon.png";
-import lbIcon from "../asset/LB_icon.png";
-import mouseGuide from "../asset/mouse.png";
-import resetIcon from "../asset/home/remove.png";
+import gameMapBackground from "../asset/GameMap.webp";
+import srtIcon from "../asset/SRT/SRT_icon.webp";
+import pmIcon from "../asset/PM_icon.webp";
+import cbtIcon from "../asset/CBT_icon.webp";
+import ssgIcon from "../asset/SSG/cat.webp";
+import dccsIcon from "../asset/DCCS_icon.webp";
+import lbIcon from "../asset/LB_icon.webp";
+import mouseGuide from "../asset/mouse.webp";
+import resetIcon from "../asset/home/remove.webp";
+import useTemporaryTestUnlock from "../utils/useTemporaryTestUnlock";
 import "../styles/TestMapPage.css";
 
 /**
  * TestMapPage.jsx
  *
  * 幼兒版森林測驗地圖：
- * - 全螢幕 GameMap.png 背景
+ * - 全螢幕 GameMap.webp 背景
  * - 測驗固定順序，避免孩子亂跳未解鎖關卡
  * - 關卡使用 asset 裡的大圖片 icon，不在 icon 下方顯示文字
  * - hover / focus 只讓關卡圓圈微微發光，不做大位移
@@ -24,64 +25,64 @@ import "../styles/TestMapPage.css";
 
 const TEST_GAMES = [
   {
-    gameId: "SRT",
+    gameId: "SSG",
     level: 1,
-    name: "橡實反應任務",
-    childText: "找橡實",
-    route: "/test-srt",
-    icon: srtIcon,
-    x: 8.2,
-    y: 62.4,
-  },
-  {
-    gameId: "PM",
-    level: 2,
-    name: "湖邊圖片記憶",
-    childText: "記圖片",
-    route: "/test-picture-memory",
-    icon: pmIcon,
-    x: 24.8,
-    y: 65.1,
-  },
-  {
-    gameId: "CBT",
-    level: 3,
-    name: "石頭小橋記憶",
-    childText: "走石橋",
-    route: "/test-cbt",
-    icon: cbtIcon,
-    x: 43.8,
-    y: 55.1,
-  },
-  {
-    gameId: "DPT",
-    level: 4,
-    name: "蒼蠅注意任務",
-    childText: "找小蟲",
-    route: "/test-dot-probe",
-    icon: dptIcon,
-    x: 56.4,
-    y: 49.7,
+    name: "SSG 聲音符號遊戲",
+    childText: "聽聲音選相反動物",
+    route: "/test-ssg",
+    icon: ssgIcon,
+    x: 8.6,
+    y: 76.0,
   },
   {
     gameId: "DCCS",
-    level: 5,
-    name: "孔雀服飾分類",
+    level: 2,
+    name: "孔雀小姐的服飾店",
     childText: "換規則",
     route: "/test-dccs",
     icon: dccsIcon,
-    x: 74.5,
-    y: 45.0,
+    x: 24.8,
+    y: 74.4,
+  },
+  {
+    gameId: "PM",
+    level: 3,
+    name: "湖中女神與兔子妹妹",
+    childText: "記圖片",
+    route: "/test-picture-memory",
+    icon: pmIcon,
+    x: 43.6,
+    y: 60.8,
+  },
+  {
+    gameId: "CBT",
+    level: 4,
+    name: "鹿先生要過河",
+    childText: "走石橋",
+    route: "/test-cbt",
+    icon: cbtIcon,
+    x: 56.8,
+    y: 58.4,
   },
   {
     gameId: "LB",
-    level: 6,
-    name: "綿羊奶奶回家路",
+    level: 5,
+    name: "綿羊奶奶迷路了",
     childText: "排路標",
     route: "/test-linking-balloons",
     icon: lbIcon,
-    x: 90.6,
-    y: 36.8,
+    x: 74.9,
+    y: 56.8,
+  },
+  {
+    gameId: "SRT",
+    level: 6,
+    name: "松鼠弟弟採橡實",
+    childText: "找橡實",
+    route: "/test-srt",
+    icon: srtIcon,
+    x: 90.8,
+    y: 53.8,
   },
 ];
 
@@ -100,7 +101,7 @@ const LEGACY_RESULT_KEYS = {
   SRT: ["srtTestResult", "SRT_RESULT", "srtResult", "testResult_SRT", "SRT_testResult"],
   PM: ["pmTestResult", "PM_RESULT", "pmResult", "pictureMemoryTestResult", "testResult_PM", "PM_testResult"],
   CBT: ["cbtTestResult", "CBT_RESULT", "cbtResult", "testResult_CBT", "CBT_testResult"],
-  DPT: ["dptTestResult", "DPT_RESULT", "dotProbeTestResult", "testResult_DPT", "DPT_testResult"],
+  SSG: ["ssgTestResult", "SSG_RESULT", "testResult_SSG", "SSG_testResult"],
   DCCS: ["dccsTestResult", "DCCS_RESULT", "dccsResult", "testResult_DCCS", "DCCS_testResult"],
   LB: ["lbTestResult", "LB_RESULT", "linkingBalloonsTestResult", "testResult_LB", "LB_testResult"],
 };
@@ -109,7 +110,7 @@ const LEGACY_STAR_KEYS = {
   SRT: ["srtStars", "srt_stars", "SRT_stars", "trainingSrtStars", "srtTrainingStars", "srtTrainingResult"],
   PM: ["pmStars", "pm_stars", "PM_stars", "trainingPmStars", "pmTrainingStars", "pmTrainingResult"],
   CBT: ["cbtStars", "cbt_stars", "CBT_stars", "trainingCbtStars", "cbtTrainingStars", "cbtTrainingResult"],
-  DPT: ["dptStars", "dpt_stars", "DPT_stars", "trainingDptStars", "dptTrainingStars", "dptTrainingResult"],
+  SSG: ["ssgStars", "ssg_stars", "SSG_stars", "trainingSsgStars", "ssgTrainingStars", "ssgTrainingResult"],
   DCCS: ["dccsStars", "dccs_stars", "DCCS_stars", "trainingDccsStars", "dccsTrainingStars", "dccsTrainingResult"],
   LB: ["lbStars", "lb_stars", "LB_stars", "trainingLbStars", "lbTrainingStars", "lbTrainingResult"],
 };
@@ -182,13 +183,58 @@ const getCurrentChild = () => {
   return readStorage("currentChild") || readStorage("selectedChild");
 };
 
+const getCurrentChildId = () => {
+  const child = getCurrentChild();
+  return (
+    child?.childId ||
+    child?.id ||
+    child?.patientId ||
+    readStorage("currentChildId") ||
+    readStorage("selectedChildId") ||
+    null
+  );
+};
+
+const getResultChildId = (result) => {
+  if (!result || typeof result !== "object") return null;
+  return (
+    result.childId ||
+    result.patientId ||
+    result.patient_id ||
+    result.currentChildId ||
+    result.selectedChildId ||
+    result?.child?.childId ||
+    result?.child?.id ||
+    result?.currentChild?.childId ||
+    result?.currentChild?.id ||
+    null
+  );
+};
+
+const belongsToCurrentChild = (result) => {
+  const currentChildId = getCurrentChildId();
+  const resultChildId = getResultChildId(result);
+
+  if (!currentChildId || !resultChildId) return true;
+  return String(currentChildId) === String(resultChildId);
+};
+
 const getStoredResult = (gameId) => {
   const canonicalKey = STORAGE_KEYS.result(gameId);
-  const keys = [canonicalKey, ...(LEGACY_RESULT_KEYS[gameId] || [])];
+  const childId = getCurrentChildId();
+  const mode = "test";
+  const childScopedKeys = childId
+    ? [
+        `result:${childId}:${gameId}:${mode}`,
+        `${canonicalKey}_${childId}`,
+        ...(LEGACY_RESULT_KEYS[gameId] || []).map((key) => `${key}_${childId}`),
+      ]
+    : [];
+  const keys = [...childScopedKeys, canonicalKey, ...(LEGACY_RESULT_KEYS[gameId] || [])];
 
   for (const key of keys) {
     const result = readStorage(key);
-    if (result && typeof result === "object") {
+    if (result && typeof result === "object" && belongsToCurrentChild(result)) {
       if (key !== canonicalKey) writeCanonicalStorage(canonicalKey, result);
       return result;
     }
@@ -200,17 +246,27 @@ const getStoredResult = (gameId) => {
 const getStoredStars = (gameId, result) => {
   const canonicalKey = STORAGE_KEYS.stars(gameId);
   const canonicalSummaryKey = STORAGE_KEYS.trainingSummary(gameId);
-  const keys = [
+  const childId = getCurrentChildId();
+  const baseKeys = [
     canonicalKey,
     canonicalSummaryKey,
     ...(LEGACY_STAR_KEYS[gameId] || []),
     ...(LEGACY_RESULT_KEYS[gameId] || []),
   ];
+  const keys = childId
+    ? [
+        `result:${childId}:${gameId}:test`,
+        ...baseKeys.map((key) => `${key}_${childId}`),
+      ]
+    : baseKeys;
 
   let bestStars = normalizeStars(result);
 
   for (const key of keys) {
     const storedValue = readStorage(key);
+    if (storedValue && typeof storedValue === "object" && !belongsToCurrentChild(storedValue)) {
+      continue;
+    }
     const stars = normalizeStars(storedValue);
     if (stars > bestStars) bestStars = stars;
 
@@ -229,26 +285,6 @@ const getStoredStars = (gameId, result) => {
   }
 
   return Math.min(3, Math.max(0, bestStars));
-};
-
-const isObjectWithData = (value) => {
-  if (!value || typeof value !== "object") return false;
-  if (Array.isArray(value)) return value.length > 0;
-  return Object.keys(value).length > 0;
-};
-
-const getLatestResults = () => {
-  const candidates = [
-    readStorage(STORAGE_KEYS.latestResults),
-    readStorage("latestResults"),
-    readStorage("latestTestResults"),
-    readStorage("parentLatestResults"),
-  ];
-
-  const latest = candidates.find(isObjectWithData) || null;
-  if (latest) writeCanonicalStorage(STORAGE_KEYS.latestResults, latest);
-
-  return latest;
 };
 
 const normalizeRecommendedIds = (value) => {
@@ -328,7 +364,7 @@ const createTestFlow = ({ child, startIndex = 0, mode = "full" }) => {
   };
 };
 
-const MAP_PATH_D = "M 2.8 62.6 C 10.5 60.4, 17.1 64.3, 24.8 65.1 C 33.8 66.0, 37.6 60.0, 43.8 55.1 C 49.0 50.9, 52.6 49.4, 56.4 49.7 C 64.3 50.4, 68.2 46.6, 74.5 45.0 C 81.5 43.2, 85.0 38.9, 92.5 36.7";
+const MAP_PATH_D = "M 2.5 79 C 10 75, 17 76, 24.8 74.4 C 32 72.8, 37 64.5, 43.6 60.8 C 48 58.4, 52.5 58.1, 56.8 58.4 C 64 58.9, 68.7 57.8, 74.9 56.8 C 81.5 55.7, 86 54.6, 97 53.2";
 
 const ForestLeaf = ({ x, y, rotate = 0 }) => (
   <g transform={`translate(${x} ${y}) rotate(${rotate})`}>
@@ -346,10 +382,11 @@ const TestMapPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const child = location.state?.child || getCurrentChild();
-  const [resultModal, setResultModal] = useState(null);
   const [resetVersion, setResetVersion] = useState(0);
+  const isTestUnlockEnabled = useTemporaryTestUnlock();
 
   const gamesWithStatus = useMemo(() => {
+    void resetVersion;
     const aiRecommendedIds = getAiRecommendedGameIds();
     const games = TEST_GAMES.map((game) => {
       const result = getStoredResult(game.gameId);
@@ -374,7 +411,7 @@ const TestMapPage = () => {
       const isUnlockedByPreviousStars = index === 0 || Boolean(previousGame?.isPassedByStars || previousGame?.result);
       const isUnlocked = isCompleted || isSequentiallyAvailable || isUnlockedByPreviousStars;
       const isActive = !isCompleted && isUnlocked;
-      const isLocked = !isUnlocked;
+      const isLocked = !isTestUnlockEnabled && !isUnlocked;
       const status = isCompleted ? "completed" : isActive && game.isAiRecommended ? "recommended" : isActive ? "active" : "locked";
 
       return {
@@ -395,9 +432,8 @@ const TestMapPage = () => {
                 : "尚未解鎖",
       };
     });
-  }, [resetVersion]);
+  }, [isTestUnlockEnabled, resetVersion]);
 
-  const completedCount = gamesWithStatus.filter((game) => game.isCompleted).length;
   const guideGame = gamesWithStatus.find((game) => game.isActive) || null;
 
   const startTest = (game, mode = "single") => {
@@ -418,6 +454,7 @@ const TestMapPage = () => {
         gameId: game.gameId,
         testFlow,
         isFullTest: mode === "full",
+        temporaryTestUnlock: isTestUnlockEnabled,
         replayPath: game.route,
         difficultyPath: game.route,
         forestPath: "/test-map",
@@ -428,20 +465,27 @@ const TestMapPage = () => {
   };
 
   const resetAllTests = () => {
+    const childId = getCurrentChildId();
+
     TEST_GAMES.forEach((game) => {
-      localStorage.removeItem(STORAGE_KEYS.result(game.gameId));
-      localStorage.removeItem(STORAGE_KEYS.trainingSummary(game.gameId));
-      localStorage.removeItem(STORAGE_KEYS.stars(game.gameId));
-      sessionStorage.removeItem(STORAGE_KEYS.result(game.gameId));
-      sessionStorage.removeItem(STORAGE_KEYS.trainingSummary(game.gameId));
-      sessionStorage.removeItem(STORAGE_KEYS.stars(game.gameId));
+      const canonicalKeys = [
+        STORAGE_KEYS.result(game.gameId),
+        STORAGE_KEYS.trainingSummary(game.gameId),
+        STORAGE_KEYS.stars(game.gameId),
+      ];
+      const legacyKeys = [
+        ...(LEGACY_RESULT_KEYS[game.gameId] || []),
+        ...(LEGACY_STAR_KEYS[game.gameId] || []),
+      ];
+      const childScopedKeys = childId
+        ? [
+            `result:${childId}:${game.gameId}:test`,
+            ...canonicalKeys.map((key) => `${key}_${childId}`),
+            ...legacyKeys.map((key) => `${key}_${childId}`),
+          ]
+        : [];
 
-      (LEGACY_RESULT_KEYS[game.gameId] || []).forEach((key) => {
-        localStorage.removeItem(key);
-        sessionStorage.removeItem(key);
-      });
-
-      (LEGACY_STAR_KEYS[game.gameId] || []).forEach((key) => {
+      [...canonicalKeys, ...legacyKeys, ...childScopedKeys].forEach((key) => {
         localStorage.removeItem(key);
         sessionStorage.removeItem(key);
       });
@@ -467,30 +511,6 @@ const TestMapPage = () => {
     });
 
     setResetVersion((value) => value + 1);
-    setResultModal(null);
-  };
-
-  const closeResultModal = () => setResultModal(null);
-
-  const openParentResult = () => {
-    const latestResults = getLatestResults();
-    const hasAnyGameResult = gamesWithStatus.some((game) => game.result || game.stars > 0);
-
-    if (!isObjectWithData(latestResults) && !hasAnyGameResult) {
-      setResultModal({
-        title: "還沒有可以看的結果",
-        message: "先完成至少一個森林任務後，大人就可以看到孩子的星等與表現摘要。",
-      });
-      return;
-    }
-
-    navigate("/result-pa", {
-      state: {
-        fromTestMap: true,
-        child,
-        latestResults: latestResults || gamesWithStatus.filter((game) => game.result || game.stars > 0),
-      },
-    });
   };
 
   return (
@@ -512,7 +532,7 @@ const TestMapPage = () => {
           overflow: hidden;
           font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
           color: #3f2d1c;
-          background: #86d6f5;
+          background: transparent;
         }
 
         .kid-map-stage {
@@ -521,21 +541,46 @@ const TestMapPage = () => {
           width: 100vw;
           height: 100vh;
           overflow: hidden;
+          background: var(--game-map-bg) center / cover no-repeat;
+          isolation: isolate;
+        }
+
+        .kid-map-canvas {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
           background-image: var(--game-map-bg);
           background-size: cover;
-          background-position: center center;
+          background-position: center;
           background-repeat: no-repeat;
-          isolation: isolate;
         }
 
         .kid-map-stage::before {
           content: "";
           position: absolute;
           inset: 0;
-          z-index: 0;
+          z-index: -1;
           background:
             radial-gradient(circle at 24% 17%, rgba(255, 255, 255, 0.18), transparent 28%),
             linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(34, 81, 31, 0.1));
+          pointer-events: none;
+        }
+
+        .temporary-test-unlock-badge {
+          position: fixed;
+          left: 50%;
+          bottom: 14px;
+          z-index: 50;
+          transform: translateX(-50%);
+          padding: 8px 16px;
+          border: 2px solid rgba(255, 255, 255, 0.9);
+          border-radius: 999px;
+          background: rgba(176, 45, 45, 0.92);
+          color: #fff;
+          font-size: 14px;
+          font-weight: 900;
+          box-shadow: 0 6px 16px rgba(58, 30, 20, 0.24);
           pointer-events: none;
         }
 
@@ -562,21 +607,17 @@ const TestMapPage = () => {
 
         .kid-map-back,
         .kid-map-right-tools,
-        .kid-map-progress,
-        .kid-map-parent,
         .kid-map-reset {
           pointer-events: auto;
         }
 
         .kid-map-right-tools {
+          width: auto;
           display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          gap: 10px;
+          pointer-events: auto;
         }
 
         .kid-map-back,
-        .kid-map-parent,
         .kid-map-reset {
           border: 0;
           cursor: pointer;
@@ -594,50 +635,20 @@ const TestMapPage = () => {
           white-space: nowrap;
         }
 
-
-        .kid-map-progress {
-          min-height: 50px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 0 16px;
-          border-radius: 999px;
-          color: #fff;
-          background: linear-gradient(180deg, #62c66e, #269549);
-          box-shadow: inset 0 -5px 0 rgba(19, 86, 44, 0.28), 0 9px 16px rgba(40, 95, 48, 0.2);
-          font-weight: 950;
-          white-space: nowrap;
-        }
-
-        .kid-map-progress strong {
-          font-size: 1.3rem;
-        }
-
-
-        .kid-map-parent {
-          min-height: 48px;
-          padding: 0 18px;
-          border-radius: 999px;
-          color: #fff;
-          font-size: 1rem;
-          background: linear-gradient(180deg, #78caff, #3685dd);
-          box-shadow: inset 0 -5px 0 rgba(0, 0, 0, 0.18), 0 10px 18px rgba(51, 80, 41, 0.23);
-        }
-
         .kid-map-reset {
           width: 72px;
-          height: 72px;
+          height: 52px;
           padding: 0;
-          border-radius: 20;
+          border-radius: 18px;
           display: grid;
           place-items: center;
-          background: transparent;
-          box-shadow: none;
+          background: rgba(255, 248, 218, 0.94);
+          box-shadow: inset 0 -4px 0 rgba(147, 93, 33, 0.14), 0 8px 14px rgba(51, 80, 41, 0.2);
         }
 
         .kid-map-reset img {
-          width: 180%;
-          height: 180%;
+          width: 92%;
+          height: 92%;
           object-fit: contain;
           display: block;
           filter: drop-shadow(0 8px 10px rgba(51, 80, 41, 0.22));
@@ -650,29 +661,29 @@ const TestMapPage = () => {
           width: 100%;
           height: 100%;
           pointer-events: none;
-          filter: drop-shadow(0 8px 8px rgba(55, 76, 34, 0.16));
+          filter: drop-shadow(0 6px 5px rgba(87, 60, 26, 0.14));
         }
 
         .kid-map-path-base {
-          stroke: rgba(92, 116, 57, 0.32);
-          stroke-width: 8.8;
+          stroke: rgba(151, 104, 45, 0.34);
+          stroke-width: 11;
           stroke-linecap: round;
           stroke-linejoin: round;
         }
 
         .kid-map-path-inner {
-          stroke: rgba(210, 222, 145, 0.46);
-          stroke-width: 4.8;
+          stroke: rgba(255, 224, 151, 0.42);
+          stroke-width: 7.4;
           stroke-linecap: round;
           stroke-linejoin: round;
         }
 
         .kid-map-path-dots {
-          stroke: rgba(64, 133, 61, 0.38);
-          stroke-width: 9.6;
+          stroke: rgba(126, 87, 39, 0.4);
+          stroke-width: 1.15;
           stroke-linecap: round;
           stroke-linejoin: round;
-          stroke-dasharray: 0.75 8.2;
+          stroke-dasharray: 0.8 3.2;
         }
 
         .kid-level-node {
@@ -817,7 +828,6 @@ const TestMapPage = () => {
         }
 
         .kid-map-back:hover,
-        .kid-map-parent:hover,
         .kid-map-reset:hover {
           filter: brightness(1.04);
         }
@@ -907,24 +917,9 @@ const TestMapPage = () => {
             gap: 8px;
           }
 
-
-          .kid-map-right-tools {
-            flex-direction: row;
-            align-items: center;
-          }
-
-          .kid-map-progress {
-            min-height: 42px;
-            padding: 0 14px;
-          }
-
         }
 
         @media (max-width: 640px) {
-          .kid-map-stage {
-            background-position: center center;
-          }
-
           .kid-map-topbar {
             left: 8px;
             right: 8px;
@@ -937,41 +932,33 @@ const TestMapPage = () => {
             font-size: 0.86rem;
           }
 
-
-
-          .kid-map-parent {
-            min-height: 46px;
-            font-size: 0.9rem;
-            padding: 0 14px;
-          }
-
           .kid-level-node {
-            width: 74px;
-            height: 74px;
+            width: clamp(48px, 13vw, 74px);
+            height: clamp(48px, 13vw, 74px);
           }
 
           .kid-level-circle {
-            width: 70px;
-            height: 70px;
-            border-width: 5px;
+            width: clamp(46px, 12vw, 70px);
+            height: clamp(46px, 12vw, 70px);
+            border-width: 4px;
           }
 
           .kid-level-main-icon {
-            width: 48px;
-            height: 48px;
+            width: clamp(32px, 8.5vw, 48px);
+            height: clamp(32px, 8.5vw, 48px);
           }
 
           .kid-level-status {
-            width: 24px;
-            height: 24px;
-            right: -7px;
-            top: -7px;
-            font-size: 0.78rem;
+            width: clamp(19px, 5vw, 24px);
+            height: clamp(19px, 5vw, 24px);
+            right: -5px;
+            top: -5px;
+            font-size: 0.68rem;
           }
 
           .kid-map-reset {
             width: 62px;
-            height: 62px;
+            height: 46px;
             padding: 0;
           }
 
@@ -986,6 +973,7 @@ const TestMapPage = () => {
         style={{ "--game-map-bg": `url(${gameMapBackground})` }}
         aria-label="幼兒森林測驗地圖"
       >
+        {isTestUnlockEnabled && <div className="temporary-test-unlock-badge">測試解鎖中</div>}
         <header className="kid-map-topbar">
           <div className="kid-map-left-tools">
             <button
@@ -999,12 +987,6 @@ const TestMapPage = () => {
           </div>
 
           <div className="kid-map-right-tools">
-            <div className="kid-map-progress" aria-label={`目前完成 ${completedCount} 關，共 6 關`}>
-              <span>⭐</span>
-              <strong>{completedCount}</strong>
-              <span>/ 6</span>
-            </div>
-
             <button
               type="button"
               className="kid-map-reset"
@@ -1012,27 +994,24 @@ const TestMapPage = () => {
               aria-label="重新測驗"
               title="重新測驗"
             >
-              <img src={resetIcon} alt="" draggable="false" />
-            </button>
-
-            <button type="button" className="kid-map-parent" onClick={openParentResult}>
-              給大人看結果
+              <img width={1024} height={341} src={resetIcon} alt="" draggable="false" />
             </button>
           </div>
         </header>
 
+        <div className="kid-map-canvas">
         <svg className="kid-map-path-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           <path d={MAP_PATH_D} fill="none" className="kid-map-path-base" />
           <path d={MAP_PATH_D} fill="none" className="kid-map-path-inner" />
           <path d={MAP_PATH_D} fill="none" className="kid-map-path-dots" />
 
-          <ForestLeaf x={17} y={63.5} rotate={-22} />
-          <ForestLeaf x={22} y={65.4} rotate={16} />
-          <ForestLeaf x={35} y={61.3} rotate={-8} />
-          <ForestLeaf x={49} y={51.6} rotate={25} />
-          <ForestLeaf x={62} y={49.2} rotate={-18} />
-          <ForestLeaf x={70} y={46.3} rotate={12} />
-          <ForestLeaf x={84} y={40.4} rotate={-20} />
+          <ForestLeaf x={16} y={76.1} rotate={-22} />
+          <ForestLeaf x={31} y={70.5} rotate={16} />
+          <ForestLeaf x={38} y={64.1} rotate={-8} />
+          <ForestLeaf x={50} y={58.2} rotate={25} />
+          <ForestLeaf x={64} y={58.4} rotate={-18} />
+          <ForestLeaf x={81} y={55.8} rotate={12} />
+          <ForestLeaf x={95} y={53.5} rotate={-20} />
         </svg>
 
         {gamesWithStatus.map((game) => {
@@ -1058,7 +1037,7 @@ const TestMapPage = () => {
             >
               <span className="kid-level-circle">
                 <span className="kid-level-main-icon" aria-hidden="true">
-                  <img src={game.icon} alt="" draggable="false" />
+                  <img loading="lazy" src={game.icon} alt="" draggable="false" />
                 </span>
                 <span className="kid-level-status" aria-hidden="true">{statusIcon}</span>
               </span>
@@ -1067,7 +1046,7 @@ const TestMapPage = () => {
         })}
 
         {guideGame && (
-          <img
+          <img width={1024} height={1024} loading="lazy"
             className="kid-mouse-guide"
             src={mouseGuide}
             alt=""
@@ -1076,30 +1055,7 @@ const TestMapPage = () => {
             style={{ "--mouse-x": `${guideGame.x}%`, "--mouse-y": `${guideGame.y}%` }}
           />
         )}
-
-        {resultModal && (
-          <div
-            className="kid-result-modal-backdrop"
-            role="presentation"
-            onClick={closeResultModal}
-          >
-            <section
-              className="kid-result-modal-card"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="kid-result-modal-title"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <h2 id="kid-result-modal-title">{resultModal.title}</h2>
-              <p>{resultModal.message}</p>
-              <div className="kid-result-modal-actions">
-                <button type="button" className="kid-result-modal-close" onClick={closeResultModal}>
-                  我知道了
-                </button>
-              </div>
-            </section>
-          </div>
-        )}
+        </div>
 
       </section>
     </main>
@@ -1107,4 +1063,3 @@ const TestMapPage = () => {
 };
 
 export default TestMapPage;
-

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/GamePage_LB.css";
 import { saveUnifiedResult } from "../utils/resultManager";
@@ -7,48 +7,18 @@ import {
   getLBInitialTrainingConfig,
 } from "../ai/lbTrainingAnalyzer";
 
-import backgroundImg from "../asset/LB/background.png";
-import sheepImg from "../asset/LB/sheep.png";
-import homeImg from "../asset/LB/home.png";
-import red01Img from "../asset/LB/red_01.png";
-import red02Img from "../asset/LB/red_02.png";
-import red03Img from "../asset/LB/red_03.png";
-import red04Img from "../asset/LB/red_04.png";
-import red05Img from "../asset/LB/red_05.png";
-import red06Img from "../asset/LB/red_06.png";
-import red07Img from "../asset/LB/red_07.png";
-import red08Img from "../asset/LB/red_08.png";
-import red09Img from "../asset/LB/red_09.png";
-import red10Img from "../asset/LB/red_10.png";
-import blue01Img from "../asset/LB/blue_01.png";
-import blue02Img from "../asset/LB/blue_02.png";
-import blue03Img from "../asset/LB/blue_03.png";
-import blue04Img from "../asset/LB/blue_04.png";
-import blue05Img from "../asset/LB/blue_05.png";
-import blue06Img from "../asset/LB/blue_06.png";
-import blue07Img from "../asset/LB/blue_07.png";
-import blue08Img from "../asset/LB/blue_08.png";
-import blue09Img from "../asset/LB/blue_09.png";
-import blue10Img from "../asset/LB/blue_10.png";
-import green01Img from "../asset/LB/green_01.png";
-import green02Img from "../asset/LB/green_02.png";
-import green03Img from "../asset/LB/green_03.png";
-import green04Img from "../asset/LB/green_04.png";
-import green05Img from "../asset/LB/green_05.png";
-import green06Img from "../asset/LB/green_06.png";
-import green07Img from "../asset/LB/green_07.png";
-import green08Img from "../asset/LB/green_08.png";
-import green09Img from "../asset/LB/green_09.png";
-import green10Img from "../asset/LB/green_10.png";
+import backgroundImg from "../asset/LB/LB_background.webp";
+import homeImg from "../asset/LB/grandma_sheep_house.webp";
+import blowingBubblesImg from "../asset/LB/blowing_bubbles.webp";
 import introVideo from "../asset/mp4/LB_start.mp4";
 import stepVideo from "../asset/mp4/LB_step.mp4";
 import endingVideo from "../asset/mp4/LB_end.mp4";
-import homeStartBtn from "../asset/home/start.png";
-import homeSkipBtn from "../asset/home/skip.png";
-import homeBackBtn from "../asset/home/back.png";
-import homeAgainBtn from "../asset/home/again.png";
-import homeResultBtn from "../asset/home/result.png";
-import mouseGuideImg from "../asset/mouse.png";
+import homeStartBtn from "../asset/home/start.webp";
+import homeSkipBtn from "../asset/home/skip.webp";
+import homeBackBtn from "../asset/home/back.webp";
+import homeAgainBtn from "../asset/home/again.webp";
+import homeResultBtn from "../asset/home/result.webp";
+import mouseGuideImg from "../asset/mouse.webp";
 
 const RESULT_ROUTE = "/result-lb";
 const SESSION_KEY = "LB_TRAINING_RESULT";
@@ -82,16 +52,14 @@ const getQueryValue = (search, key) => {
   return params.get(key);
 };
 
-const DOORPLATE_IMAGES = {
-  red: [red01Img, red02Img, red03Img, red04Img, red05Img, red06Img, red07Img, red08Img, red09Img, red10Img],
-  blue: [blue01Img, blue02Img, blue03Img, blue04Img, blue05Img, blue06Img, blue07Img, blue08Img, blue09Img, blue10Img],
-  green: [green01Img, green02Img, green03Img, green04Img, green05Img, green06Img, green07Img, green08Img, green09Img, green10Img],
-};
+const doorplateAssets = require.context("../asset/LB", false, /(?:blue|yellow)_\d{2}\.webp$/);
+const walkAssets = require.context("../asset/LB/walk", false, /\.webp$/);
+const WALK_IMAGES = walkAssets.keys().sort().map(walkAssets);
 
 function getDoorplateImage(color, number) {
-  const imageColor = color === "red" || color === "blue" ? color : "green";
-  const safeNumber = Math.min(10, Math.max(1, Number(number) || 1));
-  return DOORPLATE_IMAGES[imageColor][safeNumber - 1];
+  const imageColor = color === "blue" ? "blue" : "yellow";
+  const safeNumber = String(Math.min(30, Math.max(1, Number(number) || 1))).padStart(2, "0");
+  return doorplateAssets(`./${imageColor}_${safeNumber}.webp`);
 }
 
 const TRAINING_CONFIG = {
@@ -560,6 +528,7 @@ function getExpectedText(expectedItem) {
   return `${expectedItem.number}`;
 }
 
+// eslint-disable-next-line no-unused-vars
 function getRuleIcon(level) {
   if (level.ruleType === RULE_TYPES.FORWARD) return "① → ② → ③";
   if (level.ruleType === RULE_TYPES.BACKWARD) return "⑩ → ⑨ → ⑧";
@@ -707,8 +676,8 @@ function WalkingPerson({ point }) {
   if (!point?.position) return null;
 
   return (
-    <img
-      src={sheepImg}
+    <img loading="lazy"
+      src={WALK_IMAGES[Math.abs(String(point.key || point.number || "walk").split("").reduce((sum, char) => sum + char.charCodeAt(0), 0)) % WALK_IMAGES.length]}
       alt="綿羊奶奶走路"
       className="lb-walking-person"
       draggable="false"
@@ -1670,7 +1639,7 @@ export default function TrainingPage_LB() {
   };
   const expectedItem = currentSequence[stepIndex] || null;
 
-  function clearTrainingTimers() {
+  const clearTrainingTimers = useCallback(() => {
     clearTimeout(delayTimerRef.current);
     clearTimeout(wrongFlashTimerRef.current);
     clearTimeout(hintTimerRef.current);
@@ -1686,18 +1655,18 @@ export default function TrainingPage_LB() {
     reviewEndTimerRef.current = null;
     reviewIntervalRef.current = null;
     stepRafRef.current = null;
-  }
+  }, []);
 
-  function pauseVideo(videoRef) {
+  const pauseVideo = useCallback((videoRef) => {
     const video = videoRef.current;
     if (video && !video.paused) video.pause();
-  }
+  }, []);
 
-  function pauseAllVideos() {
+  const pauseAllVideos = useCallback(() => {
     pauseVideo(introVideoRef);
     pauseVideo(stepVideoRef);
     pauseVideo(endingVideoRef);
-  }
+  }, [pauseVideo]);
 
   function setTrainingPhase(nextPhase) {
     pauseAllVideos();
@@ -1709,7 +1678,7 @@ export default function TrainingPage_LB() {
       clearTrainingTimers();
       pauseAllVideos();
     };
-  }, []);
+  }, [clearTrainingTimers, pauseAllVideos]);
 
   useEffect(() => {
     if (phase !== "playing" || !expectedItem || isLocked) return undefined;
@@ -2128,21 +2097,21 @@ export default function TrainingPage_LB() {
       <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
         <TrainingInlineStyle />
         <main className="lb-center-shell lb-start-shell">
-          <section className="lb-soft-panel lb-start-panel" aria-label="LB 訓練開始">
+          <section className="lb-soft-panel lb-start-panel game-start-card-artwork" aria-label="LB 訓練開始">
             <h1 className="lb-game-title">Linking Balloons</h1>
             <div className="lb-start-content">
               <div className="lb-dialog-bubble lb-opening-bubble">
                 先跟綿羊奶奶練習這一關的小路，照順序把小路連回家。
               </div>
               <div className="lb-round-icon lb-start-avatar">
-                <img src={sheepImg} alt="綿羊奶奶" draggable="false" />
+                <img width={1024} height={1024} loading="lazy" src={blowingBubblesImg} alt="綿羊奶奶和朋友們" draggable="false" />
               </div>
             </div>
             <div className="lb-guided-action lb-guided-start">
               <button type="button" className="lb-forest-button lb-image-button lb-btn-start" onClick={() => startTraining(adaptiveStartIndex)} aria-label="開始訓練">
-                <img src={homeStartBtn} alt="開始" draggable="false" />
+                <img width={1024} height={341} src={homeStartBtn} alt="開始" draggable="false" />
               </button>
-              <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
+              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
             </div>
           </section>
         </main>
@@ -2155,7 +2124,7 @@ export default function TrainingPage_LB() {
       <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
         <TrainingInlineStyle />
         <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-video-panel" aria-label="開始動畫">
+          <section className="lb-soft-panel lb-video-panel game-start-card-artwork" aria-label="開始動畫">
             <div className="lb-video-frame">
               <video
                 ref={introVideoRef}
@@ -2169,9 +2138,9 @@ export default function TrainingPage_LB() {
             </div>
             <div className="lb-guided-action lb-guided-skip">
               <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleIntroVideoEnd} aria-label="跳過動畫">
-                <img src={homeSkipBtn} alt="跳過動畫" draggable="false" />
+                <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過動畫" draggable="false" />
               </button>
-              <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
+              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
             </div>
           </section>
         </main>
@@ -2184,7 +2153,7 @@ export default function TrainingPage_LB() {
       <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
         <TrainingInlineStyle />
         <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-video-panel" aria-label="步驟說明動畫">
+          <section className="lb-soft-panel lb-video-panel game-start-card-artwork" aria-label="步驟說明動畫">
             <div className="lb-video-frame">
               <video
                 ref={stepVideoRef}
@@ -2198,9 +2167,9 @@ export default function TrainingPage_LB() {
             </div>
             <div className="lb-guided-action lb-guided-skip">
               <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleStepVideoEnd} aria-label="跳過步驟說明">
-                <img src={homeSkipBtn} alt="跳過步驟說明" draggable="false" />
+                <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過步驟說明" draggable="false" />
               </button>
-              <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
+              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
             </div>
           </section>
         </main>
@@ -2214,7 +2183,7 @@ export default function TrainingPage_LB() {
       <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
         <TrainingInlineStyle />
         <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-video-panel" aria-label="結束動畫">
+          <section className="lb-soft-panel lb-video-panel game-start-card-artwork" aria-label="結束動畫">
             <div className="lb-video-frame">
               <video
                 ref={endingVideoRef}
@@ -2228,9 +2197,9 @@ export default function TrainingPage_LB() {
             </div>
             <div className="lb-guided-action lb-guided-skip">
               <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleEndingVideoEnd} aria-label="跳過動畫">
-                <img src={homeSkipBtn} alt="跳過動畫" draggable="false" />
+                <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過動畫" draggable="false" />
               </button>
-              <img className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
+              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
             </div>
           </section>
         </main>
@@ -2245,7 +2214,7 @@ export default function TrainingPage_LB() {
       <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
         <TrainingInlineStyle />
         <main className="lb-center-shell lb-result-shell">
-          <section className="lb-soft-panel lb-result-panel" aria-label="訓練結果">
+          <section className="lb-soft-panel lb-result-panel game-result-card-artwork" aria-label="訓練結果">
             <div className="lb-cute-stars" aria-label={`${resultStars} 顆星`}>
               {[1, 2, 3].map((star) => (
                 <span key={star} className={`lb-cute-star ${star <= resultStars ? "is-on" : ""}`}>★</span>
@@ -2256,18 +2225,18 @@ export default function TrainingPage_LB() {
                 訓練完成！你幫綿羊奶奶完成這一關的小路。
               </div>
               <div className="lb-round-icon lb-result-icon">
-                <img src={homeImg} alt="LB 訓練圖示" draggable="false" />
+                <img width={1024} height={1024} loading="lazy" src={homeImg} alt="LB 訓練圖示" draggable="false" />
               </div>
             </div>
             <div className="lb-result-actions">
               <button type="button" className="lb-forest-button lb-image-button lb-btn-home" onClick={() => navigate("/game-menu")} aria-label="回到森林">
-                <img src={homeBackBtn} alt="回到森林" draggable="false" />
+                <img width={1024} height={341} loading="lazy" src={homeBackBtn} alt="回到森林" draggable="false" />
               </button>
               <button type="button" className="lb-forest-button lb-image-button lb-btn-replay" onClick={() => startTraining(adaptiveStartIndex)} aria-label="再練一次">
-                <img src={homeAgainBtn} alt="再練一次" draggable="false" />
+                <img width={1024} height={341} loading="lazy" src={homeAgainBtn} alt="再練一次" draggable="false" />
               </button>
               <button type="button" className="lb-forest-button lb-image-button lb-btn-detail" onClick={goResultPage} aria-label="詳細結果">
-                <img src={homeResultBtn} alt="詳細結果" draggable="false" />
+                <img width={1024} height={341} loading="lazy" src={homeResultBtn} alt="詳細結果" draggable="false" />
               </button>
             </div>
           </section>
@@ -2284,7 +2253,7 @@ export default function TrainingPage_LB() {
         <main className="lb-training-simple-play" onClick={handleBlankClick}>
           <div className="lb-floating-doorplate-layer" aria-label="訓練門牌遊戲區">
             <LBPathOverlay points={clickedPath} active={phase === "reviewing"} />
-            <img src={homeImg} alt="小屋" className="lb-map-home-img" draggable="false" />
+            <img width={1024} height={1024} loading="lazy" src={homeImg} alt="小屋" className="lb-map-home-img" draggable="false" />
             {phase === "reviewing" && <WalkingPerson point={clickedPath[walkingIndex]} />}
             {displayItems.map((item) => (
               <DoorplateButton

@@ -6,7 +6,7 @@ const mockChildren = [
     id: "child-1",
     name: "小蜜",
     age: 5,
-    avatar: "/asset/avatar/bear.png",
+    avatar: "/asset/avatar/bear.webp",
     todayTestDone: true,
     todayTrainingDone: false,
     lastActivity: {
@@ -27,7 +27,7 @@ const mockChildren = [
     id: "child-2",
     name: "波波",
     age: 4,
-    avatar: "/asset/avatar/rabbit.png",
+    avatar: "/asset/avatar/rabbit.webp",
     todayTestDone: false,
     todayTrainingDone: true,
     lastActivity: {
@@ -168,7 +168,7 @@ export default function Dashboard() {
             <div style={styles.profileCard}>
               <div style={styles.profileLeft}>
                 <div style={styles.avatarCircle}>
-                  <img
+                  <img loading="lazy"
                     src={selectedChild.avatar}
                     alt={selectedChild.name}
                     style={styles.profileAvatar}
@@ -285,8 +285,8 @@ export default function Dashboard() {
         onClick={() => navigate("/AIAssistantPage")}
         aria-label="開啟 AI 小助手"
       >
-        <img
-          src="/assist.png"
+        <img loading="lazy"
+          src="/assist.webp"
           alt="AI 小助手"
           style={styles.aiIcon}
           onError={(e) => {
@@ -307,7 +307,7 @@ const styles = {
     position: "relative",
     minHeight: "100vh",
     overflow: "hidden",
-    backgroundImage: 'url("/Home_background.png")',
+    backgroundImage: 'url("/Home_background.webp")',
     backgroundSize: "cover",
     backgroundPosition: "center",
     fontFamily:

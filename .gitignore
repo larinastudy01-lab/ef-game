@@ -27,5 +27,11 @@ Thumbs.db
 # misc
 coverage/
 .cache/
+.tmp/
+tmp/
+artifacts/
 *.zip
 .env.rag
+
+# local research corpus (import source; never part of the web deployment)
+knowledge_base/

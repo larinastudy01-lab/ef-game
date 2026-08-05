@@ -4,9 +4,9 @@ import React, { useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/GamePage_DCCS.css";
 
-import bgImg from "../asset/SRT_testbackground.png";
-import homeBackBtn from "../asset/home/back.png";
-import homeAgainBtn from "../asset/home/again.png";
+import bgImg from "../asset/SRT/SRT_background.webp";
+import homeBackBtn from "../asset/home/back.webp";
+import homeAgainBtn from "../asset/home/again.webp";
 import calculateDccsScore from "../utils/dccsScoring";
 
 const MENU_ROUTE = "/game-menu";
@@ -116,6 +116,36 @@ const STAR_STATUS = {
   1: {
     label: "需要多一點提示",
     detail: "孩子可能還在熟悉玩法，建議先回到簡單、短回合練習。",
+  },
+};
+
+const TRAINING_STAR_STATUS = {
+  3: {
+    label: "目前層級表現穩定",
+    detail: "孩子在這個層級大多能自己完成。下一步可以先維持同層級確認一次，或小幅增加一點挑戰。",
+  },
+  2: {
+    label: "能力正在出現，但還需要穩定",
+    detail: "孩子已經有基本分類能力，但玩法改變、題目變多或干擾增加時，可能還需要一點提醒。",
+  },
+  1: {
+    label: "仍需要較多支持與熟悉",
+    detail: "孩子目前可能還在熟悉分類玩法，建議先回到簡單、短回合練習，讓孩子累積成功經驗。",
+  },
+};
+
+const TRAINING_LEVEL_GROUPS = {
+  basic: {
+    label: "基礎分類層級",
+    detail: "這一層主要在建立「知道現在要看什麼」的基本流程，重點不是快，而是理解並穩定使用同一個規則。",
+  },
+  switch: {
+    label: "規則切換層級",
+    detail: "這一層開始要求孩子從一個分類規則改成另一個規則，重點是玩法改變後能不能跟上。",
+  },
+  interference: {
+    label: "干擾控制層級",
+    detail: "這一層加入更明顯的舊規則或顏色干擾，重點是能不能記得現在的玩法，不被前一個玩法拉回去。",
   },
 };
 
@@ -397,7 +427,15 @@ function getResultContext(payload, result) {
   const hasInterferenceData = interferenceTrials > 0 || level >= 8;
 
   const stars = getStarCount(result?.stars);
-  const starStatus = STAR_STATUS[stars] || STAR_STATUS[1];
+  const training = isTrainingResult(payload);
+  const starStatus = training
+    ? TRAINING_STAR_STATUS[stars] || TRAINING_STAR_STATUS[1]
+    : STAR_STATUS[stars] || STAR_STATUS[1];
+  const levelGroup = level <= 4
+    ? TRAINING_LEVEL_GROUPS.basic
+    : level <= 7
+    ? TRAINING_LEVEL_GROUPS.switch
+    : TRAINING_LEVEL_GROUPS.interference;
 
   return {
     level,
@@ -408,10 +446,65 @@ function getResultContext(payload, result) {
     hasInterferenceData,
     stars,
     starStatus,
+    training,
+    levelGroup,
+  };
+}
+
+function buildTrainingInterpretation(result, context) {
+  const accuracy = percent(result?.accuracy);
+  const postSwitch = percent(result?.postSwitchAccuracy ?? result?.switchAccuracy);
+  const oldRuleErrors = safeNumber(result?.perseverativeErrors ?? result?.oldRuleInterference, 0);
+  const totalTrials = safeNumber(result?.totalTrials ?? result?.clinicianMetrics?.totalTrials, 0);
+
+  if (totalTrials < 4) {
+    return {
+      headline: "這次資料仍在累積",
+      summary: "目前題數不足，還不適合解讀規則切換或干擾控制。",
+      good: "孩子已經開始熟悉這次的分類玩法。",
+      practice: "下一次先完成一個完整短回合，再一起看結果。",
+    };
+  }
+
+  if (context.level <= 4) {
+    const stable = accuracy >= 70;
+    return {
+      headline: stable ? "單一規則理解較穩定" : "單一規則仍在熟悉中",
+      summary: stable
+        ? "孩子大多能照目前規則分類，代表已逐漸抓到單一玩法。"
+        : "孩子目前可能還在確認這一關要看顏色或看衣服種類，先不用急著進入換玩法。",
+      good: stable ? "孩子已逐漸抓到目前的分類規則。" : "孩子願意完成任務，這就是後續練習的基礎。",
+      practice: stable ? "可維持同關卡再確認一次，若仍穩定，再進入換玩法層級。" : "下一次建議維持或降低一關，先用短回合穩定知道「現在要看什麼」。",
+    };
+  }
+
+  if (context.level <= 7) {
+    const returnsToOldRule = oldRuleErrors >= 2;
+    return {
+      headline: returnsToOldRule ? "換玩法後容易回到剛剛的玩法" : "玩法改變時容易短暫混淆",
+      summary: returnsToOldRule
+        ? "孩子切換後可能仍使用上一個規則，這表示新規則維持還需要練習。"
+        : `孩子已能完成部分分類，玩法改變後約 ${postSwitch}% 的題目能跟上，可能需要更多時間。`,
+      good: "孩子已經有基本分類能力，並能完成部分切換題。",
+      practice: returnsToOldRule
+        ? "下一次先維持目前或前一關，重點放在切換後持續提醒新規則。"
+        : "下一次可先用明確口語提示：「剛剛看顏色，現在換成看衣服。」",
+    };
+  }
+
+  const stable = context.stars === 3 && oldRuleErrors <= 1;
+  return {
+    headline: stable ? "切換與干擾控制較平衡" : "容易被明顯線索拉回舊玩法",
+    summary: stable
+      ? "孩子能在規則改變與干擾增加時維持目前玩法，整體表現較穩定。"
+      : "孩子可能知道新規則，但遇到顏色明顯或容易吸引注意的刺激時，會被舊玩法影響。",
+    good: stable ? "孩子在玩法改變與干擾增加時，仍能維持目前規則。" : "孩子願意繼續嘗試新規則，這是後續練習的基礎。",
+    practice: stable ? "可維持同層級再確認一次，若仍穩定，再小幅提高挑戰。" : "下一次建議先降低干擾或回到前一關，先練「看清楚現在規則再放」。",
   };
 }
 
 function buildParentInterpretation(result, context) {
+  if (context.training) return buildTrainingInterpretation(result, context);
   const accuracy = percent(result?.accuracy);
   const postSwitch = percent(result?.postSwitchAccuracy ?? result?.switchAccuracy);
   const interferenceControl = percent(result?.interferenceControl);
@@ -575,14 +668,18 @@ function ParentView({ payload, result, context, interpretation }) {
       badge: understandRule >= 70 ? "✓" : "△",
       tone: understandRule >= 70 ? "good" : "watch",
       title: "先確認玩法",
-      text: context.levelInfo.parentText,
+      text: understandRule >= 70
+        ? context.levelInfo.parentText
+        : "孩子可能還需要更多提示，先確認他知道現在要看哪一個特徵。",
     },
     {
       badge: context.hasSwitchData ? (postSwitchAccuracy >= 70 ? "✓" : "△") : "☆",
       tone: context.hasSwitchData ? (postSwitchAccuracy >= 70 ? "good" : "watch") : "neutral",
       title: "換玩法反應",
       text: context.hasSwitchData
-        ? `玩法改變後約 ${postSwitchAccuracy}% 的題目能跟上。`
+        ? postSwitchAccuracy >= 70
+          ? `玩法改變後約 ${postSwitchAccuracy}% 的題目能跟上。`
+          : "玩法從「看顏色」變成「看衣服」時，孩子可能會短暫混淆。"
         : "這一關主要還在看單一玩法，換玩法能力會在後面關卡觀察。",
     },
     {
@@ -590,7 +687,9 @@ function ParentView({ payload, result, context, interpretation }) {
       tone: context.hasInterferenceData ? (oldRuleErrors <= 1 ? "good" : "alert") : "neutral",
       title: "避免舊玩法干擾",
       text: context.hasInterferenceData
-        ? `這次約有 ${oldRuleErrors} 次可能還照剛剛的玩法做。`
+        ? oldRuleErrors <= 1
+          ? "這次孩子較少還照剛剛的玩法做。"
+          : `這次約有 ${oldRuleErrors} 次可能還照剛剛的玩法做。`
         : "這一關還沒有明顯干擾，先不用把這項當成主要表現。",
     },
   ];
@@ -640,7 +739,9 @@ function ParentView({ payload, result, context, interpretation }) {
       <section className="dccs-panel-block">
         <h2 className="dccs-section-title">家長快速解讀</h2>
         <p className="dccs-parent-summary-text">
-          {context.level <= 4
+          {context.training
+            ? `這次屬於「${context.levelGroup.label}」訓練。${context.levelGroup.detail}`
+            : context.level <= 4
             ? "這一關還在練單一玩法。家長可以先看孩子是否知道現在要看顏色或看衣服，不用急著解讀換玩法能力。"
             : context.level <= 7
             ? "這一關開始練玩法改變。重點是孩子能不能從『看顏色』改成『看衣服種類』。"
@@ -697,7 +798,14 @@ function ParentView({ payload, result, context, interpretation }) {
         <h2 className="dccs-section-title">下一步建議</h2>
         <h3>建議先練第 {context.recommendedLevel} 關：{context.recommendedInfo.title}</h3>
         <p>
-          這一關重點是「{context.recommendedInfo.focus}」。{context.levelInfo.homeTip}
+          這一關重點是「{context.recommendedInfo.focus}」。{context.recommendedInfo.homeTip}
+          {context.training && context.recommendedLevel > context.level
+            ? " 孩子本次表現較穩定，可以考慮小幅增加挑戰；但仍建議先用短回合確認。"
+            : context.training && context.recommendedLevel < context.level
+            ? " 這次可能需要多一點提示，先回到較簡單關卡，讓孩子重新建立成功經驗。"
+            : context.training
+            ? " 先維持目前關卡累積 2 到 3 次結果，再判斷是否調整。"
+            : ""}
         </p>
       </section>
 
@@ -1153,7 +1261,7 @@ export default function ResultPage_DCCS() {
             disabled={isNavigating}
             aria-label="回到森林"
           >
-            <img src={homeBackBtn} alt="回到森林" />
+            <img width={1024} height={341} src={homeBackBtn} alt="回到森林" />
           </button>
 
           {isTrainingResult(payload) && (
@@ -1164,7 +1272,7 @@ export default function ResultPage_DCCS() {
               disabled={isNavigating}
               aria-label="play again"
             >
-              <img src={homeAgainBtn} alt="play again" />
+              <img width={1024} height={341} loading="lazy" src={homeAgainBtn} alt="play again" />
             </button>
           )}
         </footer>

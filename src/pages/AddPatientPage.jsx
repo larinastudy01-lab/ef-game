@@ -1,26 +1,26 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
-import homeBackground from "../asset/Home_background.png";
+import homeBackground from "../asset/Home_background.webp";
 
-import bearAvatar from "../asset/avatar/bear.png";
-import chickenAvatar from "../asset/avatar/chicken.png";
-import deerAvatar from "../asset/avatar/deer.png";
-import foxAvatar from "../asset/avatar/fox.png";
-import meerkatsAvatar from "../asset/avatar/meerkats.png";
-import peacockAvatar from "../asset/avatar/peacock.png";
-import rabbitAvatar from "../asset/avatar/rabbit.png";
-import sheepAvatar from "../asset/avatar/sheep.png";
+import bearAvatar from "../asset/avatar/bear.webp";
+import chickenAvatar from "../asset/avatar/chicken.webp";
+import deerAvatar from "../asset/avatar/deer.webp";
+import foxAvatar from "../asset/avatar/fox.webp";
+import meerkatsAvatar from "../asset/avatar/meerkats.webp";
+import peacockAvatar from "../asset/avatar/peacock.webp";
+import rabbitAvatar from "../asset/avatar/rabbit.webp";
+import sheepAvatar from "../asset/avatar/sheep.webp";
 
 const avatarOptions = [
-  { key: "bear", label: "小熊", fileName: "bear.png", image: bearAvatar },
-  { key: "chicken", label: "小雞", fileName: "chicken.png", image: chickenAvatar },
-  { key: "deer", label: "小鹿", fileName: "deer.png", image: deerAvatar },
-  { key: "fox", label: "狐狸", fileName: "fox.png", image: foxAvatar },
-  { key: "meerkats", label: "狐獴", fileName: "meerkats.png", image: meerkatsAvatar },
-  { key: "peacock", label: "孔雀", fileName: "peacock.png", image: peacockAvatar },
-  { key: "rabbit", label: "小兔", fileName: "rabbit.png", image: rabbitAvatar },
-  { key: "sheep", label: "綿羊", fileName: "sheep.png", image: sheepAvatar },
+  { key: "bear", label: "小熊", fileName: "bear.webp", image: bearAvatar },
+  { key: "chicken", label: "小雞", fileName: "chicken.webp", image: chickenAvatar },
+  { key: "deer", label: "小鹿", fileName: "deer.webp", image: deerAvatar },
+  { key: "fox", label: "狐狸", fileName: "fox.webp", image: foxAvatar },
+  { key: "meerkats", label: "狐獴", fileName: "meerkats.webp", image: meerkatsAvatar },
+  { key: "peacock", label: "孔雀", fileName: "peacock.webp", image: peacockAvatar },
+  { key: "rabbit", label: "小兔", fileName: "rabbit.webp", image: rabbitAvatar },
+  { key: "sheep", label: "綿羊", fileName: "sheep.webp", image: sheepAvatar },
 ];
 
 const genderOptions = [
@@ -316,7 +316,7 @@ function AddPatientPage() {
                     style={isSelected ? avatarButtonActiveStyle : avatarButtonStyle}
                     aria-pressed={isSelected}
                   >
-                    <img src={option.image} alt={option.label} style={avatarImageStyle} />
+                    <img loading="lazy" src={option.image} alt={option.label} style={avatarImageStyle} />
                     <span>{option.label}</span>
                   </button>
                 );

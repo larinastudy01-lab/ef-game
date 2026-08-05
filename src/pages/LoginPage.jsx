@@ -2,9 +2,9 @@ import { useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { useNavigate } from "react-router-dom";
 
-import pageBg from "../asset/home/dashboard_background.png";
-import loginBtnImg from "../asset/home/login_dashboard.png";
-import continueBtnImg from "../asset/home/login_again.png";
+import pageBg from "../asset/home/background.webp";
+import loginBtnImg from "../asset/home/login_dashboard.webp";
+import continueBtnImg from "../asset/home/login_again.webp";
 
 const ROLE_ROUTES = {
   guardian: "/child-select",
@@ -175,10 +175,6 @@ function LoginPage() {
 
       <main className="login-stage" aria-label="使用者登入頁面">
         <section className="login-panel" aria-label="使用者登入表單">
-          <div className="login-avatar" aria-hidden="true">
-            🐥
-          </div>
-
           <header className="login-header">
             <h1>使用者登入</h1>
             <p>請輸入家長帳號資料</p>
@@ -223,7 +219,7 @@ function LoginPage() {
             )}
 
             <button className="image-button login-submit" type="submit" disabled={isBusy}>
-              <img src={loginBtnImg} alt={isLoading ? "登入中" : "登入"} />
+              <img width={1024} height={341} src={loginBtnImg} alt={isLoading ? "登入中" : "登入"} />
               <span>{isLoading ? "登入中..." : "登入"}</span>
             </button>
           </form>
@@ -234,7 +230,7 @@ function LoginPage() {
             onClick={handleContinueSession}
             disabled={isBusy}
           >
-            <img src={continueBtnImg} alt={isContinueLoading ? "確認中" : "繼續上次登入"} />
+            <img width={1024} height={341} loading="lazy" src={continueBtnImg} alt={isContinueLoading ? "確認中" : "繼續上次登入"} />
             <span>{isContinueLoading ? "確認中..." : "繼續上次登入"}</span>
           </button>
         </section>
@@ -283,19 +279,6 @@ const styles = `
       inset 0 1px 0 rgba(255, 255, 255, 0.72);
     backdrop-filter: blur(7px);
     -webkit-backdrop-filter: blur(7px);
-  }
-
-  .login-avatar {
-    width: clamp(66px, 5.8vw, 92px);
-    height: clamp(66px, 5.8vw, 92px);
-    margin: 0 auto clamp(24px, 3vh, 34px);
-    border-radius: 50%;
-    background: radial-gradient(circle at 35% 28%, #fffce3 0%, #fff2aa 55%, #ffd66e 100%);
-    border: 6px solid rgba(255, 255, 255, 0.92);
-    box-shadow: 0 10px 22px rgba(97, 70, 28, 0.18), inset 0 -4px 8px rgba(234, 169, 56, 0.18);
-    display: grid;
-    place-items: center;
-    font-size: clamp(32px, 3vw, 44px);
   }
 
   .login-header {

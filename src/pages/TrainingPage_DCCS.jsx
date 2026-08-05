@@ -4,17 +4,17 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/GamePage_DCCS.css";
 
-import dccsBackgroundImg from "../asset/DCCS_testbackground.png";
+import dccsBackgroundImg from "../asset/DCCS/DCCS_background.webp";
 import startVideo from "../asset/mp4/DCCS_start.mp4";
 import stepVideo from "../asset/mp4/DCCS_step.mp4";
 import endingVideo from "../asset/mp4/DCCS_end.mp4";
-import homeStartBtn from "../asset/home/start.png";
-import homeSkipBtn from "../asset/home/skip.png";
-import homeNextBtn from "../asset/home/next.png";
-import homeBackBtn from "../asset/home/back.png";
-import homeAgainBtn from "../asset/home/again.png";
-import homeResultBtn from "../asset/home/result.png";
-import mouseGuideImg from "../asset/mouse.png";
+import homeStartBtn from "../asset/home/start.webp";
+import homeSkipBtn from "../asset/home/skip.webp";
+import homeNextBtn from "../asset/home/next.webp";
+import homeBackBtn from "../asset/home/back.webp";
+import homeAgainBtn from "../asset/home/again.webp";
+import homeResultBtn from "../asset/home/result.webp";
+import mouseGuideImg from "../asset/mouse.webp";
 
 import { analyzePerformance } from "../ai/performanceAnalyzer";
 import { analyzeErrors } from "../ai/errorAnalyzer";
@@ -23,9 +23,9 @@ import { saveUnifiedResult } from "../utils/resultManager";
 import { calculateDccsScore } from "../utils/dccsScoring";
 import { analyzeDccsTraining } from "../ai/dccsTrainingAnalyzer";
 
-import peacockImg from "../asset/DCCS/dccs_peacock.png";
-import basketTopImg from "../asset/DCCS/dccs_basket_left.png";
-import basketBottomImg from "../asset/DCCS/dccs_basket_right.png";
+import peacockImg from "../asset/DCCS/dccs_peacock.webp";
+import basketTopImg from "../asset/DCCS/box_left.webp";
+import basketBottomImg from "../asset/DCCS/box_right.webp";
 
 import {
   dccsClothingCards,
@@ -35,15 +35,15 @@ import {
   typeLabels as clothingTypeLabels,
 } from "../config/dccsClothingData";
 
-import pinkSkirtImg from "../asset/DCCS/pink_skirts.png";
-import blueSkirtImg from "../asset/DCCS/blue_skirts.png";
-import yellowShirtImg from "../asset/DCCS/yellow_T-shirts.png";
-import blueShirtImg from "../asset/DCCS/blue_T-shirts.png";
+import redHatImg from "../asset/DCCS/red hat.webp";
+import blueHatImg from "../asset/DCCS/blue hat.webp";
+import redShirtImg from "../asset/DCCS/red shirt.webp";
+import blueShirtImg from "../asset/DCCS/blue shirt.webp";
 
 const MENU_ROUTE = "/game-menu";
 const RESULT_ROUTE = "/result-dccs";
 
-// ???雿輻 DCCS_start.mp4嚗?撠?摮訾蝙??DCCS_step.mp4嚗????思蝙??DCCS_end.mp4??
+// 訓練流程使用 DCCS_start.mp4、DCCS_step.mp4 與 DCCS_end.mp4。
 const START_VIDEO_SRC = startVideo;
 const STEP_VIDEO_SRC = stepVideo;
 const END_VIDEO_SRC = endingVideo;
@@ -234,9 +234,9 @@ const getDifficultyForTrainingLevel = (trainingLevel, testProfile) => {
     DCCS_DIFFICULTY_ORDER.length - 1
   );
 
-  // 靽?????
-  // 1嚚? ????亥歲?啣???3嚚? ???歲??銵???毀蝧?
-  // 7 ?誑敺撠雁???撅歹??踹???云?箇???
+  // 保留訓練關卡的基本節奏：
+  // 第 1-2 關以顏色規則為主，第 3-4 關以種類規則為主。
+  // 第 7 關後逐步增加切換與干擾，避免前面關卡跳太快。
   if (safeLevel <= 2) {
     return DCCS_DIFFICULTY_ORDER[Math.min(shiftedIndex, 2)];
   }
@@ -672,6 +672,13 @@ function arrangeTargets(correctTarget, wrongTarget, correctOnTop) {
     : { topTarget: wrongTarget, bottomTarget: correctTarget };
 }
 
+function getTargetSideForKey(targets, field, key) {
+  if (!key) return null;
+  if (targets.topTarget?.[field] === key) return "top";
+  if (targets.bottomTarget?.[field] === key) return "bottom";
+  return null;
+}
+
 function pickDiverseCards(cards, count) {
   const selected = [];
   const usedIds = new Set();
@@ -711,6 +718,9 @@ function ShadowCloth({ src, label }) {
       alt={label}
       className="Dcss-shadow-cloth"
       aria-label={label}
+      width="330"
+      height="330"
+      loading="lazy"
     />
   );
 }
@@ -775,6 +785,9 @@ function buildDccsTrainingResult({ logs, levelId, currentLevel }) {
   const bagColorLogs = formalLogs.filter(
     (log) => log.ruleStage === "bagColor" || log.isBagColorTrial
   );
+  const dualRuleLogs = formalLogs.filter(
+    (log) => log.ruleStage === "dualRule" || log.isDualRuleTrial
+  );
   const bagColorCorrectCount = bagColorLogs.filter((log) => log.isCorrect).length;
   const bagColorAccuracy =
     bagColorLogs.length > 0 ? bagColorCorrectCount / bagColorLogs.length : 0;
@@ -782,6 +795,15 @@ function buildDccsTrainingResult({ logs, levelId, currentLevel }) {
     bagColorLogs.map((log) => log.reactionTime)
   );
   const secondSwitchPerseverativeErrors = bagColorLogs.filter(
+    (log) => log.isPerseverativeError || log.isOldRuleInterference
+  ).length;
+  const dualRuleCorrectCount = dualRuleLogs.filter((log) => log.isCorrect).length;
+  const dualRuleAccuracy =
+    dualRuleLogs.length > 0 ? dualRuleCorrectCount / dualRuleLogs.length : 0;
+  const dualRuleAvgReactionTime = average(
+    dualRuleLogs.map((log) => log.reactionTime)
+  );
+  const dualRulePerseverativeErrors = dualRuleLogs.filter(
     (log) => log.isPerseverativeError || log.isOldRuleInterference
   ).length;
   const standardColorAvgReactionTime = average(
@@ -792,8 +814,8 @@ function buildDccsTrainingResult({ logs, levelId, currentLevel }) {
       ? bagColorAvgReactionTime - standardColorAvgReactionTime
       : 0;
 
-  // ???靽?雿?Ｘ?鞈??詨捆?隤文?????
-  // 甇??閮毀???蝝??賢?????DCCS 撠璅∠?????
+  // 沿用舊版分析工具產生輔助指標，再交給 DCCS 訓練分析整合。
+  // 這些資料會一併保存到結果頁，方便家長與臨床端查看。
   const performanceResult = analyzePerformance({
     totalTrials: formalLogs.length,
     correctTrials,
@@ -851,6 +873,11 @@ function buildDccsTrainingResult({ logs, levelId, currentLevel }) {
     secondSwitchAccuracy: bagColorAccuracy,
     secondSwitchPerseverativeErrors,
     secondSwitchCost,
+    dualRuleTrials: dualRuleLogs.length,
+    dualRuleCorrectCount,
+    dualRuleAccuracy,
+    dualRuleAvgReactionTime,
+    dualRulePerseverativeErrors,
   });
 
   const currentChild = getStoredCurrentChild();
@@ -905,6 +932,12 @@ function buildDccsTrainingResult({ logs, levelId, currentLevel }) {
       secondSwitchAccuracyPercent: Math.round(bagColorAccuracy * 100),
       secondSwitchPerseverativeErrors,
       secondSwitchCost,
+      dualRuleTrials: dualRuleLogs.length,
+      dualRuleCorrectCount,
+      dualRuleAccuracy,
+      dualRuleAccuracyPercent: Math.round(dualRuleAccuracy * 100),
+      dualRuleAvgReactionTime,
+      dualRulePerseverativeErrors,
     },
     trainingAnalysis,
     aiAnalysis: trainingAnalysis,
@@ -937,6 +970,12 @@ function buildDccsTrainingResult({ logs, levelId, currentLevel }) {
     secondSwitchAccuracyRatio: bagColorAccuracy,
     secondSwitchPerseverativeErrors,
     secondSwitchCost,
+    dualRuleTrials: dualRuleLogs.length,
+    dualRuleCorrectCount,
+    dualRuleAccuracy: Math.round(dualRuleAccuracy * 100),
+    dualRuleAccuracyRatio: dualRuleAccuracy,
+    dualRuleAvgReactionTime,
+    dualRulePerseverativeErrors,
 
     switchTrials: scoring.switchTrials,
     postSwitchTrials: scoring.postSwitchTrials,
@@ -1139,69 +1178,123 @@ const createTypeTrials = (count, options = {}) => {
     .filter(Boolean);
 };
 
-const createBagColorTrials = (count, options = {}) => {
+const createDualRuleTrials = (count, options = {}) => {
   const availableColors = getAvailableValues("color", COLOR_PRIORITY);
+  const availableTypes = getAvailableValues("type", TYPE_PRIORITY);
   const normalPool = allCards.filter((card) => card.normalImg);
   const bagPool = allCards.filter((card) => card.bagImg);
-  const cards = repeatCardsToCount(bagPool, count);
+  const sourcePool = repeatCardsToCount([...bagPool, ...normalPool], count);
   const interferenceCount = Math.round(
-    count * clampNumber(options.bagInterferenceRate ?? options.interferenceRate ?? 0, 0, 1)
+    count * clampNumber(options.interferenceRate ?? 0.5, 0, 1)
   );
 
-  return cards
+  return sourcePool
     .map((card, index) => {
+      const useBagCue = index % 2 === 0 && Boolean(card.bagImg);
       const targetConflict = index < interferenceCount;
-      const alternativeColors = availableColors.filter(
-        (color) => color !== card.color
-      );
-      const wrongColor =
-        alternativeColors[index % Math.max(alternativeColors.length, 1)] ||
-        alternativeColors[0];
 
+      if (useBagCue) {
+        const alternativeColors = availableColors.filter(
+          (color) => color !== card.color
+        );
+        const wrongColor =
+          alternativeColors[index % Math.max(alternativeColors.length, 1)] ||
+          alternativeColors[0];
+        const correctSample =
+          findCard({
+            color: card.color,
+            excludeId: card.id,
+            preferDifferentType: card.type,
+          }) || card;
+        const conflictWrong = findCard({
+          type: card.type,
+          color: wrongColor,
+        });
+        const neutralWrong =
+          findCard({
+            color: wrongColor,
+            preferDifferentType: correctSample.type,
+          }) || normalPool.find((item) => item.color !== card.color);
+        const wrongSample = targetConflict ? conflictWrong || neutralWrong : neutralWrong;
+
+        if (!correctSample || !wrongSample) return null;
+
+        const targets = arrangeTargets(
+          makeTarget(correctSample, "color"),
+          makeTarget(wrongSample, "color"),
+          index % 2 !== 0
+        );
+
+        const correctSide = getTargetSideForKey(targets, "key", card.color);
+        const oldRuleSide = getTargetSideForKey(targets, "typeKey", card.type);
+
+        return {
+          id: `training_dual_${index + 1}_${card.id}`,
+          card,
+          rule: "color",
+          ruleStage: "dualRule",
+          matchBy: "color",
+          imageVariant: "bag",
+          previousRule: "type",
+          cue: "bagged",
+          inactiveRule: "type",
+          isBagColorTrial: false,
+          isDualRuleTrial: true,
+          isInterferenceTrial: Boolean(
+            targetConflict && oldRuleSide && correctSide && oldRuleSide !== correctSide
+          ),
+          wasAfterRuleSwitch: true,
+          ...targets,
+        };
+      }
+
+      const alternativeTypes = availableTypes.filter(
+        (type) => type !== card.type
+      );
+      const wrongType =
+        alternativeTypes[index % Math.max(alternativeTypes.length, 1)] ||
+        alternativeTypes[0];
       const correctSample =
         findCard({
-          color: card.color,
+          type: card.type,
           excludeId: card.id,
-          preferDifferentType: card.type,
+          preferDifferentColor: card.color,
         }) || card;
-
       const conflictWrong = findCard({
-        type: card.type,
-        color: wrongColor,
+        color: card.color,
+        type: wrongType,
       });
       const neutralWrong =
         findCard({
-          color: wrongColor,
-          preferDifferentType: correctSample.type,
-        }) || normalPool.find((item) => item.color !== card.color);
+          type: wrongType,
+          preferDifferentColor: correctSample.color,
+        }) || normalPool.find((item) => item.type !== card.type);
       const wrongSample = targetConflict ? conflictWrong || neutralWrong : neutralWrong;
 
       if (!correctSample || !wrongSample) return null;
 
       const targets = arrangeTargets(
-        makeTarget(correctSample, "color"),
-        makeTarget(wrongSample, "color"),
-        index % 2 !== 0
+        makeTarget(correctSample, "type"),
+        makeTarget(wrongSample, "type"),
+        index % 2 === 0
       );
-      const correctSide = targets.topTarget.key === card.color ? "top" : "bottom";
-      const oldRuleSide =
-        targets.topTarget.typeKey === card.type
-          ? "top"
-          : targets.bottomTarget.typeKey === card.type
-          ? "bottom"
-          : null;
+      const correctSide = getTargetSideForKey(targets, "key", card.type);
+      const oldRuleSide = getTargetSideForKey(targets, "colorKey", card.color);
 
       return {
-        id: `training_bag_color_${index + 1}_${card.id}`,
+        id: `training_dual_${index + 1}_${card.id}`,
         card,
-        rule: "color",
-        ruleStage: "bagColor",
-        matchBy: "color",
-        imageVariant: "bag",
-        previousRule: "type",
-        isBagColorTrial: true,
+        rule: "type",
+        ruleStage: "dualRule",
+        matchBy: "type",
+        imageVariant: "normal",
+        previousRule: "color",
+        cue: "normal",
+        inactiveRule: "color",
+        isBagColorTrial: false,
+        isDualRuleTrial: true,
         isInterferenceTrial: Boolean(
-          targetConflict && oldRuleSide && oldRuleSide !== correctSide
+          targetConflict && oldRuleSide && correctSide && oldRuleSide !== correctSide
         ),
         wasAfterRuleSwitch: true,
         ...targets,
@@ -1230,7 +1323,7 @@ const buildLevelTrials = ({
     });
   }
 
-  if (ruleSequence.includes("bagColor")) {
+  if (ruleSequence.includes("dualRule")) {
     const firstEnd = clampNumber(
       firstSwitchPoint ?? switchPoint ?? Math.floor(totalTrials / 3),
       1,
@@ -1243,7 +1336,7 @@ const buildLevelTrials = ({
     );
     const colorCount = firstEnd;
     const typeCount = Math.max(1, secondEnd - firstEnd);
-    const bagCount = Math.max(1, totalTrials - secondEnd);
+    const dualCount = Math.max(1, totalTrials - secondEnd);
 
     return [
       ...createColorTrials(colorCount),
@@ -1251,8 +1344,8 @@ const buildLevelTrials = ({
         interferenceRate,
         wasAfterRuleSwitch: true,
       }),
-      ...createBagColorTrials(bagCount, {
-        bagInterferenceRate,
+      ...createDualRuleTrials(dualCount, {
+        interferenceRate: bagInterferenceRate || interferenceRate,
       }),
     ];
   }
@@ -1411,7 +1504,7 @@ const LEVEL_CONFIG = {
     helper: "裝進袋子後，要看袋子的顏色。",
     childGoal: "練習多規則切換",
     parentGoal: "觀察多階段規則調整",
-    ruleSequence: ["color", "type", "bagColor"],
+    ruleSequence: ["color", "type", "dualRule"],
     firstSwitchPoint: 4,
     secondSwitchPoint: 8,
     totalTrials: 12,
@@ -1432,7 +1525,7 @@ const LEVEL_CONFIG = {
     helper: "想清楚現在要看哪一個規則。",
     childGoal: "抗干擾切換",
     parentGoal: "觀察高干擾下的彈性控制",
-    ruleSequence: ["color", "type", "bagColor"],
+    ruleSequence: ["color", "type", "dualRule"],
     firstSwitchPoint: 4,
     secondSwitchPoint: 9,
     totalTrials: 14,
@@ -1453,7 +1546,7 @@ const LEVEL_CONFIG = {
     helper: "看清楚目前規則再作答。",
     childGoal: "完成綜合挑戰",
     parentGoal: "觀察接近測驗情境的表現",
-    ruleSequence: ["color", "type", "bagColor"],
+    ruleSequence: ["color", "type", "dualRule"],
     firstSwitchPoint: 5,
     secondSwitchPoint: 10,
     totalTrials: 15,
@@ -1606,14 +1699,22 @@ function TrainingPage_DCCS() {
   const getOldRulePosition = (trial) => {
     if (!trial) return null;
 
-    if (trial.previousRule === "color" || trial.ruleStage === "type") {
+    if (
+      trial.previousRule === "color" ||
+      trial.ruleStage === "type" ||
+      trial.inactiveRule === "color"
+    ) {
       const oldColorKey = trial.card.color;
 
       if (trial.topTarget?.colorKey === oldColorKey) return "top";
       if (trial.bottomTarget?.colorKey === oldColorKey) return "bottom";
     }
 
-    if (trial.previousRule === "type" || trial.ruleStage === "bagColor") {
+    if (
+      trial.previousRule === "type" ||
+      trial.ruleStage === "bagColor" ||
+      trial.inactiveRule === "type"
+    ) {
       const oldTypeKey = trial.card.type;
 
       if (trial.topTarget?.typeKey === oldTypeKey) return "top";
@@ -1628,6 +1729,15 @@ function TrainingPage_DCCS() {
     const mode = currentLevel.feedbackMode;
 
     if (mode === "resultOnly") return "";
+
+    if (ruleStage === "dualRule") {
+      if (isOldRuleInterference) {
+        return "剛剛被另一個規則干擾了，再看一次袋子線索。";
+      }
+      return mode === "full"
+        ? "有袋子時看顏色，沒有袋子時看衣服種類。"
+        : "請先看有沒有袋子，再選規則。";
+    }
 
     if (ruleStage === "bagColor") {
       if (isOldRuleInterference) {
@@ -1669,9 +1779,9 @@ function TrainingPage_DCCS() {
     if (
       currentLevel.showBagGuide &&
       current?.ruleStage === "type" &&
-      next?.ruleStage === "bagColor"
+      (next?.ruleStage === "bagColor" || next?.ruleStage === "dualRule")
     ) {
-      return "bagColor";
+      return "dualRule";
     }
 
     return null;
@@ -1705,11 +1815,15 @@ function TrainingPage_DCCS() {
       imageVariant: currentTrial.imageVariant || "normal",
       isBagged: currentTrial.imageVariant === "bag",
       isBagColorTrial: currentTrial.ruleStage === "bagColor",
+      isDualRuleTrial: currentTrial.ruleStage === "dualRule",
+      cue: currentTrial.cue || null,
+      inactiveRule: currentTrial.inactiveRule || null,
       previousRule: currentTrial.previousRule || null,
       switchIndex:
         currentTrial.ruleStage === "type"
           ? 1
-          : currentTrial.ruleStage === "bagColor"
+          : currentTrial.ruleStage === "bagColor" ||
+            currentTrial.ruleStage === "dualRule"
           ? 2
           : 0,
       switchDirection:
@@ -1717,6 +1831,8 @@ function TrainingPage_DCCS() {
           ? "color_to_type"
           : currentTrial.ruleStage === "bagColor"
           ? "type_to_color"
+          : currentTrial.ruleStage === "dualRule"
+          ? "conditional_dual_rule"
           : null,
       cardId: currentTrial.card.id,
       cardColor: currentTrial.card.color,
@@ -1763,13 +1879,13 @@ function TrainingPage_DCCS() {
     if (isCorrect) {
       setFeedback({
         type: "correct",
-        title: "?曉?鈭?",
+        title: "答對了！",
         text: "",
       });
     } else {
       setFeedback({
         type: "wrong",
-        title: isOldRuleInterference ? "撌桐?暺?" : "?銝銝?",
+        title: isOldRuleInterference ? "還在用舊規則" : "再想一下",
         text: getWrongFeedbackText({
           isOldRuleInterference,
           rule: currentTrial.rule,
@@ -1887,7 +2003,7 @@ function TrainingPage_DCCS() {
       return;
     }
 
-    if (transition === "bagColor") {
+    if (transition === "bagColor" || transition === "dualRule") {
       setTrialIndex(nextIndex);
       setPhase(PHASE.BAG_RULE);
       trialStartTimeRef.current = null;
@@ -1934,9 +2050,9 @@ function TrainingPage_DCCS() {
             : "Dcss-color-target-clothing"
         }`}
       >
-        <img
+        <img loading="lazy"
           src={target.image}
-          alt={matchBy === "type" ? `${target.label}?內` : `${target.label}銵??`}
+          alt={matchBy === "type" ? `${target.label}種類目標` : `${target.label}顏色目標`}
         />
       </div>
     );
@@ -1946,16 +2062,16 @@ function TrainingPage_DCCS() {
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
         <main className="Dcss-center-shell Dcss-start-shell">
-          <section className="Dcss-soft-panel Dcss-start-panel" aria-label="???恍">
-            <div className="Dcss-game-title">摮?撠???憌曉?</div>
+          <section className="Dcss-soft-panel Dcss-start-panel game-start-card-artwork" aria-label="開始練習">
+            <div className="Dcss-game-title">孔雀衣櫃分類練習</div>
 
             <div className="Dcss-start-content">
               <div className="Dcss-dialog-bubble Dcss-opening-bubble">
-                撟怠??撠??﹝??脫迤蝣箇?蝐???
+                幫孔雀小姐整理衣服，依照目前規則放到正確的籃子裡。
               </div>
 
               <div className="Dcss-round-icon Dcss-start-icon">
-                <img src={peacockImg} alt="摮?撠?" />
+                <img loading="lazy" src={peacockImg} alt="孔雀小姐" width="360" height="360" />
               </div>
             </div>
 
@@ -1964,11 +2080,11 @@ function TrainingPage_DCCS() {
                 type="button"
                 className="Dcss-forest-button Dcss-image-button Dcss-btn-start"
                 onClick={handleStart}
-                aria-label="???"
+                aria-label="開始遊戲"
               >
-                <img src={homeStartBtn} alt="???" />
+                <img width={1024} height={341} src={homeStartBtn} alt="開始遊戲" />
               </button>
-              <img className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="?內暺?" aria-hidden="true" />
+              <img width={1024} height={1024} loading="lazy" className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="點擊提示" aria-hidden="true" />
             </div>
           </section>
         </main>
@@ -1980,7 +2096,7 @@ function TrainingPage_DCCS() {
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
         <main className="Dcss-center-shell Dcss-video-shell">
-          <section className="Dcss-soft-panel Dcss-video-card" aria-label={title}>
+          <section className="Dcss-soft-panel Dcss-video-card game-start-card-artwork" aria-label={title}>
             <div className="Dcss-video-frame">
               <video
                 className="Dcss-guide-video"
@@ -2000,9 +2116,9 @@ function TrainingPage_DCCS() {
                 onClick={onDone}
                 aria-label={buttonText}
               >
-                <img src={homeSkipBtn} alt={buttonText} />
+                <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt={buttonText} />
               </button>
-              <img className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="?內暺?" aria-hidden="true" />
+              <img width={1024} height={1024} loading="lazy" className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="點擊提示" aria-hidden="true" />
             </div>
           </section>
         </main>
@@ -2014,7 +2130,7 @@ function TrainingPage_DCCS() {
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
         <div className="Dcss-switch-card Dcss-picture-rule-card">
-          <img src={peacockImg} alt="孔雀小姐" className="Dcss-peacock-rule" />
+          <img src={peacockImg} alt="孔雀小姐" className="Dcss-peacock-rule" width="360" height="360" loading="lazy" />
 
           <div className="Dcss-rule-content Dcss-picture-rule-content">
             <div className="Dcss-tag danger">換規則</div>
@@ -2022,20 +2138,20 @@ function TrainingPage_DCCS() {
 
             <div className="Dcss-picture-rule-row">
               <div className="Dcss-mini-example">
-                <img src={blueShirtImg} alt="上衣" />
+                <img src={blueShirtImg} alt="藍色上衣" width="326" height="324" loading="lazy" />
                 <span className="Dcss-big-arrow">→</span>
                 <div className="Dcss-demo-target Dcss-demo-target-type">
-                  <ShadowCloth src={yellowShirtImg} label="上衣剪影" />
-                  <img src={basketTopImg} alt="上衣籃子" />
+                  <ShadowCloth src={redShirtImg} label="上衣剪影" />
+                  <img src={basketTopImg} alt="上衣分類箱" width="319" height="131" loading="lazy" />
                 </div>
               </div>
 
               <div className="Dcss-mini-example">
-                <img src={pinkSkirtImg} alt="裙子" />
+                <img src={redHatImg} alt="紅色帽子" width="244" height="202" loading="lazy" />
                 <span className="Dcss-big-arrow">→</span>
                 <div className="Dcss-demo-target Dcss-demo-target-type">
-                  <ShadowCloth src={blueSkirtImg} label="裙子剪影" />
-                  <img src={basketBottomImg} alt="裙子籃子" />
+                  <ShadowCloth src={blueHatImg} label="帽子剪影" />
+                  <img src={basketBottomImg} alt="帽子分類箱" width="319" height="131" loading="lazy" />
                 </div>
               </div>
             </div>
@@ -2047,9 +2163,9 @@ function TrainingPage_DCCS() {
                 onClick={continueAfterSwitchRule}
                 aria-label="繼續"
               >
-                <img src={homeNextBtn} alt="繼續" />
+                <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="繼續" />
               </button>
-              <img className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+              <img width={1024} height={1024} loading="lazy" className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
             </div>
           </div>
         </div>
@@ -2059,13 +2175,15 @@ function TrainingPage_DCCS() {
 
   const renderBagRulePage = () => {
     const examples = currentLevel.trials
-      .filter((trial) => trial.ruleStage === "bagColor")
+      .filter(
+        (trial) => trial.ruleStage === "bagColor" || trial.ruleStage === "dualRule"
+      )
       .slice(0, 2);
 
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
         <div className="Dcss-switch-card Dcss-picture-rule-card">
-          <img src={peacockImg} alt="孔雀小姐" className="Dcss-peacock-rule" />
+          <img src={peacockImg} alt="孔雀小姐" className="Dcss-peacock-rule" width="360" height="360" loading="lazy" />
 
           <div className="Dcss-rule-content Dcss-picture-rule-content">
             <div className="Dcss-tag danger">再換一次規則</div>
@@ -2085,9 +2203,12 @@ function TrainingPage_DCCS() {
                 return (
                   <div className="Dcss-mini-example" key={example.id}>
                     <img
-                      src={getCardImage(example.card, "bag")}
+                      src={getCardImage(example.card, example.imageVariant)}
                       alt={`裝袋的${example.card.colorText}${example.card.typeText}`}
                       className="Dcss-rule-bagged-cloth"
+                      width="330"
+                      height="330"
+                      loading="lazy"
                     />
                     <span className="Dcss-big-arrow">→</span>
                     <div className="Dcss-demo-target Dcss-demo-target-type">
@@ -2098,6 +2219,9 @@ function TrainingPage_DCCS() {
                       <img
                         src={index % 2 === 0 ? basketTopImg : basketBottomImg}
                         alt={`${correctTarget?.label || "正確顏色"}籃子`}
+                        width="319"
+                        height="131"
+                        loading="lazy"
                       />
                     </div>
                   </div>
@@ -2119,10 +2243,10 @@ function TrainingPage_DCCS() {
                 aria-label="繼續"
                 disabled={examples.length === 0}
               >
-                <img src={homeNextBtn} alt="繼續" />
+                <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="繼續" />
               </button>
               {examples.length > 0 && (
-                <img
+                <img width={1024} height={1024} loading="lazy"
                   className="Dcss-mouse-guide Dcss-mouse-on-button"
                   src={mouseGuideImg}
                   alt="提示點擊"
@@ -2154,7 +2278,7 @@ function TrainingPage_DCCS() {
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
         <main className="Dcss-center-shell Dcss-result-shell">
-          <section className="Dcss-soft-panel Dcss-result-panel" aria-label="練習結果">
+          <section className="Dcss-soft-panel Dcss-result-panel game-result-card-artwork" aria-label="練習結果">
             <div className="Dcss-cute-stars" aria-label={`${resultStars} 顆星`}>
               {[1, 2, 3].map((star) => (
                 <span key={star} className={`Dcss-cute-star ${star <= resultStars ? "is-on" : ""}`}>★</span>
@@ -2167,7 +2291,7 @@ function TrainingPage_DCCS() {
               </div>
 
               <div className="Dcss-round-icon Dcss-result-icon">
-                <img src={peacockImg} alt="孔雀小姐" />
+                <img src={peacockImg} alt="孔雀小姐" width="360" height="360" loading="lazy" />
               </div>
             </div>
 
@@ -2179,9 +2303,9 @@ function TrainingPage_DCCS() {
                   onClick={() => navigate(MENU_ROUTE)}
                   aria-label="回到選單"
                 >
-                  <img src={homeBackBtn} alt="回到選單" />
+                  <img width={1024} height={341} loading="lazy" src={homeBackBtn} alt="回到選單" />
                 </button>
-                <img className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+                <img width={1024} height={1024} loading="lazy" className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
               </div>
 
               <button
@@ -2190,7 +2314,7 @@ function TrainingPage_DCCS() {
                 onClick={restartTraining}
                 aria-label="再玩一次"
               >
-                <img src={homeAgainBtn} alt="再玩一次" />
+                <img width={1024} height={341} loading="lazy" src={homeAgainBtn} alt="再玩一次" />
               </button>
 
               <button
@@ -2214,7 +2338,7 @@ function TrainingPage_DCCS() {
                 }}
                 aria-label="詳細結果"
               >
-                <img src={homeResultBtn} alt="詳細結果" />
+                <img width={1024} height={341} loading="lazy" src={homeResultBtn} alt="詳細結果" />
               </button>
             </div>
           </section>
@@ -2228,8 +2352,8 @@ function TrainingPage_DCCS() {
   if (phase === PHASE.VIDEO_INTRO) {
     return renderVideoPage({
       src: START_VIDEO_SRC,
-      title: "??敶梁?",
-      buttonText: "頝喲?",
+      title: "開始說明",
+      buttonText: "跳過",
       onDone: handleIntroVideoDone,
     });
   }
@@ -2237,8 +2361,8 @@ function TrainingPage_DCCS() {
   if (phase === PHASE.VIDEO_STEP) {
     return renderVideoPage({
       src: STEP_VIDEO_SRC,
-      title: "???飛",
-      buttonText: "頝喲?",
+      title: "下一步說明",
+      buttonText: "跳過",
       onDone: handleStepVideoDone,
     });
   }
@@ -2249,8 +2373,8 @@ function TrainingPage_DCCS() {
   if (phase === PHASE.END_VIDEO) {
     return renderVideoPage({
       src: END_VIDEO_SRC,
-      title: "摰?敶梁?",
-      buttonText: "頝喲??",
+      title: "完成說明",
+      buttonText: "跳過說明",
       onDone: handleEndingVideoDone,
     });
   }
@@ -2266,7 +2390,7 @@ function TrainingPage_DCCS() {
           <div className="Dcss-top-spacer" aria-hidden="true" />
 
           <div className="Dcss-progress-pill">
-            蝺渡? {trialIndex + 1} / {currentLevel.trials.length}
+            練習 {trialIndex + 1} / {currentLevel.trials.length}
           </div>
         </div>
 
@@ -2280,7 +2404,7 @@ function TrainingPage_DCCS() {
                     : ""
                 } ${feedback ? feedback.type : ""}`}
               >
-                <img
+                <img loading="lazy"
                   src={getCardImage(
                     currentTrial.card,
                     currentTrial.imageVariant || "normal"
@@ -2288,6 +2412,8 @@ function TrainingPage_DCCS() {
                   alt={`${
                     currentTrial.imageVariant === "bag" ? "裝袋的" : ""
                   }${currentTrial.card.colorText}${currentTrial.card.typeText}`}
+                  width="330"
+                  height="330"
                 />
               </div>
             </div>
@@ -2306,7 +2432,7 @@ function TrainingPage_DCCS() {
                 {renderTargetVisual(currentTrial.topTarget)}
               </div>
               <div className="Dcss-basket-choice-image">
-                <img src={basketTopImg} alt="撌血蝐?" />
+                <img loading="lazy" src={basketTopImg} alt="左側分類箱" width="319" height="131" />
               </div>
             </button>
 
@@ -2322,7 +2448,7 @@ function TrainingPage_DCCS() {
                 {renderTargetVisual(currentTrial.bottomTarget)}
               </div>
               <div className="Dcss-basket-choice-image">
-                <img src={basketBottomImg} alt="?喳蝐?" />
+                <img loading="lazy" src={basketBottomImg} alt="右側分類箱" width="319" height="131" />
               </div>
             </button>
           </div>
@@ -2620,7 +2746,7 @@ const dccsTrainingPageCss = `
 }
 
 
-/* DCCS 皜祇?????獢?蝘餃銵??銝嚗??渡?ａ???*/
+/* DCCS 訓練版主要遊戲區：卡片置中，籃子固定在下方。 */
 .Dcss-main-area-bottom-baskets {
   width: min(100%, 1480px);
   min-height: clamp(560px, 72vh, 820px);
@@ -2698,8 +2824,7 @@ const dccsTrainingPageCss = `
   height: clamp(52px, 5.2vw, 76px);
 }
 
-/* 靽格迤嚗???GamePage_DCCS.css ?航隞?蝐????身??absolute嚗?
-   ?ㄐ?券?身嚗??摮筑?啗﹝?????*/
+/* 覆蓋 GamePage_DCCS.css 的舊定位設定，避免籃子在訓練頁跑位。 */
 .Dcss-main-area-bottom-baskets .Dcss-play-row,
 .Dcss-main-area-bottom-baskets .Dcss-card-stage,
 .Dcss-main-area-bottom-baskets .Dcss-helper,
@@ -2814,7 +2939,7 @@ const dccsTrainingPageCss = `
   }
 }
 
-/* DCCS 皜祇??耨甇?2嚗?摮摰銵???∠?銝嚗??辣隡詨摮???◤撌血鋆? */
+/* DCCS 訓練版改成兩個下方籃子，讓孩子直接點選上方或下方答案。 */
 .Dcss-test-shell-visual {
   overflow: visible !important;
 }
@@ -3372,7 +3497,7 @@ const dccsTrainingPageCss = `
   }
 }
 
-/* 蝎曄Ⅱ閮?????蝵格?雿耨甇?*/
+/* 小螢幕版：縮小卡片與籃子間距。 */
 .Dcss-page,
 .Dcss-test-shell-visual,
 .Dcss-main-area-bottom-baskets,
@@ -3531,7 +3656,7 @@ const dccsTrainingPageCss = `
   }
 }
 
-/* DCCS 蝐??賊?嚗﹝??蝷箏摰蝐?銝嚗??航??蝐?甇???*/
+/* DCCS 籃子容器：確保兩個答案按鈕維持一致大小。 */
 .Dcss-training-main-area-visual .Dcss-visual-basket-btn {
   display: flex !important;
   flex-direction: column !important;
@@ -3625,6 +3750,120 @@ const dccsTrainingPageCss = `
 
   .Dcss-basket-choice-image {
     height: 88px !important;
+  }
+}
+
+/* Training gameplay: match the TestPage_DCCS card/basket art layout. */
+.Dcss-training-shell-visual.Dcss-test-shell-visual {
+  width: min(94vw, 1360px) !important;
+  min-height: min(88vh, 860px) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.Dcss-training-shell-visual.Dcss-test-shell-visual::before {
+  display: none !important;
+}
+
+.Dcss-training-main-area-visual.Dcss-main-area-bottom-baskets {
+  grid-template-columns: minmax(520px, 700px) !important;
+  grid-template-rows: auto auto !important;
+  justify-content: center !important;
+  justify-items: center !important;
+  align-content: center !important;
+  gap: clamp(18px, 2.2vh, 28px) !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.Dcss-training-main-area-visual .Dcss-play-row {
+  display: contents !important;
+  width: auto !important;
+  margin: 0 !important;
+}
+
+.Dcss-training-main-area-visual .Dcss-card-stage {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  width: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  justify-self: center !important;
+  align-self: end !important;
+}
+
+.Dcss-training-main-area-visual .Dcss-card-stage-visual .Dcss-cloth-card {
+  width: clamp(210px, 25vw, 330px) !important;
+  height: clamp(210px, 25vw, 330px) !important;
+  min-width: 0 !important;
+  padding: clamp(16px, 2vw, 26px) !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+.Dcss-training-main-area-visual .Dcss-cloth-card::before,
+.Dcss-training-main-area-visual .Dcss-cloth-card::after {
+  display: none !important;
+}
+
+.Dcss-training-main-area-visual .Dcss-card-stage-visual .Dcss-cloth-card img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: contain !important;
+}
+
+.Dcss-training-main-area-visual .Dcss-baskets-bottom,
+.Dcss-training-main-area-visual .Dcss-visual-baskets-bottom {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  width: min(100%, 700px) !important;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: clamp(22px, 2.4vw, 36px) !important;
+  margin: 0 auto !important;
+  justify-self: center !important;
+}
+
+.Dcss-training-main-area-visual .Dcss-visual-basket-btn {
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: clamp(150px, 18vh, 190px) !important;
+  padding: clamp(10px, 1.4vw, 18px) clamp(8px, 1vw, 14px) !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+  overflow: visible !important;
+}
+
+.Dcss-training-main-area-visual .Dcss-visual-basket-btn::before,
+.Dcss-training-main-area-visual .Dcss-visual-basket-btn::after {
+  display: none !important;
+}
+
+@media (max-width: 980px) {
+  .Dcss-training-main-area-visual.Dcss-main-area-bottom-baskets {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 620px) {
+  .Dcss-training-main-area-visual .Dcss-baskets-bottom,
+  .Dcss-training-main-area-visual .Dcss-visual-baskets-bottom {
+    width: min(100%, 560px) !important;
+    gap: 12px !important;
+  }
+
+  .Dcss-training-main-area-visual .Dcss-card-stage-visual .Dcss-cloth-card {
+    width: clamp(180px, 54vw, 250px) !important;
+    height: clamp(180px, 54vw, 250px) !important;
   }
 }
 .Dcss-cloth-card-bagged img,

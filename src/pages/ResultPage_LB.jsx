@@ -5,10 +5,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import calculateLBScore from "../utils/lbScoring";
 import "../styles/GamePage_LB.css";
 
-import backgroundImg from "../asset/LB/background.png";
-import sheepImg from "../asset/LB/sheep.png";
-import homeBackBtn from "../asset/home/back.png";
-import homeAgainBtn from "../asset/home/again.png";
+import backgroundImg from "../asset/LB/LB_background.webp";
+import sheepImg from "../asset/LB/blowing_bubbles.webp";
+import homeBackBtn from "../asset/home/back.webp";
+import homeAgainBtn from "../asset/home/again.webp";
 
 /*
   =========================================================
@@ -1001,7 +1001,7 @@ export default function ResultPage_LB() {
             <section style={styles.heroCard}>
               <div style={styles.heroLeft}>
                 <div style={styles.characterBadge}>
-                  <img src={sheepImg} alt="小羊" style={styles.characterImg} draggable="false" />
+                  <img width={1024} height={1024} src={sheepImg} alt="小羊" style={styles.characterImg} draggable="false" />
                 </div>
 
                 <div>
@@ -1069,7 +1069,7 @@ export default function ResultPage_LB() {
               onClick={handleBackToForest}
               aria-label="回到森林"
             >
-              <img src={homeBackBtn} alt="回到森林" style={styles.imageButtonImg} />
+              <img width={1024} height={341} loading="lazy" src={homeBackBtn} alt="回到森林" style={styles.imageButtonImg} />
             </button>
 
             {mode === "training" && (
@@ -1079,7 +1079,7 @@ export default function ResultPage_LB() {
                 onClick={() => handleNavigate(retryRoute, { clearCache: true })}
                 aria-label="play again"
               >
-                <img src={homeAgainBtn} alt="play again" style={styles.imageButtonImg} />
+                <img width={1024} height={341} loading="lazy" src={homeAgainBtn} alt="play again" style={styles.imageButtonImg} />
               </button>
             )}
           </footer>

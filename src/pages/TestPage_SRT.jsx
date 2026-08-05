@@ -1,21 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import bgImg from "../asset/SRT_testbackground.png";
-import normalImg from "../asset/acorn.png";
-import goldenImg from "../asset/golden_acorn.png";
-import rottenImg from "../asset/rotten_acorn.png";
-import levelIcon from "../asset/SRT_icon.png";
-import startAvatar from "../asset/avatar/bear.png";
+import bgImg from "../asset/SRT/SRT_background.webp";
+import normalImg from "../asset/SRT/acorn.webp";
+import goldenImg from "../asset/SRT/golden_acorn.webp";
+import rottenImg from "../asset/SRT/rotten_acorn.webp";
+import levelIcon from "../asset/SRT/SRT_icon.webp";
+import startAvatar from "../asset/SRT/bear.webp";
 import introVideo from "../asset/mp4/SRT_start.mp4";
 import tutorialVideo from "../asset/mp4/SRT_step.mp4";
 import endingVideo from "../asset/mp4/SRT_end.mp4";
-import homeStartBtn from "../asset/home/start.png";
-import homeSkipBtn from "../asset/home/skip.png";
-import homeNextBtn from "../asset/home/next.png";
-import homeBackBtn from "../asset/home/back.png";
-import homeResultBtn from "../asset/home/result.png";
-import mouseImg from "../asset/mouse.png";
+import homeStartBtn from "../asset/SRT/start.webp";
+import homeSkipBtn from "../asset/SRT/skip.webp";
+import homeNextBtn from "../asset/SRT/next.webp";
+import homeBackBtn from "../asset/SRT/back.webp";
+import homeResultBtn from "../asset/SRT/result.webp";
+import mouseImg from "../asset/mouse.webp";
 
 import SrtResultPage from "./ResultPage_SRT";
 import { calculateSrtScore } from "../utils/srtScoring";
@@ -53,6 +53,8 @@ const targetTypes = {
     key: "normal",
     label: "普通橡實",
     img: normalImg,
+    intrinsicWidth: 151,
+    intrinsicHeight: 194,
     shouldClick: true,
     score: 3,
   },
@@ -60,6 +62,8 @@ const targetTypes = {
     key: "golden",
     label: "金色橡實",
     img: goldenImg,
+    intrinsicWidth: 166,
+    intrinsicHeight: 211,
     shouldClick: true,
     score: 4,
   },
@@ -67,6 +71,8 @@ const targetTypes = {
     key: "rotten",
     label: "壞橡實",
     img: rottenImg,
+    intrinsicWidth: 166,
+    intrinsicHeight: 201,
     shouldClick: false,
     score: -3,
   },
@@ -158,6 +164,8 @@ const TestPage_SRT = () => {
       clearAllTimers();
       pauseAllVideos();
     };
+    // Cleanup must run only on unmount; video refs always expose their latest nodes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const resetRuntimeState = () => {
@@ -886,6 +894,8 @@ const TestPage_SRT = () => {
       resultKey,
       safeParseStorage("srtTestResult", null)
     );
+    // Storage is intentionally re-read only when the result-view state changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, showDetailedResult, finalResult]);
 
   const resultStars = useMemo(() => {
@@ -913,19 +923,19 @@ const TestPage_SRT = () => {
 
       {phase === "start" && (
         <main className="srt-center-shell srt-start-shell">
-          <section className="srt-soft-panel srt-start-panel" aria-label="開始畫面">
+          <section className="srt-soft-panel srt-start-panel game-start-card-artwork" aria-label="開始畫面">
             <div className="srt-game-title">幫小松鼠撿橡實</div>
             <div className="srt-start-content">
               <div className="srt-dialog-bubble srt-opening-bubble">小松鼠想請你一起找橡實。</div>
               <div className="srt-round-icon srt-start-avatar">
-                <img src={startAvatar} alt="小松鼠頭像" />
+                <img src={startAvatar} width="364" height="364" alt="小松鼠頭像" />
               </div>
             </div>
             <div className="srt-guided-action srt-guided-start">
               <button type="button" className="srt-forest-button srt-image-button srt-btn-start" onClick={handleStart} aria-label="進入遊戲">
-                <img src={homeStartBtn} alt="進入遊戲" />
+                <img src={homeStartBtn} width="532" height="177" alt="進入遊戲" />
               </button>
-              <img className="srt-mouse-guide srt-mouse-on-button" src={mouseImg} alt="" aria-hidden="true" />
+              <img loading="lazy" className="srt-mouse-guide srt-mouse-on-button" src={mouseImg} width="156" height="156" alt="" aria-hidden="true" />
             </div>
           </section>
         </main>
@@ -933,7 +943,7 @@ const TestPage_SRT = () => {
 
       {phase === "intro" && (
         <main className="srt-center-shell">
-          <section className="srt-soft-panel srt-video-panel" aria-label="前導動畫">
+          <section className="srt-soft-panel srt-video-panel game-start-card-artwork" aria-label="前導動畫">
             <div className="srt-video-frame">
               <video
                 ref={introVideoRef}
@@ -948,14 +958,14 @@ const TestPage_SRT = () => {
             <div className="srt-step-actions">
               <div className="srt-guided-action srt-guided-skip">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={handleIntroEnd} aria-label="跳過動畫">
-                  <img src={homeSkipBtn} alt="跳過動畫" />
+                  <img src={homeSkipBtn} width="532" height="177" loading="lazy" alt="跳過動畫" />
                 </button>
               </div>
               <div className="srt-guided-action srt-guided-next">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-next" onClick={handleIntroEnd} aria-label="下一步">
-                  <img src={homeNextBtn} alt="下一步" />
+                  <img src={homeNextBtn} width="532" height="177" loading="lazy" alt="下一步" />
                 </button>
-                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseImg} alt="" aria-hidden="true" />
+                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseImg} width="156" height="156" loading="lazy" alt="" aria-hidden="true" />
               </div>
             </div>
           </section>
@@ -964,7 +974,7 @@ const TestPage_SRT = () => {
 
       {phase === "step" && (
         <main className="srt-center-shell">
-          <section className="srt-soft-panel srt-video-panel" aria-label="步驟教學影片">
+          <section className="srt-soft-panel srt-video-panel game-start-card-artwork" aria-label="步驟教學影片">
             <div className="srt-video-frame">
               <video
                 ref={tutorialVideoRef}
@@ -979,14 +989,14 @@ const TestPage_SRT = () => {
             <div className="srt-step-actions">
               <div className="srt-guided-action srt-guided-skip">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={startTest} aria-label="跳過動畫">
-                  <img src={homeSkipBtn} alt="跳過動畫" />
+                  <img src={homeSkipBtn} width="532" height="177" loading="lazy" alt="跳過動畫" />
                 </button>
               </div>
               <div className="srt-guided-action srt-guided-next">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-next" onClick={startTest} aria-label="下一步">
-                  <img src={homeNextBtn} alt="下一步" />
+                  <img src={homeNextBtn} width="532" height="177" loading="lazy" alt="下一步" />
                 </button>
-                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseImg} alt="" aria-hidden="true" />
+                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseImg} width="156" height="156" loading="lazy" alt="" aria-hidden="true" />
               </div>
             </div>
           </section>
@@ -997,8 +1007,10 @@ const TestPage_SRT = () => {
         <main className="srt-play-page">
           <div className={`srt-test-game-area ${idleFlashId ? "srt-idle-flash" : ""}`} onClick={handleGameAreaClick}>
             {item && (
-              <img
+              <img loading="lazy"
                 src={item.img || normalImg}
+                width={item.intrinsicWidth || 151}
+                height={item.intrinsicHeight || 194}
                 alt={item.label || "橡實"}
                 draggable={false}
                 className="srt-test-item"
@@ -1014,7 +1026,7 @@ const TestPage_SRT = () => {
 
       {phase === "ending" && (
         <main className="srt-center-shell">
-          <section className="srt-soft-panel srt-video-panel" aria-label="結束動畫">
+          <section className="srt-soft-panel srt-video-panel game-start-card-artwork" aria-label="結束動畫">
             <div className="srt-video-frame">
               <video
                 ref={endingVideoRef}
@@ -1028,7 +1040,7 @@ const TestPage_SRT = () => {
             </div>
             <div className="srt-guided-action srt-guided-skip">
               <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={handleEndingVideoEnd} aria-label="跳過動畫">
-                <img src={homeSkipBtn} alt="跳過動畫" />
+                <img src={homeSkipBtn} width="532" height="177" loading="lazy" alt="跳過動畫" />
               </button>
             </div>
           </section>
@@ -1037,7 +1049,7 @@ const TestPage_SRT = () => {
 
       {phase === "result" && !showDetailedResult && (
         <main className="srt-center-shell srt-result-shell">
-          <section className="srt-soft-panel srt-result-panel" aria-label="測驗結果">
+          <section className="srt-soft-panel srt-result-panel game-result-card-artwork" aria-label="測驗結果">
             <div className="srt-cute-stars" aria-label={`${resultStars} 顆星`}>
               {[1, 2, 3].map((star) => (
                 <span key={star} className={`srt-cute-star ${star <= resultStars ? "is-on" : ""}`}>★</span>
@@ -1047,19 +1059,19 @@ const TestPage_SRT = () => {
             <div className="srt-start-content srt-result-content">
               <div className="srt-dialog-bubble">完成了！你有很認真看森林喔。</div>
               <div className="srt-round-icon srt-result-icon">
-                <img src={levelIcon} alt="SRT 關卡圖示" />
+                <img src={levelIcon} width="340" height="340" loading="lazy" alt="SRT 關卡圖示" />
               </div>
             </div>
 
             <div className="srt-result-actions">
               <div className="srt-guided-action srt-guided-result-main">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-home" onClick={() => navigate(TEST_PAGE_ROUTE)} aria-label="回到森林">
-                  <img src={homeBackBtn} alt="回到森林" />
+                  <img src={homeBackBtn} width="532" height="177" loading="lazy" alt="回到森林" />
                 </button>
-                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseImg} alt="" aria-hidden="true" />
+                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseImg} width="156" height="156" loading="lazy" alt="" aria-hidden="true" />
               </div>
               <button type="button" className="srt-forest-button srt-image-button srt-btn-detail" onClick={() => setShowDetailedResult(true)} aria-label="詳細結果">
-                <img src={homeResultBtn} alt="詳細結果" />
+                <img src={homeResultBtn} width="532" height="177" loading="lazy" alt="查看詳細結果" />
               </button>
             </div>
           </section>

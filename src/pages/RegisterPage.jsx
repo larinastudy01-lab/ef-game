@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
-import pageBg from "../asset/home/dashboard_background.png";
-import registerBtnImg from "../asset/home/register.png";
+import pageBg from "../asset/home/dashboard_background.webp";
+import registerBtnImg from "../asset/home/register.webp";
 
 function RegisterPage() {
   const [fullName, setFullName] = useState("");
@@ -185,7 +185,7 @@ function RegisterPage() {
             )}
 
             <button className="image-button register-submit" type="submit" disabled={isLoading}>
-              <img src={registerBtnImg} alt={isLoading ? "註冊中" : "註冊"} />
+              <img width={1024} height={341} src={registerBtnImg} alt={isLoading ? "註冊中" : "註冊"} />
               <span>{isLoading ? "註冊中..." : "註冊"}</span>
             </button>
           </form>

@@ -20,12 +20,18 @@ const TestMapPage = lazy(() => import("./pages/TestMapPage"));
 const RestPage = lazy(() => import("./pages/RestPage"));
 const Achievement = lazy(() => import("./pages/Achievement"));
 const AvatarRoom = lazy(() => import("./pages/Avatar_Room"));
+const Furniture = lazy(() => import("./pages/Furniture"));
 const HatStickerGamePage = lazy(() => import("./pages/HatStickerGamePage"));
 
 const AddPatient = lazy(() => import("./pages/AddPatientPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const ClinicianLoginPage = lazy(() => import("./pages/ClinicianLoginPage"));
 const ClinicianDashboard = lazy(() => import("./pages/ClinicianDashboard"));
+const ResearchStatistics = lazy(() => import("./pages/ResearchStatistics"));
+const AIBehavioralAnalysis = lazy(() => import("./pages/AIBehavioralAnalysis"));
+const AdaptiveRecommendationResearch = lazy(() => import("./pages/AdaptiveRecommendationResearch"));
+const LongitudinalDashboard = lazy(() => import("./pages/LongitudinalDashboard"));
+const ResearchProfessionalDashboard = lazy(() => import("./pages/ResearchProfessionalDashboard"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 
 const TrainingPageSRT = lazy(() => import("./pages/TrainingPage_SRT"));
@@ -44,9 +50,9 @@ const TrainingPageLB = lazy(() => import("./pages/TrainingPage_LB"));
 const TestPageLB = lazy(() => import("./pages/TestPage_LB"));
 const ResultPageLB = lazy(() => import("./pages/ResultPage_LB"));
 
-const TrainingPageDPT = lazy(() => import("./pages/TrainingPage_DPT"));
-const TestPageDPT = lazy(() => import("./pages/TestPage_DPT"));
-const ResultPageDPT = lazy(() => import("./pages/ResultPage_DPT"));
+const TrainingPageSSG = lazy(() => import("./pages/TrainingPage_SSG"));
+const TestPageSSG = lazy(() => import("./pages/TestPage_SSG"));
+const ResultPageSSG = lazy(() => import("./pages/ResultPage_SSG"));
 
 const TrainingPageDCCS = lazy(() => import("./pages/TrainingPage_DCCS"));
 const TestPageDCCS = lazy(() => import("./pages/TestPage_DCCS"));
@@ -355,6 +361,7 @@ function AppContent() {
         />
         <Route path="/achievement" element={<Achievement />} />
         <Route path="/avatar-room" element={<AvatarRoom />} />
+        <Route path="/furniture" element={<Furniture />} />
         <Route
           path="/hat-sticker-game"
           element={<HatStickerGamePage />}
@@ -412,13 +419,13 @@ function AppContent() {
         />
         <Route path="/result-lb" element={<ResultPageLB />} />
 
-        {/* Dot Probe */}
+        {/* SSG */}
         <Route
-          path="/training-dot-probe"
-          element={<TrainingPageDPT />}
+          path="/training-ssg"
+          element={<TrainingPageSSG />}
         />
-        <Route path="/test-dot-probe" element={<TestPageDPT />} />
-        <Route path="/result-dpt" element={<ResultPageDPT />} />
+        <Route path="/test-ssg" element={<TestPageSSG />} />
+        <Route path="/result-ssg" element={<ResultPageSSG />} />
 
         {/* DCCS */}
         <Route
@@ -460,6 +467,11 @@ function AppContent() {
           path="/clinician-dashboard"
           element={<ClinicianDashboard />}
         />
+        <Route path="/research-statistics" element={<ResearchStatistics />} />
+        <Route path="/ai-behavioral-analysis" element={<AIBehavioralAnalysis />} />
+        <Route path="/adaptive-recommendation-research" element={<AdaptiveRecommendationResearch />} />
+        <Route path="/longitudinal-dashboard" element={<LongitudinalDashboard />} />
+        <Route path="/research-professional-dashboard" element={<ResearchProfessionalDashboard />} />
         <Route path="/settings" element={<SettingsPage />} />
 
         {/* 找不到頁面時回首頁 */}
@@ -472,7 +484,10 @@ function AppContent() {
 
 function App() {
   return (
-    <Router>
+    <Router
+      basename={process.env.PUBLIC_URL || undefined}
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+    >
       <AppContent />
     </Router>
   );

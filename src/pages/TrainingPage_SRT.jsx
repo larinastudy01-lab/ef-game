@@ -1,26 +1,26 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import bgImg from "../asset/SRT_testbackground.png";
-import normalImg from "../asset/acorn.png";
-import goldenImg from "../asset/golden_acorn.png";
-import rottenImg from "../asset/rotten_acorn.png";
-import levelIcon from "../asset/SRT_icon.png";
-import startAvatar from "../asset/avatar/bear.png";
-import tutorialAvatar from "../asset/avatar/chicken.png";
+import bgImg from "../asset/SRT/SRT_background.webp";
+import normalImg from "../asset/SRT/acorn.webp";
+import goldenImg from "../asset/SRT/golden_acorn.webp";
+import rottenImg from "../asset/SRT/rotten_acorn.webp";
+import levelIcon from "../asset/SRT/SRT_icon.webp";
+import startAvatar from "../asset/SRT/bear.webp";
+import tutorialAvatar from "../asset/SRT/chicken.webp";
 import introVideo from "../asset/mp4/start.mp4";
 import tutorialVideo from "../asset/mp4/SRT_step.mp4";
 import endingVideo from "../asset/mp4/SRT_end.mp4";
-import clickSoundFile from "../asset/Click_SRT.mp3";
-import homeStartBtn from "../asset/home/start.png";
-import homeSkipBtn from "../asset/home/skip.png";
-import homeNextBtn from "../asset/home/next.png";
-import homeBackBtn from "../asset/home/back.png";
-import homeAgainBtn from "../asset/home/again.png";
-import homeResultBtn from "../asset/home/result.png";
-import mouseGuideImg from "../asset/mouse.png";
+import clickSoundFile from "../asset/Click.mp3";
+import homeStartBtn from "../asset/SRT/start.webp";
+import homeSkipBtn from "../asset/SRT/skip.webp";
+import homeNextBtn from "../asset/SRT/next.webp";
+import homeBackBtn from "../asset/SRT/back.webp";
+import homeAgainBtn from "../asset/SRT/again.webp";
+import homeResultBtn from "../asset/SRT/result.webp";
+import mouseGuideImg from "../asset/mouse.webp";
 
-import ResultPage_SRT from "./ResultPage_SRT";
+import ResultPageSRT from "./ResultPage_SRT";
 import { saveUnifiedResult } from "../utils/resultManager";
 import { calculateSrtScore } from "../utils/srtScoring";
 import { analyzeSrtTraining } from "../ai/srtTrainingAnalyzer";
@@ -396,6 +396,8 @@ const objectTypes = {
   normal: {
     key: "normal",
     img: normalImg,
+    intrinsicWidth: 151,
+    intrinsicHeight: 194,
     score: 3,
     label: "普通橡實",
     hint: "接到一顆橡實！小松鼠很開心！",
@@ -405,6 +407,8 @@ const objectTypes = {
   golden: {
     key: "golden",
     img: goldenImg,
+    intrinsicWidth: 166,
+    intrinsicHeight: 211,
     score: 4,
     label: "金色橡實",
     hint: "哇！金色橡實！小松鼠得到金色的橡實！",
@@ -414,6 +418,8 @@ const objectTypes = {
   rotten: {
     key: "rotten",
     img: rottenImg,
+    intrinsicWidth: 166,
+    intrinsicHeight: 201,
     score: -3,
     label: "壞掉橡實",
     hint: "這顆壞掉了，下次要幫小松鼠避開喔！",
@@ -456,16 +462,16 @@ const TrainingPage_SRT = () => {
   };
 
   const [difficulty, setDifficulty] = useState(initialDifficulty);
-  const [timeLeft, setTimeLeft] = useState(0); 
+  const [, setTimeLeft] = useState(0);
 
   const [item, setItem] = useState(null);
   const [effect, setEffect] = useState(null);
-  const [falseStartWarning, setFalseStartWarning] = useState(null);
-  const [showMouseGuide, setShowMouseGuide] = useState(false);
+  const [, setFalseStartWarning] = useState(null);
+  const [, setShowMouseGuide] = useState(false);
   const [assistEffect, setAssistEffect] = useState(null);
   const [idleFlashId, setIdleFlashId] = useState(null);
-  const [hintText, setHintText] = useState("小松鼠準備好接橡實囉！");
-  const [showHint, setShowHint] = useState(false);
+  const [, setHintText] = useState("小松鼠準備好接橡實囉！");
+  const [, setShowHint] = useState(false);
   const [showDetailedResult, setShowDetailedResult] = useState(false);
   const [warmupStep, setWarmupStep] = useState(0);
   const [warmupItem, setWarmupItem] = useState(null);
@@ -1078,15 +1084,6 @@ const TrainingPage_SRT = () => {
     }, duration);
   };
 
-  const showGuidanceHint = (text, duration = 1000, cooldown = 3500) => {
-    const now = Date.now();
-
-    if (now - lastGuidanceHintTimeRef.current < cooldown) return;
-
-    lastGuidanceHintTimeRef.current = now;
-    showStoryHint(text, duration);
-  };
-
   const handleStart = () => {
     resetTraining();
     setShowDetailedResult(false);
@@ -1452,21 +1449,6 @@ const TrainingPage_SRT = () => {
   const shouldShowRottenWarmup = () => {
     const currentConfig = difficultySettings[difficultyRef.current] || difficultySettings["easy-1"];
     return currentConfig.rottenRate > 0;
-  };
-
-  const spawnWarmupNormal = () => {
-    if (phaseRef.current !== "warmup") return;
-
-    setWarmupStep(1);
-    setWarmupReady(false);
-    setWarmupMessage("點好橡實！");
-
-    setWarmupItem({
-      id: "warmup-normal",
-      type: objectTypes.normal,
-      x: 50,
-      y: 55,
-    });
   };
 
   const spawnWarmupGolden = () => {
@@ -2125,8 +2107,11 @@ const TrainingPage_SRT = () => {
       clinicianSummary:
         trainingAnalysis?.clinicianSummary || legacyAnalysis?.clinicianSummary,
     };
+    // Analyzer helpers are pure; these are their complete mutable data inputs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trialRecords, falseClickCount, repeatedClickCount, score, difficulty, config]);
 
+  /* eslint-disable react-hooks/exhaustive-deps -- buildLongAttentionMetrics is a pure render-local helper */
   const summaryData = useMemo(() => {
     const hitCount = resultRecords.filter(
       (record) => record.trainingAction === "hit"
@@ -2196,8 +2181,10 @@ const TrainingPage_SRT = () => {
     };
   }, [
     resultRecords,
-    trialRecords.length,
+    trialRecords,
     difficulty,
+    config.displayKey,
+    config.step,
     config.label,
     config.storyLabel,
     score,
@@ -2208,6 +2195,7 @@ const TrainingPage_SRT = () => {
     scoringResult,
     scoringSummary,
   ]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const resultStars = useMemo(() => {
     try {
@@ -2228,6 +2216,8 @@ const TrainingPage_SRT = () => {
     } catch (error) {
       return clampStars(aiAnalysis?.performanceResult?.stars ?? 1);
     }
+    // getCurrentChildId reads storage only when result state changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, aiAnalysis, summaryData]);
 
   return (
@@ -2244,21 +2234,21 @@ const TrainingPage_SRT = () => {
 
       {phase === "start" && (
         <main className="srt-center-shell srt-start-shell">
-          <section className="srt-soft-panel srt-start-panel" aria-label="訓練開始畫面">
+          <section className="srt-soft-panel srt-start-panel game-start-card-artwork" aria-label="訓練開始畫面">
             <div className="srt-game-title">小松鼠的橡實練習</div>
             <div className="srt-start-content">
               <div className="srt-dialog-bubble srt-opening-bubble">
                 幫小松鼠找橡實！
               </div>
               <div className="srt-round-icon srt-start-avatar">
-                <img src={startAvatar} alt="小松鼠頭像" />
+                <img src={startAvatar} width="364" height="364" alt="小松鼠頭像" />
               </div>
             </div>
             <div className="srt-guided-action srt-guided-start">
               <button type="button" className="srt-forest-button srt-image-button srt-btn-start" onClick={handleStart} aria-label="進入遊戲">
-                <img src={homeStartBtn} alt="進入遊戲" />
+                <img src={homeStartBtn} width="532" height="177" alt="進入遊戲" />
               </button>
-              <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+              <img loading="lazy" className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} width="156" height="156" alt="" aria-hidden="true" />
             </div>
           </section>
         </main>
@@ -2266,7 +2256,7 @@ const TrainingPage_SRT = () => {
 
       {phase === "intro" && (
         <main className="srt-center-shell">
-          <section className="srt-soft-panel srt-video-panel" aria-label="前導動畫">
+          <section className="srt-soft-panel srt-video-panel game-start-card-artwork" aria-label="前導動畫">
             <div className="srt-video-frame">
               <video
                 src={introVideo}
@@ -2280,14 +2270,14 @@ const TrainingPage_SRT = () => {
             <div className="srt-step-actions">
               <div className="srt-guided-action srt-guided-skip">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={handleIntroEnd} aria-label="跳過動畫">
-                  <img src={homeSkipBtn} alt="跳過動畫" />
+                  <img src={homeSkipBtn} width="532" height="177" loading="lazy" alt="跳過動畫" />
                 </button>
               </div>
               <div className="srt-guided-action srt-guided-next">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-next" onClick={handleIntroEnd} aria-label="下一步">
-                  <img src={homeNextBtn} alt="下一步" />
+                  <img src={homeNextBtn} width="532" height="177" loading="lazy" alt="下一步" />
                 </button>
-                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} width="156" height="156" loading="lazy" alt="" aria-hidden="true" />
               </div>
             </div>
           </section>
@@ -2296,7 +2286,7 @@ const TrainingPage_SRT = () => {
 
       {phase === "step" && (
         <main className="srt-center-shell">
-          <section className="srt-soft-panel srt-video-panel" aria-label="步驟教學影片">
+          <section className="srt-soft-panel srt-video-panel game-start-card-artwork" aria-label="步驟教學影片">
             <div className="srt-video-frame">
               <video
                 src={tutorialVideo}
@@ -2310,14 +2300,14 @@ const TrainingPage_SRT = () => {
             <div className="srt-step-actions">
               <div className="srt-guided-action srt-guided-skip">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={startTraining} aria-label="跳過動畫">
-                  <img src={homeSkipBtn} alt="跳過動畫" />
+                  <img src={homeSkipBtn} width="532" height="177" loading="lazy" alt="跳過動畫" />
                 </button>
               </div>
               <div className="srt-guided-action srt-guided-next">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-next" onClick={startTraining} aria-label="下一步">
-                  <img src={homeNextBtn} alt="下一步" />
+                  <img src={homeNextBtn} width="532" height="177" loading="lazy" alt="下一步" />
                 </button>
-                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} width="156" height="156" loading="lazy" alt="" aria-hidden="true" />
               </div>
             </div>
           </section>
@@ -2339,7 +2329,7 @@ const TrainingPage_SRT = () => {
             >
               <div className="srt-tutorial-grid srt-warmup-grid">
                 <div className="srt-avatar-guide">
-                  <img src={tutorialAvatar} alt="皮皮小助手" />
+                  <img src={tutorialAvatar} width="364" height="364" loading="lazy" alt="皮皮小助手" />
                 </div>
 
                 <div className="srt-rule-steps srt-training-rule-steps" aria-label="訓練規則說明">
@@ -2358,11 +2348,11 @@ const TrainingPage_SRT = () => {
                       onClick={handleWarmupItemClick}
                       aria-label={warmupItem.type.label}
                     >
-                      <img src={warmupItem.type.img} alt={warmupItem.type.label} />
+                      <img loading="lazy" src={warmupItem.type.img} width={warmupItem.type.intrinsicWidth} height={warmupItem.type.intrinsicHeight} alt={warmupItem.type.label} />
                     </button>
                   )}
                   {warmupItem && warmupItem.type.shouldClick && (
-                    <img className="srt-mouse-guide srt-mouse-on-acorn" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+                    <img loading="lazy" className="srt-mouse-guide srt-mouse-on-acorn" src={mouseGuideImg} width="156" height="156" alt="" aria-hidden="true" />
                   )}
                   <div className="srt-tap-hint">{warmupReady ? "很好！可以開始囉" : "先試試看"}</div>
                   {effect && (
@@ -2385,10 +2375,10 @@ const TrainingPage_SRT = () => {
                 disabled={!warmupReady}
                 aria-label="開始練習"
               >
-                <img src={homeStartBtn} alt="開始練習" />
+                <img src={homeStartBtn} width="532" height="177" alt="開始練習" />
               </button>
               {warmupReady && (
-                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+                <img loading="lazy" className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} width="156" height="156" alt="" aria-hidden="true" />
               )}
             </div>
           </section>
@@ -2411,8 +2401,10 @@ const TrainingPage_SRT = () => {
                 onClick={(event) => handleItemClick(event, item)}
                 aria-label={item.type.label}
               >
-                <img
+                <img loading="lazy"
                   src={item.type.img}
+                  width={item.type.intrinsicWidth}
+                  height={item.type.intrinsicHeight}
                   alt=""
                   draggable={false}
                   className={`srt-test-item ${getDisplayDifficultyKey(difficulty) === "hard" ? "srt-game-item-hard" : ""} ${assistEffect === "glow" ? "srt-assist-glow" : ""} ${assistEffect === "shake" ? "srt-assist-shake" : ""}`}
@@ -2428,7 +2420,7 @@ const TrainingPage_SRT = () => {
 
       {phase === "ending" && (
         <main className="srt-center-shell">
-          <section className="srt-soft-panel srt-video-panel" aria-label="結束動畫">
+          <section className="srt-soft-panel srt-video-panel game-start-card-artwork" aria-label="結束動畫">
             <div className="srt-video-frame">
               <video
                 src={endingVideo}
@@ -2441,9 +2433,9 @@ const TrainingPage_SRT = () => {
             </div>
             <div className="srt-guided-action srt-guided-skip">
               <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={handleEndingVideoEnd} aria-label="跳過動畫">
-                <img src={homeSkipBtn} alt="跳過動畫" />
+                <img src={homeSkipBtn} width="532" height="177" loading="lazy" alt="跳過動畫" />
               </button>
-              <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+              <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} width="156" height="156" loading="lazy" alt="" aria-hidden="true" />
             </div>
           </section>
         </main>
@@ -2451,7 +2443,7 @@ const TrainingPage_SRT = () => {
 
       {phase === "result" && !showDetailedResult && (
         <main className="srt-center-shell srt-result-shell">
-          <section className="srt-soft-panel srt-result-panel" aria-label="訓練結果">
+          <section className="srt-soft-panel srt-result-panel game-result-card-artwork" aria-label="訓練結果">
             <div className="srt-cute-stars" aria-label={`${resultStars} 顆星`}>
               {[1, 2, 3].map((star) => (
                 <span key={star} className={`srt-cute-star ${star <= resultStars ? "is-on" : ""}`}>★</span>
@@ -2461,7 +2453,7 @@ const TrainingPage_SRT = () => {
             <div className="srt-start-content srt-result-content">
               <div className="srt-dialog-bubble">你完成了！</div>
               <div className="srt-round-icon srt-result-icon">
-                <img src={levelIcon} alt="SRT 圖示" />
+                <img src={levelIcon} width="340" height="340" loading="lazy" alt="SRT 關卡圖示" />
               </div>
             </div>
 
@@ -2469,15 +2461,15 @@ const TrainingPage_SRT = () => {
             <div className="srt-result-actions">
               <div className="srt-guided-action srt-guided-result-main">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-home" onClick={() => navigate("/game-menu")} aria-label="回到森林">
-                  <img src={homeBackBtn} alt="回到森林" />
+                  <img src={homeBackBtn} width="532" height="177" loading="lazy" alt="回到森林" />
                 </button>
-                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} width="156" height="156" loading="lazy" alt="" aria-hidden="true" />
               </div>
               <button type="button" className="srt-forest-button srt-image-button srt-btn-replay" onClick={handleStart} aria-label="再玩一次">
-                <img src={homeAgainBtn} alt="再玩一次" />
+                <img src={homeAgainBtn} width="532" height="177" loading="lazy" alt="再玩一次" />
               </button>
               <button type="button" className="srt-forest-button srt-image-button srt-btn-detail" onClick={() => setShowDetailedResult(true)} aria-label="詳細結果">
-                <img src={homeResultBtn} alt="詳細結果" />
+                <img src={homeResultBtn} width="532" height="177" loading="lazy" alt="查看詳細結果" />
               </button>
             </div>
           </section>
@@ -2485,7 +2477,7 @@ const TrainingPage_SRT = () => {
       )}
 
       {phase === "result" && showDetailedResult && (
-        <ResultPage_SRT
+        <ResultPageSRT
           mode="training"
           score={score}
           avgRT={avgRT}

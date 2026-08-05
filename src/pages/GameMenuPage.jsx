@@ -2,31 +2,33 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import "../styles/GameMenuPage.css";
+import useTemporaryTestUnlock from "../utils/useTemporaryTestUnlock";
 
-import gameMapBackground from "../asset/GameMap.png";
-import mousePointer from "../asset/mouse.png";
+import gameMapBackground from "../asset/GameMap.webp";
+import mousePointer from "../asset/mouse.webp";
 import completionVideo from "../asset/mp4/start.mp4";
 
-import chickenAvatar from "../asset/avatar/chicken.png";
-import starAsset from "../asset/home/icon/一星_no_bg.png";
-import honeycombAsset from "../asset/honeycomb_no_bg.png";
-import honeyAsset from "../asset/Honey.png";
-import pawLockedAsset from "../asset/home/icon/關卡 灰_no_bg.png";
-import pawActiveAsset from "../asset/home/icon/關卡 黃_no_bg.png";
-import pawDoneAsset from "../asset/home/icon/關卡 綠_no_bg.png";
-import srtIcon from "../asset/SRT_icon.png";
-import pmIcon from "../asset/PM_icon.png";
-import cbtIcon from "../asset/CBT_icon.png";
-import dptIcon from "../asset/DPT_icon.png";
-import dccsIcon from "../asset/DCCS_icon.png";
-import lbIcon from "../asset/LB_icon.png";
-import storyIcon from "../asset/home/story.png";
-import testIcon from "../asset/home/test.png";
-import goalIcon from "../asset/home/goal.png";
-import avatarHomeImg from "../asset/home/avatar_home.png";
+import chickenAvatar from "../asset/avatar/chicken.webp";
+import starAsset from "../asset/home/icon/一星_no_bg.webp";
+import honeycombAsset from "../asset/honeycomb_no_bg.webp";
+import honeyAsset from "../asset/Honey.webp";
+import pawLockedAsset from "../asset/home/icon/關卡 灰_no_bg.webp";
+import pawActiveAsset from "../asset/home/icon/關卡 黃_no_bg.webp";
+import pawDoneAsset from "../asset/home/icon/關卡 綠_no_bg.webp";
+import srtIcon from "../asset/SRT/SRT_icon.webp";
+import pmIcon from "../asset/PM_icon.webp";
+import cbtIcon from "../asset/CBT_icon.webp";
+import ssgIcon from "../asset/SSG/cat.webp";
+import dccsIcon from "../asset/DCCS_icon.webp";
+import lbIcon from "../asset/LB_icon.webp";
+import storyIcon from "../asset/home/story.webp";
+import testIcon from "../asset/home/test.webp";
+import goalIcon from "../asset/home/goal.webp";
+import avatarHomeImg from "../asset/home/avatar_home.webp";
 
 const COMPLETED_LEVELS_STORAGE_KEY = "ef_game_completed_training_levels";
 const COMPLETION_VIDEO_SEEN_KEY = "ef_game_today_training_completion_video_seen";
+const TRAINING_MENU_SESSION_STORAGE_KEY = "ef_game_training_menu_session";
 const DEFAULT_TRAINING_MINUTES = 15;
 const MAX_LEVEL_PER_GAME = 5;
 const HONEY_MISSION_STORAGE_KEY = "ef_game_honey_mission_progress";
@@ -77,6 +79,33 @@ const safeParse = (value, fallback = null) => {
 const readJsonArray = (key) => {
   const value = safeParse(localStorage.getItem(key), []);
   return Array.isArray(value) ? value : [];
+};
+
+const createTrainingMenuSessionId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
+const readTrainingMenuSessionId = (locationState = {}) => {
+  const shouldStartFreshSession =
+    (locationState?.mode === "training" && locationState?.fromResult !== true) ||
+    locationState?.resetTrainingMenuSession === true;
+
+  if (shouldStartFreshSession) {
+    const sessionId = createTrainingMenuSessionId();
+    sessionStorage.setItem(TRAINING_MENU_SESSION_STORAGE_KEY, sessionId);
+    return sessionId;
+  }
+
+  const existingSessionId = sessionStorage.getItem(TRAINING_MENU_SESSION_STORAGE_KEY);
+  if (existingSessionId) return existingSessionId;
+
+  const sessionId = createTrainingMenuSessionId();
+  sessionStorage.setItem(TRAINING_MENU_SESSION_STORAGE_KEY, sessionId);
+  return sessionId;
 };
 
 const readSelectedChild = () => {
@@ -253,7 +282,7 @@ const normalizeAbilityValue = (value) => {
     text.includes("專注") ||
     text.includes("反應") ||
     text.includes("srt") ||
-    text.includes("dpt")
+    text.includes("ssg")
   ) {
     return "inhibition";
   }
@@ -315,7 +344,7 @@ const normalizeGameIdValue = (value) => {
   if (text.includes("srt") || text.includes("反應小松鼠") || text.includes("橡實")) return "srt";
   if (text.includes("pm") || text.includes("picture") || text.includes("記憶收藏家") || text.includes("圖片")) return "pm";
   if (text.includes("cbt") || text.includes("石頭") || text.includes("石橋")) return "cbt";
-  if (text.includes("dpt") || text.includes("dot") || text.includes("專注小幫手") || text.includes("小蟲")) return "dpt";
+  if (text.includes("ssg") || text.includes("dot") || text.includes("專注小幫手") || text.includes("小蟲")) return "ssg";
   if (text.includes("dccs") || text.includes("規則小隊長") || text.includes("分類")) return "dccs";
   if (text === "lb" || text.includes("linking") || text.includes("balloon") || text.includes("順序切換") || text.includes("路標")) return "lb";
 
@@ -364,6 +393,54 @@ const getSelectedTrainingGames = (settings, trainingGames) => {
   return trainingGames.filter((game) => selectedAbilityGroups.includes(game.ability));
 };
 
+const getRecommendedTrainingPlan = (settings, trainingGames) => {
+  const rawPlan = Array.isArray(settings?.trainingLevelPlan)
+    ? settings.trainingLevelPlan
+    : Array.isArray(settings?.dailyTrainingPlan)
+      ? settings.dailyTrainingPlan
+      : [];
+
+  const gameUseCount = {};
+
+  return rawPlan
+    .map((item, index) => {
+      const rawGameId =
+        typeof item === "string"
+          ? item
+          : item?.gameId || item?.id || item?.trainingGameId || item?.game;
+      const gameId = normalizeGameIdValue(rawGameId);
+      const game = trainingGames.find((candidate) => candidate.id === gameId);
+
+      if (!game) return null;
+
+      const explicitLevel =
+        typeof item === "object" && item !== null
+          ? item.level || item.trainingLevel || item.difficultyLevel
+          : null;
+      const nextLevel = explicitLevel || (gameUseCount[game.id] || 0) + 1;
+      const safeLevel = Math.min(MAX_LEVEL_PER_GAME, Math.max(1, Number(nextLevel) || 1));
+
+      gameUseCount[game.id] = Math.max(gameUseCount[game.id] || 0, safeLevel);
+
+      return {
+        ...game,
+        gameId: game.id,
+        level: safeLevel,
+        plannedOrder: Number(item?.order || item?.trainingOrder || index + 1),
+        recommendationScore:
+          typeof item === "object" && item !== null ? item.recommendationScore ?? null : null,
+        averageScore:
+          typeof item === "object" && item !== null ? item.averageScore ?? null : null,
+        resultCount:
+          typeof item === "object" && item !== null ? item.resultCount ?? 0 : 0,
+        source:
+          typeof item === "object" && item !== null ? item.source || "training-plan" : "legacy-training-plan",
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 12);
+};
+
 const getPlannedStageCount = (minutes, selectedAbilityCount, maxCount) => {
   let count = 15;
 
@@ -403,12 +480,7 @@ const isTrainingStageCompletedFromStorage = (stage) => {
 
   return (
     completedLevels.includes(stage.stageId) ||
-    completedLevels.includes(`${stage.gameId}-${stage.level}`) ||
-    completedLevels.includes(`${stage.todayKey}-${stage.gameId}-${stage.level}`) ||
-    localStorage.getItem(`ef_game_${stage.stageId}_completed`) === "true" ||
-    localStorage.getItem(`ef_game_${stage.gameId}_level_${stage.level}_completed`) === "true" ||
-    localStorage.getItem(`training_${stage.gameId}_level_${stage.level}_completed`) === "true" ||
-    localStorage.getItem(`${stage.gameId}_training_level_${stage.level}_completed`) === "true"
+    localStorage.getItem(`ef_game_${stage.stageId}_completed`) === "true"
   );
 };
 
@@ -423,10 +495,6 @@ const readStarFromObject = (source, stage) => {
 
   const starKeys = [
     stage.stageId,
-    `${stage.gameId}-${stage.level}`,
-    `${stage.todayKey}-${stage.gameId}-${stage.level}`,
-    `${stage.gameId}_L${stage.level}`,
-    stage.gameId,
   ];
 
   for (const key of starKeys) {
@@ -446,11 +514,6 @@ const readStarFromObject = (source, stage) => {
 const getTrainingStageStarsFromStorage = (stage, completed) => {
   const directKeys = [
     `ef_game_${stage.stageId}_stars`,
-    `ef_game_${stage.gameId}_level_${stage.level}_stars`,
-    `training_${stage.gameId}_level_${stage.level}_stars`,
-    `${stage.gameId}_training_level_${stage.level}_stars`,
-    `ef_game_${stage.gameId}_stars`,
-    `${stage.gameId}_stars`,
   ];
 
   for (const key of directKeys) {
@@ -478,6 +541,8 @@ const getTrainingStageStarsFromStorage = (stage, completed) => {
 function GameMenuPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const isTestUnlockEnabled = useTemporaryTestUnlock();
+  const selectedChild = useMemo(() => location.state?.child || readSelectedChild(), [location.state]);
   const [showCompletionVideo, setShowCompletionVideo] = useState(false);
   const [showStoryVideo, setShowStoryVideo] = useState(false);
   const [showProfilePanel, setShowProfilePanel] = useState(false);
@@ -550,13 +615,13 @@ function GameMenuPage() {
       testPath: "/test-srt",
     },
     {
-      id: "dpt",
+      id: "ssg",
       ability: "inhibition",
-      shortName: "DPT",
-      title: "小蟲",
-      icon: dptIcon,
-      trainPath: "/training-dot-probe",
-      testPath: "/test-dot-probe",
+      shortName: "SSG",
+      title: "聲音符號",
+      icon: ssgIcon,
+      trainPath: "/training-ssg",
+      testPath: "/test-ssg",
     },
     {
       id: "pm",
@@ -597,10 +662,18 @@ function GameMenuPage() {
   ], []);
 
   const todayKey = useMemo(() => getTodayKey(), []);
-  const trainingSettings = useMemo(() => getTrainingSettings(location.state), [location.state, storageRefreshToken]);
+  const [trainingMenuSessionId] = useState(() => readTrainingMenuSessionId(location.state));
+  const trainingSettings = useMemo(() => {
+    void storageRefreshToken;
+    return getTrainingSettings(location.state);
+  }, [location.state, storageRefreshToken]);
   const trainingMinutes = useMemo(() => getTrainingMinutes(trainingSettings), [trainingSettings]);
   const selectedTrainingGames = useMemo(
     () => getSelectedTrainingGames(trainingSettings, trainingGames),
+    [trainingGames, trainingSettings]
+  );
+  const recommendedTrainingPlan = useMemo(
+    () => getRecommendedTrainingPlan(trainingSettings, trainingGames),
     [trainingGames, trainingSettings]
   );
   const selectedTrainingLabel = useMemo(() => {
@@ -608,6 +681,26 @@ function GameMenuPage() {
   }, [selectedTrainingGames]);
 
   const dailyTrainingStages = useMemo(() => {
+    if (recommendedTrainingPlan.length > 0) {
+      const plannedPoints = pickRoutePoints(recommendedTrainingPlan.length);
+
+      return recommendedTrainingPlan.map((planItem, index) => {
+        const point = plannedPoints[index];
+
+        return {
+          ...planItem,
+          stageId: `${todayKey}-${trainingMenuSessionId}-${index + 1}-${planItem.id}-L${planItem.level}`,
+          todayKey,
+          routeIndex: index,
+          globalOrder: index + 1,
+          difficultyLabel: LEVEL_COPY[planItem.level] || `第 ${planItem.level} 關`,
+          mapX: point.x,
+          mapY: point.y,
+          abilityLabel: ABILITY_LABELS[planItem.ability] || planItem.title,
+        };
+      });
+    }
+
     const availableGames = selectedTrainingGames.length > 0 ? selectedTrainingGames : trainingGames;
     const maxPossibleStages = availableGames.length * MAX_LEVEL_PER_GAME;
     const targetCount = getPlannedStageCount(trainingMinutes, availableGames.length, maxPossibleStages);
@@ -629,7 +722,7 @@ function GameMenuPage() {
       stages.push({
         ...game,
         gameId: game.id,
-        stageId: `${todayKey}-${stages.length + 1}-${game.id}-L${level}`,
+        stageId: `${todayKey}-${trainingMenuSessionId}-${stages.length + 1}-${game.id}-L${level}`,
         todayKey,
         routeIndex: stages.length,
         globalOrder: stages.length + 1,
@@ -646,7 +739,7 @@ function GameMenuPage() {
     }
 
     return stages;
-  }, [selectedTrainingGames, todayKey, trainingGames, trainingMinutes]);
+  }, [recommendedTrainingPlan, selectedTrainingGames, todayKey, trainingGames, trainingMenuSessionId, trainingMinutes]);
 
   useEffect(() => {
     const refreshLocalStorageBackedState = () => {
@@ -744,7 +837,7 @@ function GameMenuPage() {
       const completed = completedStageIds.includes(stage.stageId);
       const previousCompleted =
         index === 0 || dailyTrainingStages.slice(0, index).every((item) => completedStageIds.includes(item.stageId));
-      const unlocked = completed || previousCompleted;
+      const unlocked = isTestUnlockEnabled || completed || previousCompleted;
 
       stateMap[stage.stageId] = {
         completed,
@@ -755,7 +848,7 @@ function GameMenuPage() {
 
       return stateMap;
     }, {});
-  }, [completedStageIds, dailyTrainingStages, stageStarMap]);
+  }, [completedStageIds, dailyTrainingStages, isTestUnlockEnabled, stageStarMap]);
 
   const currentStage = useMemo(
     () => dailyTrainingStages.find((stage) => stageStateMap[stage.stageId]?.active) || dailyTrainingStages.find((stage) => stageStateMap[stage.stageId]?.unlocked) || dailyTrainingStages[0],
@@ -809,6 +902,7 @@ function GameMenuPage() {
   const openTestMap = () => {
     navigate("/test-map", {
       state: {
+        child: selectedChild,
         fromGameMenu: true,
         todayKey,
       },
@@ -832,7 +926,7 @@ function GameMenuPage() {
         .every((item) => stageStateMap[item.stageId]?.completed);
     const stageState = stageStateMap[stage.stageId];
 
-    if (!stageState?.unlocked || !previousStagePassed) {
+    if (!isTestUnlockEnabled && (!stageState?.unlocked || !previousStagePassed)) {
       setLockedHintStageId(stage.stageId);
 
       if (lockedHintTimeoutRef.current) {
@@ -848,6 +942,9 @@ function GameMenuPage() {
 
     navigate(`${stage.trainPath}?level=${stage.level}&stage=${stage.stageId}`, {
       state: {
+        child: selectedChild,
+        currentChild: selectedChild,
+        childId: selectedChild?.childId || selectedChild?.id || null,
         trainingLevel: stage.level,
         trainingStageId: stage.stageId,
         trainingOrder: stage.globalOrder,
@@ -856,9 +953,14 @@ function GameMenuPage() {
         trainingAbility: stage.ability,
         abilityLabel: stage.abilityLabel,
         difficultyLabel: stage.difficultyLabel,
+        recommendationScore: stage.recommendationScore ?? null,
+        recommendationResultCount: stage.resultCount ?? 0,
+        trainingPlanSource: stage.source || "rotation",
         todayKey,
         trainingMinutes,
+        trainingMenuSessionId,
         trainingSettings,
+        temporaryTestUnlock: isTestUnlockEnabled,
         selectedTrainingGameIds: selectedTrainingGames.map((game) => game.id),
         dailyTrainingPlan: dailyTrainingStages.map((item) => ({
           stageId: item.stageId,
@@ -867,6 +969,9 @@ function GameMenuPage() {
           level: item.level,
           trainPath: item.trainPath,
           ability: item.ability,
+          recommendationScore: item.recommendationScore ?? null,
+          resultCount: item.resultCount ?? 0,
+          source: item.source || "rotation",
         })),
       },
     });
@@ -912,6 +1017,23 @@ function GameMenuPage() {
           inset: 0;
           z-index: 0;
           background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(42, 101, 47, 0.06));
+          pointer-events: none;
+        }
+
+        .temporary-test-unlock-badge {
+          position: fixed;
+          left: 50%;
+          bottom: 14px;
+          z-index: 50;
+          transform: translateX(-50%);
+          padding: 8px 16px;
+          border: 2px solid rgba(255, 255, 255, 0.9);
+          border-radius: 999px;
+          background: rgba(176, 45, 45, 0.92);
+          color: #fff;
+          font-size: 14px;
+          font-weight: 900;
+          box-shadow: 0 6px 16px rgba(58, 30, 20, 0.24);
           pointer-events: none;
         }
 
@@ -1853,6 +1975,7 @@ function GameMenuPage() {
         style={{ "--game-map-bg": `url(${gameMapBackground})` }}
         aria-label={`森林訓練地圖，第 ${currentPageIndex + 1} 頁，${selectedTrainingLabel}，今日練習 ${formatTrainingDuration(todayTrainingSeconds)}，蜂蜜任務 ${honeyProgress.totalStars} 顆星`}
       >
+        {isTestUnlockEnabled && <div className="temporary-test-unlock-badge">測試解鎖中</div>}
         <div className="training-map-layout">
           <svg className="training-route-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
             <path className="training-route-shadow" d={routePath} />
@@ -1870,17 +1993,17 @@ function GameMenuPage() {
           </button>
 
           <section className="map-top-progress" aria-label="蜂巢收集進度">
-            <img className="map-progress-star" src={honeycombAsset} alt="蜂巢" />
+            <img width={512} height={512} className="map-progress-star" src={honeycombAsset} alt="蜂巢" />
             <div className="map-progress-track" role="progressbar" aria-valuenow={earnedStarsTotal} aria-valuemin="0" aria-valuemax={maxStarsTotal}>
               <div className="map-progress-fill" style={{ "--star-progress": `${Math.min(100, Math.round((earnedStarsTotal / maxStarsTotal) * 100))}%` }} />
               <span className="map-progress-text">{earnedStarsTotal} / {maxStarsTotal}</span>
             </div>
-            <img className="map-progress-gift" src={honeyAsset} alt="蜂蜜" />
+            <img width={476} height={472} loading="lazy" className="map-progress-gift" src={honeyAsset} alt="蜂蜜" />
           </section>
 
           <button type="button" className="map-player-button" onClick={() => setShowProfilePanel(true)} aria-label="開啟個人資料">
             <span className="map-player-avatar" aria-hidden="true">
-              <img src={chickenAvatar} alt="" />
+              <img width={512} height={512} loading="lazy" src={chickenAvatar} alt="" />
             </span>
             <span className="map-player-name">{userProfileName}</span>
             <span className="map-player-caret" aria-hidden="true">›</span>
@@ -1892,7 +2015,7 @@ function GameMenuPage() {
           </button>
 
           <button type="button" className="map-story-button" onClick={() => setShowStoryVideo(true)} aria-label="播放故事影片">
-            <img className="homey-menu-icon story-homey-icon" src={storyIcon} alt="" aria-hidden="true" />
+            <img width={1024} height={1024} loading="lazy" className="homey-menu-icon story-homey-icon" src={storyIcon} alt="" aria-hidden="true" />
           </button>
 
           {visibleDailyStages.map((stage) => {
@@ -1916,13 +2039,13 @@ function GameMenuPage() {
                 style={{ "--node-x": `${stage.mapX}%`, "--node-y": `${stage.mapY}%` }}
               >
                 <span className="training-stage-paw-wrap">
-                  <img className="training-stage-paw" src={pawAsset} alt="" />
+                  <img loading="lazy" className="training-stage-paw" src={pawAsset} alt="" />
                   <span className="training-stage-number" aria-hidden="true">{stage.globalOrder}</span>
                   {!stageState.unlocked && <span className="training-stage-lock" aria-hidden="true">🔒</span>}
                 </span>
                 <span className="training-stage-stars" aria-hidden="true">
                   {[0, 1, 2].map((index) => (
-                    <img
+                    <img width={512} height={512} loading="lazy"
                       key={`${stage.stageId}-star-${index}`}
                       src={starAsset}
                       alt=""
@@ -1935,7 +2058,7 @@ function GameMenuPage() {
           })}
 
           {currentStage && stageStateMap[currentStage.stageId]?.active && visibleDailyStages.some((stage) => stage.stageId === currentStage.stageId) && (
-            <img
+            <img width={1024} height={1024} loading="lazy"
               className="map-mouse-guide"
               src={mousePointer}
               alt=""
@@ -1949,7 +2072,7 @@ function GameMenuPage() {
 
           <nav className="map-bottom-nav" aria-label="地圖功能">
             <button type="button" className="map-bottom-button" onClick={openTestMap} aria-label="進入測驗">
-              <img className="homey-menu-icon bottom-homey-icon" src={testIcon} alt="" aria-hidden="true" />
+              <img width={1024} height={1024} loading="lazy" className="homey-menu-icon bottom-homey-icon" src={testIcon} alt="" aria-hidden="true" />
             </button>
             <button
               type="button"
@@ -1957,7 +2080,7 @@ function GameMenuPage() {
               onClick={() => navigate("/achievement")}
               aria-label="查看成就"
             >
-              <img className="homey-menu-icon bottom-homey-icon" src={goalIcon} alt="" aria-hidden="true" />
+              <img width={1024} height={1024} loading="lazy" className="homey-menu-icon bottom-homey-icon" src={goalIcon} alt="" aria-hidden="true" />
             </button>
             <button
               type="button"
@@ -1965,7 +2088,7 @@ function GameMenuPage() {
               onClick={() => navigate("/avatar-room", { state: { from: "/game-menu" } })}
               aria-label="進入角色小屋"
             >
-              <img className="avatar-room-menu-icon" src={avatarHomeImg} alt="" aria-hidden="true" draggable={false} />
+              <img width={500} height={500} loading="lazy" className="avatar-room-menu-icon" src={avatarHomeImg} alt="" aria-hidden="true" draggable={false} />
             </button>
           </nav>
         </div>      </section>
@@ -2060,7 +2183,7 @@ function GameMenuPage() {
               ×
             </button>
             <div className="profile-modal-avatar" aria-hidden="true">
-              <img src={chickenAvatar} alt="" />
+              <img width={512} height={512} loading="lazy" src={chickenAvatar} alt="" />
             </div>
             <h2>個人資料</h2>
             <p className="profile-modal-name">{userProfileName}</p>

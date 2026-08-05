@@ -1,19 +1,20 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import stoneImg from "../asset/stone.png";
-import personImg from "../asset/CBT_person.png";
-import bgImg from "../asset/CBT_testbackground.png";
+import stoneImg from "../asset/CBT/stone.webp";
+import stoneShinyImg from "../asset/CBT/stone_shiny.webp";
+import personImg from "../asset/CBT/CBT_person.webp";
+import bgImg from "../asset/CBT/CBT_background.webp";
 import storyVideo from "../asset/mp4/CBT_start.mp4";
 import tutorialVideo from "../asset/mp4/CBT_step.mp4";
 import endingVideo from "../asset/mp4/CBT_end.mp4";
-import clickSoundFile from "../asset/Click_SRT.mp3";
-import startAvatar from "../asset/avatar/deer.png";
-import homeStartBtn from "../asset/home/start.png";
-import homeSkipBtn from "../asset/home/skip.png";
-import homeBackBtn from "../asset/home/back.png";
-import homeResultBtn from "../asset/home/result.png";
-import mouseGuideImg from "../asset/mouse.png";
+import clickSoundFile from "../asset/Click.mp3";
+import startAvatar from "../asset/avatar/deer.webp";
+import homeStartBtn from "../asset/home/start.webp";
+import homeSkipBtn from "../asset/home/skip.webp";
+import homeBackBtn from "../asset/home/back.webp";
+import homeResultBtn from "../asset/home/result.webp";
+import mouseGuideImg from "../asset/mouse.webp";
 
 import "../styles/GamePage_CBT.css";
 
@@ -694,7 +695,8 @@ const cbtSrtLikeCss = `
 
 .cbt-guide-stone-old img {
   width: 100%;
-  height: 100%;
+  height: auto;
+  aspect-ratio: 360 / 203;
   object-fit: contain;
   pointer-events: none;
   user-select: none;
@@ -716,7 +718,7 @@ const cbtSrtLikeCss = `
 .cbt-guide-person-old {
   position: absolute;
   width: 82px;
-  height: 82px;
+  height: auto;
   object-fit: contain;
   transform: translate(-50%, -45%);
   filter: drop-shadow(0 8px 8px rgba(64, 44, 17, 0.22));
@@ -2007,13 +2009,13 @@ export default function TestPage_CBT() {
       <style>{cbtSrtLikeCss}</style>
 
       {phase === "story" && (
-        <main className="cbt-start-shell" aria-label="石頭路線記憶測驗開始畫面">
+        <main className="cbt-start-shell game-start-card-artwork" aria-label="石頭路線記憶測驗開始畫面">
           <h1 className="cbt-start-title">石頭路線記憶</h1>
 
           <div className="cbt-start-content">
             <div className="cbt-dialog-bubble">幫小鹿記住石頭亮起的路線。</div>
             <div className="cbt-round-avatar">
-              <img src={startAvatar} alt="小鹿頭像" draggable="false" />
+              <img src={startAvatar} alt="引導遊戲的小鹿" width="1200" height="1200" decoding="async" draggable="false" />
             </div>
           </div>
 
@@ -2161,7 +2163,7 @@ export default function TestPage_CBT() {
       )}
 
       {phase === "result" && (
-        <main className="cbt-result-shell" aria-label="測驗結果">
+        <main className="cbt-result-shell game-result-card-artwork" aria-label="測驗結果">
           <div className="cbt-cute-stars" aria-label={`${finalResult?.stars || 1} 顆星`}>
             {[1, 2, 3].map((star) => {
               const isOn = star <= (finalResult?.stars || 1);
@@ -2187,7 +2189,7 @@ export default function TestPage_CBT() {
           <div className="cbt-result-content">
             <div className="cbt-dialog-bubble">關卡完成！你很認真記住圖片喔。</div>
             <div className="cbt-round-avatar">
-              <img src={startAvatar} alt="小鹿頭像" draggable="false" />
+              <img src={startAvatar} alt="完成 CBT 測驗的小鹿" width="1200" height="1200" loading="lazy" decoding="async" draggable="false" />
             </div>
           </div>
 
@@ -2224,7 +2226,7 @@ export default function TestPage_CBT() {
 
 function VideoOnlyPage({ videoSrc, onDone }) {
   return (
-    <main className="cbt-video-only-card" aria-label="影片">
+    <main className="cbt-video-only-card game-start-card-artwork" aria-label="影片">
       <div className="cbt-video-wrapper">
         <video
           src={videoSrc}
@@ -2266,13 +2268,17 @@ function GuidedImageButton({
         disabled={disabled}
         aria-label={ariaLabel || imgAlt}
       >
-        <img src={imgSrc} alt={imgAlt} draggable="false" />
+        <img loading="lazy" src={imgSrc} alt={imgAlt} width="1600" height="533" decoding="async" draggable="false" />
       </button>
       {showMouse && !disabled && (
         <img
           className="cbt-mouse-guide cbt-mouse-on-button"
           src={mouseGuideImg}
-          alt="提示點擊"
+          alt=""
+          width="1200"
+          height="1200"
+          loading="lazy"
+          decoding="async"
           aria-hidden="true"
           draggable="false"
         />
@@ -2393,12 +2399,16 @@ function InteractiveGuide({ guideStep, setGuideStep, onReady, stoneImg, personIm
               onClick={() => handlePracticeClick(index)}
               aria-label={`石頭 ${index + 1}`}
             >
-              <img src={stoneImg} alt="石頭" draggable="false" />
+              <img src={stoneImg} alt={`第 ${index + 1} 顆示範石頭`} width="360" height="203" loading="lazy" decoding="async" draggable="false" />
               {shouldShowMouse && (
                 <img
                   className="cbt-mouse-guide cbt-guide-mouse-stone-old"
                   src={mouseGuideImg}
-                  alt="提示點擊"
+                  alt=""
+                  width="1200"
+                  height="1200"
+                  loading="lazy"
+                  decoding="async"
                   aria-hidden="true"
                   draggable="false"
                 />
@@ -2411,7 +2421,11 @@ function InteractiveGuide({ guideStep, setGuideStep, onReady, stoneImg, personIm
           <img
             className="cbt-guide-person-old"
             src={personImg}
-            alt="小朋友"
+            alt="沿著示範石頭前進的小朋友"
+            width="156"
+            height="126"
+            loading="lazy"
+            decoding="async"
             style={guideStones[personIndex]}
             draggable="false"
           />
@@ -2518,8 +2532,12 @@ function CBTBoard({
             }}
           >
             <img
-              src={stoneImg}
-              alt={`stone-${index + 1}`}
+              src={isGlowing ? stoneShinyImg : stoneImg}
+              alt={`第 ${index + 1} 顆石頭`}
+              width="360"
+              height="203"
+              loading="lazy"
+              decoding="async"
               className={[
                 "cbt-stone",
                 isGlowing ? "is-glowing" : "",
@@ -2528,7 +2546,7 @@ function CBTBoard({
               ]
                 .filter(Boolean)
                 .join(" ")}
-              style={{ width: STONE_SIZE, height: STONE_SIZE }}
+              style={{ width: STONE_SIZE, height: "auto" }}
               draggable="false"
             />
           </button>
@@ -2539,7 +2557,11 @@ function CBTBoard({
         personIndex !== null && (
           <img
             src={personImg}
-            alt="person"
+            alt="沿著石頭路線前進的小朋友"
+            width="156"
+            height="126"
+            loading="lazy"
+            decoding="async"
             className={["cbt-person", isWalking ? "is-walking" : ""]
               .filter(Boolean)
               .join(" ")}

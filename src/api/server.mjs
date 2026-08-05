@@ -4,6 +4,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 
 dotenv.config();
+dotenv.config({ path: ".env.rag" });
 
 const { default: clinicalAssistantHandler } = await import("./clinical-assistant.mjs");
 

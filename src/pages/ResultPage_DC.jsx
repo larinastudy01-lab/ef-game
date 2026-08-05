@@ -20,7 +20,7 @@ const RESULT_STORAGE_KEYS = {
   SRT: ["srtTrainingResult", "srtTestResult"],
   PM: ["pmTrainingResult", "pmTestResult"],
   CBT: ["cbtTrainingResult", "cbtTestResult"],
-  DPT: ["dptTrainingResult", "dptTestResult"],
+  SSG: ["ssgTrainingResult", "ssgTestResult"],
   DCCS: ["dccsTrainingResult", "dccsTestResult", "DCCS_TRAINING_RESULT", "DCCS_RESULT"],
   LB: ["lbTrainingResult", "lbTestResult", "LB_TRAINING_RESULT", "LB_RESULT"],
 };
@@ -29,7 +29,7 @@ const GAME_LABELS = {
   SRT: { name: "SRT 橡實反應任務", ability: "抑制控制" },
   PM: { name: "PM 圖片記憶任務", ability: "工作記憶" },
   CBT: { name: "CBT 石頭路徑記憶", ability: "工作記憶" },
-  DPT: { name: "DPT 蒼蠅干擾任務", ability: "抑制控制" },
+  SSG: { name: "SSG 蒼蠅干擾任務", ability: "抑制控制" },
   DCCS: { name: "DCCS 規則分類任務", ability: "認知彈性" },
   LB: { name: "LB 順序切換任務", ability: "認知彈性" },
   DEFAULT: { name: "森林認知任務", ability: "綜合能力" },

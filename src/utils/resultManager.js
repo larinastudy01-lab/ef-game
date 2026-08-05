@@ -1,4 +1,6 @@
 import { saveGameResultToCloud } from "../lib/database";
+import { createBehavioralId } from "../analytics/trials/buildBehavioralHierarchy";
+import { awardTrainingCoins } from "./economyManager";
 
 /**
  * src/utils/resultManager.js
@@ -36,8 +38,8 @@ export const GAME_META = {
     abilityType: "workingMemory",
     abilityLabel: "工作記憶",
   },
-  DPT: {
-    gameId: "DPT",
+  SSG: {
+    gameId: "SSG",
     gameName: "蒼蠅注意任務",
     abilityType: "attention",
     abilityLabel: "注意力 / 抑制控制",
@@ -60,7 +62,7 @@ export const LEGACY_RESULT_KEYS = {
   SRT: { test: "srtTestResult", training: "srtTrainingResult" },
   PM: { test: "pmTestResult", training: "pmTrainingResult" },
   CBT: { test: "cbtTestResult", training: "cbtTrainingResult" },
-  DPT: { test: "dptTestResult", training: "dptTrainingResult" },
+  SSG: { test: "ssgTestResult", training: "ssgTrainingResult" },
   LB: { test: "lbTestResult", training: "lbTrainingResult" },
   DCCS: { test: "dccsTestResult", training: "dccsTrainingResult" },
 };
@@ -190,6 +192,14 @@ export const getLegacyResultKey = (gameId, mode = "test") => {
   );
 };
 
+export const getChildScopedResultKey = (gameId, mode = "test", childId = null) => {
+  const safeGameId = safeString(gameId, "UNKNOWN");
+  const safeMode = safeString(mode, "test");
+  const safeChildId = safeString(childId || "unassigned", "unassigned");
+
+  return `result:${safeChildId}:${safeGameId}:${safeMode}`;
+};
+
 const normalizeVisibleRoles = (visibleRoles) => {
   const roles = safeArray(visibleRoles).filter(Boolean);
   return roles.length > 0 ? roles : ["child", "parent"];
@@ -220,7 +230,7 @@ export const normalizeGameResult = ({
   visibleRoles = ["child", "parent"],
 } = {}) => {
   const raw = safeObject(rawResult);
-  const currentChild = safeObject(child) || getCurrentChild() || {};
+  const currentChild = isPlainObject(child) ? child : getCurrentChild() || {};
 
   const normalizedGameId =
     gameId ??
@@ -375,6 +385,12 @@ export const normalizeGameResult = ({
       hideMedicalResult: raw?.hideMedicalResult ?? true,
     },
 
+    behavioral: {
+      sessionId: raw?.behavioral?.sessionId || createBehavioralId(),
+      taskSessionId: raw?.behavioral?.taskSessionId || createBehavioralId(),
+      trialIds: trials.map((_, index) => raw?.behavioral?.trialIds?.[index] || createBehavioralId()),
+    },
+
     trials,
     rawResult: raw,
   };
@@ -409,6 +425,12 @@ export const saveUnifiedResult = ({
     normalized?.session?.mode
   );
 
+  const childScopedLatestKey = getChildScopedResultKey(
+    normalized?.game?.gameId,
+    normalized?.session?.mode || mode,
+    normalized?.child?.childId
+  );
+
   const unifiedLatestKey = `result:${normalized?.game?.gameId || "UNKNOWN"}:${
     normalized?.session?.mode || mode
   }`;
@@ -416,8 +438,24 @@ export const saveUnifiedResult = ({
   try {
     const safeRawResult = sanitizeForStorage(rawResult);
 
+    if (normalized?.session?.mode === "training") {
+      const reward = awardTrainingCoins({
+        resultId: normalized.resultId,
+        stars: normalized.summary?.stars,
+        difficulty: normalized.session?.difficulty,
+        childId: normalized.child?.childId || "default",
+      });
+      normalized.reward = {
+        coins: reward.awarded ? reward.amount : 0,
+        coinBalance: reward.economy?.coins || 0,
+        awarded: reward.awarded,
+      };
+    }
+
     window.localStorage?.setItem(unifiedLatestKey, JSON.stringify(normalized));
     window.sessionStorage?.setItem(unifiedLatestKey, JSON.stringify(normalized));
+    window.localStorage?.setItem(childScopedLatestKey, JSON.stringify(normalized));
+    window.sessionStorage?.setItem(childScopedLatestKey, JSON.stringify(normalized));
 
     if (saveLegacy) {
       window.localStorage?.setItem(legacyKey, JSON.stringify(safeRawResult));
@@ -453,12 +491,19 @@ export const saveUnifiedResult = ({
   return normalized;
 };
 
-export const getUnifiedResult = ({ gameId, mode = "test", fallback = null } = {}) => {
+export const getUnifiedResult = ({ gameId, mode = "test", childId = null, fallback = null } = {}) => {
   if (typeof window === "undefined") return fallback;
 
   const key = `result:${gameId}:${mode}`;
+  const currentChild = getCurrentChild();
+  const resolvedChildId = childId || currentChild?.childId || currentChild?.id || null;
+  const childKey = resolvedChildId
+    ? getChildScopedResultKey(gameId, mode, resolvedChildId)
+    : null;
 
   const result =
+    (childKey ? safeParse(window.sessionStorage?.getItem(childKey), null) : null) ||
+    (childKey ? safeParse(window.localStorage?.getItem(childKey), null) : null) ||
     safeParse(window.sessionStorage?.getItem(key), null) ||
     safeParse(window.localStorage?.getItem(key), fallback);
 

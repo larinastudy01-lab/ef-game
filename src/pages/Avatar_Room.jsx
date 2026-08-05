@@ -1,10 +1,10 @@
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
-import roomBackground from "../asset/Avatar_Room.png";
-import furnitureIcon from "../asset/home/Furniture.png";
-import achievementIcon from "../asset/home/goal.png";
-import backHomeIcon from "../asset/home/backhome.png";
+import roomBackground from "../asset/Furniture/Avatar_Room.webp";
+import furnitureIcon from "../asset/home/Furniture.webp";
+import achievementIcon from "../asset/home/goal.webp";
+import backHomeIcon from "../asset/home/back.webp";
 
 /**
  * 角色小屋
@@ -17,7 +17,7 @@ import backHomeIcon from "../asset/home/backhome.png";
  * [
  *   {
  *     "id": "bed01",
- *     "src": "/src/asset/Furniture/bed01.png",
+ *     "src": "/src/asset/Furniture/bed01.webp",
  *     "x": 12,
  *     "y": 58,
  *     "width": 24
@@ -76,7 +76,7 @@ function AvatarRoom() {
 
       <section style={styles.roomLayer} aria-label="已擺放的家具">
         {placedFurniture.map((item, index) => (
-          <img
+          <img loading="lazy"
             key={item.id || `${item.src}-${index}`}
             src={item.src}
             alt={item.name || "已擺放家具"}
@@ -102,7 +102,7 @@ function AvatarRoom() {
           style={styles.iconButton}
           aria-label="查看成就"
         >
-          <img
+          <img width={1024} height={1024} loading="lazy"
             src={achievementIcon}
             alt="成就"
             draggable="false"
@@ -116,7 +116,7 @@ function AvatarRoom() {
           style={styles.iconButton}
           aria-label="開啟傢俱"
         >
-          <img
+          <img width={1024} height={1024} loading="lazy"
             src={furnitureIcon}
             alt="傢俱"
             draggable="false"
@@ -131,7 +131,7 @@ function AvatarRoom() {
         style={{ ...styles.iconButton, ...styles.backButton }}
         aria-label="回到森林"
       >
-        <img
+        <img loading="lazy"
           src={backHomeIcon}
           alt="回到森林"
           draggable="false"

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import homeBackground from "../asset/Home_background.png";
-import assistIcon from "../asset/assist.png";
+import homeBackground from "../asset/Home_background.webp";
+import assistIcon from "../asset/assist.webp";
 import { getResultsByPatientFromCloud } from "../lib/database";
 import "../styles/ResultPage_PA.css";
 
@@ -10,9 +10,9 @@ import "../styles/ResultPage_PA.css";
  * 家長端結果頁
  *
  * 更新重點：
- * 1. 背景吃 Home_background.png，視覺貼近主頁森林風格
+ * 1. 背景吃 Home_background.webp，視覺貼近主頁森林風格
  * 2. 上方顯示目前小孩名稱
- * 3. AI 小助手使用 assist.png，固定左下角，點擊後開啟可連續輸入的對話式聊天室
+ * 3. AI 小助手使用 assist.webp，固定左下角，點擊後開啟可連續輸入的對話式聊天室
  * 4. 上一頁使用瀏覽器歷史紀錄返回，不再固定跳回 HomePage
  * 5. 平板、電腦、小螢幕自動換行，不使用固定超大寬度避免跑版
  * 5. 保留家長摘要、錯誤說明、AI 建議與套用建議
@@ -23,7 +23,7 @@ const RESULT_STORAGE_KEYS = {
   SRT: ["srtTrainingResult", "srtTestResult"],
   PM: ["pmTrainingResult", "pmTestResult"],
   CBT: ["cbtTrainingResult", "cbtTestResult"],
-  DPT: ["dptTrainingResult", "dptTestResult"],
+  SSG: ["ssgTrainingResult", "ssgTestResult"],
   DCCS: ["dccsTrainingResult", "dccsTestResult", "DCCS_TRAINING_RESULT", "DCCS_RESULT"],
   LB: ["lbTrainingResult", "lbTestResult", "LB_TRAINING_RESULT", "LB_RESULT"],
 };
@@ -32,7 +32,7 @@ const GAME_LABELS = {
   SRT: { name: "橡實反應任務", ability: "抑制控制", story: "幫小松鼠接住橡實" },
   PM: { name: "湖邊圖片記憶", ability: "工作記憶", story: "幫兔子妹妹找回物品" },
   CBT: { name: "石頭小橋記憶", ability: "工作記憶", story: "幫鹿先生通過石頭橋" },
-  DPT: { name: "蒼蠅派對任務", ability: "抑制控制", story: "幫狐狸夫婦趕走蒼蠅" },
+  SSG: { name: "蒼蠅派對任務", ability: "抑制控制", story: "幫狐狸夫婦趕走蒼蠅" },
   DCCS: { name: "孔雀服飾分類", ability: "認知彈性", story: "幫孔雀小姐整理服飾店" },
   LB: { name: "綿羊奶奶回家路", ability: "認知彈性", story: "幫綿羊奶奶照順序找到路" },
   DEFAULT: { name: "森林訓練任務", ability: "綜合能力", story: "波波與皮皮完成森林任務" },
@@ -631,14 +631,18 @@ const ResultPage_PA = () => {
   }, []);
 
   const currentChildId = useMemo(
-    () =>
+    () => {
+      void storageVersion;
+      return (
       state.childId ||
       state.patientId ||
       state.resultData?.childId ||
       state.resultData?.patientId ||
       state.resultData?.child?.childId ||
       state.resultData?.child?.id ||
-      getCurrentChildIdFromStorage(),
+      getCurrentChildIdFromStorage()
+      );
+    },
     [state.childId, state.patientId, state.resultData, storageVersion],
   );
 
@@ -675,14 +679,20 @@ const ResultPage_PA = () => {
     };
   }, [currentChildId, storageVersion]);
 
-  const localHistoryRecords = useMemo(() => getLocalUnifiedRecords(currentChildId), [currentChildId, storageVersion]);
+  const localHistoryRecords = useMemo(() => {
+    void storageVersion;
+    return getLocalUnifiedRecords(currentChildId);
+  }, [currentChildId, storageVersion]);
   const resultHistory = useMemo(
     () => mergeHistoryRecords([...cloudRecords, ...localHistoryRecords]),
     [cloudRecords, localHistoryRecords],
   );
   const preferredHistoryRecord = resultHistory[0] || null;
 
-  const latestStored = useMemo(() => getLatestResultFromStorage(), [storageVersion]);
+  const latestStored = useMemo(() => {
+    void storageVersion;
+    return getLatestResultFromStorage();
+  }, [storageVersion]);
   const gameId =
     normalizeGameId(state.gameId) ||
     normalizeGameId(state.resultData?.gameId) ||
@@ -691,6 +701,7 @@ const ResultPage_PA = () => {
     "DEFAULT";
 
   const result = useMemo(() => {
+    void storageVersion;
     const rawResult = state.resultData || preferredHistoryRecord?.result || getStoredResult(gameId) || latestStored?.result || {};
     return normalizeResult(rawResult);
   }, [state.resultData, preferredHistoryRecord, gameId, latestStored, storageVersion]);
@@ -1207,7 +1218,7 @@ const ResultPage_PA = () => {
         onClick={() => setIsChatOpen(true)}
         aria-label="開啟 AI 小助手"
       >
-        <img src={assistIcon} alt="AI 小助手" />
+        <img width={184} height={184} src={assistIcon} alt="AI 小助手" />
         <span>問 AI</span>
       </button>
 
@@ -1215,7 +1226,7 @@ const ResultPage_PA = () => {
         <section className="ai-chat-window" aria-label="AI 小助手聊天室">
           <div className="chat-header">
             <div>
-              <img src={assistIcon} alt="AI 小助手" />
+              <img width={184} height={184} loading="lazy" src={assistIcon} alt="AI 小助手" />
               <div>
                 <strong>AI 小助手</strong>
                 <span>{childName} 的結果說明</span>

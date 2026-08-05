@@ -1,25 +1,26 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { getResultsByPatientFromCloud } from "../lib/database";
 
-import modelBackground from "../asset/home/model_background.png";
-import cardBg from "../asset/home/card.png";
-import testMapButton from "../asset/home/testmap.png";
-import trainingMapButton from "../asset/home/trainingmap.png";
-import testIcon from "../asset/test.png";
-import trainingIcon from "../asset/training.png";
+import modelBackground from "../asset/home/model_background.webp";
+import cardBg from "../asset/home/card.webp";
+import testMapButton from "../asset/home/testmap.webp";
+import trainingMapButton from "../asset/home/trainingmap.webp";
+import testIcon from "../asset/test.webp";
+import trainingIcon from "../asset/training.webp";
 
 /**
  * ModeSelectPage.jsx / ModelSelectPage.jsx
  *
  * 更新重點：
- * - 背景使用 asset/home/model_background.png
- * - 卡片使用 asset/home/card.png
- * - 測驗按鈕使用 asset/home/testmap.png
- * - 訓練按鈕使用 asset/home/trainingmap.png
+ * - 背景使用 asset/home/model_background.webp
+ * - 卡片使用 asset/home/card.webp
+ * - 測驗按鈕使用 asset/home/testmap.webp
+ * - 訓練按鈕使用 asset/home/trainingmap.webp
  * - 已移除標題下方說明文字與兩張卡片底部說明文字
  * - 「查看孩子紀錄」與「最近訓練」交換位置，避免重疊
  * - 回首頁實際導向選擇小孩頁面 /child-select
- * - 依需求：測驗右上 icon 使用 asset/training.png；訓練右上 icon 使用 asset/test.png
+ * - 依需求：測驗右上 icon 使用 asset/training.webp；訓練右上 icon 使用 asset/test.webp
  * - 點擊「進入訓練地圖」後，先選擇訓練時間與訓練項目
  * - 若完全沒有選擇項目，會使用推薦訓練
  * - 一次訓練最多 12 關
@@ -38,6 +39,20 @@ const getCurrentChild = () =>
   safeParse(localStorage.getItem("currentChild")) ||
   safeParse(sessionStorage.getItem("currentChild"));
 
+const getCurrentChildId = () => {
+  const child = getCurrentChild();
+  return (
+    child?.childId ||
+    child?.id ||
+    child?.patientId ||
+    localStorage.getItem("currentChildId") ||
+    sessionStorage.getItem("currentChildId") ||
+    localStorage.getItem("selectedChildId") ||
+    sessionStorage.getItem("selectedChildId") ||
+    null
+  );
+};
+
 const saveSelectedMode = (mode) => {
   localStorage.setItem("selectedMode", mode);
   sessionStorage.setItem("selectedMode", mode);
@@ -55,27 +70,29 @@ const RESULT_STORAGE_KEYS = [
   "srtTrainingResult",
   "pmTrainingResult",
   "cbtTrainingResult",
-  "dptTrainingResult",
+  "ssgTrainingResult",
   "dccsTrainingResult",
   "lbTrainingResult",
 ];
+
+const ALL_RESULTS_KEY = "efGameResults";
 
 const GAME_LABELS = {
   srtTrainingResult: "反應小松鼠",
   pmTrainingResult: "記憶收藏家",
   cbtTrainingResult: "石頭記憶任務",
-  dptTrainingResult: "專注小幫手",
+  ssgTrainingResult: "專注小幫手",
   dccsTrainingResult: "規則小隊長",
   lbTrainingResult: "順序切換任務",
 };
 
-const TRAINING_GAME_IDS = ["srt", "pm", "cbt", "dpt", "dccs", "lb"];
+const TRAINING_GAME_IDS = ["srt", "pm", "cbt", "ssg", "dccs", "lb"];
 
 const TRAINING_GAME_TITLES = [
   "幫小飛鼠弟弟接住掉落的橡實",
   "找出兔子妹妹遺失的物品",
   "記住跳石橋的密碼幫助鹿先生",
-  "幫狐狸夫婦把物品上的蒼蠅趕走",
+  "貓狗合唱團",
   "幫孔雀小姐的服飾店分類混亂的衣物",
   "引導迷路的綿羊奶奶回家",
 ];
@@ -96,29 +113,200 @@ const TRAINING_GAME_OPTIONS = TRAINING_GAME_IDS.map((id, index) => ({
 }));
 
 const MAX_TRAINING_LEVELS = 12;
+const MAX_LEVELS_PER_GAME_IN_PLAN = 5;
 const MAX_RECENT_LEVEL_RESULTS = 30;
 
 const RESULT_KEYS_BY_GAME_ID = {
-  srt: ["srtTrainingResult", "srtTestResult", "srtResults", "srtHistory"],
-  pm: ["pmTrainingResult", "pmTestResult", "pmResults", "pmHistory"],
-  cbt: ["cbtTrainingResult", "cbtTestResult", "cbtResults", "cbtHistory"],
-  dpt: ["dptTrainingResult", "dptTestResult", "dptResults", "dptHistory"],
-  dccs: ["dccsTrainingResult", "dccsTestResult", "dccsResults", "dccsHistory"],
-  lb: ["lbTrainingResult", "lbTestResult", "lbResults", "lbHistory"],
+  srt: {
+    gameCode: "SRT",
+    training: ["srtTrainingResult", "latestSRTTrainingResult", "lastSrtTrainingResult", "srtResults", "srtHistory"],
+    test: ["srtTestResult", "latestSRTTestResult", "SRTTestResult", "SRT_RESULT", "srtResult"],
+  },
+  pm: {
+    gameCode: "PM",
+    training: ["pmTrainingResult", "latestPMTrainingResult", "pmResults", "pmHistory"],
+    test: ["pmTestResult", "latestPMTestResult", "PMTestResult", "pictureMemoryTestResult", "PM_RESULT", "pmResult"],
+  },
+  cbt: {
+    gameCode: "CBT",
+    training: ["cbtTrainingResult", "latestCBTTrainingResult", "ef_game_cbt_training_result", "cbtResults", "cbtHistory"],
+    test: ["cbtTestResult", "latestCBTTestResult", "ef_game_cbt_test_result", "CBT_RESULT", "cbtResult"],
+  },
+  ssg: {
+    gameCode: "SSG",
+    training: ["ssgTrainingResult", "latestSSGTrainingResult", "latestSsgTrainingResult", "latestSsgResult", "ssgResults", "ssgHistory"],
+    test: ["ssgTestResult", "latestSSGTestResult", "latestSsgTestResult", "latestSsgResult", "SSG_RESULT"],
+  },
+  dccs: {
+    gameCode: "DCCS",
+    training: ["dccsTrainingResult", "latestDCCSTrainingResult", "latestDccsTrainingResult", "DCCS_TRAINING_RESULT", "dccsResults", "dccsHistory"],
+    test: ["dccsTestResult", "latestDCCSTestResult", "latestDccsTestResult", "DCCS_RESULT", "dccsResult"],
+  },
+  lb: {
+    gameCode: "LB",
+    training: ["lbTrainingResult", "latestLBTrainingResult", "LB_TRAINING_RESULT", "lbResults", "lbHistory"],
+    test: ["lbTestResult", "latestLBTestResult", "LB_TEST_RESULT", "LB_RESULT", "linkingBalloonsTestResult", "lbResult"],
+  },
 };
 
 const readStorageValue = (key) =>
   safeParse(localStorage.getItem(key)) ?? safeParse(sessionStorage.getItem(key));
+
+const getResultChildId = (result) => {
+  if (!result || typeof result !== "object") return null;
+  return (
+    result.childId ||
+    result.patientId ||
+    result.patient_id ||
+    result.currentChildId ||
+    result.selectedChildId ||
+    result?.child?.childId ||
+    result?.child?.id ||
+    result?.currentChild?.childId ||
+    result?.currentChild?.id ||
+    null
+  );
+};
+
+const belongsToCurrentChild = (result) => {
+  const currentChildId = getCurrentChildId();
+  const resultChildId = getResultChildId(result);
+
+  if (!currentChildId || !resultChildId) return true;
+  return String(currentChildId) === String(resultChildId);
+};
+
+const readGameStorageValue = (key, gameId, mode = "training") => {
+  const childId = getCurrentChildId();
+  const normalizedGameId = String(gameId || "").toUpperCase();
+  const childKeys = childId
+    ? [
+        `result:${childId}:${normalizedGameId}:${mode}`,
+        `${key}_${childId}`,
+      ]
+    : [];
+
+  for (const candidateKey of [...childKeys, key]) {
+    const value = readStorageValue(candidateKey);
+    if (!value) continue;
+    if (typeof value === "object" && !Array.isArray(value) && !belongsToCurrentChild(value)) continue;
+    return value;
+  }
+
+  return null;
+};
+
+const readGameStorageValues = (key, gameId, mode = "training") => {
+  const childId = getCurrentChildId();
+  const normalizedGameId = String(gameId || "").toUpperCase();
+  const childKeys = childId
+    ? [
+        `result:${childId}:${normalizedGameId}:${mode}`,
+        `${key}_${childId}`,
+      ]
+    : [];
+
+  return [...childKeys, key]
+    .map((candidateKey) => readStorageValue(candidateKey))
+    .filter(Boolean)
+    .filter((value) => typeof value !== "object" || Array.isArray(value) || belongsToCurrentChild(value));
+};
+
+const getUnifiedResultGameId = (result) =>
+  String(
+    result?.game?.gameId ||
+      result?.gameId ||
+      result?.taskCode ||
+      result?.rawResult?.game?.gameId ||
+      result?.rawResult?.gameId ||
+      result?.rawResult?.taskCode ||
+      ""
+  ).toLowerCase();
+
+const getUnifiedResultMode = (result) =>
+  String(
+    result?.session?.mode ||
+      result?.mode ||
+      result?.resultType ||
+      result?.rawResult?.session?.mode ||
+      result?.rawResult?.mode ||
+      result?.rawResult?.resultType ||
+      ""
+  ).toLowerCase();
+
+const getResultIdentity = (result) => {
+  if (!result || typeof result !== "object") return JSON.stringify(result);
+
+  return (
+    result.resultId ||
+    result.id ||
+    result.stageId ||
+    result.trainingStageId ||
+    result.rawResult?.resultId ||
+    result.rawResult?.id ||
+    [
+      getUnifiedResultGameId(result),
+      getUnifiedResultMode(result),
+      getResultTimestamp(result),
+      getScoreForRecommendation(result),
+    ].join("|")
+  );
+};
+
+const normalizeCloudResult = (record) => {
+  if (!record || typeof record !== "object") return null;
+  if (record.payload && typeof record.payload === "object") return record.payload;
+
+  return {
+    resultId: record.id,
+    createdAt: record.finished_at || record.started_at || record.created_at,
+    child: { childId: record.patient_id },
+    game: { gameId: record.game_id },
+    session: { mode: record.mode, finishedAt: record.finished_at },
+    summary: {
+      score: record.score,
+      stars: record.stars,
+      accuracy: record.accuracy,
+      totalTrials: record.total_trials,
+      correctCount: record.correct_count,
+    },
+  };
+};
+
+const getAllUnifiedResultsForGame = (gameId, additionalResults = []) => {
+  const allResults = [
+    ...asArray(readStorageValue(ALL_RESULTS_KEY)),
+    ...asArray(safeParse(sessionStorage.getItem(ALL_RESULTS_KEY))),
+    ...asArray(additionalResults),
+  ];
+
+  return allResults.filter((result) => {
+    if (!result || typeof result !== "object") return false;
+    const sameGame = getUnifiedResultGameId(result) === gameId;
+    const mode = getUnifiedResultMode(result);
+    const usableMode = mode === "test" || mode === "assessment" || mode === "training";
+    return sameGame && usableMode && belongsToCurrentChild(result);
+  });
+};
 
 const asArray = (value) => (Array.isArray(value) ? value : value ? [value] : []);
 
 const getResultTimestamp = (result) => {
   const raw =
     result?.createdAt ||
+    result?.finishedAt ||
+    result?.generatedAt ||
+    result?.updatedAt ||
     result?.timestamp ||
     result?.completedAt ||
     result?.date ||
-    result?.playedAt;
+    result?.playedAt ||
+    result?.session?.finishedAt ||
+    result?.session?.startedAt ||
+    result?.summary?.createdAt ||
+    result?.rawResult?.createdAt ||
+    result?.rawResult?.finishedAt ||
+    result?.rawResult?.generatedAt;
   const timestamp = raw ? new Date(raw).getTime() : 0;
   return Number.isFinite(timestamp) ? timestamp : 0;
 };
@@ -130,7 +318,7 @@ const normalizePercent = (value) => {
   return Math.max(0, Math.min(100, number));
 };
 
-const getScoreForRecommendation = (result) => {
+const getScoreForRecommendation = (result, depth = 0) => {
   if (!result || typeof result !== "object") return null;
 
   const percentCandidates = [
@@ -168,6 +356,24 @@ const getScoreForRecommendation = (result) => {
 
   if (typeof result.isCorrect === "boolean") return result.isCorrect ? 100 : 0;
   if (typeof result.correct === "boolean") return result.correct ? 100 : 0;
+
+  if (depth < 2) {
+    const nestedScoreSources = [
+      result.summary,
+      result.performance,
+      result.metrics,
+      result.scoring?.summary,
+      result.scoring,
+      result.parentMetrics,
+      result.scoreSummary,
+      result.rawResult,
+    ];
+
+    for (const source of nestedScoreSources) {
+      const nestedScore = getScoreForRecommendation(source, depth + 1);
+      if (nestedScore !== null) return nestedScore;
+    }
+  }
 
   return null;
 };
@@ -209,11 +415,23 @@ const extractLevelResults = (value, inheritedTimestamp = 0) => {
   return nested.length > 0 ? nested : own;
 };
 
-const getAllLevelResultsForGame = (gameId) => {
-  const keys = RESULT_KEYS_BY_GAME_ID[gameId] || [];
+const getAllLevelResultsForGame = (gameId, additionalResults = []) => {
+  const config = RESULT_KEYS_BY_GAME_ID[gameId] || {};
+  const keyedResults = ["training", "test"].flatMap((mode) =>
+    (config[mode] || []).flatMap((key) =>
+      readGameStorageValues(key, config.gameCode || gameId, mode)
+    )
+  );
+  const seenResultIds = new Set();
 
-  return keys
-    .flatMap((key) => asArray(readStorageValue(key)))
+  return [...keyedResults, ...getAllUnifiedResultsForGame(gameId, additionalResults)]
+    .filter((result) => !result || typeof result !== "object" || belongsToCurrentChild(result))
+    .filter((result) => {
+      const identity = getResultIdentity(result);
+      if (seenResultIds.has(identity)) return false;
+      seenResultIds.add(identity);
+      return true;
+    })
     .flatMap((result) => extractLevelResults(result))
     .filter((result) => Number.isFinite(result.score))
     .sort((a, b) => b.timestamp - a.timestamp)
@@ -222,7 +440,7 @@ const getAllLevelResultsForGame = (gameId) => {
 
 const getLatestTrainingResult = () => {
   const results = RESULT_STORAGE_KEYS.flatMap((key) =>
-    asArray(readStorageValue(key)).map((data) => ({
+    asArray(readGameStorageValue(key, key.replace(/TrainingResult$/, ""))).map((data) => ({
       key,
       createdAt: getResultTimestamp(data),
       ...data,
@@ -232,9 +450,9 @@ const getLatestTrainingResult = () => {
   return results.sort((a, b) => b.createdAt - a.createdAt)[0] || null;
 };
 
-const getTrainingRecommendations = () => {
+const getTrainingRecommendations = (additionalResults = []) => {
   const recommendations = TRAINING_GAME_OPTIONS.map((game, index) => {
-    const levelResults = getAllLevelResultsForGame(game.id);
+    const levelResults = getAllLevelResultsForGame(game.id, additionalResults);
     const scores = levelResults.map((result) => result.score);
     const averageScore = scores.length
       ? scores.reduce((sum, score) => sum + score, 0) / scores.length
@@ -289,10 +507,30 @@ const buildTrainingLevelPlan = (gameIds, recommendations = []) => {
   });
 
   const plan = [];
+  const gameUseCount = {};
   let cursor = 0;
-  while (plan.length < MAX_TRAINING_LEVELS) {
-    plan.push(weightedPool[cursor % weightedPool.length]);
+  let guard = 0;
+
+  while (plan.length < MAX_TRAINING_LEVELS && guard < MAX_TRAINING_LEVELS * weightedPool.length * 2) {
+    const gameId = weightedPool[cursor % weightedPool.length];
     cursor += 1;
+    guard += 1;
+
+    const nextLevel = (gameUseCount[gameId] || 0) + 1;
+    if (nextLevel > MAX_LEVELS_PER_GAME_IN_PLAN) continue;
+
+    const item = recommendationMap.get(gameId) || {};
+    gameUseCount[gameId] = nextLevel;
+
+    plan.push({
+      gameId,
+      level: nextLevel,
+      order: plan.length + 1,
+      recommendationScore: item.recommendationScore ?? null,
+      averageScore: item.averageScore ?? null,
+      resultCount: item.resultCount ?? 0,
+      source: item.resultCount > 0 ? "result-recommendation" : "fallback-rotation",
+    });
   }
 
   return plan;
@@ -308,8 +546,40 @@ const ModeSelectPage = () => {
   const [trainingMinutes, setTrainingMinutes] = useState(20);
   const [selectedTrainingGameIds, setSelectedTrainingGameIds] = useState([]);
   const [isRecommendationApplied, setIsRecommendationApplied] = useState(false);
+  const [cloudResults, setCloudResults] = useState([]);
 
-  const trainingRecommendations = useMemo(() => getTrainingRecommendations(), []);
+  const childId = child?.childId || child?.id || child?.patientId || getCurrentChildId();
+
+  useEffect(() => {
+    let active = true;
+
+    if (!childId) {
+      setCloudResults([]);
+      return () => {
+        active = false;
+      };
+    }
+
+    getResultsByPatientFromCloud(childId)
+      .then((records) => {
+        if (!active) return;
+        setCloudResults((records || []).map(normalizeCloudResult).filter(Boolean));
+      })
+      .catch((error) => {
+        // Offline/guest play still uses the complete local result history.
+        console.warn("[ModeSelectPage] Unable to load cloud result history:", error);
+        if (active) setCloudResults([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [childId]);
+
+  const trainingRecommendations = useMemo(
+    () => getTrainingRecommendations(cloudResults),
+    [cloudResults]
+  );
   const recommendedTrainingGameIds = useMemo(
     () => getRecommendedTrainingGameIds(trainingRecommendations),
     [trainingRecommendations]
@@ -465,7 +735,7 @@ const ModeSelectPage = () => {
             <div className="model-card-inner">
               <div className="model-badge blue">正式紀錄</div>
               <div className="model-icon-bubble" aria-hidden="true">
-                <img src={trainingIcon} alt="" />
+                <img width={481} height={519} src={trainingIcon} alt="" />
               </div>
 
               <h1>測驗</h1>
@@ -483,7 +753,7 @@ const ModeSelectPage = () => {
                 onClick={startTest}
                 aria-label="進入測驗地圖"
               >
-                <img src={testMapButton} alt="進入測驗地圖" />
+                <img width={1024} height={341} loading="lazy" src={testMapButton} alt="進入測驗地圖" />
               </button>
             </div>
           </article>
@@ -492,7 +762,7 @@ const ModeSelectPage = () => {
             <div className="model-card-inner">
               <div className="model-badge green">練習挑戰</div>
               <div className="model-icon-bubble" aria-hidden="true">
-                <img src={testIcon} alt="" />
+                <img width={486} height={513} loading="lazy" src={testIcon} alt="" />
               </div>
 
               <h1>訓練</h1>
@@ -510,7 +780,7 @@ const ModeSelectPage = () => {
                 onClick={startTraining}
                 aria-label="進入訓練地圖"
               >
-                <img src={trainingMapButton} alt="進入訓練地圖" />
+                <img width={1024} height={341} loading="lazy" src={trainingMapButton} alt="進入訓練地圖" />
               </button>
             </div>
           </article>
@@ -611,7 +881,7 @@ const ModeSelectPage = () => {
               onClick={confirmTrainingSettings}
               aria-label="進入訓練地圖"
             >
-              <img src={trainingMapButton} alt="進入訓練地圖" />
+              <img width={1024} height={341} loading="lazy" src={trainingMapButton} alt="進入訓練地圖" />
             </button>
           </div>
         </section>

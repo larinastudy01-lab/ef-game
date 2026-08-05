@@ -302,7 +302,7 @@
   top: 56%;
 }
 
-.game-dpt {
+.game-ssg {
   left: 60%;
   top: 45%;
 }
@@ -913,7 +913,7 @@
   outline-offset: 4px;
 }
 
-/* 6 個訓練關卡沿著 GameMap.png 的路線散佈 */
+/* 6 個訓練關卡沿著 GameMap.webp 的路線散佈 */
 .game-srt {
   left: 28%;
   top: 59%;
@@ -934,7 +934,7 @@
   top: 73%;
 }
 
-.game-dpt {
+.game-ssg {
   left: 60%;
   top: 47%;
 }
@@ -1559,7 +1559,7 @@
   outline-offset: 4px;
 }
 
-/* 6 個訓練關卡沿著 GameMap.png 的路線散佈 */
+/* 6 個訓練關卡沿著 GameMap.webp 的路線散佈 */
 .game-srt {
   left: 28%;
   top: 59%;
@@ -1580,7 +1580,7 @@
   top: 73%;
 }
 
-.game-dpt {
+.game-ssg {
   left: 60%;
   top: 47%;
 }
@@ -2206,7 +2206,7 @@
   outline-offset: 4px;
 }
 
-/* 6 個訓練關卡沿著 GameMap.png 的路線散佈 */
+/* 6 個訓練關卡沿著 GameMap.webp 的路線散佈 */
 .game-srt {
   left: 28%;
   top: 59%;
@@ -2227,7 +2227,7 @@
   top: 73%;
 }
 
-.game-dpt {
+.game-ssg {
   left: 60%;
   top: 47%;
 }

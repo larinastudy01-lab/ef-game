@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import bgImage from "../asset/SRT_testbackground.png";
-import clickSfx from "../asset/Click_SRT.mp3";
-import homeBackBtn from "../asset/home/back.png";
-import homeAgainBtn from "../asset/home/again.png";
+import bgImage from "../asset/SRT/SRT_background.webp";
+import clickSfx from "../asset/Click.mp3";
+import homeBackBtn from "../asset/home/back.webp";
+import homeAgainBtn from "../asset/home/again.webp";
 import { calculatePMScore } from "../utils/pmScoring";
 
 export default function ResultPage_PM() {
@@ -259,6 +259,13 @@ export default function ResultPage_PM() {
           </header>
 
           <section style={styles.parentPanel}>
+            <section style={styles.trainingPurposePanel}>
+              <h2 style={styles.trainingPurposeTitle}>遊戲訓練目的</h2>
+              <p style={styles.trainingPurposeText}>
+                本遊戲透過「觀察－記憶－辨識」的過程，訓練孩子的視覺記憶能力，幫助孩子提升記住視覺資訊，以及從眾多物品中辨識目標物的能力。
+              </p>
+            </section>
+
             <section style={styles.heroCard}>
               <div style={styles.heroLeft}>
                 <div style={styles.bigBadge}>🎒</div>
@@ -388,7 +395,7 @@ export default function ResultPage_PM() {
               onClick={handleBackMenu}
               aria-label="回到森林"
             >
-              <img src={homeBackBtn} alt="回到森林" style={styles.imageButtonImg} />
+              <img width={1024} height={341} src={homeBackBtn} alt="回到森林" style={styles.imageButtonImg} />
             </button>
 
             {mode === "training" && (
@@ -398,7 +405,7 @@ export default function ResultPage_PM() {
                 onClick={handleRetry}
                 aria-label="play again"
               >
-                <img src={homeAgainBtn} alt="play again" style={styles.imageButtonImg} />
+                <img width={1024} height={341} loading="lazy" src={homeAgainBtn} alt="play again" style={styles.imageButtonImg} />
               </button>
             )}
           </footer>
@@ -1558,6 +1565,31 @@ const styles = {
     overflowY: "auto",
     paddingRight: "6px",
     marginBottom: "18px",
+  },
+
+  trainingPurposePanel: {
+    backgroundColor: "rgba(255, 255, 255, 0.94)",
+    border: "2px solid #f1d4b2",
+    borderRadius: "22px",
+    padding: "16px 20px",
+    boxShadow: "0 8px 18px rgba(0,0,0,0.06)",
+    marginBottom: "16px",
+    textAlign: "left",
+  },
+
+  trainingPurposeTitle: {
+    fontSize: "21px",
+    color: "#5c4033",
+    fontWeight: "900",
+    margin: "0 0 8px",
+  },
+
+  trainingPurposeText: {
+    fontSize: "16px",
+    color: "#4d3b2f",
+    fontWeight: "750",
+    lineHeight: 1.7,
+    margin: 0,
   },
 
   heroCard: {

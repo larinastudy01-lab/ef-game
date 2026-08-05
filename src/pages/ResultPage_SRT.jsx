@@ -3,9 +3,9 @@
 import React, { useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
-import bgImg from "../asset/SRT_testbackground.png";
-import homeBackBtn from "../asset/home/back.png";
-import homeAgainBtn from "../asset/home/again.png";
+import bgImg from "../asset/SRT/SRT_background.webp";
+import homeBackBtn from "../asset/SRT/back.webp";
+import homeAgainBtn from "../asset/SRT/again.webp";
 import {
   calculateSrtScore,
   getStoredSrtResult,
@@ -642,7 +642,7 @@ const ResultPage_SRT = ({
             onClick={handleBackToMenu}
             aria-label="回到森林"
           >
-            <img src={homeBackBtn} alt="回到森林" />
+            <img src={homeBackBtn} width="532" height="177" loading="lazy" alt="回到森林" />
           </button>
 
           {isTrainingMode && (
@@ -652,7 +652,7 @@ const ResultPage_SRT = ({
               onClick={handleRestart}
               aria-label="play again"
             >
-              <img src={homeAgainBtn} alt="play again" />
+              <img src={homeAgainBtn} width="532" height="177" loading="lazy" alt="再玩一次" />
             </button>
           )}
         </footer>
@@ -1260,7 +1260,7 @@ function buildTestOneSentence({ stars, summary = {}, abilityScores = {} }) {
   }
 
   if ((summary.rottenClickRate || 0) > 40) {
-    return "孩子反應很積極，但看到壞橡實時比較容易衝動點擊，下次可以先降低干擾。";
+    return "孩子反應很積極，但比較容易點到壞橡實，區分目標物和干擾物的能力還可以再加強。";
   }
 
   if (stars === 2) {
@@ -1351,7 +1351,7 @@ function buildTestHighlights({ summary = {}, abilityScores = {} }) {
       text:
         (summary.rottenClickRate || 0) <= 30
           ? "孩子大致能忍住不點壞橡實。"
-          : "孩子比較容易點到壞橡實，建議先減少干擾。",
+          : "孩子比較容易點到壞橡實，表示區分目標物和干擾物的能力還可以再加強。日常生活中可減少不必要的干擾物，幫助孩子提升表現。",
     });
   } else {
     highlights.push({
@@ -1432,8 +1432,8 @@ function buildTestNextSuggestion({ stars, summary = {}, abilityScores = {} }) {
 
   if ((summary.rottenTotal || 0) > 0 && (summary.rottenClickRate || 0) > 40) {
     return {
-      title: "下次先減少壞橡實干擾",
-      text: "孩子看到壞橡實時比較容易衝動點擊，建議先練習「看清楚再點」，不要急著增加速度。",
+      title: "練習區分目標與干擾物",
+      text: "孩子比較容易點到壞橡實，表示區分目標物和干擾物的能力還可以再加強。日常生活中可減少不必要的干擾物，並練習「看清楚再行動」，幫助孩子提升表現。",
     };
   }
 
@@ -1597,7 +1597,7 @@ function buildIntuitiveIndicators({ summary = {}, abilityScores = {} }) {
           : "這次沒有壞橡實，所以這項暫時不影響結果。",
       advice:
         (summary.rottenTotal || 0) > 0 && (summary.rottenClickRate || 0) > 40
-          ? "建議先減少壞橡實比例，練習看清楚再點。"
+          ? "日常生活中可減少不必要的干擾物，並練習看清楚再行動。"
           : "目前干擾控制表現可以。",
     },
     {

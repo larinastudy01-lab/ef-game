@@ -10,56 +10,71 @@ import { saveUnifiedResult } from "../utils/resultManager";
 import { calculatePMScore } from "../utils/pmScoring";
 
 // ===== 圖片 =====
-import PM01 from "../asset/PM/PM_01.png";
-import PM02 from "../asset/PM/PM_02.png";
-import PM03 from "../asset/PM/PM_03.png";
-import PM04 from "../asset/PM/PM_04.png";
-import PM05 from "../asset/PM/PM_05.png";
-import PM06 from "../asset/PM/PM_06.png";
-import PM07 from "../asset/PM/PM_07.png";
-import PM08 from "../asset/PM/PM_08.png";
-import PM09 from "../asset/PM/PM_09.png";
-import PM10 from "../asset/PM/PM_10.png";
-import PM11 from "../asset/PM/PM_11.png";
-import rabbitAvatar from "../asset/avatar/rabbit.png";
+import PM01 from "../asset/PM/PM_01.webp";
+import PM02 from "../asset/PM/PM_02.webp";
+import PM03 from "../asset/PM/PM_03.webp";
+import PM04 from "../asset/PM/PM_04.webp";
+import PM05 from "../asset/PM/PM_05.webp";
+import PM06 from "../asset/PM/PM_06.webp";
+import PM07 from "../asset/PM/PM_07.webp";
+import PM08 from "../asset/PM/PM_08.webp";
+import PM09 from "../asset/PM/PM_09.webp";
+import PM10 from "../asset/PM/PM_10.webp";
+import PM11 from "../asset/PM/PM_11.webp";
+import PM12 from "../asset/PM/PM_12.webp";
+import rabbitAvatar from "../asset/avatar/rabbit.webp";
 
 // ===== 背景 / 前導影片 / 結束影片 =====
-import bgImage from "../asset/PM_testbackground.png";
+import bgImage from "../asset/PM/PM_background.webp";
 import introVideo from "../asset/mp4/PM_start.mp4";
 import stepVideo from "../asset/mp4/PM_step.mp4";
 import endingVideo from "../asset/mp4/PM_end.mp4";
-import homeStartBtn from "../asset/home/start.png";
-import homeSkipBtn from "../asset/home/skip.png";
-import homeBackBtn from "../asset/home/back.png";
-import homeResultBtn from "../asset/home/result.png";
-import homeNextBtn from "../asset/home/next.png";
-import mouseGuideImg from "../asset/mouse.png";
+import homeStartBtn from "../asset/home/start.webp";
+import homeSkipBtn from "../asset/home/skip.webp";
+import homeBackBtn from "../asset/home/back.webp";
+import homeResultBtn from "../asset/home/result.webp";
+import homeNextBtn from "../asset/home/next.webp";
+import mouseGuideImg from "../asset/mouse.webp";
 
 const TEST_PAGE_ROUTE = "/test-map";
 
 const ALL_ITEMS = [
-  { id: "PM01", image: PM01 },
-  { id: "PM02", image: PM02 },
-  { id: "PM03", image: PM03 },
-  { id: "PM04", image: PM04 },
-  { id: "PM05", image: PM05 },
-  { id: "PM06", image: PM06 },
-  { id: "PM07", image: PM07 },
-  { id: "PM08", image: PM08 },
-  { id: "PM09", image: PM09 },
-  { id: "PM10", image: PM10 },
-  { id: "PM11", image: PM11 },
+  { id: "PM01", image: PM01, alt: "生日蛋糕" },
+  { id: "PM02", image: PM02, alt: "藍色水壺" },
+  { id: "PM03", image: PM03, alt: "紫色禮物盒" },
+  { id: "PM04", image: PM04, alt: "彩色棒棒糖" },
+  { id: "PM05", image: PM05, alt: "黃色帽子" },
+  { id: "PM06", image: PM06, alt: "黃色鞋子" },
+  { id: "PM07", image: PM07, alt: "莓果果醬" },
+  { id: "PM08", image: PM08, alt: "綠色樹葉" },
+  { id: "PM09", image: PM09, alt: "黃色小鴨" },
+  { id: "PM10", image: PM10, alt: "綠色手錶" },
+  { id: "PM11", image: PM11, alt: "金色湯匙" },
+  { id: "PM12", image: PM12, alt: "彩虹吊飾" },
 ];
 
-// PM 需求：一個畫面最多放 8 張圖片，避免兒童需要滑動螢幕。
+// PM 完整測驗：7 個記憶跨度，每個跨度 2 題，最多 12 選。
+const MAX_RECOGNITION_OPTION_COUNT = 12;
+const FULL_TEST_SHOW_TIME = 5;
+
+const getRecognitionOptionCount = (memoryCount, itemPoolSize = ALL_ITEMS.length) => {
+  const safeMemoryCount = Math.max(1, Number(memoryCount) || 1);
+  const targetOptionCount =
+    safeMemoryCount >= 6
+      ? MAX_RECOGNITION_OPTION_COUNT
+      : safeMemoryCount * 2;
+
+  return Math.min(targetOptionCount, itemPoolSize);
+};
+
 const LEVELS = [
-  { level: 1, memoryCount: 2, showTime: 5, answerTime: 10, optionCount: 6 },
-  { level: 2, memoryCount: 3, showTime: 4.5, answerTime: 10, optionCount: 6 },
-  { level: 3, memoryCount: 4, showTime: 4, answerTime: 10, optionCount: 8 },
-  { level: 4, memoryCount: 5, showTime: 3.5, answerTime: 10, optionCount: 8 },
-  { level: 5, memoryCount: 6, showTime: 3.2, answerTime: 10, optionCount: 8 },
-  { level: 6, memoryCount: 7, showTime: 3, answerTime: 10, optionCount: 8 },
-  { level: 7, memoryCount: 8, showTime: 2.8, answerTime: 10, optionCount: 8 },
+  { level: 1, memoryCount: 1, showTime: FULL_TEST_SHOW_TIME, answerTime: 10 },
+  { level: 2, memoryCount: 2, showTime: FULL_TEST_SHOW_TIME, answerTime: 10 },
+  { level: 3, memoryCount: 3, showTime: FULL_TEST_SHOW_TIME, answerTime: 10 },
+  { level: 4, memoryCount: 4, showTime: FULL_TEST_SHOW_TIME, answerTime: 10 },
+  { level: 5, memoryCount: 5, showTime: FULL_TEST_SHOW_TIME, answerTime: 10 },
+  { level: 6, memoryCount: 6, showTime: FULL_TEST_SHOW_TIME, answerTime: 10 },
+  { level: 7, memoryCount: 7, showTime: FULL_TEST_SHOW_TIME, answerTime: 10 },
 ];
 
 const TRIALS_PER_MEMORY_COUNT = 2;
@@ -300,7 +315,7 @@ function buildMemoryCountSummary(records = []) {
       ...entry,
       accuracy: entry.attempted > 0 ? entry.correct / entry.attempted : 0,
       timeoutRate: entry.attempted > 0 ? entry.timeout / entry.attempted : 0,
-      passed: entry.attempted >= TRIALS_PER_MEMORY_COUNT && entry.correct >= 1,
+      passed: entry.attempted >= TRIALS_PER_MEMORY_COUNT && entry.correct >= TRIALS_PER_MEMORY_COUNT,
     }));
 }
 
@@ -434,14 +449,14 @@ export default function TestPage_PM() {
   const pushRecord = (record) => {
     lastResultRef.current = record;
     recordsRef.current = [...recordsRef.current, record];
-    console.log("[TestPage_PM] record saved:", record);
   };
 
   const setupLevel = (levelConfig) => {
     if (!levelConfig) return;
 
     const memorizeItems = shuffleArray(ALL_ITEMS).slice(0, levelConfig.memoryCount);
-    const maxDistractors = Math.max(levelConfig.optionCount - memorizeItems.length, 0);
+    const optionCount = getRecognitionOptionCount(levelConfig.memoryCount);
+    const maxDistractors = Math.max(optionCount - memorizeItems.length, 0);
     const distractors = shuffleArray(
       ALL_ITEMS.filter(
         (item) => !memorizeItems.some((memoryItem) => memoryItem.id === item.id)
@@ -450,7 +465,7 @@ export default function TestPage_PM() {
 
     const options = shuffleArray([...memorizeItems, ...distractors]).slice(
       0,
-      levelConfig.optionCount
+      optionCount
     );
 
     resetRuntimeRefs();
@@ -598,6 +613,7 @@ export default function TestPage_PM() {
       difficulty: selectedDifficulty,
       difficultyLevel: currentLevel.level,
       memoryCount: currentLevel.memoryCount,
+      optionCount: currentOptions.length,
       showTime: currentLevel.showTime,
       answerTimeLimit: currentLevel.answerTime,
       isCorrect,
@@ -972,7 +988,7 @@ export default function TestPage_PM() {
       <div style={styles.overlay}>
         <div style={styles.container}>
           {phase === "rules" && (
-            <div style={styles.startPanel}>
+            <div className="game-start-card-artwork" style={styles.startPanel}>
               <div style={styles.gameTitle}>圖片記憶任務</div>
 
               <div style={styles.startContent}>
@@ -980,22 +996,22 @@ export default function TestPage_PM() {
                   幫兔子妹妹記住湖邊的小物品。
                 </div>
                 <div style={styles.roundIcon}>
-                  <img src={rabbitAvatar} alt="兔子妹妹" style={styles.roundIconImage} />
+                  <img width={512} height={512} src={rabbitAvatar} alt="兔子妹妹" style={styles.roundIconImage} />
                 </div>
               </div>
 
               <div style={styles.guidedAction}>
                 <button type="button" style={styles.imageButton} onClick={handleStart} aria-label="進入遊戲">
-                  <img src={homeStartBtn} alt="進入遊戲" style={styles.imageButtonImg} />
+                  <img width={1024} height={341} src={homeStartBtn} alt="進入遊戲" style={styles.imageButtonImg} />
                 </button>
-                <img src={mouseGuideImg} alt="提示點擊" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
+                <img width={1024} height={1024} loading="lazy" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
               </div>
             </div>
           )}
 
 
           {phase === "introVideo" && (
-            <div style={styles.videoPanel}>
+            <div className="game-start-card-artwork" style={styles.videoPanel}>
               <div style={styles.videoFrame}>
                 <video
                   src={introVideo}
@@ -1009,15 +1025,15 @@ export default function TestPage_PM() {
 
               <div style={styles.guidedAction}>
                 <button type="button" style={{ ...styles.imageButton, ...styles.skipImageButton }} onClick={handleIntroVideoEnd} aria-label="跳過動畫">
-                  <img src={homeSkipBtn} alt="跳過動畫" style={styles.imageButtonImg} />
+                  <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過動畫" style={styles.imageButtonImg} />
                 </button>
-                <img src={mouseGuideImg} alt="提示點擊" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
+                <img width={1024} height={1024} loading="lazy" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
               </div>
             </div>
           )}
 
           {phase === "stepVideo" && (
-            <div style={styles.videoPanel}>
+            <div className="game-start-card-artwork" style={styles.videoPanel}>
               <div style={styles.videoFrame}>
                 <video
                   src={stepVideo}
@@ -1031,9 +1047,9 @@ export default function TestPage_PM() {
 
               <div style={styles.guidedAction}>
                 <button type="button" style={styles.imageButton} onClick={handleStepVideoEnd} aria-label="下一步">
-                  <img src={homeNextBtn} alt="下一步" style={styles.imageButtonImg} />
+                  <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" style={styles.imageButtonImg} />
                 </button>
-                <img src={mouseGuideImg} alt="提示點擊" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
+                <img width={1024} height={1024} loading="lazy" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
               </div>
             </div>
           )}
@@ -1050,7 +1066,7 @@ export default function TestPage_PM() {
               <div style={styles.memoryGrid}>
                 {currentMemorizeItems.map((item) => (
                   <div key={item.id} style={styles.memoryCard}>
-                    <img src={item.image} alt={item.id} style={styles.memoryImage} />
+                    <img src={item.image} alt={item.alt} width="162" height="162" loading="lazy" style={styles.memoryImage} />
                   </div>
                 ))}
               </div>
@@ -1082,7 +1098,7 @@ export default function TestPage_PM() {
                         ...(isSelected ? styles.optionCardSelected : {}),
                       }}
                     >
-                      <img src={item.image} alt={item.id} style={styles.optionImage} />
+                      <img src={item.image} alt={item.alt} width="162" height="162" loading="lazy" style={styles.optionImage} />
                     </button>
                   );
                 })}
@@ -1125,14 +1141,14 @@ export default function TestPage_PM() {
 
               <div style={styles.guidedAction}>
                 <button type="button" style={styles.imageButton} onClick={handleNext} aria-label="下一步">
-                  <img src={homeNextBtn} alt="下一步" style={styles.imageButtonImg} />
+                  <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" style={styles.imageButtonImg} />
                 </button>
               </div>
             </div>
           )}
 
           {phase === "endingVideo" && (
-            <div style={styles.videoPanel}>
+            <div className="game-start-card-artwork" style={styles.videoPanel}>
               <div style={styles.videoFrame}>
                 <video
                   src={endingVideo}
@@ -1156,19 +1172,19 @@ export default function TestPage_PM() {
                     setPhase("result");
                   }
                 }} aria-label="跳過動畫">
-                  <img src={homeSkipBtn} alt="跳過動畫" style={styles.imageButtonImg} />
+                  <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過動畫" style={styles.imageButtonImg} />
                 </button>
               </div>
             </div>
           )}
 
           {phase === "result" && (
-            <div style={styles.resultPanel}>
+            <div className="game-result-card-artwork" style={styles.resultPanel}>
               <div style={styles.starRow} aria-label={`${resultStars} 顆星`}>
                 {[1, 2, 3].map((star, index) => {
                   const curveStyles = [styles.starLeft, styles.starCenter, styles.starRight];
                   return (
-                    <span key={star} style={{ ...styles.starShell, ...curveStyles[index] }}>
+                    <span key={star} className={`game-result-star ${star <= resultStars ? "is-earned" : ""}`} style={{ ...styles.starShell, ...curveStyles[index] }}>
                       <svg viewBox="0 0 100 95" style={styles.starSvg} aria-hidden="true">
                         <path
                           d="M50 3 L61.8 34.2 L95 36.1 L69 56.8 L77.6 89 L50 71.2 L22.4 89 L31 56.8 L5 36.1 L38.2 34.2 Z"
@@ -1191,18 +1207,18 @@ export default function TestPage_PM() {
                   測驗完成！你很認真記住圖片喔。
                 </div>
                 <div style={styles.roundIcon}>
-                  <img src={rabbitAvatar} alt="兔子妹妹" style={styles.roundIconImage} />
+                  <img width={512} height={512} loading="lazy" src={rabbitAvatar} alt="兔子妹妹" style={styles.roundIconImage} />
                 </div>
               </div>
 
               <div style={styles.resultActions}>
                 <div style={styles.guidedAction}>
                   <button type="button" style={styles.resultImageButton} onClick={() => navigate(TEST_PAGE_ROUTE)} aria-label="回到森林">
-                    <img src={homeBackBtn} alt="回到森林" style={styles.imageButtonImg} />
+                    <img width={1024} height={341} loading="lazy" src={homeBackBtn} alt="回到森林" style={styles.imageButtonImg} />
                   </button>
                 </div>
                 <button type="button" style={styles.resultImageButton} onClick={navigateToResult} aria-label="詳細結果">
-                  <img src={homeResultBtn} alt="詳細結果" style={styles.imageButtonImg} />
+                  <img width={1024} height={341} loading="lazy" src={homeResultBtn} alt="詳細結果" style={styles.imageButtonImg} />
                 </button>
               </div>
             </div>

@@ -1,31 +1,32 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/ChildSelectPage.css";
-import PageBackground from "../asset/home/choice_ch.png";
-import CardFrame from "../asset/home/card.png";
-import StartButton from "../asset/home/start.png";
-import BuildStartButton from "../asset/home/bu_start.png";
-import DeleteButton from "../asset/home/delete.png";
+import PageBackground from "../asset/home/choice_ch.webp";
+import CardFrame from "../asset/home/card.webp";
+import StartButton from "../asset/home/start.webp";
+import BuildStartButton from "../asset/home/bu_start.webp";
+import DeleteButton from "../asset/home/delete.webp";
 import { getMyPatients, createMyPatient, deleteMyPatient } from "../lib/database";
-import AddButton from "../asset/home/add.png";
-import BearAvatar from "../asset/avatar/bear.png";
-import ChickenAvatar from "../asset/avatar/chicken.png";
-import DeerAvatar from "../asset/avatar/deer.png";
-import FoxAvatar from "../asset/avatar/fox.png";
-import MeerkatsAvatar from "../asset/avatar/meerkats.png";
-import PeacockAvatar from "../asset/avatar/peacock.png";
-import RabbitAvatar from "../asset/avatar/rabbit.png";
-import SheepAvatar from "../asset/avatar/sheep.png";
+import AddButton from "../asset/home/add.webp";
+import BearAvatar from "../asset/avatar/bear.webp";
+import ChickenAvatar from "../asset/avatar/chicken.webp";
+import DeerAvatar from "../asset/avatar/deer.webp";
+import FoxAvatar from "../asset/avatar/fox.webp";
+import MeerkatsAvatar from "../asset/avatar/meerkats.webp";
+import PeacockAvatar from "../asset/avatar/peacock.webp";
+import RabbitAvatar from "../asset/avatar/rabbit.webp";
+import SheepAvatar from "../asset/avatar/sheep.webp";
+import { setActivePatient } from "../utils/activePatientStorage";
 
 /**
  * ChildSelectPage.jsx
  *
  * 兒童角色卡選擇頁
- * - 使用 choice_ch.png 純森林背景，避免背景內建大卡片與標題造成疊字
+ * - 使用 choice_ch.webp 純森林背景，避免背景內建大卡片與標題造成疊字
  * - 前景重新建立主卡片、標題、兒童數量與角色卡
  * - 兒童角色卡固定橫式排列，超過寬度時使用橫向滑桿
  * - 新增表單使用 asset/avatar 動物頭像
- * - 建立並開始按鈕使用 asset/home/bu_start.png
+ * - 建立並開始按鈕使用 asset/home/bu_start.webp
  */
 
 const STORAGE_KEYS = {
@@ -34,6 +35,8 @@ const STORAGE_KEYS = {
   currentChild: "currentChild",
   currentChildId: "currentChildId",
 };
+
+const CHILD_GAME_CACHE_PREFIX = "childGameCache";
 
 const MAX_CHILD_AGE = 18;
 
@@ -47,14 +50,19 @@ const GAME_CACHE_KEY_PATTERNS = [
   /^practice(Game|Test|Training|Trial)/i,
   /^test(Game|Training)?(Session|State|Cache|Draft|Progress|Answers|History|Result)/i,
   /^training(Game)?(Session|State|Cache|Draft|Progress|Answers|History|Result)/i,
-  /^(SRT|PM|CBT|DPT|DCCS|LB)[_-].*(session|state|cache|draft|progress|answers|history|current|temp|trial|round|pending|result)$/i,
-  /^(srt|pm|cbt|dpt|dccs|lb)[_-].*(session|state|cache|draft|progress|answers|history|current|temp|trial|round|pending|result)$/i,
-  /(session|state|cache|draft|progress|answers|history|current|temp|trial|round|pending|result)[_-]?(SRT|PM|CBT|DPT|DCCS|LB)$/i,
-  /(session|state|cache|draft|progress|answers|history|current|temp|trial|round|pending|result)[_-]?(srt|pm|cbt|dpt|dccs|lb)$/i,
+  /^ef_game_.*(completed|stars|stage|level|training|honey|today)/i,
+  /^ef_(latest_results|ai_recommendation|current_test_flow)/i,
+  /completed_training_levels/i,
+  /training.*level.*(completed|stars)/i,
+  /honey_mission|today_training|training_duration/i,
+  /^(SRT|PM|CBT|SSG|DCCS|LB)[_-].*(session|state|cache|draft|progress|answers|history|current|temp|trial|round|pending|result)$/i,
+  /^(srt|pm|cbt|ssg|dccs|lb)[_-].*(session|state|cache|draft|progress|answers|history|current|temp|trial|round|pending|result)$/i,
+  /^(SRT|PM|CBT|SSG|DCCS|LB|srt|pm|cbt|ssg|dccs|lb).*level.*(completed|stars)$/i,
+  /(session|state|cache|draft|progress|answers|history|current|temp|trial|round|pending|result)[_-]?(SRT|PM|CBT|SSG|DCCS|LB)$/i,
+  /(session|state|cache|draft|progress|answers|history|current|temp|trial|round|pending|result)[_-]?(srt|pm|cbt|ssg|dccs|lb)$/i,
 ];
 
 const PRESERVED_CACHE_KEY_PATTERNS = [
-  /stars?$/i,
   /settings?$/i,
   /profiles?$/i,
   /patients?$/i,
@@ -186,13 +194,43 @@ const clearGameplayCacheForChildSwitch = () => {
   clearStorageKeys(localStorage, "local");
 };
 
+const getChildGameCacheKey = (childId) => `${CHILD_GAME_CACHE_PREFIX}_${childId}`;
+
+const snapshotGameplayCacheForChild = (childId) => {
+  if (!childId) return;
+
+  const cache = {};
+
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    if (shouldClearGameCacheKey(key, "local")) {
+      cache[key] = localStorage.getItem(key);
+    }
+  }
+
+  localStorage.setItem(getChildGameCacheKey(childId), JSON.stringify(cache));
+};
+
+const restoreGameplayCacheForChild = (childId) => {
+  if (!childId) return;
+
+  const cache = safeParse(localStorage.getItem(getChildGameCacheKey(childId)), {});
+  if (!cache || typeof cache !== "object" || Array.isArray(cache)) return;
+
+  Object.entries(cache).forEach(([key, value]) => {
+    if (value !== null && value !== undefined) {
+      localStorage.setItem(key, value);
+    }
+  });
+};
+
 const createChildId = () => `child_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 const avatarFileToKey = (value) => {
   if (!value) return "";
   const text = String(value);
   if (text.startsWith("http") || text.startsWith("data:")) return "";
-  return text.replace(/\.png$/i, "").replace(/\.jpg$/i, "").replace(/\.jpeg$/i, "");
+  return text.replace(/\.webp$/i, "").replace(/\.jpg$/i, "").replace(/\.jpeg$/i, "");
 };
 
 const normalizeAvatarKey = (value, index = 0) => {
@@ -366,8 +404,7 @@ const ChildSelectPage = () => {
   }, []);
 
   const saveCurrentChild = (child) => {
-    localStorage.setItem(STORAGE_KEYS.currentChildId, child.childId);
-    localStorage.setItem(STORAGE_KEYS.currentChild, JSON.stringify(child));
+    return setActivePatient(child);
   };
 
   const selectChild = (child) => {
@@ -377,10 +414,12 @@ const ChildSelectPage = () => {
     const childToSave = { ...child, selectedAt: new Date().toISOString() };
 
     if (previousChildId && previousChildId !== child.childId) {
+      snapshotGameplayCacheForChild(previousChildId);
       clearGameplayCacheForChildSwitch();
     }
 
     saveCurrentChild(childToSave);
+    restoreGameplayCacheForChild(child.childId);
     navigate("/mode-select", {
       state: {
         childId: child.childId,
@@ -428,7 +467,7 @@ const ChildSelectPage = () => {
         nickname,
         birthDate: formData.birthday,
         gender: formData.gender,
-        avatar: `${avatarIcon}.png`,
+        avatar: `${avatarIcon}.webp`,
       });
 
       const newChild = normalizeChild(cloudPatient, children.length);
@@ -511,10 +550,31 @@ const ChildSelectPage = () => {
       saveChildren(nextChildren);
 
       if (wasCurrentChild) {
+        snapshotGameplayCacheForChild(childId);
         localStorage.removeItem(STORAGE_KEYS.currentChildId);
         localStorage.removeItem(STORAGE_KEYS.currentChild);
+        localStorage.removeItem("selectedChildId");
+        localStorage.removeItem("childId");
+        localStorage.removeItem("selectedPatientId");
+        localStorage.removeItem("currentPatientId");
+        localStorage.removeItem("selectedChild");
+        localStorage.removeItem("activeChild");
+        localStorage.removeItem("selectedPatient");
+        localStorage.removeItem("currentPatient");
+        sessionStorage.removeItem(STORAGE_KEYS.currentChildId);
+        sessionStorage.removeItem(STORAGE_KEYS.currentChild);
+        sessionStorage.removeItem("selectedChildId");
+        sessionStorage.removeItem("childId");
+        sessionStorage.removeItem("selectedPatientId");
+        sessionStorage.removeItem("currentPatientId");
+        sessionStorage.removeItem("selectedChild");
+        sessionStorage.removeItem("activeChild");
+        sessionStorage.removeItem("selectedPatient");
+        sessionStorage.removeItem("currentPatient");
         clearGameplayCacheForChildSwitch();
       }
+
+      localStorage.removeItem(getChildGameCacheKey(childId));
     } catch (error) {
       console.warn("Supabase 刪除兒童資料失敗：", error);
       saveChildren(previousChildren);
@@ -1230,11 +1290,11 @@ const ChildSelectPage = () => {
 
                     <div className="role-actions">
                       <button type="button" className="image-button" onClick={() => selectChild(child)} aria-label="開始任務" disabled={isSyncing}>
-                        <img src={StartButton} alt="開始任務" className="start-img" />
+                        <img width={1024} height={341} src={StartButton} alt="開始任務" className="start-img" />
                       </button>
 
                       <button type="button" className="image-button" onClick={(event) => removeChild(event, child.childId)} aria-label="移除角色" disabled={isSyncing}>
-                        <img src={DeleteButton} alt="移除" className="delete-img" />
+                        <img width={1024} height={341} loading="lazy" src={DeleteButton} alt="移除" className="delete-img" />
                       </button>
                     </div>
                   </article>
@@ -1245,7 +1305,7 @@ const ChildSelectPage = () => {
 
           <button type="button" className="add-role-card" onClick={openAddChildModal} aria-label="新增小冒險家" disabled={isSyncing}>
             <span className="add-icon-frame" aria-hidden="true">
-              <img src={AddButton} alt="" />
+              <img width={138} height={125} loading="lazy" src={AddButton} alt="" />
             </span>
             <strong>新增小冒險家</strong>
             <span>建立新的兒童角色卡</span>
@@ -1308,14 +1368,14 @@ const ChildSelectPage = () => {
                   onClick={() => setFormData((prev) => ({ ...prev, avatarIcon: avatar.key }))}
                   aria-label={`選擇${avatar.label}頭像`}
                 >
-                  <img src={avatar.src} alt="" />
+                  <img loading="lazy" src={avatar.src} alt="" />
                 </button>
               ))}
             </div>
 
             <div className="form-actions">
               <button type="submit" className="image-submit" aria-label="建立並開始" disabled={isSyncing}>
-                <img src={BuildStartButton} alt="建立並開始" className="build-start-img" />
+                <img width={1024} height={341} src={BuildStartButton} alt="建立並開始" className="build-start-img" />
               </button>
             </div>
           </form>

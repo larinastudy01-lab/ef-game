@@ -241,14 +241,6 @@ function toPercent(value) {
   return Math.round(normalizeRatio(value) * 100);
 }
 
-function round(value, digits = 0) {
-  if (!isFiniteNumber(value)) return 0;
-
-  const multiplier = Math.pow(10, digits);
-
-  return Math.round(value * multiplier) / multiplier;
-}
-
 function average(values = []) {
   const validValues = Array.isArray(values)
     ? values.filter(
@@ -973,6 +965,10 @@ function analyzeTrialLogs(trialLogs = []) {
     .filter((entry) => entry.isPostSwitch)
     .map((entry) => entry.trial);
 
+  const dualRuleTrials = formalTrials.filter(
+    (trial) => trial.isDualRuleTrial === true || trial.ruleStage === "dualRule"
+  );
+
   const interferenceTrials =
     postSwitchTrials.filter(isInterferenceTrial);
 
@@ -993,6 +989,9 @@ function analyzeTrialLogs(trialLogs = []) {
 
   const postSwitchCorrect =
     postSwitchTrials.filter(getCorrectValue);
+
+  const dualRuleCorrect =
+    dualRuleTrials.filter(getCorrectValue);
 
   const interferenceCorrect =
     interferenceTrials.filter(getCorrectValue);
@@ -1031,6 +1030,11 @@ function analyzeTrialLogs(trialLogs = []) {
   const postSwitchAccuracy = safeDivide(
     postSwitchCorrect.length,
     postSwitchTrials.length
+  );
+
+  const dualRuleAccuracy = safeDivide(
+    dualRuleCorrect.length,
+    dualRuleTrials.length
   );
 
   const interferenceAccuracy = safeDivide(
@@ -1072,6 +1076,11 @@ function analyzeTrialLogs(trialLogs = []) {
       interferenceTrials.map(getReactionTime)
     );
 
+  const dualRuleReactionTimes =
+    filterValidReactionTimes(
+      dualRuleTrials.map(getReactionTime)
+    );
+
   const avgReactionTime = average(reactionTimes);
 
   const preSwitchAvgReactionTime =
@@ -1088,6 +1097,9 @@ function analyzeTrialLogs(trialLogs = []) {
 
   const interferenceAvgReactionTime =
     average(interferenceReactionTimes);
+
+  const dualRuleAvgReactionTime =
+    average(dualRuleReactionTimes);
 
   const rtDifferenceAfterSwitch =
     preSwitchAvgReactionTime > 0 &&
@@ -1152,6 +1164,7 @@ function analyzeTrialLogs(trialLogs = []) {
     preSwitchTrials: preSwitchTrials.length,
     postSwitchTrials: postSwitchTrials.length,
     switchTrials: postSwitchTrials.length,
+    dualRuleTrials: dualRuleTrials.length,
     interferenceTrials: interferenceTrials.length,
 
     accuracy,
@@ -1159,6 +1172,7 @@ function analyzeTrialLogs(trialLogs = []) {
     typeAccuracy,
     postSwitchAccuracy,
     switchAccuracy: postSwitchAccuracy,
+    dualRuleAccuracy,
     interferenceAccuracy,
     firstTryAccuracy,
 
@@ -1176,6 +1190,7 @@ function analyzeTrialLogs(trialLogs = []) {
     switchAvgReactionTime: postSwitchAvgReactionTime,
     colorAvgReactionTime,
     typeAvgReactionTime,
+    dualRuleAvgReactionTime,
     interferenceAvgReactionTime,
 
     rtDifferenceAfterSwitch,
@@ -1536,6 +1551,9 @@ function calculateFormalTestScore(metrics) {
   const hasSwitchData =
     metrics.postSwitchTrials > 0;
 
+  const hasDualRuleData =
+    metrics.dualRuleTrials > 0;
+
   const hasInhibitionData =
     metrics.hasInhibitionData === true;
 
@@ -1574,15 +1592,21 @@ function calculateFormalTestScore(metrics) {
    */
   const components = [
     {
+      key: "dualRuleScore",
+      available: hasDualRuleData,
+      weight: 0.35,
+      score: metrics.dualRuleAccuracy * 100,
+    },
+    {
       key: "switchScore",
       available: hasSwitchData,
-      weight: 0.4,
+      weight: hasDualRuleData ? 0.25 : 0.4,
       score: metrics.postSwitchAccuracy * 100,
     },
     {
       key: "accuracyScore",
       available: metrics.totalTrials > 0,
-      weight: 0.25,
+      weight: hasDualRuleData ? 0 : 0.25,
       score: metrics.accuracy * 100,
     },
     {
@@ -1603,7 +1627,7 @@ function calculateFormalTestScore(metrics) {
     {
       key: "reactionTimeScore",
       available: metrics.avgReactionTime > 0,
-      weight: 0.05,
+      weight: hasDualRuleData ? 0.1 : 0.05,
       score: getReactionTimeScore(
         metrics.avgReactionTime
       ),
@@ -1648,6 +1672,7 @@ function calculateFormalTestScore(metrics) {
 
   if (
     hasSwitchData &&
+    (!hasDualRuleData || metrics.dualRuleAccuracy >= 0.75) &&
     metrics.postSwitchAccuracy >= 0.75 &&
     metrics.accuracy >= 0.75 &&
     metrics.perseverativeErrors <= 1 &&
@@ -1656,6 +1681,7 @@ function calculateFormalTestScore(metrics) {
     stars = 3;
   } else if (
     hasSwitchData &&
+    (!hasDualRuleData || metrics.dualRuleAccuracy >= 0.5) &&
     metrics.postSwitchAccuracy >= 0.5 &&
     metrics.accuracy >= 0.55 &&
     totalScore >= 55
@@ -1842,6 +1868,12 @@ export function calculateDccsScore(resultData = {}) {
 
   const switchTrials = postSwitchTrials;
 
+  const dualRuleTrials = readCount(
+    resultData,
+    "dualRuleTrials",
+    analyzed.dualRuleTrials
+  );
+
   const interferenceTrials = readCount(
     resultData,
     "interferenceTrials",
@@ -1881,6 +1913,15 @@ export function calculateDccsScore(resultData = {}) {
 
   const switchAccuracy =
     postSwitchAccuracy;
+
+  const dualRuleAccuracy =
+    analyzed.dualRuleTrials > 0
+      ? analyzed.dualRuleAccuracy
+      : readRatio(
+          resultData,
+          ["dualRuleAccuracyRatio", "dualRuleAccuracy"],
+          0
+        );
 
   const interferenceAccuracy =
     analyzed.interferenceTrials > 0
@@ -2000,6 +2041,12 @@ export function calculateDccsScore(resultData = {}) {
     analyzed.interferenceAvgReactionTime
   );
 
+  const dualRuleAvgReactionTime = readTime(
+    resultData,
+    "dualRuleAvgReactionTime",
+    analyzed.dualRuleAvgReactionTime
+  );
+
   const rtDifferenceAfterSwitch =
     isFiniteNumber(resultData.rtDifferenceAfterSwitch)
       ? resultData.rtDifferenceAfterSwitch
@@ -2099,6 +2146,7 @@ export function calculateDccsScore(resultData = {}) {
 
     colorTrials,
     typeTrials,
+    dualRuleTrials,
     postSwitchTrials,
     switchTrials,
     interferenceTrials,
@@ -2106,6 +2154,7 @@ export function calculateDccsScore(resultData = {}) {
     accuracy,
     colorAccuracy,
     typeAccuracy,
+    dualRuleAccuracy,
     postSwitchAccuracy,
     switchAccuracy,
     interferenceAccuracy,
@@ -2120,6 +2169,7 @@ export function calculateDccsScore(resultData = {}) {
     preSwitchAvgReactionTime,
     colorAvgReactionTime,
     typeAvgReactionTime,
+    dualRuleAvgReactionTime,
     postSwitchAvgReactionTime,
     switchAvgReactionTime,
     interferenceAvgReactionTime,
@@ -2208,6 +2258,11 @@ export function calculateDccsScore(resultData = {}) {
         ? toPercent(postSwitchAccuracy)
         : null,
 
+    dualRuleMaintenance:
+      dualRuleTrials > 0
+        ? toPercent(dualRuleAccuracy)
+        : null,
+
     inhibitionControl:
       hasInhibitionData &&
       interferenceControl !== null
@@ -2265,6 +2320,8 @@ export function calculateDccsScore(resultData = {}) {
       toPercent(colorAccuracy),
     typeAccuracyPercent:
       toPercent(typeAccuracy),
+    dualRuleAccuracyPercent:
+      toPercent(dualRuleAccuracy),
     postSwitchAccuracyPercent:
       toPercent(postSwitchAccuracy),
     switchAccuracyPercent:
@@ -2296,6 +2353,9 @@ export function calculateDccsScore(resultData = {}) {
 
     switchScore:
       scoringResult.switchScore ?? null,
+
+    dualRuleScore:
+      scoringResult.dualRuleScore ?? null,
 
     accuracyScore:
       scoringResult.accuracyScore ?? null,
@@ -2374,6 +2434,8 @@ export function calculateDccsScore(resultData = {}) {
       toPercent(colorAccuracy),
     typeAccuracyPercent:
       toPercent(typeAccuracy),
+    dualRuleAccuracyPercent:
+      toPercent(dualRuleAccuracy),
     postSwitchAccuracyPercent:
       toPercent(postSwitchAccuracy),
     switchAccuracyPercent:
@@ -2405,6 +2467,7 @@ export function calculateDccsScore(resultData = {}) {
     preSwitchAvgReactionTime,
     colorAvgReactionTime,
     typeAvgReactionTime,
+    dualRuleAvgReactionTime,
     postSwitchAvgReactionTime,
     switchAvgReactionTime,
     interferenceAvgReactionTime,

@@ -1,4 +1,4 @@
-import bgImg from "../asset/Home_background.png";
+import bgImg from "../asset/Home_background.webp";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";

@@ -1,5 +1,5 @@
-import bgImg from "../asset/home/model_background.png";
-import assistIcon from "../asset/assist.png";
+import bgImg from "../asset/home/model_background.webp";
+import assistIcon from "../asset/assist.webp";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
@@ -12,7 +12,7 @@ const GAME_NAME_MAP = {
   SRT: "松鼠接橡實",
   PM: "圖片記憶",
   CBT: "跳石橋",
-  DPT: "動物聲音辨識",
+  SSG: "動物聲音辨識",
   DCCS: "衣物分類",
   LB: "綿羊回家",
 };
@@ -21,7 +21,7 @@ const ABILITY_BY_GAME = {
   SRT: "反應速度 / 抑制控制",
   PM: "工作記憶",
   CBT: "序列記憶 / 注意維持",
-  DPT: "選擇性注意 / 抑制控制",
+  SSG: "選擇性注意 / 抑制控制",
   DCCS: "認知彈性",
   LB: "排序能力 / 規則理解",
 };
@@ -30,7 +30,7 @@ const GAME_THEME_MAP = {
   SRT: { primary: "#f97316", dark: "#c2410c", soft: "#fff7ed", border: "#fdba74" },
   PM: { primary: "#7c3aed", dark: "#5b21b6", soft: "#f5f3ff", border: "#c4b5fd" },
   CBT: { primary: "#0891b2", dark: "#0e7490", soft: "#ecfeff", border: "#67e8f9" },
-  DPT: { primary: "#e11d48", dark: "#be123c", soft: "#fff1f2", border: "#fda4af" },
+  SSG: { primary: "#e11d48", dark: "#be123c", soft: "#fff1f2", border: "#fda4af" },
   DCCS: { primary: "#16a34a", dark: "#15803d", soft: "#f0fdf4", border: "#86efac" },
   LB: { primary: "#ca8a04", dark: "#a16207", soft: "#fefce8", border: "#fde047" },
 };
@@ -96,11 +96,11 @@ const LOCAL_RESULT_KEYS = [
   { key: "cbtTrainingResult", gameKey: "CBT", fallbackType: "training" },
   { key: "latestCBTTrainingResult", gameKey: "CBT", fallbackType: "training" },
 
-  { key: "DPT_RESULT", gameKey: "DPT", fallbackType: "test" },
-  { key: "dptTestResult", gameKey: "DPT", fallbackType: "test" },
-  { key: "latestDPTTestResult", gameKey: "DPT", fallbackType: "test" },
-  { key: "dptTrainingResult", gameKey: "DPT", fallbackType: "training" },
-  { key: "latestDPTTrainingResult", gameKey: "DPT", fallbackType: "training" },
+  { key: "SSG_RESULT", gameKey: "SSG", fallbackType: "test" },
+  { key: "ssgTestResult", gameKey: "SSG", fallbackType: "test" },
+  { key: "latestSSGTestResult", gameKey: "SSG", fallbackType: "test" },
+  { key: "ssgTrainingResult", gameKey: "SSG", fallbackType: "training" },
+  { key: "latestSSGTrainingResult", gameKey: "SSG", fallbackType: "training" },
 
   { key: "DCCS_RESULT", gameKey: "DCCS", fallbackType: "test" },
   { key: "dccsTestResult", gameKey: "DCCS", fallbackType: "test" },
@@ -123,10 +123,6 @@ const LOCAL_PATIENT_KEYS = [
   "patientId",
   "childId",
 ];
-
-function getNestedValue(obj, path) {
-  return path.split(".").reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj);
-}
 
 function safeParseJson(value, fallback = null) {
   if (value === null || value === undefined || value === "") return fallback;
@@ -226,7 +222,7 @@ function inferGameKey(item = {}, sourceTable = "", sourceGameKey = "") {
   if (sourceText.includes("dccs")) return "DCCS";
   if (sourceText.includes("srt")) return "SRT";
   if (sourceText.includes("cbt")) return "CBT";
-  if (sourceText.includes("dpt")) return "DPT";
+  if (sourceText.includes("ssg")) return "SSG";
   if (sourceText.includes("lb")) return "LB";
   if (sourceText.includes("picture") || sourceText.includes("pm")) return "PM";
 
@@ -249,7 +245,7 @@ function normalizeRecordFilterGameKey(value, record = {}) {
     "松鼠接橡實": "SRT",
     "圖片記憶": "PM",
     "跳石橋": "CBT",
-    "動物聲音辨識": "DPT",
+    "動物聲音辨識": "SSG",
     "衣物分類": "DCCS",
     "綿羊回家": "LB",
     "數字門牌": "LB",
@@ -285,7 +281,7 @@ function normalizeRecordFilterGameKey(value, record = {}) {
   if (nameText.includes("松鼠接橡實")) return "SRT";
   if (nameText.includes("圖片記憶") || nameText.includes("picture memory")) return "PM";
   if (nameText.includes("跳石橋")) return "CBT";
-  if (nameText.includes("動物聲音辨識")) return "DPT";
+  if (nameText.includes("動物聲音辨識")) return "SSG";
   if (nameText.includes("衣物分類")) return "DCCS";
   if (nameText.includes("綿羊回家") || nameText.includes("數字門牌")) return "LB";
 
@@ -425,7 +421,7 @@ function inferLocalResultMeta(storageKey = "") {
   if (lower.includes("dccs")) gameKey = "DCCS";
   else if (lower.includes("srt")) gameKey = "SRT";
   else if (lower.includes("cbt")) gameKey = "CBT";
-  else if (lower.includes("dpt")) gameKey = "DPT";
+  else if (lower.includes("ssg")) gameKey = "SSG";
   else if (lower.includes("picturememory") || lower.includes("pmresult") || lower.includes("pmtest") || lower.includes("pmtraining")) gameKey = "PM";
   else if (lower.includes("lb_result") || lower.includes("lbtest") || lower.includes("lbtraining")) gameKey = "LB";
 
@@ -551,8 +547,7 @@ function readLocalResultPayloads(patientIds = []) {
               item.created_at,
               item.completedAt,
               item.finished_at,
-              item.date,
-              new Date().toISOString()
+              item.date
             ),
             __localKey: meta.key,
             __localSource: source,
@@ -666,6 +661,17 @@ function ClinicianDashboard() {
   const [exportingCombinedReport, setExportingCombinedReport] = useState(false);
   const recordPageSize = 10;
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [showAddPatient, setShowAddPatient] = useState(false);
+  const [addPatientSubmitting, setAddPatientSubmitting] = useState(false);
+  const [addPatientError, setAddPatientError] = useState("");
+  const [addPatientForm, setAddPatientForm] = useState({
+    guardianEmail: "",
+    nickname: "",
+    fullName: "",
+    birthDate: "",
+    gender: "",
+  });
   const [reminderTemplate, setReminderTemplate] = useState("follow_up");
   const [reminderMessage, setReminderMessage] = useState("");
   const [noteText, setNoteText] = useState("");
@@ -682,11 +688,22 @@ function ClinicianDashboard() {
   ]);
   const assistantMessagesEndRef = useRef(null);
   const isMountedRef = useRef(true);
+  const fetchRequestIdRef = useRef(0);
+  const hasLoadedDashboardRef = useRef(false);
+  const refreshTimerRef = useRef(null);
   const recordDetailRef = useRef(null);
 
   useEffect(() => {
     isMountedRef.current = true;
     fetchClinicianAndPatients();
+
+    const scheduleRefresh = () => {
+      if (document.visibilityState === "hidden") return;
+      if (refreshTimerRef.current) window.clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = window.setTimeout(() => {
+        fetchClinicianAndPatients();
+      }, 180);
+    };
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session?.user) {
@@ -694,15 +711,29 @@ function ClinicianDashboard() {
       }
     });
 
+    window.addEventListener("focus", scheduleRefresh);
+    window.addEventListener("pageshow", scheduleRefresh);
+    document.addEventListener("visibilitychange", scheduleRefresh);
+
     return () => {
       isMountedRef.current = false;
+      if (refreshTimerRef.current) window.clearTimeout(refreshTimerRef.current);
+      window.removeEventListener("focus", scheduleRefresh);
+      window.removeEventListener("pageshow", scheduleRefresh);
+      document.removeEventListener("visibilitychange", scheduleRefresh);
       authListener?.subscription?.unsubscribe?.();
     };
+    // This effect owns one app-lifetime subscription; refresh callbacks read current refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchClinicianAndPatients = async () => {
+    const requestId = fetchRequestIdRef.current + 1;
+    fetchRequestIdRef.current = requestId;
+
     try {
-      setLoading(true);
+      if (!hasLoadedDashboardRef.current) setLoading(true);
+      setLoadError("");
 
       const {
         data: { user },
@@ -733,14 +764,19 @@ function ClinicianDashboard() {
         .eq("clinician_id", user.id);
 
       const patientIds = [...new Set((accessData || []).map((item) => item.patient_id).filter(Boolean))];
-      if (accessError || patientIds.length === 0) {
-        if (!isMountedRef.current) return;
+      if (accessError) {
+        throw new Error(`無法讀取醫療人員的個案授權：${accessError.message}`);
+      }
+
+      if (patientIds.length === 0) {
+        if (!isMountedRef.current || requestId !== fetchRequestIdRef.current) return;
         setClinicianId(user.id);
         setClinicianName(profileData.full_name || "醫療人員");
         setPatients([]);
         setRecords([]);
         setNotes([]);
         setSelectedPatientId("");
+        hasLoadedDashboardRef.current = true;
         return;
       }
 
@@ -754,35 +790,35 @@ function ClinicianDashboard() {
         fetchClinicalNotes(patientIds),
       ]);
 
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current || requestId !== fetchRequestIdRef.current) return;
 
       if (patientResult.error) {
-        console.warn("patients 讀取失敗，已清空前端列表：", patientResult.error.message);
-        setPatients([]);
-        setRecords([]);
-        setNotes([]);
-        setSelectedPatientId("");
-        return;
+        throw new Error(`無法讀取個案資料：${patientResult.error.message}`);
       }
 
       const safePatients = patientResult.data || [];
       const allowedPatientIds = new Set(safePatients.map((patient) => String(patient.id)));
       const safeRecords = clinicalRecords.filter((record) => allowedPatientIds.has(String(record.patientId)));
-      const safeNotes = clinicalNotes.filter((note) => allowedPatientIds.has(String(note.patient_id)));
-      const firstId = selectedPatientId && allowedPatientIds.has(String(selectedPatientId))
-        ? selectedPatientId
-        : safePatients[0]?.id || "";
-
+      const safeNotes = Array.isArray(clinicalNotes)
+        ? clinicalNotes.filter((note) => allowedPatientIds.has(String(note.patient_id)))
+        : null;
       setClinicianId(user.id);
       setClinicianName(profileData.full_name || "醫療人員");
       setPatients(safePatients);
       setRecords(safeRecords);
-      setNotes(safeNotes);
-      setSelectedPatientId(firstId);
+      if (Array.isArray(clinicalNotes)) setNotes(safeNotes);
+      setSelectedPatientId((currentId) => (
+        currentId && allowedPatientIds.has(String(currentId)) ? currentId : safePatients[0]?.id || ""
+      ));
+      setLoadError("");
+      hasLoadedDashboardRef.current = true;
     } catch (error) {
       console.error("fetchClinicianAndPatients 發生錯誤：", error);
+      if (isMountedRef.current && requestId === fetchRequestIdRef.current) {
+        setLoadError(error?.message || "醫療端資料讀取失敗，請稍後重新整理。");
+      }
     } finally {
-      if (isMountedRef.current) setLoading(false);
+      if (isMountedRef.current && requestId === fetchRequestIdRef.current) setLoading(false);
     }
   };
 
@@ -799,8 +835,7 @@ function ClinicianDashboard() {
           .order("created_at", { ascending: false });
 
         if (error) {
-          console.warn(`${source.table} 尚未建立、RLS 未授權或讀取失敗，先略過：`, error.message);
-          return [];
+          throw new Error(`${source.table} 讀取失敗：${error.message}`);
         }
 
         return (data || []).map((item) =>
@@ -829,15 +864,12 @@ function ClinicianDashboard() {
   const dedupeRecords = (items) => {
     const seen = new Set();
     return items.filter((record) => {
-      const key = [
-        record.patientId,
-        record.gameKey,
-        record.type,
-        record.rawId,
-        record.date,
-        record.score,
-        record.accuracy,
-      ].join("|");
+      const parsedTime = new Date(record.date).getTime();
+      const normalizedTime = Number.isFinite(parsedTime) ? Math.floor(parsedTime / 1000) : "no-time";
+      const sessionIdentity = record.sessionKey
+        ? `session:${record.sessionKey}`
+        : [normalizedTime, record.score, record.accuracy, record.total, record.correct, record.avgRt].join(":");
+      const key = [record.patientId, record.gameKey, record.type, sessionIdentity].join("|");
 
       if (seen.has(key)) return false;
       seen.add(key);
@@ -855,8 +887,8 @@ function ClinicianDashboard() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.warn("clinician_notes 尚未建立或讀取失敗，先略過：", error.message);
-      return [];
+      console.warn(`clinician_notes 讀取失敗，保留既有備註：${error.message}`);
+      return null;
     }
 
     return data || [];
@@ -1012,13 +1044,25 @@ function ClinicianDashboard() {
       item.date,
       item.savedAt,
       item.timestamp,
-      new Date().toISOString()
+      ""
     );
 
     return {
       id: `${sourceTable}-${item.id || item.__localKey || `${gameKey}-${date}`}`,
       rawId: item.id || item.__localKey || "local",
       sourceTable: item.__localKey ? `${sourceTable}:${item.__localKey}` : sourceTable,
+      sessionKey: firstDefined(
+        item.session_id,
+        item.sessionId,
+        item.result_id,
+        item.resultId,
+        item.payload?.session?.id,
+        item.payload?.session?.sessionId,
+        result.session_id,
+        result.sessionId,
+        result.resultId,
+        ""
+      ),
       patientId: firstDefined(item.patient_id, item.patientId, item.child_id, item.childId, item.payload?.child?.childId, item.payload?.child?.id, item.config?.patientId, item.config?.patient_id, ""),
       type,
       gameKey,
@@ -1059,6 +1103,57 @@ function ClinicianDashboard() {
     navigate(CLINICIAN_LOGIN_ROUTE, { replace: true });
   };
 
+  const handleAddPatientField = (field) => (event) => {
+    setAddPatientForm((current) => ({ ...current, [field]: event.target.value }));
+  };
+
+  const closeAddPatient = () => {
+    if (addPatientSubmitting) return;
+    setShowAddPatient(false);
+    setAddPatientError("");
+  };
+
+  const handleClinicianAddPatient = async (event) => {
+    event.preventDefault();
+    if (addPatientSubmitting) return;
+
+    const guardianEmail = addPatientForm.guardianEmail.trim();
+    const nickname = addPatientForm.nickname.trim();
+
+    if (!guardianEmail || !nickname || !addPatientForm.birthDate || !addPatientForm.gender) {
+      setAddPatientError("請完整填寫家長 Email、孩子暱稱、生日與性別。");
+      return;
+    }
+
+    setAddPatientSubmitting(true);
+    setAddPatientError("");
+
+    try {
+      const { error } = await supabase.rpc("clinician_create_patient", {
+        p_guardian_email: guardianEmail,
+        p_nickname: nickname,
+        p_full_name: addPatientForm.fullName.trim() || null,
+        p_birth_date: addPatientForm.birthDate,
+        p_gender: addPatientForm.gender,
+      });
+
+      if (error) throw error;
+
+      setAddPatientForm({ guardianEmail: "", nickname: "", fullName: "", birthDate: "", gender: "" });
+      setShowAddPatient(false);
+      await fetchClinicianAndPatients();
+    } catch (error) {
+      const message = String(error?.message || "新增兒童失敗，請稍後再試。");
+      setAddPatientError(
+        message.includes("Could not find the function")
+          ? "尚未安裝醫療端新增兒童功能，請先執行最新 Supabase migration。"
+          : message
+      );
+    } finally {
+      setAddPatientSubmitting(false);
+    }
+  };
+
   const calculateAge = (birthDate) => {
     if (!birthDate) return "-";
 
@@ -1096,13 +1191,6 @@ function ClinicianDashboard() {
     });
   };
 
-  const formatShortDate = (value) => {
-    if (!value) return "-";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "-";
-    return date.toLocaleDateString("zh-TW", { month: "2-digit", day: "2-digit" });
-  };
-
   const daysSince = (value) => {
     if (!value) return null;
     const date = new Date(value);
@@ -1135,6 +1223,8 @@ function ClinicianDashboard() {
         lastRecord: patientRecords[0] || null,
       };
     });
+    // getRiskLevel is a pure render-local helper; patients/records are the data inputs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patients, records]);
 
   const filteredPatientCards = useMemo(() => {
@@ -1254,15 +1344,13 @@ function ClinicianDashboard() {
       gameSummaryMap,
       trendByGame,
     };
+    // Pure formatting helpers do not carry state; list every data dependency instead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPatient, selectedPatientRecords, testRecords, trainingRecords]);
 
   const selectedTrendData = useMemo(() => {
     return patientSummary?.trendByGame?.[trendGameKey] || [];
   }, [patientSummary, trendGameKey]);
-
-  const clinicalReadiness = useMemo(() => {
-    return buildClinicalReadiness(selectedPatientRecords, trendGameKey);
-  }, [selectedPatientRecords, trendGameKey]);
 
   const selectedTrial = useMemo(() => {
     const trials = Array.isArray(selectedRecord?.trials) ? selectedRecord.trials : [];
@@ -1280,30 +1368,6 @@ function ClinicianDashboard() {
     }
   }, [selectedPatientId, patientSummary, trendGameKey]);
 
-  const todoItems = useMemo(() => {
-    const items = [];
-
-    patientCards.forEach(({ patient, records: patientRecords, risk }) => {
-      const name = patient.nickname || patient.full_name || "未命名兒童";
-      const lastRecord = patientRecords[0] || null;
-      const recentRecords = patientRecords.filter((record) => (daysSince(record.date) ?? 999) <= 7);
-
-      if (!lastRecord) {
-        items.push({ tone: "danger", text: `${name} 尚無任何測驗 / 訓練資料，建議安排初次評估。` });
-      } else if (risk.key === "danger") {
-        items.push({ tone: "danger", text: `${name} 已超過 21 天沒有新資料，建議提醒回診或檢查。` });
-      } else if (risk.key === "warning") {
-        items.push({ tone: "warning", text: `${name} 需要追蹤，建議提醒家長本週補做訓練或測驗。` });
-      }
-
-      if (recentRecords.length > 0) {
-        items.push({ tone: "safe", text: `${name} 近 7 天有 ${recentRecords.length} 筆新資料可查看。` });
-      }
-    });
-
-    return items.slice(0, 8);
-  }, [patientCards]);
-
   const compareA = useMemo(
     () => testRecords.find((record) => record.id === compareAId) || testRecords[1] || testRecords[0] || null,
     [testRecords, compareAId]
@@ -1318,12 +1382,12 @@ function ClinicianDashboard() {
     if (!selectedPatient) return;
     const template = REMINDER_TEMPLATES.find((item) => item.key === reminderTemplate) || REMINDER_TEMPLATES[0];
     setReminderMessage(personalizeTemplate(template.text, selectedPatient));
-  }, [selectedPatientId, reminderTemplate]);
+  }, [selectedPatient, reminderTemplate]);
 
   useEffect(() => {
     setCompareAId(testRecords[1]?.id || testRecords[0]?.id || "");
     setCompareBId(testRecords[0]?.id || "");
-  }, [selectedPatientId, testRecords.length]);
+  }, [selectedPatientId, testRecords]);
 
   useEffect(() => {
     setRecordPage(1);
@@ -1348,7 +1412,7 @@ function ClinicianDashboard() {
 
   useEffect(() => {
     setSelectedTrialIndex(null);
-  }, [selectedRecord?.id]);
+  }, [selectedRecord]);
 
   useEffect(() => {
     if (!recordDetailOpen || !selectedRecord) return;
@@ -1356,7 +1420,7 @@ function ClinicianDashboard() {
       recordDetailRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }, 80);
     return () => window.clearTimeout(timer);
-  }, [recordDetailOpen, selectedRecord?.id]);
+  }, [recordDetailOpen, selectedRecord]);
 
   function openRecordFromTrend(trendItem) {
     const record = trendItem?.record || selectedPatientRecords.find((item) => item.id === trendItem?.recordId);
@@ -1459,93 +1523,6 @@ function ClinicianDashboard() {
     }, {});
   }
 
-  function buildClinicalReadiness(patientRecords, activeGameKey) {
-    const safeRecords = Array.isArray(patientRecords) ? patientRecords : [];
-    const gameRecords = safeRecords
-      .filter((record) => record.gameKey === activeGameKey)
-      .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
-
-    const validAccuracyCount = safeRecords.filter(
-      (record) => Number.isFinite(Number(record.accuracy)) && Number(record.accuracy) >= 0 && Number(record.accuracy) <= 100
-    ).length;
-    const validRtCount = safeRecords.filter(
-      (record) => Number.isFinite(Number(record.avgRt)) && Number(record.avgRt) > 0
-    ).length;
-    const datedCount = safeRecords.filter(
-      (record) => record.date && !Number.isNaN(new Date(record.date).getTime())
-    ).length;
-    const detailedCount = safeRecords.filter(
-      (record) => Array.isArray(record.trials) && record.trials.length > 0
-    ).length;
-
-    const denominator = Math.max(safeRecords.length * 4, 1);
-    const qualityScore = Math.round(
-      ((validAccuracyCount + validRtCount + datedCount + detailedCount) / denominator) * 100
-    );
-
-    const baselineRecords = gameRecords.slice(0, Math.min(3, gameRecords.length));
-    const baselineAccuracy = baselineRecords.length
-      ? average(baselineRecords.map((record) => record.accuracy))
-      : null;
-    const recentRecords = gameRecords.slice(-3);
-    const recentAccuracy = recentRecords.length
-      ? average(recentRecords.map((record) => record.accuracy))
-      : null;
-    const baselineDifference =
-      baselineAccuracy != null && recentAccuracy != null
-        ? recentAccuracy - baselineAccuracy
-        : null;
-
-    let trendLevel = "資料不足";
-    let trendText = "至少需要 3 筆同遊戲紀錄，才能描述初步方向。";
-
-    if (gameRecords.length >= 5) {
-      trendLevel = "可追蹤";
-      trendText = "已有至少 5 筆同遊戲紀錄，可描述近期變化；仍需確認模式與難度是否一致。";
-    } else if (gameRecords.length >= 3) {
-      trendLevel = "初步";
-      trendText = "已有 3 至 4 筆紀錄，只適合描述初步方向，不宜視為穩定長期趨勢。";
-    } else if (gameRecords.length === 2) {
-      trendLevel = "前後差異";
-      trendText = "目前只有兩筆紀錄，只能描述本次與前次差異。";
-    }
-
-    const issues = [];
-    if (safeRecords.length === 0) issues.push("目前沒有可分析紀錄。");
-    if (safeRecords.length > 0 && validAccuracyCount < safeRecords.length) issues.push("部分紀錄缺少有效正確率。");
-    if (safeRecords.length > 0 && validRtCount < safeRecords.length) issues.push("部分紀錄缺少有效反應時間。");
-    if (safeRecords.length > 0 && detailedCount < safeRecords.length) issues.push("部分紀錄沒有逐題資料，錯誤型態分析會受限。");
-
-    const alerts = [];
-    const latestThree = gameRecords.slice(-3);
-    if (latestThree.length >= 3) {
-      const accuracies = latestThree.map((record) => Number(record.accuracy || 0));
-      const rts = latestThree.map((record) => Number(record.avgRt || 0));
-
-      if (accuracies[0] > accuracies[1] && accuracies[1] > accuracies[2]) {
-        alerts.push("最近三次正確率連續下降，建議確認疲勞、規則理解與難度設定。");
-      }
-
-      if (rts.every((value) => value > 0) && rts[0] < rts[1] && rts[1] < rts[2]) {
-        alerts.push("最近三次反應時間連續增加，建議確認作答負荷與休息安排。");
-      }
-    }
-
-    return {
-      qualityScore,
-      qualityLabel: qualityScore >= 85 ? "完整" : qualityScore >= 65 ? "可用" : "待補強",
-      baselineAccuracy,
-      recentAccuracy,
-      baselineDifference,
-      baselineCount: baselineRecords.length,
-      gameRecordCount: gameRecords.length,
-      trendLevel,
-      trendText,
-      issues,
-      alerts,
-    };
-  }
-
   function formatTrendLabel(value, index) {
     if (!value) return `第 ${index + 1} 次`;
     const date = new Date(value);
@@ -1608,21 +1585,6 @@ function ClinicianDashboard() {
 
     setNotes((prev) => [data, ...prev]);
     setNoteText("");
-  };
-
-  const generateClinicalSummary = () => {
-    if (!selectedPatient || !patientSummary) return "目前尚未選擇個案。";
-
-    const name = selectedPatient.nickname || selectedPatient.full_name || "此兒童";
-    const last = patientSummary.lastRecord;
-    const risk = patientSummary.risk;
-    const accuracy = patientSummary.averageAccuracy;
-    const rt = patientSummary.averageRt;
-    const latestText = last
-      ? `最近一次資料為 ${formatDate(last.date)} 的「${last.gameName}」，正確率 ${last.accuracy}%，平均反應時間 ${last.avgRt || "-"} ms。`
-      : "目前尚無測驗或訓練資料。";
-
-    return `${name} 目前風險分級為「${risk.label}」。${latestText} 目前共有 ${patientSummary.testCount} 筆測驗與 ${patientSummary.trainingCount} 筆訓練資料，整體平均正確率約 ${accuracy}%，平均反應時間約 ${rt || "-"} ms。建議後續可優先觀察反應時間是否穩定、錯誤率是否下降，以及訓練完成率是否持續。`;
   };
 
   const generateLocalAssistantAnswer = async (question) => {
@@ -1801,6 +1763,89 @@ function ClinicianDashboard() {
     };
   };
 
+  const buildHistoricalAssistantData = (sortedRecords = []) => {
+    const safeRecords = sortedRecords.filter(Boolean);
+    const selectedIds = new Set(selectedRecordIds.map((id) => String(id)));
+    const byGame = safeRecords.reduce((acc, record) => {
+      const gameKey = record.gameKey || "UNKNOWN";
+      if (!acc[gameKey]) acc[gameKey] = [];
+      acc[gameKey].push(record);
+      return acc;
+    }, {});
+
+    const gameSummaries = Object.fromEntries(
+      Object.entries(byGame).map(([gameKey, gameRecords]) => {
+        const sortedGameRecords = [...gameRecords].sort(
+          (a, b) => new Date(b.date || 0) - new Date(a.date || 0)
+        );
+
+        return [
+          gameKey,
+          {
+            gameName: GAME_NAME_MAP[gameKey] || sortedGameRecords[0]?.gameName || gameKey,
+            ability: ABILITY_BY_GAME[gameKey] || sortedGameRecords[0]?.ability || null,
+            recordCount: sortedGameRecords.length,
+            testCount: sortedGameRecords.filter((record) => record.type === "test").length,
+            trainingCount: sortedGameRecords.filter((record) => record.type === "training").length,
+            averageAccuracy: average(sortedGameRecords.map((record) => record.accuracy)),
+            averageReactionTime: average(
+              sortedGameRecords.map((record) => record.avgRt).filter((value) => Number(value) > 0)
+            ),
+            earliestDate: sortedGameRecords[sortedGameRecords.length - 1]?.date || null,
+            latestDate: sortedGameRecords[0]?.date || null,
+            latestRecord: sanitizeAssistantRecord(sortedGameRecords[0]),
+          },
+        ];
+      })
+    );
+
+    const selectedRecords = selectedIds.size > 0
+      ? safeRecords.filter((record) => selectedIds.has(String(record.id))).slice(0, 12)
+      : [];
+
+    return {
+      source: "ClinicianDashboard selected patient history",
+      recordCount: safeRecords.length,
+      earliestDate: safeRecords[safeRecords.length - 1]?.date || null,
+      latestDate: safeRecords[0]?.date || null,
+      selectedRecordIds: [...selectedIds],
+      selectedRecords: selectedRecords.map(sanitizeAssistantRecord),
+      allRecords: safeRecords.slice(0, 80).map(sanitizeAssistantRecord),
+      gameSummaries,
+    };
+  };
+
+  const buildRagEnhancedQuestion = (question, context) => {
+    const historicalData = context?.historicalData;
+    if (!historicalData?.recordCount) return question;
+
+    const historyLines = [
+      `原始問題：${question}`,
+      "",
+      "以下是 ClinicianDashboard 已載入的既有個案資料摘要，請在 RAG 檢索與回答時一併納入；回答時仍直接回覆原始問題，不要逐字重述本段。",
+      `資料筆數：${historicalData.recordCount}`,
+      `資料期間：${formatDate(historicalData.earliestDate)} 至 ${formatDate(historicalData.latestDate)}`,
+      ...Object.entries(historicalData.gameSummaries || {}).map(([gameKey, summary]) => (
+        `${gameKey}/${summary.gameName}：${summary.recordCount} 筆，測驗 ${summary.testCount}、訓練 ${summary.trainingCount}，平均正確率 ${summary.averageAccuracy}%` +
+        `${summary.averageReactionTime ? `，平均反應 ${summary.averageReactionTime} ms` : ""}`
+      )),
+    ];
+
+    if (context?.selectedRecord) {
+      historyLines.push(
+        `目前選取紀錄：${context.selectedRecord.gameName} ${context.selectedRecord.type}，正確率 ${context.selectedRecord.accuracy}%，平均反應 ${context.selectedRecord.avgRt || "-"} ms`
+      );
+    }
+
+    if (Array.isArray(historicalData.selectedRecords) && historicalData.selectedRecords.length > 0) {
+      historyLines.push(
+        `已勾選紀錄：${historicalData.selectedRecords.map((record) => `${record.gameName || record.gameKey}/${formatDate(record.date)}`).join("；")}`
+      );
+    }
+
+    return historyLines.join("\n").slice(0, 12_000);
+  };
+
   const buildAssistantContext = () => {
     const sortedRecords = [...selectedPatientRecords].sort(
       (a, b) => new Date(b.date || 0) - new Date(a.date || 0)
@@ -1825,6 +1870,8 @@ function ClinicianDashboard() {
           data: selectedTrial,
         }
       : null;
+
+    const historicalData = buildHistoricalAssistantData(sortedRecords);
 
     return {
       patient: selectedPatient
@@ -1851,6 +1898,7 @@ function ClinicianDashboard() {
         second: sanitizeAssistantRecord(compareB),
       },
       recentRecords: recentRecords.map(sanitizeAssistantRecord),
+      historicalData,
       gameDefinitions: Object.fromEntries(
         Object.keys(GAME_NAME_MAP).map((gameKey) => [
           gameKey,
@@ -1977,12 +2025,15 @@ function ClinicianDashboard() {
         content: String(message.content),
       }));
 
+    const assistantContext = buildAssistantContext();
+    const ragQuestion = buildRagEnhancedQuestion(question, assistantContext);
+
     const response = await fetch("/api/clinical-assistant", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        question,
-        context: buildAssistantContext(),
+        question: ragQuestion,
+        context: assistantContext,
         computedAnalysis: buildComputedAnalysis(),
         conversationHistory,
       }),
@@ -1991,7 +2042,16 @@ function ClinicianDashboard() {
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
-      throw new Error(data?.error || `AI API 請求失敗（${response.status}）`);
+      const message =
+        data?.error ||
+        data?.answer ||
+        (response.status === 500
+          ? "AI 後端連線失敗，請確認 npm run server 已啟動。"
+          : `AI API 請求失敗（${response.status}）`);
+      const error = new Error(message);
+      error.status = response.status;
+      error.responseData = data;
+      throw error;
     }
 
     const answer = String(data?.answer || "").trim();
@@ -2031,6 +2091,16 @@ function ClinicianDashboard() {
     try {
       return await callClinicalAssistant(query);
     } catch (error) {
+      if (error?.status) {
+        const responseData = error.responseData || {};
+        return {
+          answer: String(responseData.answer || responseData.error || error.message || "AI 後端目前無法完成回答。"),
+          sources: Array.isArray(responseData.sources) ? responseData.sources : [],
+          ragUsed: Boolean(responseData.ragUsed),
+          fallback: false,
+        };
+      }
+
       console.warn("AI 臨床助手無法使用，改用本機備援回答：", error);
 
       const fallbackAnswer = await generateLocalAssistantAnswer(query);
@@ -2421,10 +2491,80 @@ function ClinicianDashboard() {
 
         <div className="clinician-dashboard-header-actions" style={headerRightStyle}>
           <span style={userTextStyle}>您好，{clinicianName || "醫療人員"}</span>
+          <button onClick={() => setShowAddPatient(true)} style={addPatientButtonStyle}>＋ 新增兒童</button>
           <button onClick={fetchClinicianAndPatients} style={refreshButtonStyle}>重新整理</button>
           <button onClick={handleLogout} style={logoutButtonStyle}>登出</button>
         </div>
       </header>
+
+      {showAddPatient && (
+        <div style={modalBackdropStyle} role="presentation" onMouseDown={closeAddPatient}>
+          <form
+            style={addPatientModalStyle}
+            onSubmit={handleClinicianAddPatient}
+            onMouseDown={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="clinician-add-patient-title"
+          >
+            <div style={addPatientModalHeaderStyle}>
+              <div>
+                <h2 id="clinician-add-patient-title" style={addPatientModalTitleStyle}>新增兒童資料</h2>
+                <p style={addPatientModalDescStyle}>孩子會綁定既有家長帳號，並自動授權給目前醫療人員。</p>
+              </div>
+              <button type="button" onClick={closeAddPatient} disabled={addPatientSubmitting} style={modalCloseButtonStyle}>×</button>
+            </div>
+
+            <label style={addPatientLabelStyle}>
+              家長帳號 Email（必填）
+              <input type="email" value={addPatientForm.guardianEmail} onChange={handleAddPatientField("guardianEmail")} style={addPatientInputStyle} disabled={addPatientSubmitting} />
+            </label>
+            <div style={addPatientTwoColumnStyle}>
+              <label style={addPatientLabelStyle}>
+                孩子暱稱（必填）
+                <input value={addPatientForm.nickname} onChange={handleAddPatientField("nickname")} maxLength={12} style={addPatientInputStyle} disabled={addPatientSubmitting} />
+              </label>
+              <label style={addPatientLabelStyle}>
+                孩子姓名（選填）
+                <input value={addPatientForm.fullName} onChange={handleAddPatientField("fullName")} style={addPatientInputStyle} disabled={addPatientSubmitting} />
+              </label>
+              <label style={addPatientLabelStyle}>
+                出生日期（必填）
+                <input type="date" value={addPatientForm.birthDate} onChange={handleAddPatientField("birthDate")} max={new Date().toISOString().slice(0, 10)} style={addPatientInputStyle} disabled={addPatientSubmitting} />
+              </label>
+              <label style={addPatientLabelStyle}>
+                性別（必填）
+                <select value={addPatientForm.gender} onChange={handleAddPatientField("gender")} style={addPatientInputStyle} disabled={addPatientSubmitting}>
+                  <option value="">請選擇</option>
+                  <option value="male">男</option>
+                  <option value="female">女</option>
+                  <option value="undisclosed">暫不透露</option>
+                </select>
+              </label>
+            </div>
+
+            {addPatientError && <div role="alert" style={addPatientFormErrorStyle}>{addPatientError}</div>}
+
+            <div style={addPatientModalActionsStyle}>
+              <button type="button" onClick={closeAddPatient} disabled={addPatientSubmitting} style={cancelButtonStyle}>取消</button>
+              <button type="submit" disabled={addPatientSubmitting} style={addPatientButtonStyle}>
+                {addPatientSubmitting ? "建立中..." : "建立並連結"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {loadError && (
+        <div role="alert" style={loadErrorStyle}>
+          <div style={loadErrorTextStyle}>
+            <strong>資料更新失敗</strong>
+            <span>{loadError}</span>
+            {patients.length > 0 && <small>目前先保留上一次成功載入的資料。</small>}
+          </div>
+          <button type="button" onClick={fetchClinicianAndPatients} style={refreshButtonStyle}>再試一次</button>
+        </div>
+      )}
 
       <section className="clinician-dashboard-stats" style={statsGridStyle}>
         <StatCard title="授權病患" value={dashboardStats.patientCount} desc="目前可查看的兒童個案" />
@@ -2436,8 +2576,10 @@ function ClinicianDashboard() {
 
       {loading ? (
         <div style={emptyBoxStyle}>載入醫療端資料中...</div>
-      ) : patients.length === 0 ? (
+      ) : patients.length === 0 && !loadError ? (
         <div style={emptyBoxStyle}>目前尚未連結任何病患資料</div>
+      ) : patients.length === 0 ? (
+        <div style={emptyBoxStyle}>目前無法取得個案資料，請按「再試一次」。</div>
       ) : (
         <div className="clinician-dashboard-layout" style={{ ...layoutStyle, gridTemplateColumns: "310px minmax(0, 1fr)" }}>
           <aside className="clinician-dashboard-left" style={leftPanelStyle}>
@@ -3062,8 +3204,19 @@ function ClinicianDashboard() {
        </div>
       )}
 
+      <nav className="clinician-dashboard-research-nav" style={researchNavStyle} aria-label="研究功能選單">
+        <span style={researchNavTitleStyle}>研究與分析工具</span>
+        <div className="clinician-dashboard-research-nav-actions" style={researchNavActionsStyle}>
+          <button onClick={() => navigate("/research-statistics")} style={refreshButtonStyle}>研究統計</button>
+          <button onClick={() => navigate("/ai-behavioral-analysis")} style={refreshButtonStyle}>AI 行為分析</button>
+          <button onClick={() => navigate("/adaptive-recommendation-research")} style={refreshButtonStyle}>自適應建議</button>
+          <button onClick={() => navigate("/longitudinal-dashboard")} style={refreshButtonStyle}>縱向追蹤儀表板</button>
+          <button onClick={() => navigate("/research-professional-dashboard")} style={refreshButtonStyle}>研究工作區</button>
+        </div>
+      </nav>
+
       <button className="clinician-dashboard-assistant-button" onClick={() => setAssistantOpen(true)} style={assistantButtonStyle} aria-label="AI 小助手">
-        <img src={assistIcon} alt="AI 小助手" style={assistantIconStyle} />
+        <img width={184} height={184} loading="lazy" src={assistIcon} alt="AI 小助手" style={assistantIconStyle} />
       </button>
 
       {assistantOpen && (
@@ -3071,7 +3224,7 @@ function ClinicianDashboard() {
           <div className="clinician-dashboard-assistant-panel" style={assistantPanelStyle} onClick={(event) => event.stopPropagation()}>
             <div style={assistantHeaderStyle}>
               <div style={assistantTitleWrapStyle}>
-                <img src={assistIcon} alt="AI 小助手" style={assistantPanelIconStyle} />
+                <img width={184} height={184} loading="lazy" src={assistIcon} alt="AI 小助手" style={assistantPanelIconStyle} />
                 <div>
                   <h3 style={assistantTitleStyle}>AI 臨床摘要助手</h3>
                   <p style={assistantDescStyle}>協助摘要、比較與產生家長說明</p>
@@ -3091,7 +3244,7 @@ function ClinicianDashboard() {
                     {selectedTrial ? "回答將優先參考目前選取的圖片、trial JSON 與遊戲紀錄。" : `目前可用 ${selectedPatientRecords.length} 筆紀錄；比較時以畫面中選取的兩筆測驗為準。`}
                   </span>
                 </div>
-                {selectedTrial && firstTrialImage(selectedTrial) && <img src={firstTrialImage(selectedTrial)} alt="目前選取 trial" style={assistantContextThumbStyle} />}
+                {selectedTrial && firstTrialImage(selectedTrial) && <img loading="lazy" src={firstTrialImage(selectedTrial)} alt="目前選取 trial" style={assistantContextThumbStyle} />}
               </div>
             )}
 
@@ -3113,7 +3266,7 @@ function ClinicianDashboard() {
                   style={message.role === "user" ? assistantUserRowStyle : assistantAiRowStyle}
                 >
                   {message.role === "assistant" && (
-                    <img src={assistIcon} alt="AI" style={assistantMessageIconStyle} />
+                    <img width={184} height={184} loading="lazy" src={assistIcon} alt="AI" style={assistantMessageIconStyle} />
                   )}
                   <div style={message.role === "user" ? assistantUserBubbleStyle : assistantAiBubbleStyle}>
                     <div>{message.content}</div>
@@ -3165,7 +3318,7 @@ function ClinicianDashboard() {
               ))}
               {assistantLoading && (
                 <div style={assistantAiRowStyle}>
-                  <img src={assistIcon} alt="AI" style={assistantMessageIconStyle} />
+                  <img width={184} height={184} loading="lazy" src={assistIcon} alt="AI" style={assistantMessageIconStyle} />
                   <div style={assistantAiBubbleStyle}>正在整理目前圖片與 trial 資料…</div>
                 </div>
               )}
@@ -3202,15 +3355,6 @@ function ClinicianDashboard() {
       )}
     </div>
   );
-}
-
-function buildCompareSentence(a, b) {
-  if (!a || !b || a.id === b.id) return "請選擇兩筆不同測驗資料進行比較。";
-  const accuracyDiff = Number(b.accuracy || 0) - Number(a.accuracy || 0);
-  const rtDiff = Number(b.avgRt || 0) - Number(a.avgRt || 0);
-  const accuracyText = accuracyDiff >= 0 ? `正確率提升 ${accuracyDiff}%` : `正確率下降 ${Math.abs(accuracyDiff)}%`;
-  const rtText = rtDiff <= 0 ? `反應時間縮短 ${Math.abs(rtDiff)} ms` : `反應時間增加 ${rtDiff} ms`;
-  return `兩次測驗比較：${accuracyText}，${rtText}。`;
 }
 
 function StatCard({ title, value, desc, danger = false }) {
@@ -3434,6 +3578,14 @@ const responsiveCss = `
     .clinician-dashboard-game-grid,
     .clinician-dashboard-readiness-grid {
       grid-template-columns: 1fr !important;
+    }
+
+    .clinician-dashboard-research-nav-actions {
+      flex-direction: column !important;
+    }
+
+    .clinician-dashboard-research-nav-actions button {
+      width: 100% !important;
     }
   }
 
@@ -3719,6 +3871,25 @@ const subtitleStyle = { margin: "8px 0 0", fontSize: "15px", color: "#64748b", f
 const headerRightStyle = { display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap", justifyContent: "flex-end" };
 const userTextStyle = { fontSize: "15px", color: "#334155", fontWeight: "700" };
 
+const researchNavStyle = {
+  position: "relative",
+  zIndex: 1,
+  marginTop: "18px",
+  padding: "16px 18px",
+  borderRadius: "22px",
+  background: "linear-gradient(135deg, rgba(255, 253, 244, 0.98), rgba(240, 248, 255, 0.94))",
+  border: "1px solid rgba(148, 163, 184, 0.22)",
+  boxShadow: "0 14px 30px rgba(51, 65, 85, 0.10)",
+};
+const researchNavTitleStyle = {
+  display: "block",
+  marginBottom: "12px",
+  color: "#334155",
+  fontSize: "14px",
+  fontWeight: "900",
+};
+const researchNavActionsStyle = { display: "flex", gap: "12px", flexWrap: "wrap" };
+
 const refreshButtonStyle = {
   padding: "10px 16px",
   borderRadius: "12px",
@@ -3728,6 +3899,71 @@ const refreshButtonStyle = {
   fontSize: "14px",
   fontWeight: "800",
   cursor: "pointer",
+};
+
+const addPatientButtonStyle = {
+  padding: "10px 16px",
+  borderRadius: "12px",
+  border: "none",
+  background: "linear-gradient(135deg, #2f8f70, #22785d)",
+  color: "#fff",
+  fontSize: "14px",
+  fontWeight: "900",
+  cursor: "pointer",
+};
+
+const modalBackdropStyle = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 100,
+  display: "grid",
+  placeItems: "center",
+  padding: "20px",
+  background: "rgba(30, 41, 59, 0.46)",
+  backdropFilter: "blur(5px)",
+};
+
+const addPatientModalStyle = {
+  width: "min(620px, calc(100vw - 32px))",
+  maxHeight: "calc(100vh - 40px)",
+  overflow: "auto",
+  padding: "24px",
+  border: "1px solid rgba(148, 163, 184, 0.3)",
+  borderRadius: "24px",
+  background: "#fffdf6",
+  boxShadow: "0 28px 70px rgba(15, 23, 42, 0.3)",
+};
+
+const addPatientModalHeaderStyle = { display: "flex", justifyContent: "space-between", gap: "16px", marginBottom: "20px" };
+const addPatientModalTitleStyle = { margin: 0, color: "#245b70", fontSize: "24px" };
+const addPatientModalDescStyle = { margin: "7px 0 0", color: "#64748b", lineHeight: 1.5 };
+const modalCloseButtonStyle = { width: "38px", height: "38px", border: 0, borderRadius: "50%", background: "#eef2f7", color: "#475569", fontSize: "24px", cursor: "pointer" };
+const addPatientTwoColumnStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px" };
+const addPatientLabelStyle = { display: "grid", gap: "7px", marginBottom: "14px", color: "#475569", fontSize: "14px", fontWeight: "850" };
+const addPatientInputStyle = { width: "100%", minHeight: "44px", boxSizing: "border-box", padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: "12px", background: "#fff", color: "#1e293b", fontSize: "15px" };
+const addPatientFormErrorStyle = { marginTop: "4px", padding: "10px 12px", borderRadius: "12px", background: "#fff1f2", color: "#a12b3a", fontWeight: "800" };
+const addPatientModalActionsStyle = { display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" };
+const cancelButtonStyle = { padding: "10px 16px", border: "1px solid #cbd5e1", borderRadius: "12px", background: "#fff", color: "#475569", fontWeight: "850", cursor: "pointer" };
+
+const loadErrorStyle = {
+  position: "relative",
+  zIndex: 2,
+  marginBottom: "16px",
+  padding: "14px 16px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "16px",
+  border: "1px solid #f4a6a6",
+  borderRadius: "16px",
+  background: "rgba(255, 241, 241, 0.97)",
+  color: "#8f2929",
+  boxShadow: "0 10px 22px rgba(127, 29, 29, 0.08)",
+};
+
+const loadErrorTextStyle = {
+  display: "grid",
+  gap: "3px",
 };
 
 const logoutButtonStyle = {
@@ -3785,7 +4021,6 @@ const leftPanelStyle = {
 };
 
 const centerPanelStyle = { display: "flex", flexDirection: "column", gap: "16px", minWidth: 0 };
-const rightPanelStyle = { display: "flex", flexDirection: "column", gap: "16px", minWidth: 0 };
 const panelHeaderStyle = { display: "flex", justifyContent: "space-between", gap: "12px", marginBottom: "14px" };
 const panelTitleStyle = { margin: 0, fontSize: "22px", color: "#1f5f8b", fontWeight: "900" };
 const panelDescStyle = { margin: "6px 0 0", color: "#64748b", fontSize: "14px", lineHeight: 1.6 };
@@ -3877,15 +4112,6 @@ const patientTabButtonStyle = (active) => ({ border: active ? "1px solid #60a5fa
 const patientTabLabelStyle = { display: "block", fontSize: "14px", fontWeight: 900 };
 const patientTabDescStyle = { display: "block", marginTop: "4px", fontSize: "11px", lineHeight: 1.4, color: "#64748b", fontWeight: 700 };
 
-const clinicalReadinessCardStyle = { background: "linear-gradient(135deg, rgba(239,246,255,.96), rgba(255,253,244,.96))", borderRadius: "24px", padding: "20px", boxShadow: "0 14px 30px rgba(51,65,85,.10)", border: "1px solid rgba(59,130,246,.20)", borderTop: "4px solid rgba(59,130,246,.55)" };
-const readinessGridStyle = { display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: "12px", marginTop: "16px" };
-const readinessMetricStyle = { background: "rgba(255,255,255,.82)", border: "1px solid rgba(148,163,184,.24)", borderRadius: "16px", padding: "14px", minHeight: "112px" };
-const readinessLabelStyle = { display: "block", color: "#64748b", fontSize: "12px", fontWeight: 800 };
-const readinessValueStyle = { display: "block", marginTop: "7px", color: "#1f5f8b", fontSize: "20px", fontWeight: 900 };
-const readinessMetaStyle = { display: "block", marginTop: "7px", color: "#475569", fontSize: "12px", lineHeight: 1.5, fontWeight: 700 };
-const readinessBadgeStyle = (score) => ({ display: "inline-flex", alignItems: "center", padding: "7px 11px", borderRadius: "999px", border: "1px solid", fontSize: "12px", fontWeight: 900, background: score >= 85 ? "#dcfce7" : score >= 65 ? "#fef3c7" : "#fee2e2", color: score >= 85 ? "#166534" : score >= 65 ? "#92400e" : "#b91c1c", borderColor: score >= 85 ? "#86efac" : score >= 65 ? "#fde68a" : "#fecaca" });
-const readinessNoticeWrapStyle = { display: "grid", gap: "8px", marginTop: "14px" };
-const readinessNoticeStyle = (tone) => ({ padding: "10px 12px", borderRadius: "12px", border: tone === "warning" ? "1px solid #fde68a" : "1px solid #cbd5e1", background: tone === "warning" ? "#fffbeb" : "#f8fafc", color: tone === "warning" ? "#92400e" : "#475569", fontSize: "13px", fontWeight: 700, lineHeight: 1.5 });
 const comparisonValidityStyle = (valid) => ({ display: "grid", gap: "4px", marginBottom: "12px", padding: "11px 13px", borderRadius: "13px", border: valid ? "1px solid #86efac" : "1px solid #fde68a", background: valid ? "#f0fdf4" : "#fffbeb", color: valid ? "#166534" : "#92400e", fontSize: "13px", lineHeight: 1.5 });
 
 const analysisCardStyle = { background: "rgba(255, 253, 244, 0.96)", borderRadius: "24px", padding: "20px", boxShadow: "0 14px 30px rgba(51, 65, 85, 0.10)",
@@ -3898,10 +4124,8 @@ const trendLegendDotStyle = { width: "10px", height: "10px", borderRadius: "999p
 const trendTypeTagStyle = { display: "inline-flex", alignItems: "center", padding: "4px 8px", border: "1px solid", borderRadius: "999px", background: "#ffffff", fontSize: "11px", fontWeight: 800 };
 const trendSvgStyle = { width: "100%", height: "190px", background: "rgba(255, 255, 255, 0.82)", borderRadius: "18px", border: "1px solid rgba(148, 163, 184, 0.24)" };
 
-const gameGridStyle = { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "10px", marginTop: "16px" };
 const gameMiniTitleStyle = { display: "block", color: "#1f5f8b", fontSize: "14px" };
 const gameMiniTextStyle = { display: "block", color: "#64748b", fontSize: "12px", marginTop: "5px", minHeight: "30px" };
-const gameMiniValueStyle = { display: "block", color: "#1f5f8b", fontWeight: "900", marginTop: "8px" };
 const sectionHeaderRowStyle = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", flexWrap: "wrap" };
 const abilitySummaryGridStyle = { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "12px", marginTop: "16px" };
 const abilitySummaryCardStyle = { textAlign: "left", border: "1px solid rgba(148, 163, 184, 0.28)", background: "rgba(255,255,255,.82)", borderRadius: "18px", padding: "14px", cursor: "pointer", transition: ".18s ease", color: "inherit" };
@@ -3929,7 +4153,6 @@ const compareMetricDiffStyle = { display: "block", color: "#1f5f8b", fontSize: "
 const recordsCardStyle = { background: "rgba(255, 253, 244, 0.96)", borderRadius: "28px", padding: "20px", boxShadow: "0 18px 38px rgba(51, 65, 85, 0.11)",
   border: "1px solid rgba(148, 163, 184, 0.22)", borderTop: "4px solid rgba(247, 210, 94, 0.70)" };
 const recordsHeaderStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", marginBottom: "16px" };
-const filterGroupStyle = { display: "flex", gap: "8px", flexWrap: "wrap" };
 const filterPanelStyle = { display: "grid", gap: "10px", justifyItems: "end", maxWidth: "820px" };
 const filterSectionStyle = { display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end" };
 const filterLabelStyle = { fontSize: "13px", fontWeight: 900, color: "#51647a", marginRight: "2px" };
@@ -3961,21 +4184,12 @@ const recordAccordionHintStyle = { color: "#7c5b2a", fontSize: "13px", fontWeigh
 const recordAccordionBodyStyle = { padding: "16px", borderTop: "1px solid rgba(148, 163, 184, 0.24)", background: "rgba(255, 255, 255, 0.72)" };
 const emptyTableStyle = { padding: "22px", color: "#7c5b2a", textAlign: "center" };
 
-const recordDetailCardStyle = { background: "rgba(255, 253, 244, 0.96)", borderRadius: "28px", padding: "20px", boxShadow: "0 18px 38px rgba(51, 65, 85, 0.11)",
-  border: "1px solid rgba(148, 163, 184, 0.22)", borderTop: "4px solid rgba(43, 108, 176, 0.52)" };
 const recordDetailGridStyle = { display: "grid", gridTemplateColumns: "repeat(5, minmax(120px, 1fr))", gap: "12px", marginBottom: "16px" };
 const infoItemStyle = { background: "rgba(255, 255, 255, 0.78)", border: "1px solid rgba(148, 163, 184, 0.24)", borderRadius: "16px", padding: "13px" };
 const infoLabelStyle = { display: "block", color: "#64748b", fontSize: "12px", marginBottom: "6px" };
 const infoValueStyle = { color: "#1f5f8b", fontSize: "14px" };
 const closeButtonStyle = { border: "2px solid #f7d774", background: "white", color: "#334155", borderRadius: "12px", padding: "9px 14px", fontWeight: "800", cursor: "pointer" };
 const jsonBoxStyle = { background: "#0f172a", color: "#e2e8f0", borderRadius: "18px", padding: "16px", overflow: "auto", maxHeight: "360px", fontSize: "12px", lineHeight: 1.6 };
-
-const todoCardStyle = { background: "rgba(255, 253, 244, 0.96)", borderRadius: "24px", padding: "18px", boxShadow: "0 14px 30px rgba(51, 65, 85, 0.10)",
-  border: "1px solid rgba(148, 163, 184, 0.22)", borderTop: "4px solid rgba(247, 210, 94, 0.70)" };
-const todoListStyle = { display: "flex", flexDirection: "column", gap: "10px", marginTop: "14px" };
-const todoItemStyle = { display: "grid", gridTemplateColumns: "10px 1fr", gap: "10px", alignItems: "start" };
-const todoDotStyle = (tone) => ({ width: "9px", height: "9px", borderRadius: "999px", marginTop: "7px", background: tone === "danger" ? "#ef4444" : tone === "warning" ? "#f59e0b" : "#22c55e" });
-const todoTextStyle = { margin: 0, color: "#475569", fontSize: "14px", lineHeight: 1.6 };
 
 const reminderCardStyle = { background: "rgba(255, 253, 244, 0.96)", border: "1px solid rgba(148, 163, 184, 0.22)", borderTop: "4px solid rgba(43, 108, 176, 0.52)", borderRadius: "24px", padding: "18px", boxShadow: "0 14px 30px rgba(51, 65, 85, 0.10)" };
 const noteCardStyle = { background: "rgba(255, 253, 244, 0.96)", borderRadius: "24px", padding: "18px", boxShadow: "0 14px 30px rgba(51, 65, 85, 0.10)",

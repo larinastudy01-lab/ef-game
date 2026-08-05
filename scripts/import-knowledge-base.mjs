@@ -182,7 +182,7 @@ const CATEGORY_MAP = [
   },
   {
     prefix: "04_",
-    gameKey: "DPT",
+    gameKey: "SSG",
     ability: "selective_attention_response_inhibition",
     population: "GENERAL",
     isCore: true,

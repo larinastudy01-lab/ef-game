@@ -1,0 +1,130 @@
+:root {
+  --research-blue: #1f5f8b;
+  --research-blue-soft: #eef7ff;
+  --research-ink: #334155;
+  --research-muted: #64748b;
+  --research-card: rgba(255, 253, 244, 0.96);
+  --research-border: rgba(148, 163, 184, 0.25);
+  --research-shadow: 0 14px 30px rgba(51, 65, 85, 0.1);
+}
+
+.research-statistics-page,
+.xai-page,
+.adaptive-page,
+.long-page,
+.rpd-shell,
+.research-page-state {
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  margin: 0;
+  padding: 28px;
+  color: var(--research-ink);
+  font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  background: linear-gradient(135deg, #eef7ff 0%, #fffaf0 52%, #f1f8f4 100%);
+  box-sizing: border-box;
+}
+
+.research-statistics-header,
+.xai-header,
+.adaptive-header,
+.long-header,
+.research-page-state-card,
+.rpd-content > header {
+  padding: 22px 26px;
+  border: 1px solid var(--research-border);
+  border-top: 5px solid rgba(43, 108, 176, 0.82);
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(255, 253, 244, 0.98), rgba(240, 248, 255, 0.94));
+  box-shadow: var(--research-shadow);
+}
+
+.research-statistics-header h1,
+.xai-header h1,
+.adaptive-header h1,
+.long-header h1,
+.rpd-content > header h1,
+.research-page-state-card h1 {
+  margin: 4px 0 8px;
+  color: var(--research-blue);
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  font-weight: 900;
+}
+
+.research-eyebrow,
+.xai-header > div > p,
+.adaptive-header > div > p,
+.long-header > div > p,
+.rpd-content > header > p {
+  color: var(--research-blue) !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.04em;
+}
+
+.research-header-actions button,
+.xai-header button,
+.adaptive-header button,
+.long-header button,
+.research-page-state-card button,
+.rpd-shell button {
+  padding: 10px 16px;
+  border: 1px solid rgba(43, 108, 176, 0.28);
+  border-radius: 12px;
+  color: var(--research-blue);
+  background: var(--research-blue-soft);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.research-panel,
+.xai-controls,
+.xai-card,
+.xai-limit,
+.xai-meta article,
+.adaptive-warning,
+.adaptive-card,
+.adaptive-meta article,
+.long-warning,
+.long-controls,
+.long-card,
+.long-meta article,
+.rpd-section,
+.rpd-panel,
+.rpd-metrics article {
+  border: 1px solid var(--research-border);
+  border-radius: 22px;
+  background: var(--research-card);
+  box-shadow: var(--research-shadow);
+}
+
+.research-page-state {
+  display: grid;
+  place-items: center;
+}
+
+.research-page-state-card {
+  width: min(720px, 100%);
+}
+
+.research-page-state-card p {
+  color: var(--research-muted);
+  line-height: 1.7;
+}
+
+.research-page-state-card button {
+  margin-top: 10px;
+}
+
+@media (max-width: 800px) {
+  .research-statistics-page,
+  .xai-page,
+  .adaptive-page,
+  .long-page,
+  .rpd-shell,
+  .research-page-state { padding: 14px; }
+
+  .research-statistics-header,
+  .xai-header,
+  .adaptive-header,
+  .long-header { border-radius: 22px; }
+}

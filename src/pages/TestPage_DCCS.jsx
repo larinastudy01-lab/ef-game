@@ -4,16 +4,16 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom";
 import "../styles/GamePage_DCCS.css";
 
-import dccsBackgroundImg from "../asset/DCCS_testbackground.png";
+import dccsBackgroundImg from "../asset/DCCS/DCCS_background.webp";
 import startVideo from "../asset/mp4/DCCS_start.mp4";
 import stepVideo from "../asset/mp4/DCCS_step.mp4";
 import endingVideo from "../asset/mp4/DCCS_end.mp4";
-import homeStartBtn from "../asset/home/start.png";
-import homeSkipBtn from "../asset/home/skip.png";
-import homeNextBtn from "../asset/home/next.png";
-import homeBackBtn from "../asset/home/back.png";
-import homeResultBtn from "../asset/home/result.png";
-import mouseGuideImg from "../asset/mouse.png";
+import homeStartBtn from "../asset/home/start.webp";
+import homeSkipBtn from "../asset/home/skip.webp";
+import homeNextBtn from "../asset/home/next.webp";
+import homeBackBtn from "../asset/home/back.webp";
+import homeResultBtn from "../asset/home/result.webp";
+import mouseGuideImg from "../asset/mouse.webp";
 
 import { createGameResult } from "../ai/gameResultTemplate";
 import { analyzePerformance } from "../ai/performanceAnalyzer";
@@ -23,9 +23,9 @@ import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
 import { saveUnifiedResult } from "../utils/resultManager";
 import { calculateDccsScore } from "../utils/dccsScoring";
 
-import peacockImg from "../asset/DCCS/dccs_peacock.png";
-import basketTopImg from "../asset/DCCS/dccs_basket_left.png";
-import basketBottomImg from "../asset/DCCS/dccs_basket_right.png";
+import peacockImg from "../asset/DCCS/dccs_peacock.webp";
+import basketTopImg from "../asset/DCCS/box_left.webp";
+import basketBottomImg from "../asset/DCCS/box_right.webp";
 
 // 所有一般服飾與裝袋服飾統一由此資料檔提供。
 // 直接使用 dccsClothingData.js 實際存在的具名匯出，避免 Webpack 對不存在匯出的編譯錯誤。
@@ -59,6 +59,7 @@ const PHASE = {
   TYPE_TEST: "type_test",
   BAG_RULE: "bag_rule",
   BAG_COLOR_TEST: "bag_color_test",
+  DUAL_RULE_TEST: "dual_rule_test",
   END_VIDEO: "end_video",
   RESULT: "result",
 };
@@ -419,6 +420,13 @@ function arrangeTargets(correctTarget, wrongTarget, correctOnTop) {
     : { topTarget: wrongTarget, bottomTarget: correctTarget };
 }
 
+function getTargetSideForKey(targets, field, key) {
+  if (!key) return null;
+  if (targets.topTarget?.[field] === key) return "top";
+  if (targets.bottomTarget?.[field] === key) return "bottom";
+  return null;
+}
+
 function pickDiverseCards(cards, count) {
   const selected = [];
   const usedIds = new Set();
@@ -613,7 +621,7 @@ function buildDccsTrialSets() {
     Math.min(6, bagCards.length)
   );
 
-  const bagColorTestTrials = orderedBagCards.map((card, index) => {
+  const createBagColorTrial = (card, index, prefix = "bag_color") => {
     const alternativeColors = availableColors.filter(
       (color) => color !== card.color
     );
@@ -643,7 +651,7 @@ function buildDccsTrialSets() {
     );
 
     return {
-      id: `bag_color_${index + 1}_${card.id}`,
+      id: `${prefix}_${index + 1}_${card.id}`,
       card,
       rule: "color",
       ruleStage: "bagColor",
@@ -653,13 +661,106 @@ function buildDccsTrialSets() {
       isBagColorTrial: true,
       ...targets,
     };
-  });
+  };
+
+  const bagColorTestTrials = orderedBagCards.map((card, index) =>
+    createBagColorTrial(card, index)
+  );
+
+  const dualSourceCards = pickDiverseCards(
+    [
+      ...orderedBagCards,
+      ...orderedTypeCards,
+      ...bagCards,
+      ...normalCards,
+    ],
+    Math.min(12, Math.max(orderedBagCards.length + orderedTypeCards.length, 1))
+  );
+
+  const dualRuleTestTrials = dualSourceCards
+    .map((card, index) => {
+      const useBagCue = index % 2 === 0 && Boolean(card.bagImg);
+      const sourceCard =
+        useBagCue
+          ? card
+          : findCard({
+              color: card.color,
+              type: card.type,
+            }) || card;
+
+      if (useBagCue) {
+        const trial = createBagColorTrial(sourceCard, index, "dual_bag_color");
+        const oldRuleSide = getTargetSideForKey(trial, "typeKey", sourceCard.type);
+
+        return {
+          ...trial,
+          id: `dual_rule_${index + 1}_${sourceCard.id}`,
+          ruleStage: "dualRule",
+          cue: "bagged",
+          inactiveRule: "type",
+          isBagColorTrial: false,
+          isDualRuleTrial: true,
+          isInterferenceTrial:
+            Boolean(oldRuleSide) && oldRuleSide !== getTargetSideForKey(trial, "key", sourceCard.color),
+        };
+      }
+
+      const wrongType =
+        availableTypes[
+          (availableTypes.indexOf(sourceCard.type) + 1 + index) %
+            Math.max(availableTypes.length, 1)
+        ] || availableTypes.find((type) => type !== sourceCard.type);
+
+      const correctSample =
+        findCard({
+          type: sourceCard.type,
+          excludeId: sourceCard.id,
+          preferDifferentColor: sourceCard.color,
+        }) || sourceCard;
+
+      const wrongSample =
+        findCard({ color: sourceCard.color, type: wrongType }) ||
+        findCard({
+          type: wrongType,
+          preferDifferentColor: correctSample.color,
+        }) ||
+        normalCards.find((item) => item.type !== sourceCard.type);
+
+      if (!correctSample || !wrongSample) return null;
+
+      const targets = arrangeTargets(
+        makeTarget(correctSample, "type"),
+        makeTarget(wrongSample, "type"),
+        index % 2 === 0
+      );
+      const oldRuleSide = getTargetSideForKey(targets, "colorKey", sourceCard.color);
+      const correctSide = getTargetSideForKey(targets, "key", sourceCard.type);
+
+      return {
+        id: `dual_rule_${index + 1}_${sourceCard.id}`,
+        card: sourceCard,
+        rule: "type",
+        ruleStage: "dualRule",
+        matchBy: "type",
+        imageVariant: "normal",
+        previousRule: "color",
+        cue: "normal",
+        inactiveRule: "color",
+        isDualRuleTrial: true,
+        isInterferenceTrial:
+          Boolean(oldRuleSide) && Boolean(correctSide) && oldRuleSide !== correctSide,
+        wasAfterRuleSwitch: true,
+        ...targets,
+      };
+    })
+    .filter(Boolean);
 
   return {
     practiceTrials,
     colorTestTrials,
     typeTestTrials,
     bagColorTestTrials,
+    dualRuleTestTrials,
   };
 }
 
@@ -766,6 +867,9 @@ function ShadowCloth({ src, label }) {
       alt={label}
       className="Dcss-shadow-cloth"
       aria-label={label}
+      width="330"
+      height="330"
+      loading="lazy"
     />
   );
 }
@@ -794,6 +898,7 @@ function TestPage_DCCS() {
     colorTestTrials,
     typeTestTrials,
     bagColorTestTrials,
+    dualRuleTestTrials,
   } = useMemo(() => buildDccsTrialSets(), []);
 
   const currentTrials = useMemo(() => {
@@ -806,12 +911,15 @@ function TestPage_DCCS() {
         return typeTestTrials;
       case PHASE.BAG_COLOR_TEST:
         return bagColorTestTrials;
+      case PHASE.DUAL_RULE_TEST:
+        return dualRuleTestTrials;
       default:
         return [];
     }
   }, [
     bagColorTestTrials,
     colorTestTrials,
+    dualRuleTestTrials,
     phase,
     practiceTrials,
     typeTestTrials,
@@ -821,7 +929,7 @@ function TestPage_DCCS() {
   const formalTotalTrials =
     colorTestTrials.length +
     typeTestTrials.length +
-    bagColorTestTrials.length;
+    dualRuleTestTrials.length;
 
   const pageBackgroundStyle = useMemo(() => ({
     backgroundImage: `
@@ -909,7 +1017,7 @@ function TestPage_DCCS() {
     }
 
     if (phase === PHASE.BAG_RULE) {
-      startTrialPhase(PHASE.BAG_COLOR_TEST);
+      startTrialPhase(PHASE.DUAL_RULE_TEST);
     }
   };
 
@@ -935,7 +1043,18 @@ function TestPage_DCCS() {
       if (trial.bottomTarget?.colorKey === oldColorKey) return "bottom";
     }
 
-    if (trial.previousRule === "type" || trial.ruleStage === "bagColor") {
+    if (trial.inactiveRule === "color") {
+      const oldColorKey = trial.card.color;
+
+      if (trial.topTarget?.colorKey === oldColorKey) return "top";
+      if (trial.bottomTarget?.colorKey === oldColorKey) return "bottom";
+    }
+
+    if (
+      trial.previousRule === "type" ||
+      trial.ruleStage === "bagColor" ||
+      trial.inactiveRule === "type"
+    ) {
       const oldTypeKey = trial.card.type;
 
       if (trial.topTarget?.typeKey === oldTypeKey) return "top";
@@ -950,7 +1069,8 @@ function TestPage_DCCS() {
       (trial) =>
         trial.phase === PHASE.COLOR_TEST ||
         trial.phase === PHASE.TYPE_TEST ||
-        trial.phase === PHASE.BAG_COLOR_TEST
+        trial.phase === PHASE.BAG_COLOR_TEST ||
+        trial.phase === PHASE.DUAL_RULE_TEST
     );
 
     const colorLogs = formalLogs.filter(
@@ -962,7 +1082,10 @@ function TestPage_DCCS() {
     const bagColorLogs = formalLogs.filter(
       (trial) => trial.phase === PHASE.BAG_COLOR_TEST
     );
-    const switchLogs = [...typeLogs, ...bagColorLogs];
+    const dualRuleLogs = formalLogs.filter(
+      (trial) => trial.phase === PHASE.DUAL_RULE_TEST || trial.isDualRuleTrial
+    );
+    const switchLogs = [...typeLogs, ...bagColorLogs, ...dualRuleLogs];
 
     // dccsScoring 舊版若只辨識 color_test，將第三關映射成顏色題供評分，
     // 原始 phase 仍完整保留在正式 trialLogs 中。
@@ -1028,6 +1151,19 @@ function TestPage_DCCS() {
         ? bagColorAvgReactionTime - standardColorAvgReactionTime
         : 0;
     const secondSwitchPerseverativeErrors = bagColorLogs.filter(
+      (trial) => trial.isPerseverativeError
+    ).length;
+    const dualRuleCorrectCount = dualRuleLogs.filter(
+      (trial) => trial.isCorrect
+    ).length;
+    const dualRuleAccuracy =
+      dualRuleLogs.length > 0
+        ? Math.round((dualRuleCorrectCount / dualRuleLogs.length) * 100)
+        : 0;
+    const dualRuleAvgReactionTime = average(
+      dualRuleLogs.map((trial) => trial.reactionTime)
+    );
+    const dualRulePerseverativeErrors = dualRuleLogs.filter(
       (trial) => trial.isPerseverativeError
     ).length;
 
@@ -1163,6 +1299,12 @@ function TestPage_DCCS() {
       visualInterferenceCost,
       secondSwitchPerseverativeErrors,
 
+      dualRuleTrials: dualRuleLogs.length,
+      dualRuleCorrectCount,
+      dualRuleAccuracy,
+      dualRuleAvgReactionTime,
+      dualRulePerseverativeErrors,
+
       typeTrials: scoring.typeTrials,
       typeAccuracy: scoring.typeAccuracyPercent,
       typeAccuracyRatio: scoring.typeAccuracy,
@@ -1284,7 +1426,7 @@ function TestPage_DCCS() {
       return;
     }
 
-    if (phase === PHASE.BAG_COLOR_TEST) {
+    if (phase === PHASE.BAG_COLOR_TEST || phase === PHASE.DUAL_RULE_TEST) {
       finishTest(nextLogs);
     }
   };
@@ -1308,7 +1450,9 @@ function TestPage_DCCS() {
 
     const isCorrect = position === correctPosition;
     const isAfterRuleSwitch =
-      phase === PHASE.TYPE_TEST || phase === PHASE.BAG_COLOR_TEST;
+      phase === PHASE.TYPE_TEST ||
+      phase === PHASE.BAG_COLOR_TEST ||
+      phase === PHASE.DUAL_RULE_TEST;
     const isPerseverativeError =
       isAfterRuleSwitch && !isCorrect && position === oldRulePosition;
 
@@ -1319,6 +1463,8 @@ function TestPage_DCCS() {
         ? colorTestTrials.length + trialIndex + 1
         : phase === PHASE.BAG_COLOR_TEST
         ? colorTestTrials.length + typeTestTrials.length + trialIndex + 1
+        : phase === PHASE.DUAL_RULE_TEST
+        ? colorTestTrials.length + typeTestTrials.length + trialIndex + 1
         : null;
 
     const log = {
@@ -1327,6 +1473,10 @@ function TestPage_DCCS() {
 
       phase,
       rule: currentTrial.rule,
+      ruleStage: currentTrial.ruleStage || currentTrial.rule,
+      matchBy: currentTrial.matchBy || currentTrial.rule,
+      cue: currentTrial.cue || null,
+      inactiveRule: currentTrial.inactiveRule || null,
 
       cardId: currentTrial.card.id,
       cardColor: currentTrial.card.color,
@@ -1365,10 +1515,12 @@ function TestPage_DCCS() {
       imageVariant: currentTrial.imageVariant || "normal",
       isBagged: currentTrial.imageVariant === "bag",
       isBagColorTrial: phase === PHASE.BAG_COLOR_TEST,
+      isDualRuleTrial:
+        phase === PHASE.DUAL_RULE_TEST || Boolean(currentTrial.isDualRuleTrial),
       switchIndex:
         phase === PHASE.TYPE_TEST
           ? 1
-          : phase === PHASE.BAG_COLOR_TEST
+          : phase === PHASE.BAG_COLOR_TEST || phase === PHASE.DUAL_RULE_TEST
           ? 2
           : 0,
       switchDirection:
@@ -1376,6 +1528,8 @@ function TestPage_DCCS() {
           ? "color_to_type"
           : phase === PHASE.BAG_COLOR_TEST
           ? "type_to_color"
+          : phase === PHASE.DUAL_RULE_TEST
+          ? "conditional_dual_rule"
           : null,
 
       wasAfterRuleSwitch: isAfterRuleSwitch,
@@ -1383,10 +1537,11 @@ function TestPage_DCCS() {
       isPostSwitch: isAfterRuleSwitch,
 
       isInterferenceTrial:
-        isAfterRuleSwitch &&
-        Boolean(correctPosition) &&
-        Boolean(oldRulePosition) &&
-        correctPosition !== oldRulePosition,
+        Boolean(currentTrial.isInterferenceTrial) ||
+        (isAfterRuleSwitch &&
+          Boolean(correctPosition) &&
+          Boolean(oldRulePosition) &&
+          correctPosition !== oldRulePosition),
 
       isPerseverativeError,
       isOldRuleInterference: isPerseverativeError,
@@ -1431,7 +1586,7 @@ function TestPage_DCCS() {
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
         {dccsStyleElement}
         <main className="Dcss-center-shell Dcss-start-shell">
-          <section className="Dcss-soft-panel Dcss-start-panel" aria-label="開始畫面">
+          <section className="Dcss-soft-panel Dcss-start-panel game-start-card-artwork" aria-label="開始畫面">
             <div className="Dcss-game-title">孔雀小姐的服飾店</div>
 
             <div className="Dcss-start-content">
@@ -1440,7 +1595,7 @@ function TestPage_DCCS() {
               </div>
 
               <div className="Dcss-round-icon Dcss-start-icon">
-                <img src={peacockImg} alt="孔雀小姐" />
+                <img loading="lazy" src={peacockImg} alt="孔雀小姐" width="360" height="360" />
               </div>
             </div>
 
@@ -1451,9 +1606,9 @@ function TestPage_DCCS() {
                 onClick={handleStart}
                 aria-label="進入遊戲"
               >
-                <img src={homeStartBtn} alt="進入遊戲" />
+                <img width={1024} height={341} src={homeStartBtn} alt="進入遊戲" />
               </button>
-              <img className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+              <img width={1024} height={1024} loading="lazy" className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
             </div>
           </section>
         </main>
@@ -1466,7 +1621,7 @@ function TestPage_DCCS() {
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
         {dccsStyleElement}
         <main className="Dcss-center-shell Dcss-video-shell">
-          <section className="Dcss-soft-panel Dcss-video-card" aria-label={title}>
+          <section className="Dcss-soft-panel Dcss-video-card game-start-card-artwork" aria-label={title}>
             <div className="Dcss-video-frame">
               <video
                 className="Dcss-guide-video"
@@ -1486,9 +1641,9 @@ function TestPage_DCCS() {
                 onClick={onDone}
                 aria-label={buttonText}
               >
-                <img src={homeSkipBtn} alt={buttonText} />
+                <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt={buttonText} />
               </button>
-              <img className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+              <img width={1024} height={1024} loading="lazy" className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
             </div>
           </section>
         </main>
@@ -1503,7 +1658,7 @@ function TestPage_DCCS() {
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
         {dccsStyleElement}
         <div className="Dcss-switch-card Dcss-picture-rule-card">
-          <img src={peacockImg} alt="孔雀小姐" className="Dcss-peacock-rule" />
+          <img src={peacockImg} alt="孔雀小姐" className="Dcss-peacock-rule" width="360" height="360" loading="lazy" />
 
           <div className="Dcss-rule-content Dcss-picture-rule-content">
             <div className="Dcss-tag danger">換規則</div>
@@ -1521,6 +1676,9 @@ function TestPage_DCCS() {
                     <img
                       src={getCardImage(example.card, "normal")}
                       alt={`${example.card.colorText}${example.card.typeText}`}
+                      width="330"
+                      height="330"
+                      loading="lazy"
                     />
                     <span className="Dcss-big-arrow">→</span>
                     <div className="Dcss-demo-target Dcss-demo-target-type">
@@ -1531,6 +1689,9 @@ function TestPage_DCCS() {
                       <img
                         src={index % 2 === 0 ? basketTopImg : basketBottomImg}
                         alt={`${correctTarget?.label || "服飾"}籃子`}
+                        width="319"
+                        height="131"
+                        loading="lazy"
                       />
                     </div>
                   </div>
@@ -1545,9 +1706,9 @@ function TestPage_DCCS() {
                 onClick={goNextStaticPage}
                 aria-label="下一步"
               >
-                <img src={homeNextBtn} alt="下一步" />
+                <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" />
               </button>
-              <img
+              <img width={1024} height={1024} loading="lazy"
                 className="Dcss-mouse-guide Dcss-mouse-on-button"
                 src={mouseGuideImg}
                 alt="提示點擊"
@@ -1561,18 +1722,18 @@ function TestPage_DCCS() {
   };
 
   const renderBagRule = () => {
-    const examples = bagColorTestTrials.slice(0, 2);
+    const examples = dualRuleTestTrials.slice(0, 2);
 
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
         {dccsStyleElement}
         <div className="Dcss-switch-card Dcss-picture-rule-card">
-          <img src={peacockImg} alt="孔雀小姐" className="Dcss-peacock-rule" />
+          <img src={peacockImg} alt="孔雀小姐" className="Dcss-peacock-rule" width="360" height="360" loading="lazy" />
 
           <div className="Dcss-rule-content Dcss-picture-rule-content">
             <div className="Dcss-tag danger">再換一次規則</div>
             <h1 className="Dcss-switch-title">
-              衣服裝在袋子裡，也要按照顏色分類
+              有袋看顏色，沒袋看衣服種類
             </h1>
             <div className="Dcss-picture-rule-row">
               {examples.map((example, index) => {
@@ -1585,9 +1746,14 @@ function TestPage_DCCS() {
                 return (
                   <div className="Dcss-mini-example" key={example.id}>
                     <img
-                      src={getCardImage(example.card, "bag")}
-                      alt={`裝袋的${example.card.colorText}${example.card.typeText}`}
+                      src={getCardImage(example.card, example.imageVariant)}
+                      alt={`${
+                        example.imageVariant === "bag" ? "裝袋的" : ""
+                      }${example.card.colorText}${example.card.typeText}`}
                       className="Dcss-rule-bagged-cloth"
+                      width="330"
+                      height="330"
+                      loading="lazy"
                     />
                     <span className="Dcss-big-arrow">→</span>
                     <div className="Dcss-demo-target Dcss-demo-target-type">
@@ -1598,6 +1764,9 @@ function TestPage_DCCS() {
                       <img
                         src={index % 2 === 0 ? basketTopImg : basketBottomImg}
                         alt={`${correctTarget?.label || "相同顏色"}籃子`}
+                        width="319"
+                        height="131"
+                        loading="lazy"
                       />
                     </div>
                   </div>
@@ -1619,10 +1788,10 @@ function TestPage_DCCS() {
                 aria-label="下一步"
                 disabled={examples.length === 0}
               >
-                <img src={homeNextBtn} alt="下一步" />
+                <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" />
               </button>
               {examples.length > 0 && (
-                <img
+                <img width={1024} height={1024} loading="lazy"
                   className="Dcss-mouse-guide Dcss-mouse-on-button"
                   src={mouseGuideImg}
                   alt="提示點擊"
@@ -1641,6 +1810,7 @@ function TestPage_DCCS() {
     if (phase === PHASE.COLOR_TEST) return "看顏色";
     if (phase === PHASE.TYPE_TEST) return "看衣服種類";
     if (phase === PHASE.BAG_COLOR_TEST) return "看袋子裡衣服的顏色";
+    if (phase === PHASE.DUAL_RULE_TEST) return "有袋看顏色，沒袋看種類";
     return "";
   };
 
@@ -1657,7 +1827,7 @@ function TestPage_DCCS() {
       return `${colorTestTrials.length + trialIndex + 1} / ${formalTotalTrials}`;
     }
 
-    if (phase === PHASE.BAG_COLOR_TEST) {
+    if (phase === PHASE.BAG_COLOR_TEST || phase === PHASE.DUAL_RULE_TEST) {
       return `${
         colorTestTrials.length + typeTestTrials.length + trialIndex + 1
       } / ${formalTotalTrials}`;
@@ -1667,7 +1837,7 @@ function TestPage_DCCS() {
   };
 
   const getRuleMode = () => {
-    return phase === PHASE.TYPE_TEST ? "type" : "color";
+    return currentTrial?.matchBy || (phase === PHASE.TYPE_TEST ? "type" : "color");
   };
 
   const getTargetVisual = (target) => {
@@ -1702,7 +1872,7 @@ function TestPage_DCCS() {
             : "Dcss-type-target-clothing"
         }`}
       >
-        <img
+        <img loading="lazy"
           src={visual.image}
           alt={
             visual.mode === "color"
@@ -1752,7 +1922,7 @@ function TestPage_DCCS() {
                   } ${feedback ? feedback.type : ""}`}
                   aria-label={getRuleTitle()}
                 >
-                  <img
+                  <img loading="lazy"
                     src={getCardImage(
                       currentTrial.card,
                       currentTrial.imageVariant || "normal"
@@ -1760,6 +1930,8 @@ function TestPage_DCCS() {
                     alt={`${
                       currentTrial.imageVariant === "bag" ? "裝袋的" : ""
                     }${currentTrial.card.colorText}${currentTrial.card.typeText}`}
+                    width="330"
+                    height="330"
                   />
                 </div>
               </div>
@@ -1779,7 +1951,7 @@ function TestPage_DCCS() {
                   {renderTargetVisual(currentTrial.topTarget)}
                 </div>
                 <div className="Dcss-basket-choice-image">
-                  <img src={basketTopImg} alt="左側籃子" />
+                  <img loading="lazy" src={basketTopImg} alt="左側分類箱" width="319" height="131" />
                 </div>
               </button>
 
@@ -1796,7 +1968,7 @@ function TestPage_DCCS() {
                   {renderTargetVisual(currentTrial.bottomTarget)}
                 </div>
                 <div className="Dcss-basket-choice-image">
-                  <img src={basketBottomImg} alt="右側籃子" />
+                  <img loading="lazy" src={basketBottomImg} alt="右側分類箱" width="319" height="131" />
                 </div>
               </button>
             </div>
@@ -1829,7 +2001,7 @@ function TestPage_DCCS() {
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
         {dccsStyleElement}
         <main className="Dcss-center-shell Dcss-result-shell">
-          <section className="Dcss-soft-panel Dcss-result-panel" aria-label="測驗結果">
+          <section className="Dcss-soft-panel Dcss-result-panel game-result-card-artwork" aria-label="測驗結果">
             <div className="Dcss-cute-stars" aria-label={`${resultStars} 顆星`}>
               {[1, 2, 3].map((star) => (
                 <span key={star} className={`Dcss-cute-star ${star <= resultStars ? "is-on" : ""}`}>★</span>
@@ -1842,7 +2014,7 @@ function TestPage_DCCS() {
               </div>
 
               <div className="Dcss-round-icon Dcss-result-icon">
-                <img src={peacockImg} alt="孔雀小姐" />
+                <img src={peacockImg} alt="孔雀小姐" width="360" height="360" loading="lazy" />
               </div>
             </div>
 
@@ -1854,9 +2026,9 @@ function TestPage_DCCS() {
                   onClick={() => navigate(TEST_PAGE_ROUTE)}
                   aria-label="回到森林"
                 >
-                  <img src={homeBackBtn} alt="回到森林" />
+                  <img width={1024} height={341} loading="lazy" src={homeBackBtn} alt="回到森林" />
                 </button>
-                <img className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+                <img width={1024} height={1024} loading="lazy" className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
               </div>
               <button
                 type="button"
@@ -1864,7 +2036,7 @@ function TestPage_DCCS() {
                 onClick={goResultPage}
                 aria-label="詳細結果"
               >
-                <img src={homeResultBtn} alt="詳細結果" />
+                <img width={1024} height={341} loading="lazy" src={homeResultBtn} alt="詳細結果" />
               </button>
             </div>
           </section>

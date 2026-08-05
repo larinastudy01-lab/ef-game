@@ -6,32 +6,38 @@ import React, {
 } from "react";
 import { useNavigate } from "react-router-dom";
 
-import stickerR1 from "../asset/sticker/regular/R1.png";
-import stickerR2 from "../asset/sticker/regular/R2.png";
-import stickerR3 from "../asset/sticker/regular/R3.png";
-import stickerR4 from "../asset/sticker/regular/R4.png";
-import stickerR5 from "../asset/sticker/regular/R5.png";
-import stickerR6 from "../asset/sticker/regular/R6.png";
-import stickerR7 from "../asset/sticker/regular/R7.png";
-import stickerR8 from "../asset/sticker/regular/R8.png";
-import stickerR9 from "../asset/sticker/regular/R9.png";
-import stickerR10 from "../asset/sticker/regular/R10.png";
-import stickerR11 from "../asset/sticker/regular/R11.png";
-import stickerR12 from "../asset/sticker/regular/R12.png";
-import stickerR13 from "../asset/sticker/regular/R13.png";
-import stickerR14 from "../asset/sticker/regular/R14.png";
-import stickerR15 from "../asset/sticker/regular/R15.png";
-import stickerR16 from "../asset/sticker/regular/R16.png";
-import stickerR17 from "../asset/sticker/regular/R17.png";
-import stickerR18 from "../asset/sticker/regular/R18.png";
-import stickerR19 from "../asset/sticker/regular/R19.png";
-import stickerR20 from "../asset/sticker/regular/R20.png";
-import stickerR21 from "../asset/sticker/regular/R21.png";
-import stickerR22 from "../asset/sticker/regular/R22.png";
-import stickerR23 from "../asset/sticker/regular/R23.png";
+import stickerR1 from "../asset/sticker/regular/R1.webp";
+import stickerR2 from "../asset/sticker/regular/R2.webp";
+import stickerR3 from "../asset/sticker/regular/R3.webp";
+import stickerR4 from "../asset/sticker/regular/R4.webp";
+import stickerR5 from "../asset/sticker/regular/R5.webp";
+import stickerR6 from "../asset/sticker/regular/R6.webp";
+import stickerR7 from "../asset/sticker/regular/R7.webp";
+import stickerR8 from "../asset/sticker/regular/R8.webp";
+import stickerR9 from "../asset/sticker/regular/R9.webp";
+import stickerR10 from "../asset/sticker/regular/R10.webp";
+import stickerR11 from "../asset/sticker/regular/R11.webp";
+import stickerR12 from "../asset/sticker/regular/R12.webp";
+import stickerR13 from "../asset/sticker/regular/R13.webp";
+import stickerR14 from "../asset/sticker/regular/R14.webp";
+import stickerR15 from "../asset/sticker/regular/R15.webp";
+import stickerR16 from "../asset/sticker/regular/R16.webp";
+import stickerR17 from "../asset/sticker/regular/R17.webp";
+import stickerR18 from "../asset/sticker/regular/R18.webp";
+import stickerR19 from "../asset/sticker/regular/R19.webp";
+import stickerR20 from "../asset/sticker/regular/R20.webp";
+import stickerR21 from "../asset/sticker/regular/R21.webp";
+import stickerR22 from "../asset/sticker/regular/R22.webp";
+import stickerR23 from "../asset/sticker/regular/R23.webp";
+import srtGameIcon from "../asset/SRT_icon.webp";
+import pmGameIcon from "../asset/PM_icon.webp";
+import cbtGameIcon from "../asset/CBT_icon.webp";
+import ssgGameIcon from "../asset/SSG_icon.webp";
+import dccsGameIcon from "../asset/DCCS_icon.webp";
+import lbGameIcon from "../asset/LB_icon.webp";
 
 const MENU_ROUTE = "/game-menu";
-const GAME_IDS = ["SRT", "PM", "CBT", "DPT", "DCCS", "LB"];
+const GAME_IDS = ["SRT", "PM", "CBT", "SSG", "DCCS", "LB"];
 const MAX_LEDGER_SESSIONS = 500;
 
 const LEVEL_META = [
@@ -48,7 +54,7 @@ const CATEGORY_OPTIONS = [
   { id: "SRT", label: "SRT" },
   { id: "PM", label: "PM" },
   { id: "CBT", label: "CBT" },
-  { id: "DPT", label: "DPT" },
+  { id: "SSG", label: "SSG" },
   { id: "DCCS", label: "DCCS" },
   { id: "LB", label: "LB" },
 ];
@@ -195,24 +201,24 @@ const ACHIEVEMENTS = [
     metric: "cbtCleanPaths",
   },
   {
-    id: "dpt_opposite_master",
+    id: "ssg_opposite_master",
     name: "聲音反轉家",
-    category: "DPT",
-    categoryLabel: "DPT 貓狗聲音抑制",
+    category: "SSG",
+    categoryLabel: "SSG 貓狗聲音抑制",
     description: "累積依照聲音正確選擇相反動物",
     thresholds: [10, 30, 80, 160, 320],
     unit: "題",
-    metric: "dptCorrectOpposites",
+    metric: "ssgCorrectOpposites",
   },
   {
-    id: "dpt_inhibition_master",
+    id: "ssg_inhibition_master",
     name: "抑制小高手",
-    category: "DPT",
-    categoryLabel: "DPT 貓狗聲音抑制",
+    category: "SSG",
+    categoryLabel: "SSG 貓狗聲音抑制",
     description: "完成零搶答、零同動物錯誤且正確率達 80% 的訓練",
     thresholds: [1, 3, 8, 15, 30],
     unit: "次",
-    metric: "dptInhibitionSessions",
+    metric: "ssgInhibitionSessions",
   },
   {
     id: "dccs_rule_switcher",
@@ -287,7 +293,7 @@ const STICKER_CATALOG = [
 const achievementImageContext = require.context(
   "../asset/sticker/achievement",
   true,
-  /\.png$/
+  /\.webp$/
 );
 
 function safeJsonParse(value, fallback = null) {
@@ -374,7 +380,7 @@ function inferGameId(raw, sourceKey = "") {
     .toUpperCase();
 
   if (text.includes("DCCS")) return "DCCS";
-  if (text.includes("DPT")) return "DPT";
+  if (text.includes("SSG")) return "SSG";
   if (text.includes("CBT") || text.includes("CORSI")) return "CBT";
   if (
     text.includes("SRT") ||
@@ -551,7 +557,7 @@ function isPotentialResultKey(key) {
     "pm",
     "cbt",
     "corsi",
-    "dpt",
+    "ssg",
     "dccs",
     "lb",
   ].some((token) => text.includes(token));
@@ -1010,10 +1016,10 @@ function getAchievementMetrics(sessions) {
   );
   const pmRecords = recordsByGame.PM;
   const cbtRecords = recordsByGame.CBT;
-  const dptSessions = meaningfulSessions.filter(
-    (session) => session.gameId === "DPT"
+  const ssgSessions = meaningfulSessions.filter(
+    (session) => session.gameId === "SSG"
   );
-  const dptRecords = recordsByGame.DPT;
+  const ssgRecords = recordsByGame.SSG;
   const dccsRecords = recordsByGame.DCCS;
   const lbSessions = meaningfulSessions.filter(
     (session) => session.gameId === "LB"
@@ -1091,8 +1097,8 @@ function getAchievementMetrics(sessions) {
       : 0,
     cbtCleanPaths: cbtCleanRecords.length,
 
-    dptCorrectOpposites: dptRecords.filter((record) => record.isCorrect).length,
-    dptInhibitionSessions: dptSessions.filter(
+    ssgCorrectOpposites: ssgRecords.filter((record) => record.isCorrect).length,
+    ssgInhibitionSessions: ssgSessions.filter(
       (session) =>
         session.totalTrials > 0 &&
         session.anticipationCount === 0 &&
@@ -1135,9 +1141,9 @@ function getAchievementImage(id, level) {
   const folder = LEVEL_META[displayLevel - 1].folder;
 
   try {
-    return achievementImageContext(`./${folder}/${id}.png`);
+    return achievementImageContext(`./${folder}/${id}.webp`);
   } catch (error) {
-    console.warn(`找不到成就圖片：${folder}/${id}.png`, error);
+    console.warn(`找不到成就圖片：${folder}/${id}.webp`, error);
     return null;
   }
 }
@@ -1290,7 +1296,7 @@ function StickerRow({ sticker, collectionItem }) {
       className={`floating-sticker-row ${obtained ? "is-owned" : "is-locked"}`}
     >
       <div className="floating-sticker-icon-shell">
-        <img src={sticker.image} alt={sticker.name} />
+        <img loading="lazy" src={sticker.image} alt={sticker.name} />
         {!obtained && <span className="floating-sticker-lock">🔒</span>}
       </div>
 
@@ -1312,15 +1318,15 @@ function StickerRow({ sticker, collectionItem }) {
 }
 
 const FLOATING_NAV_ITEMS = [
-  { id: "all", label: "全部成就", shortLabel: "全部", icon: "★" },
-  { id: "general", label: "綜合", shortLabel: "綜合", icon: "◆" },
-  { id: "SRT", label: "SRT", shortLabel: "SRT", icon: "●" },
-  { id: "PM", label: "PM", shortLabel: "PM", icon: "▣" },
-  { id: "CBT", label: "CBT", shortLabel: "CBT", icon: "◇" },
-  { id: "DPT", label: "DPT", shortLabel: "DPT", icon: "♫" },
-  { id: "DCCS", label: "DCCS", shortLabel: "DCCS", icon: "↔" },
-  { id: "LB", label: "LB", shortLabel: "LB", icon: "⌂" },
-  { id: "stickers", label: "一般貼紙", shortLabel: "貼紙", icon: "✦" },
+  { id: "all", label: "全部成就", shortLabel: "全部", icon: "⭐" },
+  { id: "general", label: "綜合成就", shortLabel: "綜合", icon: "🎈" },
+  { id: "SRT", label: "SRT 橡實注意力", shortLabel: "SRT", iconSrc: srtGameIcon },
+  { id: "PM", label: "PM 圖片記憶", shortLabel: "PM", iconSrc: pmGameIcon },
+  { id: "CBT", label: "CBT 石頭路記憶", shortLabel: "CBT", iconSrc: cbtGameIcon },
+  { id: "SSG", label: "SSG 貓狗聲音", shortLabel: "SSG", iconSrc: ssgGameIcon },
+  { id: "DCCS", label: "DCCS 衣物分類", shortLabel: "DCCS", iconSrc: dccsGameIcon },
+  { id: "LB", label: "LB 數字門牌", shortLabel: "LB", iconSrc: lbGameIcon },
+  { id: "stickers", label: "一般貼紙", shortLabel: "貼紙", icon: "🎀" },
 ];
 
 export default function Achievement() {
@@ -1504,8 +1510,14 @@ export default function Achievement() {
                   onClick={() => selectNavigation(item.id)}
                   title={item.label}
                 >
-                  <span className="achievement-nav-icon">{item.icon}</span>
-                  <span className="achievement-nav-label">{item.label}</span>
+                  <span className="achievement-nav-icon" aria-hidden="true">
+                    {item.iconSrc ? (
+                      <img src={item.iconSrc} alt="" />
+                    ) : (
+                      <span>{item.icon}</span>
+                    )}
+                  </span>
+                  <span className="achievement-nav-label">{item.shortLabel}</span>
                   <span className="achievement-nav-short-label">
                     {item.shortLabel}
                   </span>
@@ -2272,10 +2284,18 @@ function AchievementStyles() {
       .achievement-floating-sidebar button {
         border-color: #d8e7b5;
         color: #fffdf0;
-        background: linear-gradient(180deg, #7fad5e, #5d884a);
+        border-radius: 15px;
+        background:
+          radial-gradient(circle at 82% 18%, rgba(255, 255, 255, .24) 0 3px, transparent 4px),
+          linear-gradient(145deg, #8fc86a, #5d934f 68%, #4f7e45);
         box-shadow:
-          inset 0 0 9px rgba(244, 255, 215, .20),
-          0 2px 4px rgba(55, 72, 37, .25);
+          inset 0 1px 0 rgba(255, 255, 255, .35),
+          inset 0 -3px 0 rgba(55, 104, 43, .22),
+          0 3px 6px rgba(55, 72, 37, .24);
+      }
+
+      .achievement-floating-sidebar button:hover {
+        transform: translateX(4px) rotate(-1deg);
       }
 
       .achievement-floating-sidebar button.is-active {
@@ -2288,15 +2308,29 @@ function AchievementStyles() {
       }
 
       .achievement-nav-icon {
-        border-color: rgba(255, 250, 217, .72);
-        color: #ffe77a;
-        background: rgba(68, 103, 54, .48);
+        width: 34px;
+        height: 34px;
+        overflow: hidden;
+        border: 2px solid rgba(255, 250, 217, .86);
+        border-radius: 12px;
+        color: #fff3a1;
+        background: linear-gradient(145deg, rgba(255, 244, 171, .3), rgba(68, 103, 54, .5));
+        box-shadow: inset 0 1px 2px rgba(255, 255, 255, .38), 0 2px 4px rgba(54, 79, 40, .22);
+        font-size: 18px;
+      }
+
+      .achievement-nav-icon img {
+        width: 31px;
+        height: 31px;
+        object-fit: contain;
+        filter: drop-shadow(0 1px 1px rgba(67, 72, 39, .26));
       }
 
       .achievement-floating-sidebar button.is-active .achievement-nav-icon {
         border-color: #fff7c7;
         color: #fffdf0;
-        background: #c27b35;
+        background: linear-gradient(145deg, #fff2ad, #e5a748);
+        transform: rotate(-4deg) scale(1.06);
       }
 
       .achievement-floating-sidebar em {
@@ -2514,6 +2548,7 @@ function AchievementStyles() {
           text-align: center;
         }
         .achievement-nav-icon { width: 24px; height: 24px; font-size: 12px; }
+        .achievement-nav-icon img { width: 22px; height: 22px; }
         .achievement-nav-label { display: none; }
         .achievement-nav-short-label { display: block; font-size: 10px; }
         .achievement-floating-content-header { padding: 9px 11px; }
@@ -2564,6 +2599,8 @@ function AchievementStyles() {
           flex: 0 0 66px;
           min-height: 42px;
         }
+        .achievement-nav-icon { width: 28px; height: 28px; }
+        .achievement-nav-icon img { width: 26px; height: 26px; }
         .achievement-floating-sidebar button:hover { transform: translateY(-1px); }
         .achievement-floating-content-header > div:first-child > span { display: none; }
         .achievement-floating-content-header h2 { font-size: 15px; }

@@ -1,18 +1,19 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
-import stoneImg from "../asset/stone.png";
-import personImg from "../asset/CBT_person.png";
-import bgImg from "../asset/CBT_testbackground.png";
-import introVideo from "../asset/SRT_start.mp4";
-import clickSoundFile from "../asset/Click_SRT.mp3";
-import startAvatar from "../asset/avatar/deer.png";
-import homeStartBtn from "../asset/home/start.png";
-import homeSkipBtn from "../asset/home/skip.png";
-import homeBackBtn from "../asset/home/back.png";
-import homeAgainBtn from "../asset/home/again.png";
-import homeResultBtn from "../asset/home/result.png";
-import mouseGuideImg from "../asset/mouse.png";
+import stoneImg from "../asset/CBT/stone.webp";
+import stoneShinyImg from "../asset/CBT/stone_shiny.webp";
+import personImg from "../asset/CBT/CBT_person.webp";
+import bgImg from "../asset/CBT/CBT_background.webp";
+import introVideo from "../asset/mp4/CBT_start.mp4";
+import clickSoundFile from "../asset/Click.mp3";
+import startAvatar from "../asset/avatar/deer.webp";
+import homeStartBtn from "../asset/home/start.webp";
+import homeSkipBtn from "../asset/home/skip.webp";
+import homeBackBtn from "../asset/home/back.webp";
+import homeAgainBtn from "../asset/home/again.webp";
+import homeResultBtn from "../asset/home/result.webp";
+import mouseGuideImg from "../asset/mouse.webp";
 
 import "../styles/GamePage_CBT.css";
 import { saveUnifiedResult } from "../utils/resultManager";
@@ -439,10 +440,11 @@ function createRandomBlocks(count, spatialSimilarity = "low") {
         paddingX + Math.random() * (BOARD_WIDTH - paddingX * 2)
       );
 
-      candidate = { top, left };
+      const nextCandidate = { top, left };
+      candidate = nextCandidate;
 
       const safe = blocks.every(
-        (block) => distance(block, candidate) >= minDistance
+        (block) => distance(block, nextCandidate) >= minDistance
       );
 
       if (safe) break;
@@ -941,10 +943,6 @@ function getTrainingScoreSummary(history) {
     rescueCount,
     aiAnalysis,
   };
-}
-
-function getStarCountFromTrainingHistory(history) {
-  return getTrainingScoreSummary(history).stars;
 }
 
 function saveTrainingStageResult({ stageId, gameId, level, todayKey, stars, history, summary }) {
@@ -1517,7 +1515,8 @@ const cbtTrainingTouchCss = `
 
 .cbt-guide-stone-old img {
   width: 100%;
-  height: 100%;
+  height: auto;
+  aspect-ratio: 360 / 203;
   object-fit: contain;
   pointer-events: none;
   user-select: none;
@@ -1539,7 +1538,7 @@ const cbtTrainingTouchCss = `
 .cbt-guide-person-old {
   position: absolute;
   width: 82px;
-  height: 82px;
+  height: auto;
   object-fit: contain;
   transform: translate(-50%, -45%);
   filter: drop-shadow(0 8px 8px rgba(64, 44, 17, 0.22));
@@ -2027,7 +2026,6 @@ export default function TrainingPage_CBT() {
 
   const config = getConfigByMicroDifficulty(currentMicroDifficulty);
   const difficulty = getMacroDifficultyFromMicro(currentMicroDifficulty);
-  const canReplayThisRound = roundReplayCount < Number(config.replayLimit || 0);
   // 訓練規則改為「每個記憶跨度固定兩題」：答錯或逾時後直接進下一題，
   // 不在同一題提供補救重播，避免把重試誤算成同一跨度的第三題。
   const canUseFeedbackReplay = false;
@@ -2860,7 +2858,7 @@ export default function TrainingPage_CBT() {
       clearInterval(interval);
       setDistractorIndices([]);
     };
-  }, [phase, currentMicroDifficulty, sequence, userInput.length, config]);
+  }, [phase, currentMicroDifficulty, sequence, userInput.length, config, roundIndex]);
 
   useEffect(() => {
     if (phase !== "answer") return;
@@ -2876,6 +2874,8 @@ export default function TrainingPage_CBT() {
     }, 1000);
 
     return () => clearSequenceTimer(timer);
+    // handleWrongRound reads refs and must not restart this one-second timer each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, timeLeft]);
 
   useEffect(() => {
@@ -2907,7 +2907,7 @@ export default function TrainingPage_CBT() {
     }, delay);
 
     return () => clearSequenceTimer(timer);
-  }, [phase, currentMicroDifficulty, userInput.length]);
+  }, [phase, currentMicroDifficulty, userInput.length, config.idleHintDelay]);
 
   return (
     <div
@@ -2919,7 +2919,7 @@ export default function TrainingPage_CBT() {
       <style>{cbtTrainingTouchCss}</style>
 
       {phase === "ready" && (
-        <main className="cbt-start-shell" aria-label="石頭練習開始畫面">
+        <main className="cbt-start-shell game-start-card-artwork" aria-label="石頭練習開始畫面">
           <h1 className="cbt-start-title">石頭練習</h1>
 
           <div className="cbt-start-content">
@@ -2927,7 +2927,7 @@ export default function TrainingPage_CBT() {
               看亮燈，照順序點。
             </div>
             <div className="cbt-round-avatar">
-              <img src={startAvatar} alt="小鹿頭像" draggable="false" />
+              <img src={startAvatar} alt="引導遊戲的小鹿" width="1200" height="1200" decoding="async" draggable="false" />
             </div>
           </div>
 
@@ -3079,7 +3079,7 @@ export default function TrainingPage_CBT() {
       )}
 
       {phase === "result" && (
-        <main className="cbt-result-shell" aria-label="訓練結果">
+        <main className="cbt-result-shell game-result-card-artwork" aria-label="訓練結果">
           <div className="cbt-result-stars" aria-label={`${finalSummary?.stars || 1} 顆星`}>
             {[1, 2, 3].map((star) => (
               <span
@@ -3096,7 +3096,7 @@ export default function TrainingPage_CBT() {
               練習完成！你很認真記住石頭路線喔。
             </div>
             <div className="cbt-round-avatar">
-              <img src={startAvatar} alt="小鹿頭像" draggable="false" />
+              <img src={startAvatar} alt="完成 CBT 練習的小鹿" width="1200" height="1200" loading="lazy" decoding="async" draggable="false" />
             </div>
           </div>
 
@@ -3132,7 +3132,7 @@ export default function TrainingPage_CBT() {
 
 function VideoOnlyPage({ videoSrc, onDone }) {
   return (
-    <main className="cbt-video-only-card" aria-label="影片">
+    <main className="cbt-video-only-card game-start-card-artwork" aria-label="影片">
       <div className="cbt-video-wrapper">
         <video
           src={videoSrc}
@@ -3174,13 +3174,17 @@ function GuidedImageButton({
         disabled={disabled}
         aria-label={ariaLabel || imgAlt}
       >
-        <img src={imgSrc} alt={imgAlt} draggable="false" />
+        <img loading="lazy" src={imgSrc} alt={imgAlt} width="1600" height="533" decoding="async" draggable="false" />
       </button>
       {showMouse && !disabled && (
         <img
           className="cbt-mouse-guide cbt-mouse-on-button"
           src={mouseGuideImg}
-          alt="提示點擊"
+          alt=""
+          width="1200"
+          height="1200"
+          loading="lazy"
+          decoding="async"
           aria-hidden="true"
           draggable="false"
         />
@@ -3235,8 +3239,12 @@ function CBTBoard({
             onClick={() => onBlockClick(index)}
           >
             <img
-              src={stoneImg}
-              alt={`stone-${index + 1}`}
+              src={isGlowing ? stoneShinyImg : stoneImg}
+              alt={`第 ${index + 1} 顆石頭`}
+              width="360"
+              height="203"
+              loading="lazy"
+              decoding="async"
               className={[
                 "cbt-stone",
                 isGlowing ? "is-glowing" : "",
@@ -3263,7 +3271,11 @@ function CBTBoard({
         personIndex !== null && (
           <img
             src={personImg}
-            alt="person"
+            alt="沿著石頭路線前進的小朋友"
+            width="156"
+            height="126"
+            loading="lazy"
+            decoding="async"
             className={["cbt-person", isWalking ? "is-walking" : ""]
               .filter(Boolean)
               .join(" ")}

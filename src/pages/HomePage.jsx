@@ -1,9 +1,9 @@
 import { useNavigate } from "react-router-dom";
 
-import homeBackground from "../asset/home/background.png";
-import loginButton from "../asset/home/login.png";
-import registerButton from "../asset/home/register.png";
-import medicalLoginButton from "../asset/home/dc_register.png";
+import homeBackground from "../asset/home/dashboard_background.webp";
+import loginButton from "../asset/home/login.webp";
+import registerButton from "../asset/home/register.webp";
+import medicalLoginButton from "../asset/home/dc_register.webp";
 
 const CLINICIAN_DASHBOARD_ROUTE = "/clinician-dashboard";
 
@@ -153,7 +153,7 @@ function HomePage() {
           onClick={goRegister}
           aria-label="註冊"
         >
-          <img src={registerButton} alt="註冊" draggable="false" />
+          <img width={1024} height={341} src={registerButton} alt="註冊" draggable="false" />
         </button>
 
         <button
@@ -162,7 +162,7 @@ function HomePage() {
           onClick={goGameLogin}
           aria-label="遊戲登入"
         >
-          <img src={loginButton} alt="遊戲登入" draggable="false" />
+          <img width={1024} height={341} loading="lazy" src={loginButton} alt="遊戲登入" draggable="false" />
         </button>
 
         <button
@@ -171,7 +171,7 @@ function HomePage() {
           onClick={goMedicalLogin}
           aria-label="醫療人員登入"
         >
-          <img src={medicalLoginButton} alt="醫療人員登入" draggable="false" />
+          <img width={1024} height={341} loading="lazy" src={medicalLoginButton} alt="醫療人員登入" draggable="false" />
         </button>
       </section>
     </main>

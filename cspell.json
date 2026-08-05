@@ -1,0 +1,41 @@
+{
+  "version": "0.2",
+  "language": "en,en-GB",
+  "useGitignore": true,
+  "ignorePaths": [
+    "build/**",
+    "coverage/**",
+    "knowledge_base/**",
+    "node_modules/**",
+    "public/**",
+    "src/asset/**"
+  ],
+  "words": [
+    "BGM",
+    "CBT",
+    "Claymorphism",
+    "DCCS",
+    "Dcss",
+    "DOCX",
+    "dotenv",
+    "distractor",
+    "gameplay",
+    "HuggingFace",
+    "jsdom",
+    "localStorage",
+    "Meerkats",
+    "openhuninn",
+    "Postgres",
+    "preprocessing",
+    "Recharts",
+    "RLS",
+    "sessionStorage",
+    "SFX",
+    "SSG",
+    "SRT",
+    "Supabase",
+    "webp",
+    "webVitals",
+    "WOFF"
+  ]
+}

@@ -36,7 +36,7 @@ export const PM_RT_TARGET_MAP = {
 };
 
 const MAX_PM_DIFFICULTY_LEVEL = 7;
-const MAX_PM_MEMORY_SPAN = 8;
+const MAX_PM_MEMORY_SPAN = 7;
 const SPAN_TRIAL_TOTAL = 2;
 
 function clamp(value, min = 0, max = 100) {
@@ -747,15 +747,18 @@ export function analyzePMTraining({
     .map(getRecordMemorySpan)
     .filter((span) => span > 0);
 
-  const correctMemorySpans = correctRecords
-    .map(getRecordMemorySpan)
-    .filter((span) => span > 0);
+  const spanSummaries = buildSpanSummaries(safeRecords);
 
   const highestAttemptedMemorySpan =
     memorySpans.length > 0 ? Math.max(...memorySpans) : 0;
 
+  const passedMemorySpans = spanSummaries
+    .filter((summary) => summary.correctCount >= SPAN_TRIAL_TOTAL)
+    .map((summary) => summary.memorySpan)
+    .filter((span) => span > 0);
+
   const highestSuccessfulMemorySpan =
-    correctMemorySpans.length > 0 ? Math.max(...correctMemorySpans) : 0;
+    passedMemorySpans.length > 0 ? Math.max(...passedMemorySpans) : 0;
 
   const latestMemorySpan =
     memorySpans.length > 0 ? memorySpans[memorySpans.length - 1] : 0;
@@ -770,8 +773,6 @@ export function analyzePMTraining({
       : difficultyLevels.length > 0
       ? normalizeDifficultyLevel(Math.max(...difficultyLevels))
       : 1;
-
-  const spanSummaries = buildSpanSummaries(safeRecords);
 
   const resolvedEarlyStopReason = inferEarlyStopReason({
     records: safeRecords,

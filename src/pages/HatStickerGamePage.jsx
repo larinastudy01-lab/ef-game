@@ -7,34 +7,34 @@ import React, {
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import capImage from "../asset/cap.png";
-import startButtonImage from "../asset/home/start.png";
-import againButtonImage from "../asset/home/again.png";
-import backHomeButtonImage from "../asset/home/backhome.png";
+import capImage from "../asset/cap.webp";
+import startButtonImage from "../asset/home/start.webp";
+import againButtonImage from "../asset/home/again.webp";
+import backHomeButtonImage from "../asset/home/back.webp";
 
-import stickerR1 from "../asset/sticker/regular/R1.png";
-import stickerR2 from "../asset/sticker/regular/R2.png";
-import stickerR3 from "../asset/sticker/regular/R3.png";
-import stickerR4 from "../asset/sticker/regular/R4.png";
-import stickerR5 from "../asset/sticker/regular/R5.png";
-import stickerR6 from "../asset/sticker/regular/R6.png";
-import stickerR7 from "../asset/sticker/regular/R7.png";
-import stickerR8 from "../asset/sticker/regular/R8.png";
-import stickerR9 from "../asset/sticker/regular/R9.png";
-import stickerR10 from "../asset/sticker/regular/R10.png";
-import stickerR11 from "../asset/sticker/regular/R11.png";
-import stickerR12 from "../asset/sticker/regular/R12.png";
-import stickerR13 from "../asset/sticker/regular/R13.png";
-import stickerR14 from "../asset/sticker/regular/R14.png";
-import stickerR15 from "../asset/sticker/regular/R15.png";
-import stickerR16 from "../asset/sticker/regular/R16.png";
-import stickerR17 from "../asset/sticker/regular/R17.png";
-import stickerR18 from "../asset/sticker/regular/R18.png";
-import stickerR19 from "../asset/sticker/regular/R19.png";
-import stickerR20 from "../asset/sticker/regular/R20.png";
-import stickerR21 from "../asset/sticker/regular/R21.png";
-import stickerR22 from "../asset/sticker/regular/R22.png";
-import stickerR23 from "../asset/sticker/regular/R23.png";
+import stickerR1 from "../asset/sticker/regular/R1.webp";
+import stickerR2 from "../asset/sticker/regular/R2.webp";
+import stickerR3 from "../asset/sticker/regular/R3.webp";
+import stickerR4 from "../asset/sticker/regular/R4.webp";
+import stickerR5 from "../asset/sticker/regular/R5.webp";
+import stickerR6 from "../asset/sticker/regular/R6.webp";
+import stickerR7 from "../asset/sticker/regular/R7.webp";
+import stickerR8 from "../asset/sticker/regular/R8.webp";
+import stickerR9 from "../asset/sticker/regular/R9.webp";
+import stickerR10 from "../asset/sticker/regular/R10.webp";
+import stickerR11 from "../asset/sticker/regular/R11.webp";
+import stickerR12 from "../asset/sticker/regular/R12.webp";
+import stickerR13 from "../asset/sticker/regular/R13.webp";
+import stickerR14 from "../asset/sticker/regular/R14.webp";
+import stickerR15 from "../asset/sticker/regular/R15.webp";
+import stickerR16 from "../asset/sticker/regular/R16.webp";
+import stickerR17 from "../asset/sticker/regular/R17.webp";
+import stickerR18 from "../asset/sticker/regular/R18.webp";
+import stickerR19 from "../asset/sticker/regular/R19.webp";
+import stickerR20 from "../asset/sticker/regular/R20.webp";
+import stickerR21 from "../asset/sticker/regular/R21.webp";
+import stickerR22 from "../asset/sticker/regular/R22.webp";
+import stickerR23 from "../asset/sticker/regular/R23.webp";
 
 const MAX_ROUNDS = 5;
 const MAP_ROUTE = "/game-menu";
@@ -545,7 +545,7 @@ export default function HatStickerGamePage() {
                         />
                       )}
 
-                      <img
+                      <img width={500} height={500} loading="lazy"
                         className={`cap-image ${
                           shouldRevealSticker
                             ? "cap-image--raised"
@@ -581,7 +581,7 @@ export default function HatStickerGamePage() {
               onClick={beginRound}
               aria-label="開始遊戲"
             >
-              <img
+              <img width={1024} height={341}
                 src={startButtonImage}
                 alt="開始遊戲"
                 draggable="false"
@@ -593,7 +593,7 @@ export default function HatStickerGamePage() {
             <div className="result-panel">
               {isCorrect && currentSticker ? (
                 <div className="reward-card reward-card--won">
-                  <img
+                  <img loading="lazy"
                     src={currentSticker.image}
                     alt={currentSticker.name}
                     draggable="false"
@@ -619,7 +619,7 @@ export default function HatStickerGamePage() {
                     onClick={handleNextRound}
                     aria-label="再玩一次"
                   >
-                    <img
+                    <img width={1024} height={341} loading="lazy"
                       src={againButtonImage}
                       alt="再玩一次"
                       draggable="false"
@@ -633,7 +633,7 @@ export default function HatStickerGamePage() {
                   onClick={handleReturnToMap}
                   aria-label="回到森林"
                 >
-                  <img
+                  <img loading="lazy"
                     src={backHomeButtonImage}
                     alt="回到森林"
                     draggable="false"
