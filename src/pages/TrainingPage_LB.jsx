@@ -2130,8 +2130,9 @@ export default function TrainingPage_LB() {
                 ref={introVideoRef}
                 src={introVideo}
                 autoPlay
+                muted
                 playsInline
-                controls={false}
+                controls
                 onEnded={handleIntroVideoEnd}
                 className="lb-video"
               />
@@ -2159,8 +2160,9 @@ export default function TrainingPage_LB() {
                 ref={stepVideoRef}
                 src={stepVideo}
                 autoPlay
+                muted
                 playsInline
-                controls={false}
+                controls
                 onEnded={handleStepVideoEnd}
                 className="lb-video"
               />
@@ -2189,8 +2191,9 @@ export default function TrainingPage_LB() {
                 ref={endingVideoRef}
                 src={endingVideo}
                 autoPlay
+                muted
                 playsInline
-                controls={false}
+                controls
                 onEnded={handleEndingVideoEnd}
                 className="lb-video"
               />

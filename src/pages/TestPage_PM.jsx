@@ -1017,8 +1017,9 @@ export default function TestPage_PM() {
                   src={introVideo}
                   style={styles.video}
                   autoPlay
+                  muted
                   playsInline
-                  controls={false}
+                  controls
                   onEnded={handleIntroVideoEnd}
                 />
               </div>
@@ -1039,8 +1040,9 @@ export default function TestPage_PM() {
                   src={stepVideo}
                   style={styles.video}
                   autoPlay
+                  muted
                   playsInline
-                  controls={false}
+                  controls
                   onEnded={handleStepVideoEnd}
                 />
               </div>
@@ -1154,8 +1156,9 @@ export default function TestPage_PM() {
                   src={endingVideo}
                   style={styles.video}
                   autoPlay
+                  muted
                   playsInline
-                  controls={false}
+                  controls
                   onEnded={() => {
                     if (!videoTransitioningRef.current) {
                       videoTransitioningRef.current = true;

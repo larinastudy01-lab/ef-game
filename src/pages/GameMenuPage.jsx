@@ -2121,6 +2121,7 @@ function GameMenuPage() {
               className="completion-video"
               src={completionVideo}
               autoPlay
+              muted
               controls
               playsInline
               onEnded={closeCompletionVideo}
@@ -2160,6 +2161,7 @@ function GameMenuPage() {
               className="completion-video"
               src={completionVideo}
               autoPlay
+              muted
               controls
               playsInline
               onEnded={closeStoryVideo}

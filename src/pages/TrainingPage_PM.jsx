@@ -1307,8 +1307,9 @@ export default function TrainingPage_PM() {
                   src={introVideo}
                   style={styles.video}
                   autoPlay
+                  muted
                   playsInline
-                  controls={false}
+                  controls
                   onEnded={handleIntroVideoEnd}
                 />
               </div>
@@ -1329,8 +1330,9 @@ export default function TrainingPage_PM() {
                   src={stepVideo}
                   style={styles.video}
                   autoPlay
+                  muted
                   playsInline
-                  controls={false}
+                  controls
                   onEnded={handleStepVideoEnd}
                 />
               </div>
@@ -1453,8 +1455,9 @@ export default function TrainingPage_PM() {
                   src={endingVideo}
                   style={styles.video}
                   autoPlay
+                  muted
                   playsInline
-                  controls={false}
+                  controls
                   onEnded={handleEndingVideoEnd}
                 />
               </div>

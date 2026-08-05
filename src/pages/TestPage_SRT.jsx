@@ -949,8 +949,9 @@ const TestPage_SRT = () => {
                 ref={introVideoRef}
                 src={introVideo}
                 autoPlay
+                muted
                 playsInline
-                controls={false}
+                controls
                 onEnded={handleIntroEnd}
                 className="srt-video"
               />
@@ -980,8 +981,9 @@ const TestPage_SRT = () => {
                 ref={tutorialVideoRef}
                 src={tutorialVideo}
                 autoPlay
+                muted
                 playsInline
-                controls={false}
+                controls
                 onEnded={handleTutorialVideoEnd}
                 className="srt-video"
               />
@@ -1032,8 +1034,9 @@ const TestPage_SRT = () => {
                 ref={endingVideoRef}
                 src={endingVideo}
                 autoPlay
+                muted
                 playsInline
-                controls={false}
+                controls
                 onEnded={handleEndingVideoEnd}
                 className="srt-video"
               />

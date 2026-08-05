@@ -2261,8 +2261,9 @@ const TrainingPage_SRT = () => {
               <video
                 src={introVideo}
                 autoPlay
+                muted
                 playsInline
-                controls={false}
+                controls
                 onEnded={handleIntroEnd}
                 className="srt-video"
               />
@@ -2291,8 +2292,9 @@ const TrainingPage_SRT = () => {
               <video
                 src={tutorialVideo}
                 autoPlay
+                muted
                 playsInline
-                controls={false}
+                controls
                 onEnded={handleTutorialVideoEnd}
                 className="srt-video"
               />
@@ -2425,8 +2427,9 @@ const TrainingPage_SRT = () => {
               <video
                 src={endingVideo}
                 autoPlay
+                muted
                 playsInline
-                controls={false}
+                controls
                 onEnded={handleEndingVideoEnd}
                 className="srt-video"
               />

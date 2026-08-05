@@ -655,7 +655,7 @@ export default function TestPage_SSG() {
         <main className="ssg-center-shell">
           <section className="ssg-soft-panel ssg-video-panel game-start-card-artwork" aria-label={isIntro ? "前導動畫" : isTeaching ? "步驟教學影片" : "結束動畫"}>
             <div className="ssg-video-frame">
-              <video className="ssg-video" src={videoSrc} autoPlay playsInline controls={false} preload="auto" onEnded={onEnded}>
+              <video className="ssg-video" src={videoSrc} autoPlay muted playsInline controls preload="metadata" onEnded={onEnded}>
                 你的瀏覽器不支援影片播放。
               </video>
             </div>

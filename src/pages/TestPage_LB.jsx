@@ -792,7 +792,7 @@ function TestPageLB() {
         <main className="lb-center-shell">
           <section className="lb-soft-panel lb-video-panel game-start-card-artwork" aria-label="故事動畫">
             <div className="lb-video-frame">
-              <video ref={storyVideoRef} src={storyVideo} autoPlay playsInline controls={false} onEnded={handleStoryVideoEnd} className="lb-video" />
+              <video ref={storyVideoRef} src={storyVideo} autoPlay muted playsInline controls onEnded={handleStoryVideoEnd} className="lb-video" />
             </div>
             <div className="lb-guided-action lb-guided-skip">
               <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleStoryVideoEnd} aria-label="跳過故事動畫">
@@ -813,7 +813,7 @@ function TestPageLB() {
         <main className="lb-center-shell">
           <section className="lb-soft-panel lb-video-panel game-start-card-artwork" aria-label="前導教學影片">
             <div className="lb-video-frame">
-              <video ref={tutorialVideoRef} src={tutorialVideo} autoPlay playsInline controls={false} onEnded={handleTutorialVideoEnd} className="lb-video" />
+              <video ref={tutorialVideoRef} src={tutorialVideo} autoPlay muted playsInline controls onEnded={handleTutorialVideoEnd} className="lb-video" />
             </div>
             <div className="lb-guided-action lb-guided-skip">
               <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleTutorialVideoEnd} aria-label="跳過前導教學">
@@ -859,8 +859,9 @@ function TestPageLB() {
                 ref={endingVideoRef}
                 src={endingVideo}
                 autoPlay
+                muted
                 playsInline
-                controls={false}
+                controls
                 onEnded={handleEndingVideoEnd}
                 className="lb-video"
               />

@@ -819,7 +819,7 @@ export default function TrainingPage_SSG() {
         <main className="ssg-center-shell">
           <section className="ssg-soft-panel ssg-video-panel game-start-card-artwork" aria-label="遊戲影片">
             <div className="ssg-video-frame">
-              <video className="ssg-video" src={videoSrc} autoPlay muted playsInline controls={false} preload="auto" onEnded={onEnded}>你的瀏覽器不支援影片播放。</video>
+              <video className="ssg-video" src={videoSrc} autoPlay muted playsInline controls preload="metadata" onEnded={onEnded}>你的瀏覽器不支援影片播放。</video>
             </div>
             <div className="ssg-guided-action ssg-guided-next">
               <button type="button" className={`ssg-forest-button ssg-image-button ${actionButtonClass}`} onClick={onAction} aria-label={actionLabel}>

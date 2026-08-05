@@ -3137,8 +3137,9 @@ function VideoOnlyPage({ videoSrc, onDone }) {
         <video
           src={videoSrc}
           autoPlay
+          muted
           playsInline
-          controls={false}
+          controls
           className="cbt-video"
           onEnded={onDone}
         />

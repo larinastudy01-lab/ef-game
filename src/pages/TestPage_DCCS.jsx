@@ -1627,8 +1627,9 @@ function TestPage_DCCS() {
                 className="Dcss-guide-video"
                 src={src}
                 autoPlay
+                muted
                 playsInline
-                controls={false}
+                controls
                 onEnded={onDone}
                 onError={onDone}
               />
