@@ -1,9 +1,8 @@
 {
   "files": {
-    "main.css": "/ef-game/site/static/css/main.df29e2d1.css",
-    "main.js": "/ef-game/site/static/js/main.e72f70c8.js",
-    "static/js/2759.7a52f89a.chunk.js": "/ef-game/site/static/js/2759.7a52f89a.chunk.js",
-    "static/js/2115.e9e64997.chunk.js": "/ef-game/site/static/js/2115.e9e64997.chunk.js",
+    "main.css": "/ef-game/site/static/css/main.0207e8fb.css",
+    "main.js": "/ef-game/site/static/js/main.20018077.js",
+    "static/js/2115.647a1f85.chunk.js": "/ef-game/site/static/js/2115.647a1f85.chunk.js",
     "static/css/8249.e3790809.chunk.css": "/ef-game/site/static/css/8249.e3790809.chunk.css",
     "static/js/8249.506ea915.chunk.js": "/ef-game/site/static/js/8249.506ea915.chunk.js",
     "static/css/5761.0b512444.chunk.css": "/ef-game/site/static/css/5761.0b512444.chunk.css",
@@ -78,7 +77,6 @@
     "static/js/8703.d6a72812.chunk.js": "/ef-game/site/static/js/8703.d6a72812.chunk.js",
     "static/css/3590.c058d730.chunk.css": "/ef-game/site/static/css/3590.c058d730.chunk.css",
     "static/js/6407.fb586aa5.chunk.js": "/ef-game/site/static/js/6407.fb586aa5.chunk.js",
-    "static/media/Regular.ttf": "/ef-game/site/static/media/Regular.4b92b76adecd2af2171d.ttf",
     "static/media/DCCS_step.mp4": "/ef-game/site/static/media/DCCS_step.3136fadabdc22aafec10.mp4",
     "static/media/SSG_start.mp4": "/ef-game/site/static/media/SSG_start.2d6f1bd62df82d79f004.mp4",
     "static/media/CBT_start.mp4": "/ef-game/site/static/media/CBT_start.e8be0a1897ee8d69f026.mp4",
@@ -429,10 +427,9 @@
     "static/media/PM_09.webp": "/ef-game/site/static/media/PM_09.cfb4a34ab8d62f6c9bac.webp",
     "static/media/PM_05.webp": "/ef-game/site/static/media/PM_05.ba3f4bce0767b8745a4a.webp",
     "index.html": "/ef-game/site/index.html",
-    "main.df29e2d1.css.map": "/ef-game/site/static/css/main.df29e2d1.css.map",
-    "main.e72f70c8.js.map": "/ef-game/site/static/js/main.e72f70c8.js.map",
-    "2759.7a52f89a.chunk.js.map": "/ef-game/site/static/js/2759.7a52f89a.chunk.js.map",
-    "2115.e9e64997.chunk.js.map": "/ef-game/site/static/js/2115.e9e64997.chunk.js.map",
+    "main.0207e8fb.css.map": "/ef-game/site/static/css/main.0207e8fb.css.map",
+    "main.20018077.js.map": "/ef-game/site/static/js/main.20018077.js.map",
+    "2115.647a1f85.chunk.js.map": "/ef-game/site/static/js/2115.647a1f85.chunk.js.map",
     "8249.e3790809.chunk.css.map": "/ef-game/site/static/css/8249.e3790809.chunk.css.map",
     "8249.506ea915.chunk.js.map": "/ef-game/site/static/js/8249.506ea915.chunk.js.map",
     "5761.0b512444.chunk.css.map": "/ef-game/site/static/css/5761.0b512444.chunk.css.map",
@@ -509,7 +506,7 @@
     "6407.fb586aa5.chunk.js.map": "/ef-game/site/static/js/6407.fb586aa5.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.df29e2d1.css",
-    "static/js/main.e72f70c8.js"
+    "static/css/main.0207e8fb.css",
+    "static/js/main.20018077.js"
   ]
 }

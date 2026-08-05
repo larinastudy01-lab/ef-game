@@ -1,16 +1,8 @@
-@font-face {
-  font-family: "ProjectFont";
-  src: url("./asset/fonts/Regular.ttf") format("truetype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
 html,
 body,
 #root,
 #root * {
-  font-family: "ProjectFont", sans-serif !important;
+  font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif !important;
 }
 
 button,
@@ -18,7 +10,7 @@ input,
 textarea,
 select,
 option {
-  font-family: "ProjectFont", sans-serif !important;
+  font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif !important;
 }
 
 .route-loading {

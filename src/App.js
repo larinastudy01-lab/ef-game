@@ -10,8 +10,8 @@ import {
 import "./App.css";
 
 import BGM from "./asset/BGM.mp3";
+import HomePage from "./pages/HomePage";
 
-const HomePage = lazy(() => import("./pages/HomePage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const GameMenuPage = lazy(() => import("./pages/GameMenuPage"));
 const ChildSelectPage = lazy(() => import("./pages/ChildSelectPage"));

@@ -153,7 +153,15 @@ function HomePage() {
           onClick={goRegister}
           aria-label="註冊"
         >
-          <img width={1024} height={341} src={registerButton} alt="註冊" draggable="false" />
+          <img
+            width={1024}
+            height={341}
+            fetchPriority="high"
+            decoding="async"
+            src={registerButton}
+            alt="註冊"
+            draggable="false"
+          />
         </button>
 
         <button
@@ -162,7 +170,14 @@ function HomePage() {
           onClick={goGameLogin}
           aria-label="遊戲登入"
         >
-          <img width={1024} height={341} loading="lazy" src={loginButton} alt="遊戲登入" draggable="false" />
+          <img
+            width={1024}
+            height={341}
+            decoding="async"
+            src={loginButton}
+            alt="遊戲登入"
+            draggable="false"
+          />
         </button>
 
         <button
@@ -171,7 +186,14 @@ function HomePage() {
           onClick={goMedicalLogin}
           aria-label="醫療人員登入"
         >
-          <img width={1024} height={341} loading="lazy" src={medicalLoginButton} alt="醫療人員登入" draggable="false" />
+          <img
+            width={1024}
+            height={341}
+            decoding="async"
+            src={medicalLoginButton}
+            alt="醫療人員登入"
+            draggable="false"
+          />
         </button>
       </section>
     </main>
