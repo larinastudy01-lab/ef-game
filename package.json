@@ -26,6 +26,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "sync:pages": "node scripts/sync-pages-build.mjs",
     "check:assets": "node scripts/check-asset-imports.mjs",
     "check:deploy": "node scripts/check-deployment.mjs",
     "check": "npm run check:assets && npm test -- --watchAll=false && npm run build && npm run check:deploy",

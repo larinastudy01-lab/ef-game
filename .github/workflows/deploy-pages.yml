@@ -30,12 +30,13 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps --no-audit --no-fund
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
 
       - name: Build game
         env:
           PUBLIC_URL: /ef-game
           REACT_APP_GIT_COMMIT: ${{ github.sha }}
+          GENERATE_SOURCEMAP: "false"
           CI: "false"
         run: npm run build
 
