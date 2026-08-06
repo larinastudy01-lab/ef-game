@@ -2,7 +2,7 @@ html,
 body,
 #root,
 #root * {
-  font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif !important;
+  font-family: "ProjectFont", "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif !important;
 }
 
 button,
@@ -10,7 +10,7 @@ input,
 textarea,
 select,
 option {
-  font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif !important;
+  font-family: "ProjectFont", "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif !important;
 }
 
 .route-loading {
