@@ -10,6 +10,7 @@ import {
 import "./App.css";
 
 import BGM from "./asset/BGM.mp3";
+import SetIcon from "./asset/Set_icon.webp";
 import HomePage from "./pages/HomePage";
 
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
@@ -134,6 +135,7 @@ function AppContent() {
   const audioRef = useRef(null);
 
   const [isMuted, setIsMuted] = useState(false);
+  const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const [appSettings, setAppSettings] = useState(loadAppSettings);
@@ -142,6 +144,10 @@ function AppContent() {
   const isClinicianDashboard =
     location.pathname === "/clinician-dashboard";
   const isSettingsPage = location.pathname === "/settings";
+
+  useEffect(() => {
+    setIsSettingsMenuOpen(false);
+  }, [location.pathname]);
 
   // 判斷目前是否允許播放背景音樂
   const shouldPlayBGM =
@@ -217,7 +223,8 @@ function AppContent() {
     if (!audio) return;
 
     if (shouldPlayBGM) {
-      audio.play().catch((error) => {
+      const playPromise = audio.play();
+      playPromise?.catch((error) => {
         console.log("BGM play blocked:", error);
       });
     } else {
@@ -266,87 +273,47 @@ function AppContent() {
     >
       <audio ref={audioRef} src={BGM} loop preload="auto" />
 
-      {/* 醫療端頁面不顯示音樂控制按鈕 */}
-      {!isClinicianDashboard && (
-        <button
-          type="button"
-          aria-label={isMuted ? "開啟背景音樂" : "關閉背景音樂"}
-          aria-pressed={isMuted}
-          onClick={() => {
-            setHasUserInteracted(true);
-            setIsMuted((previousMutedState) => !previousMutedState);
-          }}
-          style={{
-            position: "fixed",
-            right: "24px",
-            bottom: "24px",
-            zIndex: 9999,
-            padding: "12px 18px",
-            borderRadius: "999px",
-            border: "none",
-            backgroundColor: isMuted ? "#9A8A78" : "#7A5A3A",
-            color: "white",
-            fontSize: "16px",
-            fontWeight: "700",
-            cursor: "pointer",
-            boxShadow: "0 6px 14px rgba(0, 0, 0, 0.22)",
-            transition:
-              "transform 0.15s ease, box-shadow 0.15s ease",
-          }}
-          onMouseDown={(event) => {
-            event.currentTarget.style.transform = "scale(0.96)";
-          }}
-          onMouseUp={(event) => {
-            event.currentTarget.style.transform = "scale(1)";
-          }}
-          onMouseLeave={(event) => {
-            event.currentTarget.style.transform = "scale(1)";
-          }}
-          onTouchEnd={(event) => {
-            event.currentTarget.style.transform = "scale(1)";
-          }}
-        >
-          {isMuted ? "音樂關閉" : "音樂開啟"}
-        </button>
-      )}
-
       {!isSettingsPage && (
-        <button
-          type="button"
-          aria-label="開啟設定"
-          onClick={() => navigate("/settings")}
-          style={{
-            position: "fixed",
-            right: "24px",
-            bottom: !isClinicianDashboard ? "86px" : "24px",
-            zIndex: 9999,
-            width: "52px",
-            height: "52px",
-            borderRadius: "50%",
-            border: "none",
-            backgroundColor: "#ffd56e",
-            color: "#6a3d08",
-            fontSize: "24px",
-            fontWeight: "900",
-            cursor: "pointer",
-            boxShadow: "0 6px 14px rgba(0, 0, 0, 0.22)",
-            transition: "transform 0.15s ease, box-shadow 0.15s ease",
-          }}
-          onMouseDown={(event) => {
-            event.currentTarget.style.transform = "scale(0.96)";
-          }}
-          onMouseUp={(event) => {
-            event.currentTarget.style.transform = "scale(1)";
-          }}
-          onMouseLeave={(event) => {
-            event.currentTarget.style.transform = "scale(1)";
-          }}
-          onTouchEnd={(event) => {
-            event.currentTarget.style.transform = "scale(1)";
-          }}
-        >
-          ⚙
-        </button>
+        <div className="app-settings-menu">
+          <button
+            type="button"
+            className="app-settings-trigger"
+            aria-label="開啟設定"
+            aria-expanded={isSettingsMenuOpen}
+            onClick={() => setIsSettingsMenuOpen((isOpen) => !isOpen)}
+          >
+            <img src={SetIcon} alt="" />
+          </button>
+
+          {isSettingsMenuOpen && (
+            <div className="app-settings-popover" role="dialog" aria-label="快速設定">
+              {!isClinicianDashboard && (
+                <button
+                  type="button"
+                  className="app-music-toggle"
+                  aria-label={isMuted ? "開啟背景音樂" : "關閉背景音樂"}
+                  aria-pressed={!isMuted}
+                  onClick={() => {
+                    setHasUserInteracted(true);
+                    setIsMuted((previousMutedState) => !previousMutedState);
+                  }}
+                >
+                  <span>背景音樂</span>
+                  <span className={`app-toggle-track ${isMuted ? "is-off" : "is-on"}`} aria-hidden="true">
+                    <span className="app-toggle-thumb" />
+                  </span>
+                </button>
+              )}
+              <button
+                type="button"
+                className="app-open-settings"
+                onClick={() => navigate("/settings")}
+              >
+                更多設定
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       <Suspense fallback={<RouteFallback />}>

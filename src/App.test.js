@@ -17,9 +17,13 @@ test("renders the home route", async () => {
   });
 
   expect(await screen.findByText("首頁")).toBeInTheDocument();
-  expect(
-    screen.getByRole("button", { name: /背景音樂/ })
-  ).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "開啟設定" })).toBeInTheDocument();
+
+  await act(async () => {
+    screen.getByRole("button", { name: "開啟設定" }).click();
+  });
+
+  expect(screen.getByRole("button", { name: "關閉背景音樂" })).toBeInTheDocument();
 
   act(() => root.unmount());
   container.remove();
