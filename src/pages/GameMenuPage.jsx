@@ -6,7 +6,7 @@ import useTemporaryTestUnlock from "../utils/useTemporaryTestUnlock";
 
 import gameMapBackground from "../asset/GameMap.webp";
 import mousePointer from "../asset/mouse.webp";
-import completionVideo from "../asset/mp4/start.mp4";
+import completionVideo from "../asset/optimized/mp4/start.mp4";
 
 import chickenAvatar from "../asset/avatar/chicken.webp";
 import starAsset from "../asset/home/icon/一星_no_bg.webp";

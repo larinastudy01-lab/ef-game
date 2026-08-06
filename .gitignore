@@ -33,5 +33,8 @@ artifacts/
 *.zip
 .env.rag
 
+# Local lossless backup of source media; optimized copies are tracked separately.
+original-assets/
+
 # local research corpus (import source; never part of the web deployment)
 knowledge_base/

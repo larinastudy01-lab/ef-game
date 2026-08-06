@@ -25,9 +25,9 @@ import rabbitAvatar from "../asset/avatar/rabbit.webp";
 
 import clickSfx from "../asset/Click.mp3";
 import bgImage from "../asset/PM/PM_background.webp";
-import introVideo from "../asset/mp4/PM_start.mp4";
-import stepVideo from "../asset/mp4/PM_step.mp4";
-import endingVideo from "../asset/mp4/PM_end.mp4";
+import introVideo from "../asset/optimized/mp4/PM_start.mp4";
+import stepVideo from "../asset/optimized/mp4/PM_step.mp4";
+import endingVideo from "../asset/optimized/mp4/PM_end.mp4";
 import mouseGuideImg from "../asset/mouse.webp";
 import homeResultBtn from "../asset/home/result.webp";
 import homeAgainBtn from "../asset/home/again.webp";

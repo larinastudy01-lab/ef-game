@@ -5,7 +5,7 @@ import stoneImg from "../asset/CBT/stone.webp";
 import stoneShinyImg from "../asset/CBT/stone_shiny.webp";
 import personImg from "../asset/CBT/CBT_person.webp";
 import bgImg from "../asset/CBT/CBT_background.webp";
-import introVideo from "../asset/mp4/CBT_start.mp4";
+import introVideo from "../asset/optimized/mp4/CBT_start.mp4";
 import clickSoundFile from "../asset/Click.mp3";
 import startAvatar from "../asset/avatar/deer.webp";
 import homeStartBtn from "../asset/home/start.webp";

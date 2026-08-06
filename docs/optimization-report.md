@@ -39,3 +39,14 @@
 2. **移除版本庫中的 `site`**：GitHub Actions 已能直接部署 `build`，理論上可不再提交約 180 MB 的 `site`。目前 `site` 仍是分支型 Pages 的備援，直接移除可能讓 Pages 設定切換時回到 README，因此需先確認只使用 GitHub Actions Pages。
 3. **未使用字型原始檔**：`src/asset/fonts/Regular.ttf` 約 21.44 MB，未進入正式 build。移除不會改善玩家下載，但能縮小本機素材；為避免它是設計原稿或未來動態用途，本輪保留。
 4. **Git 歷史重寫**：目前 `.git` 仍含舊影片、研究 PDF 與歷史建置。`git filter-repo` 可大幅縮小 clone，但會改寫 commit SHA 並要求所有協作者重新 clone，故不直接執行。
+
+## 輕度影片壓縮結果
+
+- 設定：H.264 High、CRF 24、medium preset、AAC 112 kbps、`yuv420p`、fast-start。
+- 解析度、幀率與時長全部保持不變。
+- 採用門檻：SSIM 至少 0.98，且單檔至少縮小 5%。
+- 18 部實際引用影片通過，SSIM 為 0.989856–0.994677，單檔縮小約 7.8–20.9%。
+- `DCCS_step.mp4` 僅縮小 2.8%，未達門檻，因此保留原版。
+- 未使用的 `end.mp4` 不加入 build；原檔與其他原始影片均保存在 Git 忽略的 `original-assets/mp4`。
+- 正式 `site`：179.97 MB → 156.50 MB，再減少約 23.47 MB（13.0%）。
+- 詳細逐檔比較見 `docs/video-quality-report-crf24.json`。

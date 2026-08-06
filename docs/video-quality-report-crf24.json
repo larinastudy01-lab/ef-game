@@ -1,0 +1,162 @@
+﻿[
+    {
+        "File":  "CBT_end.mp4",
+        "OriginalMB":  2.79,
+        "CandidateMB":  2.31,
+        "SavedPct":  17.2,
+        "SSIM":  0.99169,
+        "Accept":  true
+    },
+    {
+        "File":  "CBT_start.mp4",
+        "OriginalMB":  11.09,
+        "CandidateMB":  9.13,
+        "SavedPct":  17.7,
+        "SSIM":  0.990338,
+        "Accept":  true
+    },
+    {
+        "File":  "CBT_step.mp4",
+        "OriginalMB":  10.55,
+        "CandidateMB":  8.35,
+        "SavedPct":  20.9,
+        "SSIM":  0.990727,
+        "Accept":  true
+    },
+    {
+        "File":  "DCCS_end.mp4",
+        "OriginalMB":  6.72,
+        "CandidateMB":  5.57,
+        "SavedPct":  17.1,
+        "SSIM":  0.99049,
+        "Accept":  true
+    },
+    {
+        "File":  "DCCS_start.mp4",
+        "OriginalMB":  4.43,
+        "CandidateMB":  3.63,
+        "SavedPct":  18.1,
+        "SSIM":  0.991071,
+        "Accept":  true
+    },
+    {
+        "File":  "DCCS_step.mp4",
+        "OriginalMB":  20.78,
+        "CandidateMB":  20.19,
+        "SavedPct":  2.8,
+        "SSIM":  0.995317,
+        "Accept":  false
+    },
+    {
+        "File":  "end.mp4",
+        "OriginalMB":  10.54,
+        "CandidateMB":  8.72,
+        "SavedPct":  17.3,
+        "SSIM":  0.990538,
+        "Accept":  true
+    },
+    {
+        "File":  "LB_end.mp4",
+        "OriginalMB":  5.7,
+        "CandidateMB":  5.12,
+        "SavedPct":  10.3,
+        "SSIM":  0.991406,
+        "Accept":  true
+    },
+    {
+        "File":  "LB_start.mp4",
+        "OriginalMB":  7.75,
+        "CandidateMB":  6.38,
+        "SavedPct":  17.7,
+        "SSIM":  0.990206,
+        "Accept":  true
+    },
+    {
+        "File":  "LB_step.mp4",
+        "OriginalMB":  9.05,
+        "CandidateMB":  8.35,
+        "SavedPct":  7.8,
+        "SSIM":  0.994677,
+        "Accept":  true
+    },
+    {
+        "File":  "PM_end.mp4",
+        "OriginalMB":  9.8,
+        "CandidateMB":  8.14,
+        "SavedPct":  17,
+        "SSIM":  0.992232,
+        "Accept":  true
+    },
+    {
+        "File":  "PM_start.mp4",
+        "OriginalMB":  9.28,
+        "CandidateMB":  7.66,
+        "SavedPct":  17.5,
+        "SSIM":  0.992098,
+        "Accept":  true
+    },
+    {
+        "File":  "PM_step.mp4",
+        "OriginalMB":  7.96,
+        "CandidateMB":  6.74,
+        "SavedPct":  15.3,
+        "SSIM":  0.993385,
+        "Accept":  true
+    },
+    {
+        "File":  "SRT_end.mp4",
+        "OriginalMB":  1.21,
+        "CandidateMB":  1.01,
+        "SavedPct":  16.4,
+        "SSIM":  0.992288,
+        "Accept":  true
+    },
+    {
+        "File":  "SRT_start.mp4",
+        "OriginalMB":  5.97,
+        "CandidateMB":  4.96,
+        "SavedPct":  16.9,
+        "SSIM":  0.992474,
+        "Accept":  true
+    },
+    {
+        "File":  "SRT_step.mp4",
+        "OriginalMB":  10.16,
+        "CandidateMB":  8.39,
+        "SavedPct":  17.4,
+        "SSIM":  0.992974,
+        "Accept":  true
+    },
+    {
+        "File":  "SSG_end.mp4",
+        "OriginalMB":  10.5,
+        "CandidateMB":  8.79,
+        "SavedPct":  16.3,
+        "SSIM":  0.990319,
+        "Accept":  true
+    },
+    {
+        "File":  "SSG_start.mp4",
+        "OriginalMB":  11.55,
+        "CandidateMB":  9.46,
+        "SavedPct":  18.1,
+        "SSIM":  0.989856,
+        "Accept":  true
+    },
+    {
+        "File":  "SSG_step.mp4",
+        "OriginalMB":  10.08,
+        "CandidateMB":  8.16,
+        "SavedPct":  19,
+        "SSIM":  0.991787,
+        "Accept":  true
+    },
+    {
+        "File":  "start.mp4",
+        "OriginalMB":  6.17,
+        "CandidateMB":  5.03,
+        "SavedPct":  18.5,
+        "SSIM":  0.991149,
+        "Accept":  true
+    }
+]

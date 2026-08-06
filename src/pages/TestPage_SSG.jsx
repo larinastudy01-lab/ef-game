@@ -12,9 +12,9 @@ import { saveUnifiedResult } from "../utils/resultManager";
 import { calculateSsgScore } from "../utils/ssgScoring";
 
 import backgroundImg from "../asset/SSG/SSG_background.webp";
-import introVideo from "../asset/mp4/SSG_start.mp4";
-import stepVideo from "../asset/mp4/SSG_step.mp4";
-import endingVideo from "../asset/mp4/SSG_end.mp4";
+import introVideo from "../asset/optimized/mp4/SSG_start.mp4";
+import stepVideo from "../asset/optimized/mp4/SSG_step.mp4";
+import endingVideo from "../asset/optimized/mp4/SSG_end.mp4";
 import startAvatar from "../asset/avatar/fox.webp";
 import homeStartBtn from "../asset/home/start.webp";
 import homeNextBtn from "../asset/home/next.webp";

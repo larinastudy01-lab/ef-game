@@ -5,9 +5,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/GamePage_DCCS.css";
 
 import dccsBackgroundImg from "../asset/DCCS/DCCS_background.webp";
-import startVideo from "../asset/mp4/DCCS_start.mp4";
+import startVideo from "../asset/optimized/mp4/DCCS_start.mp4";
 import stepVideo from "../asset/mp4/DCCS_step.mp4";
-import endingVideo from "../asset/mp4/DCCS_end.mp4";
+import endingVideo from "../asset/optimized/mp4/DCCS_end.mp4";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
 import homeNextBtn from "../asset/home/next.webp";

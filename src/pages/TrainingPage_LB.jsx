@@ -10,9 +10,9 @@ import {
 import backgroundImg from "../asset/LB/LB_background.webp";
 import homeImg from "../asset/LB/grandma_sheep_house.webp";
 import blowingBubblesImg from "../asset/LB/blowing_bubbles.webp";
-import introVideo from "../asset/mp4/LB_start.mp4";
-import stepVideo from "../asset/mp4/LB_step.mp4";
-import endingVideo from "../asset/mp4/LB_end.mp4";
+import introVideo from "../asset/optimized/mp4/LB_start.mp4";
+import stepVideo from "../asset/optimized/mp4/LB_step.mp4";
+import endingVideo from "../asset/optimized/mp4/LB_end.mp4";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
 import homeBackBtn from "../asset/home/back.webp";

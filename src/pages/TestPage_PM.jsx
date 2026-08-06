@@ -26,9 +26,9 @@ import rabbitAvatar from "../asset/avatar/rabbit.webp";
 
 // ===== 背景 / 前導影片 / 結束影片 =====
 import bgImage from "../asset/PM/PM_background.webp";
-import introVideo from "../asset/mp4/PM_start.mp4";
-import stepVideo from "../asset/mp4/PM_step.mp4";
-import endingVideo from "../asset/mp4/PM_end.mp4";
+import introVideo from "../asset/optimized/mp4/PM_start.mp4";
+import stepVideo from "../asset/optimized/mp4/PM_step.mp4";
+import endingVideo from "../asset/optimized/mp4/PM_end.mp4";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
 import homeBackBtn from "../asset/home/back.webp";
