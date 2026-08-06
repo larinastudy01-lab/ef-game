@@ -32,7 +32,8 @@ export function calculateDescriptiveStatistics(rows = [], featureNames = DEFAULT
 export function calculateTaskStatistics(rows = [], featureNames = DEFAULT_PRIMARY_FEATURES) {
   const groups = rows.reduce((map, row) => {
     const task = row?.task_code || "UNKNOWN";
-    map.set(task, [...(map.get(task) || []), row]);
+    if (!map.has(task)) map.set(task, []);
+    map.get(task).push(row);
     return map;
   }, new Map());
   return [...groups.entries()].flatMap(([taskCode, taskRows]) =>

@@ -11,10 +11,16 @@ const CORRELATION_FEATURES = [
 ];
 
 export function analyzeBehavioralStatistics(taskRows = []) {
-  const taskCodes = [...new Set(taskRows.map((row) => row.task_code).filter(Boolean))].sort();
+  const rowsByTask = new Map();
+  taskRows.forEach((row) => {
+    if (!row.task_code) return;
+    if (!rowsByTask.has(row.task_code)) rowsByTask.set(row.task_code, []);
+    rowsByTask.get(row.task_code).push(row);
+  });
+  const taskCodes = [...rowsByTask.keys()].sort();
   const taskStatistics = taskCodes.flatMap((taskCode) => {
-    const rows = taskRows.filter((row) => row.task_code === taskCode);
-    return calculateDescriptiveStatistics(rows, discoverTaskFeatureNames(taskRows, taskCode))
+    const rows = rowsByTask.get(taskCode);
+    return calculateDescriptiveStatistics(rows, discoverTaskFeatureNames(rows, taskCode))
       .map((result) => ({ task_code: taskCode, ...result }));
   });
   const availableCorrelationFeatures = CORRELATION_FEATURES.filter((feature) =>

@@ -37,7 +37,8 @@ export function buildParticipantCrossTaskDataset(taskRows = [], featureVersion =
   const groups = taskRows.reduce((map, row) => {
     if (!row?.participant_id || !row?.session_id) return map;
     const key = `${row.participant_id}::${row.session_id}`;
-    map.set(key, [...(map.get(key) || []), row]);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(row);
     return map;
   }, new Map());
 
@@ -45,7 +46,7 @@ export function buildParticipantCrossTaskDataset(taskRows = [], featureVersion =
     const taskCodes = [...new Set(rows.map((row) => row.task_code))].sort();
     const scalarAccuracy = rows.map((row) => row.accuracy);
     const scalarRt = rows.map((row) => row.rt_mean);
-    const taskFeatures = rows.reduce((features, row) => ({ ...features, ...prefixTaskFeatures(row) }), {});
+    const taskFeatures = rows.reduce((features, row) => Object.assign(features, prefixTaskFeatures(row)), {});
     return {
       participant_id: rows[0].participant_id,
       session_id: rows[0].session_id,

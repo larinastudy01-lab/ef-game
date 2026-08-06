@@ -56,12 +56,17 @@ export function importanceStability(artifact, folds = 5) {
     const model = trainByModelName(artifact.model.name, training, artifact.targetType, artifact.seed + foldIndex, artifact.model.parameters);
     const items = model.weights ? linearGlobalImportance(model, preprocessor.feature_names)
       : permutationImportance(model, validation, preprocessor.feature_names, artifact.targetType, artifact.seed + foldIndex);
-    return { fold: foldIndex + 1, items, ranks: rankMap(items) };
+    return {
+      fold: foldIndex + 1,
+      items,
+      ranks: rankMap(items),
+      importanceByFeature: new Map(items.map((item) => [item.feature, item.importance])),
+    };
   });
   const features = artifact.preprocessor.feature_names;
   const summary = features.map((feature) => {
     const ranks = foldImportances.map((fold) => fold.ranks.get(feature) || features.length);
-    const importances = foldImportances.map((fold) => fold.items.find((item) => item.feature === feature)?.importance || 0);
+    const importances = foldImportances.map((fold) => fold.importanceByFeature.get(feature) || 0);
     const meanImportance = average(importances); const sd = Math.sqrt(average(importances.map((value) => (value - meanImportance) ** 2)));
     return { feature, mean_rank: average(ranks), rank_range: Math.max(...ranks) - Math.min(...ranks),
       importance_cv: meanImportance === 0 ? null : Math.abs(sd / meanImportance), stable: Math.max(...ranks) - Math.min(...ranks) <= 2 };
@@ -71,4 +76,3 @@ export function importanceStability(artifact, folds = 5) {
     top_feature_stability_rate: stableRate, stability_label: stableRate === null ? "not_available" : stableRate >= 0.7 ? "stable" : stableRate >= 0.4 ? "mixed" : "unstable",
     disclosure: stableRate !== null && stableRate < 0.7 ? "Feature importance differs across participant folds; interpret rankings cautiously." : "Top feature rankings are reasonably consistent across participant folds." };
 }
-
