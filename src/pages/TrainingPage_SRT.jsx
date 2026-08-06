@@ -2234,7 +2234,7 @@ const TrainingPage_SRT = () => {
 
       {phase === "start" && (
         <main className="srt-center-shell srt-start-shell">
-          <section className="srt-soft-panel srt-start-panel game-start-card-artwork" aria-label="訓練開始畫面">
+          <section className="srt-soft-panel srt-start-panel game-start-card-artwork srt-opening-card-artwork" aria-label="訓練開始畫面">
             <div className="srt-game-title">小松鼠的橡實練習</div>
             <div className="srt-start-content">
               <div className="srt-dialog-bubble srt-opening-bubble">
@@ -2256,7 +2256,7 @@ const TrainingPage_SRT = () => {
 
       {phase === "intro" && (
         <main className="srt-center-shell">
-          <section className="srt-soft-panel srt-video-panel game-start-card-artwork" aria-label="前導動畫">
+          <section className="srt-soft-panel srt-video-panel game-start-card-artwork srt-video-card-artwork" aria-label="前導動畫">
             <div className="srt-video-frame">
               <video
                 src={introVideo}
@@ -2287,7 +2287,7 @@ const TrainingPage_SRT = () => {
 
       {phase === "step" && (
         <main className="srt-center-shell">
-          <section className="srt-soft-panel srt-video-panel game-start-card-artwork" aria-label="步驟教學影片">
+          <section className="srt-soft-panel srt-video-panel game-start-card-artwork srt-video-card-artwork" aria-label="步驟教學影片">
             <div className="srt-video-frame">
               <video
                 src={tutorialVideo}
@@ -2422,7 +2422,7 @@ const TrainingPage_SRT = () => {
 
       {phase === "ending" && (
         <main className="srt-center-shell">
-          <section className="srt-soft-panel srt-video-panel game-start-card-artwork" aria-label="結束動畫">
+          <section className="srt-soft-panel srt-video-panel game-start-card-artwork srt-video-card-artwork" aria-label="結束動畫">
             <div className="srt-video-frame">
               <video
                 src={endingVideo}
@@ -2446,7 +2446,7 @@ const TrainingPage_SRT = () => {
 
       {phase === "result" && !showDetailedResult && (
         <main className="srt-center-shell srt-result-shell">
-          <section className="srt-soft-panel srt-result-panel game-result-card-artwork" aria-label="訓練結果">
+          <section className="srt-soft-panel srt-result-panel game-result-card-artwork srt-summary-card-artwork" aria-label="訓練結果">
             <div className="srt-cute-stars" aria-label={`${resultStars} 顆星`}>
               {[1, 2, 3].map((star) => (
                 <span key={star} className={`srt-cute-star ${star <= resultStars ? "is-on" : ""}`}>★</span>

@@ -63,6 +63,58 @@ code {
   display: none !important;
 }
 
+/* SRT uses the same card proportions and content layering as SSG. */
+.srt-opening-card-artwork,
+.pm-opening-card-artwork,
+.cbt-opening-card-artwork,
+.dccs-opening-card-artwork,
+.lb-opening-card-artwork {
+  width: min(72vw, 860px) !important;
+  min-height: 560px !important;
+  padding: 58px 70px 74px !important;
+}
+
+.game-start-card-artwork:is(
+  .srt-video-card-artwork,
+  .pm-video-card-artwork,
+  .cbt-video-card-artwork,
+  .dccs-video-card-artwork,
+  .lb-video-card-artwork
+) {
+  width: min(96vw, 1180px) !important;
+  min-height: min(92vh, 820px) !important;
+  padding: 48px 68px 38px !important;
+}
+
+.srt-opening-card-artwork > *,
+.srt-video-card-artwork > *,
+.srt-summary-card-artwork > *,
+.pm-opening-card-artwork > *,
+.pm-video-card-artwork > *,
+.pm-summary-card-artwork > *,
+.cbt-opening-card-artwork > *,
+.cbt-video-card-artwork > *,
+.cbt-summary-card-artwork > *,
+.dccs-opening-card-artwork > *,
+.dccs-video-card-artwork > *,
+.dccs-summary-card-artwork > *,
+.lb-opening-card-artwork > *,
+.lb-video-card-artwork > *,
+.lb-summary-card-artwork > * {
+  position: relative;
+  z-index: 1;
+}
+
+.srt-summary-card-artwork,
+.pm-summary-card-artwork,
+.cbt-summary-card-artwork,
+.dccs-summary-card-artwork,
+.lb-summary-card-artwork {
+  width: min(72vw, 860px) !important;
+  min-height: 560px !important;
+  padding: 92px 56px 60px !important;
+}
+
 .srt-cute-star,
 .ssg-cute-star,
 .lb-cute-star,
@@ -100,6 +152,38 @@ code {
   .game-result-card-artwork {
     width: 92vw !important;
     min-height: min(64vh, 560px) !important;
+  }
+
+  .srt-opening-card-artwork,
+  .pm-opening-card-artwork,
+  .cbt-opening-card-artwork,
+  .dccs-opening-card-artwork,
+  .lb-opening-card-artwork {
+    width: 92vw !important;
+    min-height: 540px !important;
+    padding: 44px 22px 40px !important;
+  }
+
+  .game-start-card-artwork:is(
+    .srt-video-card-artwork,
+    .pm-video-card-artwork,
+    .cbt-video-card-artwork,
+    .dccs-video-card-artwork,
+    .lb-video-card-artwork
+  ) {
+    width: 92vw !important;
+    min-height: 560px !important;
+    padding: 34px 26px 24px !important;
+  }
+
+  .srt-summary-card-artwork,
+  .pm-summary-card-artwork,
+  .cbt-summary-card-artwork,
+  .dccs-summary-card-artwork,
+  .lb-summary-card-artwork {
+    width: 92vw !important;
+    min-height: 590px !important;
+    padding: 84px 22px 40px !important;
   }
 
   .srt-cute-star,

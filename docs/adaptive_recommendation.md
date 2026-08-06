@@ -81,6 +81,12 @@ Core decision fields are immutable. An outcome may be appended once and cannot b
 
 New online integrations should call `recommendAndLog` rather than `makeRecommendation` directly so the decision is stored before it is presented. After training, `recordOutcomeAndUpdatePolicy` calculates the declared reward version, appends the outcome once and updates policy state. The existing task analyzers are deliberately not rewired in this phase.
 
+## Online training integration
+
+`GameMenuPage` now requests a persisted UCB1 recommendation for the selected child and allowed training tasks. The recommended task and bounded difficulty replace the first stage shown on the training map. An unfinished decision is reused during the browser session so page refreshes do not create duplicate decisions.
+
+All six training tasks already save through `saveUnifiedResult`. That shared path now converts the completed unified result into an outcome, appends the versioned reward to the active decision, and clears it only after persistence succeeds. Before each recommendation/update, UCB1 state is reconstructed from observed decision history, so learning survives reloads and devices. If Supabase or the recommendation migration is unavailable, the configured training plan remains usable and the menu displays a fallback notice.
+
 Migration: `supabase/migrations/20260730_phase6_recommendation_decisions.sql`. Rollback drops only the decision-log table and does not change existing training results or recommendation code.
 
 ## Offline simulation

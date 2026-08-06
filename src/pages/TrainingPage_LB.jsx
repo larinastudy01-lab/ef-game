@@ -2097,7 +2097,7 @@ export default function TrainingPage_LB() {
       <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
         <TrainingInlineStyle />
         <main className="lb-center-shell lb-start-shell">
-          <section className="lb-soft-panel lb-start-panel game-start-card-artwork" aria-label="LB 訓練開始">
+          <section className="lb-soft-panel lb-start-panel game-start-card-artwork lb-opening-card-artwork" aria-label="LB 訓練開始">
             <h1 className="lb-game-title">Linking Balloons</h1>
             <div className="lb-start-content">
               <div className="lb-dialog-bubble lb-opening-bubble">
@@ -2124,7 +2124,7 @@ export default function TrainingPage_LB() {
       <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
         <TrainingInlineStyle />
         <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-video-panel game-start-card-artwork" aria-label="開始動畫">
+          <section className="lb-soft-panel lb-video-panel game-start-card-artwork lb-video-card-artwork" aria-label="開始動畫">
             <div className="lb-video-frame">
               <video
                 ref={introVideoRef}
@@ -2154,7 +2154,7 @@ export default function TrainingPage_LB() {
       <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
         <TrainingInlineStyle />
         <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-video-panel game-start-card-artwork" aria-label="步驟說明動畫">
+          <section className="lb-soft-panel lb-video-panel game-start-card-artwork lb-video-card-artwork" aria-label="步驟說明動畫">
             <div className="lb-video-frame">
               <video
                 ref={stepVideoRef}
@@ -2185,7 +2185,7 @@ export default function TrainingPage_LB() {
       <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
         <TrainingInlineStyle />
         <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-video-panel game-start-card-artwork" aria-label="結束動畫">
+          <section className="lb-soft-panel lb-video-panel game-start-card-artwork lb-video-card-artwork" aria-label="結束動畫">
             <div className="lb-video-frame">
               <video
                 ref={endingVideoRef}
@@ -2217,7 +2217,7 @@ export default function TrainingPage_LB() {
       <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
         <TrainingInlineStyle />
         <main className="lb-center-shell lb-result-shell">
-          <section className="lb-soft-panel lb-result-panel game-result-card-artwork" aria-label="訓練結果">
+          <section className="lb-soft-panel lb-result-panel game-result-card-artwork lb-summary-card-artwork" aria-label="訓練結果">
             <div className="lb-cute-stars" aria-label={`${resultStars} 顆星`}>
               {[1, 2, 3].map((star) => (
                 <span key={star} className={`lb-cute-star ${star <= resultStars ? "is-on" : ""}`}>★</span>

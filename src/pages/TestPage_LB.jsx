@@ -765,7 +765,7 @@ function TestPageLB() {
       <div className="lb-simple-page lb-srt-skin">
         <LBResetStyle />
         <main className="lb-center-shell lb-start-shell">
-          <section className="lb-soft-panel lb-start-panel game-start-card-artwork" aria-label="LB 測驗開始">
+          <section className="lb-soft-panel lb-start-panel game-start-card-artwork lb-opening-card-artwork" aria-label="LB 測驗開始">
             <h1 className="lb-game-title">Linking Balloons</h1>
             <div className="lb-start-content">
               <div className="lb-dialog-bubble">幫綿羊奶奶照順序找到門牌，一起走回家。</div>
@@ -790,7 +790,7 @@ function TestPageLB() {
       <div className="lb-simple-page lb-srt-skin">
         <LBResetStyle />
         <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-video-panel game-start-card-artwork" aria-label="故事動畫">
+          <section className="lb-soft-panel lb-video-panel game-start-card-artwork lb-video-card-artwork" aria-label="故事動畫">
             <div className="lb-video-frame">
               <video ref={storyVideoRef} src={storyVideo} autoPlay muted playsInline controls onEnded={handleStoryVideoEnd} className="lb-video" />
             </div>
@@ -811,7 +811,7 @@ function TestPageLB() {
       <div className="lb-simple-page lb-srt-skin">
         <LBResetStyle />
         <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-video-panel game-start-card-artwork" aria-label="前導教學影片">
+          <section className="lb-soft-panel lb-video-panel game-start-card-artwork lb-video-card-artwork" aria-label="前導教學影片">
             <div className="lb-video-frame">
               <video ref={tutorialVideoRef} src={tutorialVideo} autoPlay muted playsInline controls onEnded={handleTutorialVideoEnd} className="lb-video" />
             </div>
@@ -853,7 +853,7 @@ function TestPageLB() {
       <div className="lb-simple-page lb-srt-skin">
         <LBResetStyle />
         <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-video-panel game-start-card-artwork" aria-label="結束動畫">
+          <section className="lb-soft-panel lb-video-panel game-start-card-artwork lb-video-card-artwork" aria-label="結束動畫">
             <div className="lb-video-frame">
               <video
                 ref={endingVideoRef}
@@ -883,7 +883,7 @@ function TestPageLB() {
       <div className="lb-simple-page lb-srt-skin">
         <LBResetStyle />
         <main className="lb-center-shell lb-result-shell">
-          <section className="lb-soft-panel lb-result-panel game-result-card-artwork" aria-label="測驗結果">
+          <section className="lb-soft-panel lb-result-panel game-result-card-artwork lb-summary-card-artwork" aria-label="測驗結果">
             <div className="lb-cute-stars" aria-label={`${resultStars} 顆星`}>
               {[1, 2, 3].map((star) => (
                 <span key={star} className={`lb-cute-star ${star <= resultStars ? "is-on" : ""}`}>★</span>

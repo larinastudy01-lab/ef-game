@@ -2062,7 +2062,7 @@ function TrainingPage_DCCS() {
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
         <main className="Dcss-center-shell Dcss-start-shell">
-          <section className="Dcss-soft-panel Dcss-start-panel game-start-card-artwork" aria-label="開始練習">
+          <section className="Dcss-soft-panel Dcss-start-panel game-start-card-artwork dccs-opening-card-artwork" aria-label="開始練習">
             <div className="Dcss-game-title">孔雀衣櫃分類練習</div>
 
             <div className="Dcss-start-content">
@@ -2096,7 +2096,7 @@ function TrainingPage_DCCS() {
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
         <main className="Dcss-center-shell Dcss-video-shell">
-          <section className="Dcss-soft-panel Dcss-video-card game-start-card-artwork" aria-label={title}>
+          <section className="Dcss-soft-panel Dcss-video-card game-start-card-artwork dccs-video-card-artwork" aria-label={title}>
             <div className="Dcss-video-frame">
               <video
                 className="Dcss-guide-video"
@@ -2279,7 +2279,7 @@ function TrainingPage_DCCS() {
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
         <main className="Dcss-center-shell Dcss-result-shell">
-          <section className="Dcss-soft-panel Dcss-result-panel game-result-card-artwork" aria-label="練習結果">
+          <section className="Dcss-soft-panel Dcss-result-panel game-result-card-artwork dccs-summary-card-artwork" aria-label="練習結果">
             <div className="Dcss-cute-stars" aria-label={`${resultStars} 顆星`}>
               {[1, 2, 3].map((star) => (
                 <span key={star} className={`Dcss-cute-star ${star <= resultStars ? "is-on" : ""}`}>★</span>

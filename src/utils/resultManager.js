@@ -1,6 +1,7 @@
 import { saveGameResultToCloud } from "../lib/database";
 import { createBehavioralId } from "../analytics/trials/buildBehavioralHierarchy";
 import { awardTrainingCoins } from "./economyManager";
+import { completeActiveRecommendation } from "../analytics/recommendation/onlineRecommendation";
 
 /**
  * src/utils/resultManager.js
@@ -484,6 +485,11 @@ export const saveUnifiedResult = ({
     saveGameResultToCloud(normalized).catch((cloudError) => {
       console.warn("Supabase 結果同步失敗，已保留本機紀錄：", cloudError);
     });
+    if (normalized?.session?.mode === "training") {
+      completeActiveRecommendation(normalized).catch((recommendationError) => {
+        console.warn("Adaptive recommendation outcome sync failed:", recommendationError);
+      });
+    }
   } catch (error) {
     console.warn("統一結果資料儲存失敗：", error);
   }

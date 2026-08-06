@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import "../styles/GameMenuPage.css";
 import useTemporaryTestUnlock from "../utils/useTemporaryTestUnlock";
+import { getResultsByChild } from "../utils/resultManager";
+import { createOnlineRecommendation } from "../analytics/recommendation/onlineRecommendation";
 
 import gameMapBackground from "../asset/GameMap.webp";
 import mousePointer from "../asset/mouse.webp";
@@ -558,6 +560,8 @@ function GameMenuPage() {
     earnedStarsToday: 0,
     completedCountToday: 0,
   }));
+  const [adaptiveRecommendation, setAdaptiveRecommendation] = useState(null);
+  const [adaptiveRecommendationNotice, setAdaptiveRecommendationNotice] = useState("");
 
   useEffect(() => {
     setShowStoryVideo(true);
@@ -676,11 +680,30 @@ function GameMenuPage() {
     () => getRecommendedTrainingPlan(trainingSettings, trainingGames),
     [trainingGames, trainingSettings]
   );
+
+  useEffect(() => {
+    let active = true;
+    const patientId = selectedChild?.childId || selectedChild?.id || null;
+    const allowedTasks = selectedTrainingGames.map((game) => game.shortName);
+    if (!patientId || allowedTasks.length === 0) return undefined;
+    createOnlineRecommendation({
+      patientId,
+      allowedTasks,
+      currentDifficulty: recommendedTrainingPlan[0]?.level || 1,
+      results: getResultsByChild(patientId),
+    }).then((decision) => {
+      if (active) { setAdaptiveRecommendation(decision); setAdaptiveRecommendationNotice(""); }
+    }).catch((error) => {
+      console.warn("Online recommendation unavailable; using the configured training plan:", error);
+      if (active) setAdaptiveRecommendationNotice("推薦服務暫時無法連線，已使用原訓練計畫。");
+    });
+    return () => { active = false; };
+  }, [recommendedTrainingPlan, selectedChild, selectedTrainingGames]);
   const selectedTrainingLabel = useMemo(() => {
     return selectedTrainingGames.map((game) => game.shortName).join("、") || "自動安排";
   }, [selectedTrainingGames]);
 
-  const dailyTrainingStages = useMemo(() => {
+  const baseDailyTrainingStages = useMemo(() => {
     if (recommendedTrainingPlan.length > 0) {
       const plannedPoints = pickRoutePoints(recommendedTrainingPlan.length);
 
@@ -740,6 +763,19 @@ function GameMenuPage() {
 
     return stages;
   }, [recommendedTrainingPlan, selectedTrainingGames, todayKey, trainingGames, trainingMenuSessionId, trainingMinutes]);
+
+  const dailyTrainingStages = useMemo(() => {
+    const selected = adaptiveRecommendation?.selected_action;
+    if (!selected || baseDailyTrainingStages.length === 0) return baseDailyTrainingStages;
+    const game = trainingGames.find((item) => item.shortName === selected.task_code);
+    if (!game) return baseDailyTrainingStages;
+    const first = baseDailyTrainingStages[0];
+    return [{ ...first, ...game, gameId: game.id, level: selected.difficulty_level,
+      stageId: `${todayKey}-${trainingMenuSessionId}-1-${game.id}-L${selected.difficulty_level}`,
+      difficultyLabel: LEVEL_COPY[selected.difficulty_level], source: "adaptive-ucb-v1",
+      recommendationId: adaptiveRecommendation.recommendation_id,
+      recommendationScore: adaptiveRecommendation.predicted_reward }, ...baseDailyTrainingStages.slice(1)];
+  }, [adaptiveRecommendation, baseDailyTrainingStages, todayKey, trainingGames, trainingMenuSessionId]);
 
   useEffect(() => {
     const refreshLocalStorageBackedState = () => {
@@ -1969,6 +2005,12 @@ function GameMenuPage() {
         }
 
       `}</style>
+      {adaptiveRecommendationNotice && (
+        <div role="status" style={{ position: "fixed", zIndex: 30, top: 12, left: "50%", transform: "translateX(-50%)",
+          padding: "8px 14px", borderRadius: 12, background: "rgba(255,255,255,.94)", color: "#70451f" }}>
+          {adaptiveRecommendationNotice}
+        </div>
+      )}
 
       <section
         className="training-stage-bg"

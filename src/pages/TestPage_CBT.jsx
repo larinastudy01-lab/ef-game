@@ -2009,7 +2009,7 @@ export default function TestPage_CBT() {
       <style>{cbtSrtLikeCss}</style>
 
       {phase === "story" && (
-        <main className="cbt-start-shell game-start-card-artwork" aria-label="石頭路線記憶測驗開始畫面">
+        <main className="cbt-start-shell game-start-card-artwork cbt-opening-card-artwork" aria-label="石頭路線記憶測驗開始畫面">
           <h1 className="cbt-start-title">石頭路線記憶</h1>
 
           <div className="cbt-start-content">
@@ -2163,7 +2163,7 @@ export default function TestPage_CBT() {
       )}
 
       {phase === "result" && (
-        <main className="cbt-result-shell game-result-card-artwork" aria-label="測驗結果">
+        <main className="cbt-result-shell game-result-card-artwork cbt-summary-card-artwork" aria-label="測驗結果">
           <div className="cbt-cute-stars" aria-label={`${finalResult?.stars || 1} 顆星`}>
             {[1, 2, 3].map((star) => {
               const isOn = star <= (finalResult?.stars || 1);
@@ -2226,7 +2226,7 @@ export default function TestPage_CBT() {
 
 function VideoOnlyPage({ videoSrc, onDone }) {
   return (
-    <main className="cbt-video-only-card game-start-card-artwork" aria-label="影片">
+    <main className="cbt-video-only-card game-start-card-artwork cbt-video-card-artwork" aria-label="影片">
       <div className="cbt-video-wrapper">
         <video
           src={videoSrc}

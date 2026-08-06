@@ -2919,7 +2919,7 @@ export default function TrainingPage_CBT() {
       <style>{cbtTrainingTouchCss}</style>
 
       {phase === "ready" && (
-        <main className="cbt-start-shell game-start-card-artwork" aria-label="石頭練習開始畫面">
+        <main className="cbt-start-shell game-start-card-artwork cbt-opening-card-artwork" aria-label="石頭練習開始畫面">
           <h1 className="cbt-start-title">石頭練習</h1>
 
           <div className="cbt-start-content">
@@ -3079,7 +3079,7 @@ export default function TrainingPage_CBT() {
       )}
 
       {phase === "result" && (
-        <main className="cbt-result-shell game-result-card-artwork" aria-label="訓練結果">
+        <main className="cbt-result-shell game-result-card-artwork cbt-summary-card-artwork" aria-label="訓練結果">
           <div className="cbt-result-stars" aria-label={`${finalSummary?.stars || 1} 顆星`}>
             {[1, 2, 3].map((star) => (
               <span
@@ -3132,7 +3132,7 @@ export default function TrainingPage_CBT() {
 
 function VideoOnlyPage({ videoSrc, onDone }) {
   return (
-    <main className="cbt-video-only-card game-start-card-artwork" aria-label="影片">
+    <main className="cbt-video-only-card game-start-card-artwork cbt-video-card-artwork" aria-label="影片">
       <div className="cbt-video-wrapper">
         <video
           src={videoSrc}

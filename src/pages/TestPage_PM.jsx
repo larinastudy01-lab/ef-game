@@ -988,7 +988,7 @@ export default function TestPage_PM() {
       <div style={styles.overlay}>
         <div style={styles.container}>
           {phase === "rules" && (
-            <div className="game-start-card-artwork" style={styles.startPanel}>
+            <div className="game-start-card-artwork pm-opening-card-artwork" style={styles.startPanel}>
               <div style={styles.gameTitle}>圖片記憶任務</div>
 
               <div style={styles.startContent}>
@@ -1011,7 +1011,7 @@ export default function TestPage_PM() {
 
 
           {phase === "introVideo" && (
-            <div className="game-start-card-artwork" style={styles.videoPanel}>
+            <div className="game-start-card-artwork pm-video-card-artwork" style={styles.videoPanel}>
               <div style={styles.videoFrame}>
                 <video
                   src={introVideo}
@@ -1034,7 +1034,7 @@ export default function TestPage_PM() {
           )}
 
           {phase === "stepVideo" && (
-            <div className="game-start-card-artwork" style={styles.videoPanel}>
+            <div className="game-start-card-artwork pm-video-card-artwork" style={styles.videoPanel}>
               <div style={styles.videoFrame}>
                 <video
                   src={stepVideo}
@@ -1150,7 +1150,7 @@ export default function TestPage_PM() {
           )}
 
           {phase === "endingVideo" && (
-            <div className="game-start-card-artwork" style={styles.videoPanel}>
+            <div className="game-start-card-artwork pm-video-card-artwork" style={styles.videoPanel}>
               <div style={styles.videoFrame}>
                 <video
                   src={endingVideo}
@@ -1182,7 +1182,7 @@ export default function TestPage_PM() {
           )}
 
           {phase === "result" && (
-            <div className="game-result-card-artwork" style={styles.resultPanel}>
+            <div className="game-result-card-artwork pm-summary-card-artwork" style={styles.resultPanel}>
               <div style={styles.starRow} aria-label={`${resultStars} 顆星`}>
                 {[1, 2, 3].map((star, index) => {
                   const curveStyles = [styles.starLeft, styles.starCenter, styles.starRight];
