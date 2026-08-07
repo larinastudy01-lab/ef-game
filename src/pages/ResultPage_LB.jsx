@@ -9,20 +9,6 @@ import backgroundImg from "../asset/LB/LB_background.webp";
 import sheepImg from "../asset/LB/walk/blowing_bubbles.webp";
 import homeBackBtn from "../asset/home/back.webp";
 
-/*
-  =========================================================
-  ResultPage_LB.jsx
-  Linking Balloons｜氣球小路結果頁
-
-  呈現：
-  - 家長端：能力雷達圖、能力條、練習建議
-
-  支援：
-  - navigate("/result-lb", { state: resultPayload })
-  - sessionStorage.setItem("LB_RESULT", JSON.stringify(resultPayload))
-  =========================================================
-*/
-
 const MENU_ROUTE = "/game-menu";
 const TEST_MAP_ROUTE = "/test-map";
 const SESSION_KEY = "LB_RESULT";

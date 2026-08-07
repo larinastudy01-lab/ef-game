@@ -2,23 +2,6 @@ import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/TrainingMapPage.css";
 
-/**
- * TrainingMapPage.jsx
- *
- * 功能：
- * 1. 家長選擇能力森林：工作記憶 / 抑制控制 / 認知彈性
- * 2. 顯示該能力下的訓練關卡
- * 3. 根據 localStorage 中的訓練結果給 AI 推薦
- * 4. 點擊關卡 icon 後可選擇簡單 / 普通 / 困難
- * 5. 解鎖條件：
- *    - 簡單 3 星
- *    - 普通 2 星
- *    - 困難 1 星
- *
- * 建議路由：
- * <Route path="/training-map" element={<TrainingMapPage />} />
- */
-
 const ABILITY_AREAS = {
   memory: {
     title: "記憶森林",

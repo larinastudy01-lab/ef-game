@@ -2231,7 +2231,7 @@ export default function TestPage_CBT() {
       )}
 
       {phase === "finish" && (
-        <div className="cbt-card cbt-card--small">
+        <div className="cbt-card cbt-card--small game-start-card-artwork cbt-feedback-card-artwork">
           <h1 className="cbt-title">完成了</h1>
           <div className="cbt-result-message">整理結果...</div>
         </div>

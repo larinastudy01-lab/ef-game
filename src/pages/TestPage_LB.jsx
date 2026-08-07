@@ -19,15 +19,6 @@ import homeResultBtn from "../asset/home/result.webp";
 import homeSendBtn from "../asset/home/send.webp";
 import mouseGuideImg from "../asset/mouse.webp";
 
-/*
-  TestPage_LB.jsx
-
-  使用全部指定門牌圖檔：green_01～green_10、red_01～red_06、blue_01～blue_07。
-  流程：開始卡片 → LB_start.mp4 → LB_step.mp4 → 兩關測驗 → LB_end.mp4 → 結果。
-  第二關共顯示 20 個門牌：10 個正確目標與 10 個相反顏色的干擾項。
-  已移除反向數字關卡，並保留原本卡片與美術樣式。
-*/
-
 const RESULT_ROUTE = "/result-lb";
 const SESSION_KEY = "LB_RESULT";
 const LOCAL_KEY = "lbTestResult";

@@ -30,36 +30,15 @@ import { analyzePerformance } from "../ai/performanceAnalyzer";
 import { analyzeErrors } from "../ai/errorAnalyzer";
 import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
+import { clampNumber, getTodayKey, safeParse } from "../utils/trainingDataUtils";
 
 const GAME_ID = "srt";
 const COMPLETED_LEVELS_STORAGE_KEY = "ef_game_completed_training_levels";
-
-const safeParse = (value, fallback = null) => {
-  try {
-    return value ? JSON.parse(value) : fallback;
-  } catch {
-    return fallback;
-  }
-};
-
-const clampNumber = (value, min, max) => {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return min;
-  return Math.min(max, Math.max(min, number));
-};
 
 const clampStars = (value) => {
   const number = Number(value);
   if (!Number.isFinite(number)) return 1;
   return Math.min(3, Math.max(1, Math.round(number)));
-};
-
-const getTodayKey = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const date = String(today.getDate()).padStart(2, "0");
-  return `${year}-${month}-${date}`;
 };
 
 const getNestedValue = (source, keys) => {

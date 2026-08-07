@@ -1,5 +1,3 @@
-// src/pages/TrainingPage_DCCS.jsx
-
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/GamePage_DCCS.css";
@@ -22,6 +20,18 @@ import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { saveUnifiedResult } from "../utils/resultManager";
 import { calculateDccsScore } from "../utils/dccsScoring";
 import { analyzeDccsTraining } from "../ai/dccsTrainingAnalyzer";
+import { clampNumber, getTodayKey, safeParse } from "../utils/trainingDataUtils";
+import { averageFiniteRounded } from "../utils/numericUtils";
+import DccsShadowCloth from "../components/DccsShadowCloth";
+import {
+  arrangeDccsTargets as arrangeTargets,
+  getDccsBagImageSource as getBagImageSource,
+  getDccsImageSource as getImageSource,
+  getDccsTargetSide as getTargetSideForKey,
+  isDccsBagRecord as isBagRecord,
+  normalizeDccsToken as normalizeToken,
+  pickDiverseDccsCards as pickDiverseCards,
+} from "../utils/dccsCardUtils";
 
 import peacockImg from "../asset/DCCS/dccs_peacock.webp";
 import basketTopImg from "../asset/DCCS/box_left.webp";
@@ -52,14 +62,6 @@ const COMPLETED_LEVELS_STORAGE_KEY = "ef_game_completed_training_levels";
 const TRAINING_STAGE_STARS_KEY = "ef_game_training_stage_stars";
 const TRAINING_RESULTS_KEY = "ef_game_training_results";
 
-const safeParse = (value, fallback = null) => {
-  try {
-    return value ? JSON.parse(value) : fallback;
-  } catch {
-    return fallback;
-  }
-};
-
 const getStoredCurrentChild = () => {
   if (typeof window === "undefined") return null;
 
@@ -83,24 +85,10 @@ const getStoredCurrentChild = () => {
   };
 };
 
-const clampNumber = (value, min, max) => {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return min;
-  return Math.min(max, Math.max(min, number));
-};
-
 const clampStarCount = (value) => {
   const stars = Number(value);
   if (!Number.isFinite(stars)) return 1;
   return Math.min(3, Math.max(1, Math.round(stars)));
-};
-
-const getTodayKey = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const date = String(today.getDate()).padStart(2, "0");
-  return `${year}-${month}-${date}`;
 };
 
 const getRouteTrainingContext = (location) => {
@@ -379,16 +367,6 @@ const typeLabels = {
   ...(clothingTypeLabels || {}),
 };
 
-function normalizeToken(value = "") {
-  return String(value)
-    .trim()
-    .toLowerCase()
-    .replace(/\\/g, "/")
-    .replace(/\.(png|jpe?g|webp|svg)$/i, "")
-    .replace(/\s+/g, "_")
-    .replace(/-+/g, "_");
-}
-
 function normalizeColor(value = "") {
   const token = normalizeToken(value);
   const aliases = {
@@ -467,51 +445,6 @@ function normalizeType(value = "") {
 
   const matched = Object.keys(aliases).find((key) => token.includes(key));
   return matched ? aliases[matched] : token;
-}
-
-function getImageSource(raw = {}) {
-  return (
-    raw.normalImg ||
-    raw.normalImage ||
-    raw.img ||
-    raw.image ||
-    raw.src ||
-    raw.url ||
-    raw.asset ||
-    null
-  );
-}
-
-function getBagImageSource(raw = {}) {
-  return (
-    raw.bagImg ||
-    raw.bagImage ||
-    raw.packagedImg ||
-    raw.packagedImage ||
-    raw.bag ||
-    null
-  );
-}
-
-function isBagRecord(raw = {}) {
-  if (raw.isBagged === true || raw.bagged === true || raw.variant === "bag") {
-    return true;
-  }
-
-  const sourceText = [
-    raw.id,
-    raw.key,
-    raw.name,
-    raw.filename,
-    raw.path,
-    raw.src,
-    raw.url,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  return /(^|[\\/_-])bag([\\/_-]|$)|packaged|plastic/.test(sourceText);
 }
 
 function inferColor(raw = {}) {
@@ -666,73 +599,10 @@ function makeTarget(card, matchBy) {
   };
 }
 
-function arrangeTargets(correctTarget, wrongTarget, correctOnTop) {
-  return correctOnTop
-    ? { topTarget: correctTarget, bottomTarget: wrongTarget }
-    : { topTarget: wrongTarget, bottomTarget: correctTarget };
-}
-
-function getTargetSideForKey(targets, field, key) {
-  if (!key) return null;
-  if (targets.topTarget?.[field] === key) return "top";
-  if (targets.bottomTarget?.[field] === key) return "bottom";
-  return null;
-}
-
-function pickDiverseCards(cards, count) {
-  const selected = [];
-  const usedIds = new Set();
-  const usedPairs = new Set();
-
-  for (const card of cards) {
-    const pair = `${card.color}:${card.type}`;
-    if (!usedIds.has(card.id) && !usedPairs.has(pair)) {
-      selected.push(card);
-      usedIds.add(card.id);
-      usedPairs.add(pair);
-    }
-    if (selected.length >= count) return selected;
-  }
-
-  for (const card of cards) {
-    if (!usedIds.has(card.id)) {
-      selected.push(card);
-      usedIds.add(card.id);
-    }
-    if (selected.length >= count) break;
-  }
-
-  return selected;
-}
-
 function repeatCardsToCount(cards, count) {
   if (!Array.isArray(cards) || cards.length === 0 || count <= 0) return [];
   const ordered = pickDiverseCards(cards, cards.length);
   return Array.from({ length: count }, (_, index) => ordered[index % ordered.length]);
-}
-
-function ShadowCloth({ src, label }) {
-  return (
-    <img
-      src={src}
-      alt={label}
-      className="Dcss-shadow-cloth"
-      aria-label={label}
-      width="330"
-      height="330"
-      loading="lazy"
-    />
-  );
-}
-
-function average(numbers = []) {
-  const valid = numbers.filter(
-    (n) => typeof n === "number" && Number.isFinite(n)
-  );
-
-  if (valid.length === 0) return 0;
-
-  return Math.round(valid.reduce((sum, n) => sum + n, 0) / valid.length);
 }
 
 function getDccsErrorTypes(logs = []) {
@@ -764,8 +634,8 @@ function getFatigueInput(logs = []) {
   const secondHalf = logs.slice(midpoint);
 
   return {
-    firstHalfRT: average(firstHalf.map((log) => log.reactionTime)),
-    secondHalfRT: average(secondHalf.map((log) => log.reactionTime)),
+    firstHalfRT: averageFiniteRounded(firstHalf.map((log) => log.reactionTime)),
+    secondHalfRT: averageFiniteRounded(secondHalf.map((log) => log.reactionTime)),
     missIncrease: 0,
   };
 }
@@ -791,7 +661,7 @@ function buildDccsTrainingResult({ logs, levelId, currentLevel }) {
   const bagColorCorrectCount = bagColorLogs.filter((log) => log.isCorrect).length;
   const bagColorAccuracy =
     bagColorLogs.length > 0 ? bagColorCorrectCount / bagColorLogs.length : 0;
-  const bagColorAvgReactionTime = average(
+  const bagColorAvgReactionTime = averageFiniteRounded(
     bagColorLogs.map((log) => log.reactionTime)
   );
   const secondSwitchPerseverativeErrors = bagColorLogs.filter(
@@ -800,13 +670,13 @@ function buildDccsTrainingResult({ logs, levelId, currentLevel }) {
   const dualRuleCorrectCount = dualRuleLogs.filter((log) => log.isCorrect).length;
   const dualRuleAccuracy =
     dualRuleLogs.length > 0 ? dualRuleCorrectCount / dualRuleLogs.length : 0;
-  const dualRuleAvgReactionTime = average(
+  const dualRuleAvgReactionTime = averageFiniteRounded(
     dualRuleLogs.map((log) => log.reactionTime)
   );
   const dualRulePerseverativeErrors = dualRuleLogs.filter(
     (log) => log.isPerseverativeError || log.isOldRuleInterference
   ).length;
-  const standardColorAvgReactionTime = average(
+  const standardColorAvgReactionTime = averageFiniteRounded(
     standardColorLogs.map((log) => log.reactionTime)
   );
   const secondSwitchCost =
@@ -2155,7 +2025,7 @@ function TrainingPage_DCCS() {
                 <img src={blueShirtImg} alt="藍色上衣" width="326" height="324" loading="lazy" />
                 <span className="Dcss-big-arrow">→</span>
                 <div className="Dcss-demo-target Dcss-demo-target-type">
-                  <ShadowCloth src={redShirtImg} label="上衣剪影" />
+                  <DccsShadowCloth src={redShirtImg} label="上衣剪影" />
                   <img src={basketTopImg} alt="上衣分類箱" width="319" height="131" loading="lazy" />
                 </div>
               </div>
@@ -2164,7 +2034,7 @@ function TrainingPage_DCCS() {
                 <img src={redHatImg} alt="紅色帽子" width="244" height="202" loading="lazy" />
                 <span className="Dcss-big-arrow">→</span>
                 <div className="Dcss-demo-target Dcss-demo-target-type">
-                  <ShadowCloth src={blueHatImg} label="帽子剪影" />
+                  <DccsShadowCloth src={blueHatImg} label="帽子剪影" />
                   <img src={basketBottomImg} alt="帽子分類箱" width="319" height="131" loading="lazy" />
                 </div>
               </div>
@@ -2226,7 +2096,7 @@ function TrainingPage_DCCS() {
                     />
                     <span className="Dcss-big-arrow">→</span>
                     <div className="Dcss-demo-target Dcss-demo-target-type">
-                      <ShadowCloth
+                      <DccsShadowCloth
                         src={correctTarget?.image}
                         label={`${correctTarget?.label || "正確顏色"}範例`}
                       />

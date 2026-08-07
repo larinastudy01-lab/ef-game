@@ -1,26 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import homeBackground from "../asset/Home_background.webp";
+import homeBackground from "../asset/home/model_background.webp";
 import ReturnButton from "../asset/return.webp";
 import assistIcon from "../asset/assist.webp";
+import backIcon from "../asset/home/back.webp";
 import resetIcon from "../asset/home/remove.webp";
 import { getResultsByPatientFromCloud } from "../lib/database";
 import { resetTestRecords } from "../utils/resetTestRecords";
 import "../styles/ResultPage_PA.css";
-
-/**
- * ResultPage_PA.jsx
- * 家長端結果頁
- *
- * 更新重點：
- * 1. 背景吃 Home_background.webp，視覺貼近主頁森林風格
- * 2. 上方顯示目前小孩名稱
- * 3. AI 小助手使用 assist.webp，固定左下角，點擊後開啟可連續輸入的對話式聊天室
- * 4. 上一頁使用瀏覽器歷史紀錄返回，不再固定跳回 HomePage
- * 5. 平板、電腦、小螢幕自動換行，不使用固定超大寬度避免跑版
- * 5. 保留家長摘要、錯誤說明、AI 建議與套用建議
- * 6. 新增讀取 Supabase game_results，讓家長可以看到該兒童的測驗 / 訓練歷史紀錄
- */
 
 const RESULT_STORAGE_KEYS = {
   SRT: ["srtTrainingResult", "srtTestResult"],
@@ -724,6 +711,8 @@ const ResultPage_PA = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [applyMessage, setApplyMessage] = useState("");
   const [selectedHistoryRecord, setSelectedHistoryRecord] = useState(null);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState("");
 
   const gameInfo = GAME_LABELS[gameId] || GAME_LABELS.DEFAULT;
   const warningInfo = warningTextMap[result.warningLevel] || warningTextMap.green;
@@ -868,7 +857,23 @@ const ResultPage_PA = () => {
     resetTestRecords(currentChildId);
     setSelectedHistoryRecord(null);
     setStorageVersion((version) => version + 1);
+    setResetConfirmText("");
+    setIsResetConfirmOpen(false);
   };
+
+  const closeResetConfirm = useCallback(() => {
+    setResetConfirmText("");
+    setIsResetConfirmOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (!isResetConfirmOpen) return undefined;
+    const handleEscape = (event) => {
+      if (event.key === "Escape") closeResetConfirm();
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [closeResetConfirm, isResetConfirmOpen]);
 
   const applyAiRecommendation = () => {
     const safeRecommendedConfig = {
@@ -1154,19 +1159,30 @@ const ResultPage_PA = () => {
 
       </header>
 
-      <section className="result-pa-layout menu-style-layout">
-        <aside className="result-pa-menu-panel" aria-label="結果頁選單">
-          <div className="menu-profile-card">
-            <p className="panel-kicker">家長觀察紀錄</p>
-            <h1>{childName}</h1>
-            <p className="panel-subtitle">{gameInfo.name}</p>
-            <div className="profile-info-grid compact-profile-grid">
-              <InfoTile label="任務故事" value={gameInfo.story} />
-              <InfoTile label="主要能力" value={gameInfo.ability} />
+      <section className="result-pa-dashboard">
+        <section className="result-pa-content-panel menu-content-panel">
+          <section className="forest-card hero-summary-card menu-hero-summary-card">
+            <div className="hero-summary-copy">
+              <p className="eyebrow">{gameInfo.name} · {gameInfo.ability}</p>
+              <h2>{childName} 今天{warningInfo.status}</h2>
+              <p>{warningInfo.text}</p>
+              <div className="hero-context-row" aria-label="任務資訊">
+                <span>{gameInfo.story}</span>
+                <span>{difficultyTextMap[result.recommendedDifficulty] || result.recommendedDifficulty}難度</span>
+              </div>
             </div>
-          </div>
 
-          <nav className="result-section-menu" aria-label="結果內容切換">
+            <div className="hero-summary-grid">
+              <SummaryBubble label="正確率" value={`${Math.round(result.accuracy)}%`} />
+              <SummaryBubble
+                label="反應時間"
+                value={result.avgReactionTime > 0 ? `${(result.avgReactionTime / 1000).toFixed(2)}秒` : "尚無"}
+              />
+              <SummaryBubble label="錯誤數" value={`${result.totalErrors}次`} />
+            </div>
+          </section>
+
+          <nav className="result-section-menu dashboard-tabs" aria-label="結果內容切換">
             {activeMenuItems.map((item) => (
               <button
                 type="button"
@@ -1180,48 +1196,81 @@ const ResultPage_PA = () => {
             ))}
           </nav>
 
-          <button type="button" className="forest-primary-button menu-home-button" onClick={goForest}>
-            回到主頁
-          </button>
-          <button
-            type="button"
-            className="forest-primary-button menu-reset-button"
-            onClick={resetAllTests}
-            aria-label="重新測驗"
-            title="重新測驗"
-          >
-            <img src={resetIcon} alt="" draggable="false" />
-            <span>重新測驗</span>
-          </button>
-        </aside>
-
-        <section className="result-pa-content-panel menu-content-panel">
-          <section className="forest-card hero-summary-card menu-hero-summary-card">
-            <div>
-              <p className="eyebrow">今天表現</p>
-              <h2>{childName} 今天{warningInfo.status}</h2>
-              <p>{warningInfo.text}</p>
-            </div>
-
-            <div className="hero-summary-grid">
-              <SummaryBubble label="正確率" value={`${Math.round(result.accuracy)}%`} />
-              <SummaryBubble
-                label="反應時間"
-                value={result.avgReactionTime > 0 ? `${(result.avgReactionTime / 1000).toFixed(2)}秒` : "尚無"}
-              />
-              <SummaryBubble label="錯誤數" value={`${result.totalErrors}次`} />
-            </div>
-          </section>
-
           <section className="forest-card active-panel-card">
             {renderActiveSection()}
           </section>
 
+          {activeSection === "overview" && (
+            <section className="forest-card dashboard-next-step" aria-label="下一步訓練建議">
+              <div className="dashboard-next-step-heading">
+                <div><p className="eyebrow">下一步</p><h2>建議這樣練</h2></div>
+                <strong>{difficultyTextMap[result.recommendedDifficulty] || result.recommendedDifficulty}難度 · {recommendedConfig.recommendedMinutes} 分鐘</strong>
+              </div>
+              <div className="recommend-grid">
+                <article><span>提示方式</span><strong>{recommendedConfig.supportSuggestion}</strong></article>
+                <article><span>觀察重點</span><strong>{recommendedConfig.observationFocus}</strong></article>
+                <article><span>主要問題</span><strong>{topErrorEntries.length > 0 ? `${errorLabelMap[topErrorEntries[0][0]] || topErrorEntries[0][0]} ${Number(topErrorEntries[0][1]) || 0} 次` : "沒有明顯集中錯誤"}</strong></article>
+              </div>
+              <p>{getMainAdvice(result)}</p>
+              <div className="apply-row">
+                <button type="button" className="forest-primary-button small" onClick={applyAiRecommendation}>
+                  套用：{difficultyTextMap[result.recommendedDifficulty] || result.recommendedDifficulty}難度 · {recommendedConfig.recommendedMinutes} 分鐘
+                </button>
+                {applyMessage && <span>{applyMessage}</span>}
+              </div>
+            </section>
+          )}
+
           <p className="safe-note">
             本頁結果僅作為家長觀察與訓練調整參考，不代表正式診斷。若長期出現明顯困難，建議與專業人員討論。
           </p>
+
+          <footer className="dashboard-footer-actions">
+            <button type="button" className="footer-image-button" onClick={goForest} aria-label="回到主頁" title="回到主頁">
+              <img src={backIcon} alt="回到主頁" draggable="false" />
+            </button>
+            <button type="button" className="footer-image-button" onClick={() => setIsResetConfirmOpen(true)} aria-label="重新測驗" title="重新測驗">
+              <img src={resetIcon} alt="重新測驗" draggable="false" />
+            </button>
+          </footer>
         </section>
       </section>
+
+      {isResetConfirmOpen && (
+        <div className="reset-confirm-backdrop" role="presentation" onMouseDown={closeResetConfirm}>
+          <section
+            className="reset-confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reset-confirm-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="reset-confirm-icon" aria-hidden="true">!</div>
+            <h2 id="reset-confirm-title">確定要重新測驗嗎？</h2>
+            <p>重新測驗會清除目前的測驗紀錄。為避免誤觸，請在下方輸入：</p>
+            <strong>確定重新測驗</strong>
+            <input
+              type="text"
+              value={resetConfirmText}
+              onChange={(event) => setResetConfirmText(event.target.value)}
+              placeholder="請輸入確定文字"
+              aria-label="輸入確定重新測驗"
+              autoFocus
+            />
+            <div className="reset-confirm-actions">
+              <button type="button" className="cancel" onClick={closeResetConfirm}>取消</button>
+              <button
+                type="button"
+                className="confirm"
+                onClick={resetAllTests}
+                disabled={resetConfirmText.trim() !== "確定重新測驗"}
+              >
+                確定重新測驗
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {selectedHistoryRecord && (
         <HistoryRecordDetail
@@ -1391,13 +1440,6 @@ const HistoryRecordDetail = ({ record, onClose }) => {
     </div>
   );
 };
-
-const InfoTile = ({ label, value }) => (
-  <article className="profile-info-tile">
-    <span>{label}</span>
-    <strong>{value}</strong>
-  </article>
-);
 
 const SummaryBubble = ({ label, value }) => (
   <article className="summary-bubble">
@@ -2804,6 +2846,343 @@ const resultPageStyle = `
 @media (max-width: 620px) {
   .history-detail-summary { grid-template-columns: 1fr; }
   .history-detail-modal { padding: 20px; border-radius: 18px; }
+}
+
+/* 2026 dashboard refresh: clearer hierarchy, wider content and quieter surfaces. */
+.result-pa-dashboard {
+  width: min(1560px, calc(100vw - clamp(40px, 6vw, 120px)));
+  margin: clamp(16px, 2.6vw, 30px) auto 0;
+}
+
+.result-pa-home-page .result-pa-topbar {
+  width: 100%;
+}
+
+.result-pa-home-page .result-pa-topbar .forest-pill-button {
+  justify-self: start;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  line-height: 0;
+}
+
+.result-pa-home-page .result-pa-topbar .forest-pill-button:hover,
+.result-pa-home-page .result-pa-topbar .forest-pill-button:active {
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+.result-pa-home-page .result-pa-topbar .forest-pill-button img {
+  display: block;
+  width: 58px;
+  height: 58px;
+}
+
+.result-pa-dashboard .result-pa-content-panel {
+  gap: 14px;
+}
+
+.result-pa-dashboard .forest-card,
+.result-pa-dashboard .result-section-menu {
+  background: rgba(255, 252, 238, 0.95);
+  border: 2px solid rgba(255, 255, 255, 0.94);
+  box-shadow: 0 12px 30px rgba(54, 76, 28, 0.13);
+  backdrop-filter: blur(6px);
+}
+
+.result-pa-dashboard .menu-hero-summary-card {
+  grid-template-columns: minmax(0, 1.45fr) minmax(390px, .55fr);
+  padding: clamp(24px, 3vw, 36px);
+  border-radius: 28px;
+}
+
+@media (min-width: 1280px) {
+  .result-pa-dashboard .active-section-content {
+    gap: 20px;
+  }
+
+  .result-pa-dashboard .overview-mini-grid,
+  .result-pa-dashboard .recommend-grid,
+  .result-pa-dashboard .top-error-summary {
+    gap: 18px;
+  }
+
+  .result-pa-dashboard .overview-mini-grid article,
+  .result-pa-dashboard .recommend-grid article,
+  .result-pa-dashboard .top-error-card {
+    padding: 20px 22px;
+  }
+}
+
+.hero-summary-copy h2 {
+  font-size: clamp(1.8rem, 3.4vw, 2.7rem);
+}
+
+.hero-context-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.hero-context-row span {
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: #eef8e5;
+  color: #52723b;
+  font-size: .9rem;
+  font-weight: 850;
+}
+
+.result-pa-dashboard .summary-bubble {
+  min-height: 98px;
+  border-radius: 20px;
+  background: #fff6ce;
+  border: 1px solid rgba(226, 183, 74, .45);
+}
+
+.dashboard-tabs {
+  position: sticky;
+  top: 10px;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  padding: 7px;
+  border-radius: 20px;
+}
+
+.dashboard-tabs button {
+  min-height: 60px;
+  padding: 9px 8px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  text-align: center;
+}
+
+.dashboard-tabs button:hover {
+  transform: none;
+  background: rgba(79, 163, 247, .09);
+}
+
+.dashboard-tabs button.active {
+  background: #3f8ce5;
+  box-shadow: 0 5px 12px rgba(37, 89, 151, .2);
+}
+
+.dashboard-tabs span {
+  font-size: .78rem;
+}
+
+.result-pa-dashboard .active-panel-card {
+  min-height: 0;
+  border-radius: 28px;
+  padding: clamp(22px, 2.8vw, 32px);
+}
+
+.dashboard-next-step {
+  border-radius: 28px;
+  padding: clamp(22px, 2.8vw, 32px);
+  background: linear-gradient(135deg, rgba(238, 250, 220, .97), rgba(255, 251, 226, .97)) !important;
+}
+
+.dashboard-next-step-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.dashboard-next-step-heading h2 {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.5vw, 2rem);
+}
+
+.dashboard-next-step-heading > strong {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: #3ea94f;
+  color: white;
+  white-space: nowrap;
+}
+
+.dashboard-next-step > p {
+  line-height: 1.7;
+  font-weight: 750;
+}
+
+.dashboard-footer-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 4px 0 10px;
+}
+
+.footer-image-button {
+  display: block;
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  line-height: 0;
+  cursor: pointer;
+}
+
+.footer-image-button:hover,
+.footer-image-button:active {
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+.footer-image-button img {
+  display: block;
+  width: auto;
+  height: 58px;
+  object-fit: contain;
+}
+
+.reset-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(31, 42, 25, .55);
+  backdrop-filter: blur(4px);
+}
+
+.reset-confirm-modal {
+  width: min(460px, 100%);
+  padding: 30px;
+  border: 3px solid rgba(255, 255, 255, .92);
+  border-radius: 26px;
+  background: #fffdf3;
+  box-shadow: 0 24px 70px rgba(35, 43, 26, .3);
+  text-align: center;
+}
+
+.reset-confirm-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: #fff0c2;
+  color: #c7791a;
+  font-size: 1.8rem;
+  font-weight: 950;
+}
+
+.reset-confirm-modal h2 {
+  margin: 0 0 10px;
+  color: #4b341d;
+}
+
+.reset-confirm-modal p {
+  margin: 0 0 8px;
+  color: #725c3e;
+  line-height: 1.65;
+  font-weight: 700;
+}
+
+.reset-confirm-modal > strong {
+  display: block;
+  margin-bottom: 14px;
+  color: #c44939;
+}
+
+.reset-confirm-modal input {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 2px solid #dec98f;
+  border-radius: 14px;
+  background: white;
+  color: #4b341d;
+  font: inherit;
+  font-weight: 800;
+  text-align: center;
+  outline: none;
+}
+
+.reset-confirm-modal input:focus {
+  border-color: #4f9be7;
+  box-shadow: 0 0 0 4px rgba(79, 155, 231, .15);
+}
+
+.reset-confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.reset-confirm-actions button {
+  min-height: 46px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.reset-confirm-actions .cancel {
+  background: #eee9dd;
+  color: #685942;
+}
+
+.reset-confirm-actions .confirm {
+  background: #e45d4e;
+  color: white;
+}
+
+.reset-confirm-actions .confirm:disabled {
+  background: #d8d3c8;
+  color: #918a7d;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .result-pa-dashboard .menu-hero-summary-card { grid-template-columns: 1fr; }
+  .dashboard-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); position: relative; top: auto; }
+}
+
+@media (max-width: 620px) {
+  .result-pa-dashboard { width: 100%; margin-top: 12px; }
+  .result-pa-home-page .result-pa-topbar { width: 100%; }
+  .result-pa-dashboard .menu-hero-summary-card { padding: 20px 16px; }
+  .result-pa-dashboard .hero-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .result-pa-dashboard .summary-bubble { min-height: 76px; padding: 7px 3px; border-radius: 14px; }
+  .result-pa-dashboard .summary-bubble span { font-size: .78rem; }
+  .result-pa-dashboard .summary-bubble strong { font-size: 1.08rem; }
+  .dashboard-tabs { display: flex; overflow-x: auto; scrollbar-width: none; padding: 6px; }
+  .dashboard-tabs::-webkit-scrollbar { display: none; }
+  .dashboard-tabs button { flex: 0 0 92px; min-height: 52px; }
+  .dashboard-tabs button span { display: none; }
+  .dashboard-next-step-heading { align-items: flex-start; flex-direction: column; }
+  .dashboard-next-step-heading > strong { white-space: normal; }
+  .dashboard-footer-actions { align-items: center; flex-direction: row; }
+  .footer-image-button img { max-width: 42vw; height: 50px; }
+  .reset-confirm-modal { padding: 24px 18px; border-radius: 22px; }
+  .reset-confirm-actions { grid-template-columns: 1fr; }
+  .assist-floating-button span { display: none; }
+  .assist-floating-button { width: 58px; height: 58px; padding: 4px; border-radius: 50%; }
+  .assist-floating-button img { width: 44px; height: 44px; }
 }
 `;
 

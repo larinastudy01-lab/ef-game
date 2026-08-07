@@ -12,17 +12,6 @@ import ReturnButton from "../asset/return.webp";
 import useTemporaryTestUnlock from "../utils/useTemporaryTestUnlock";
 import "../styles/TestMapPage.css";
 
-/**
- * TestMapPage.jsx
- *
- * 幼兒版森林測驗地圖：
- * - 全螢幕 GameMap.webp 背景
- * - 測驗固定順序，避免孩子亂跳未解鎖關卡
- * - 關卡使用 asset 裡的大圖片 icon，不在 icon 下方顯示文字
- * - hover / focus 只讓關卡圓圈微微發光，不做大位移
- * - 移除「出發第 1 關 / 開始第一關」大型按鈕，讓孩子直接點目前發光關卡
- */
-
 const TEST_GAMES = [
   {
     gameId: "SSG",

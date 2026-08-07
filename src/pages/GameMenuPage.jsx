@@ -27,12 +27,12 @@ import storyIcon from "../asset/home/story.webp";
 import testIcon from "../asset/home/test.webp";
 import goalIcon from "../asset/home/goal.webp";
 import avatarHomeImg from "../asset/home/avatar_home.webp";
-import furnitureIcon from "../asset/home/Furniture.webp";
 import returnIcon from "../asset/return.webp";
 
 const COMPLETED_LEVELS_STORAGE_KEY = "ef_game_completed_training_levels";
 const COMPLETION_VIDEO_SEEN_KEY = "ef_game_today_training_completion_video_seen";
 const TRAINING_MENU_SESSION_STORAGE_KEY = "ef_game_training_menu_session";
+const GAME_MENU_START_VIDEO_SEEN_KEY = "ef_game_menu_start_video_seen";
 const DEFAULT_TRAINING_MINUTES = 15;
 const MAX_LEVEL_PER_GAME = 5;
 const HONEY_MISSION_STORAGE_KEY = "ef_game_honey_mission_progress";
@@ -566,10 +566,6 @@ function GameMenuPage() {
   const [adaptiveRecommendationNotice, setAdaptiveRecommendationNotice] = useState("");
 
   useEffect(() => {
-    setShowStoryVideo(true);
-  }, []);
-
-  useEffect(() => {
     let isMounted = true;
 
     const checkUser = async () => {
@@ -669,6 +665,18 @@ function GameMenuPage() {
 
   const todayKey = useMemo(() => getTodayKey(), []);
   const [trainingMenuSessionId] = useState(() => readTrainingMenuSessionId(location.state));
+
+  useEffect(() => {
+    const seenKey = `${GAME_MENU_START_VIDEO_SEEN_KEY}_${trainingMenuSessionId}`;
+
+    if (sessionStorage.getItem(seenKey) === "true") return;
+
+    // Mark it before opening so returning to this route cannot trigger it twice,
+    // even if the user leaves while the video is still playing.
+    sessionStorage.setItem(seenKey, "true");
+    setShowStoryVideo(true);
+  }, [trainingMenuSessionId]);
+
   const trainingSettings = useMemo(() => {
     void storageRefreshToken;
     return getTrainingSettings(location.state);
@@ -697,7 +705,12 @@ function GameMenuPage() {
       if (active) { setAdaptiveRecommendation(decision); setAdaptiveRecommendationNotice(""); }
     }).catch((error) => {
       console.warn("Online recommendation unavailable; using the configured training plan:", error);
-      if (active) setAdaptiveRecommendationNotice("推薦服務暫時無法連線，已使用原訓練計畫。");
+      if (!active) return;
+      if (error?.code === "PATIENT_NOT_IN_CLOUD" || selectedChild?.syncStatus === "local-only") {
+        setAdaptiveRecommendationNotice("目前選擇的是本機小孩資料。請登入家長帳號並重新建立雲端小孩，以啟用自適應推薦。");
+        return;
+      }
+      setAdaptiveRecommendationNotice("推薦服務暫時無法連線，已使用原訓練計畫。");
     });
     return () => { active = false; };
   }, [recommendedTrainingPlan, selectedChild, selectedTrainingGames]);
@@ -2099,14 +2112,6 @@ function GameMenuPage() {
               aria-label="進入角色小屋"
             >
               <img width={500} height={500} loading="lazy" className="avatar-room-menu-icon" src={avatarHomeImg} alt="" aria-hidden="true" draggable={false} />
-            </button>
-            <button
-              type="button"
-              className="map-bottom-button"
-              onClick={() => navigate("/furniture")}
-              aria-label="進入傢俱佈置"
-            >
-              <img width={1024} height={1024} loading="lazy" className="homey-menu-icon bottom-homey-icon" src={furnitureIcon} alt="" aria-hidden="true" />
             </button>
             <button type="button" className="map-bottom-button" onClick={() => setShowStoryVideo(true)} aria-label="播放故事影片">
               <img width={1024} height={1024} loading="lazy" className="homey-menu-icon bottom-homey-icon" src={storyIcon} alt="" aria-hidden="true" />

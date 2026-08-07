@@ -84,24 +84,17 @@ export const createMyPatient = async ({
   if (!cleanNickname) throw new Error("請輸入兒童暱稱。");
   if (!birthDate) throw new Error("請選擇兒童生日。");
 
-  const { data, error } = await supabase
-    .from("patients")
-    .insert([
-      {
-        guardian_id: user.id,
-        nickname: cleanNickname,
-        full_name: cleanFullName || null,
-        birth_date: birthDate,
-        gender: cleanGender || null,
-        avatar: cleanAvatar || null,
-        note: cleanNote || null,
-      },
-    ])
-    .select("*")
-    .single();
+  const { data, error } = await supabase.rpc("create_my_patient", {
+    patient_nickname: cleanNickname,
+    patient_full_name: cleanFullName || null,
+    patient_birth_date: birthDate,
+    patient_gender: cleanGender || null,
+    patient_avatar: cleanAvatar || null,
+    patient_note: cleanNote || null,
+  });
 
   if (error) throw error;
-  return data;
+  return Array.isArray(data) ? data[0] || null : data;
 };
 
 export const updateMyPatient = async (

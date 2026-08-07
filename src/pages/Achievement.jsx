@@ -6,6 +6,7 @@ import React, {
 } from "react";
 import { useNavigate } from "react-router-dom";
 
+import gameCardBackground from "../asset/home/gamecard.webp";
 import stickerR1 from "../asset/sticker/regular/R1.webp";
 import stickerR2 from "../asset/sticker/regular/R2.webp";
 import stickerR3 from "../asset/sticker/regular/R3.webp";
@@ -1476,6 +1477,7 @@ export default function Achievement() {
 
       <section
         className="achievement-floating-window"
+        style={{ "--achievement-game-card": `url(${gameCardBackground})` }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="achievement-floating-title"
@@ -2206,17 +2208,19 @@ function AchievementStyles() {
       }
 
       .achievement-floating-window {
-        border-color: #fff2bd;
+        padding: clamp(34px, 4vw, 50px) clamp(36px, 4.5vw, 56px) clamp(38px, 4.5vw, 54px);
+        border: 0;
+        border-radius: 0;
         color: var(--achievement-panel-text);
-        background: linear-gradient(180deg, #fff8e8 0%, #f5e4bd 100%);
-        box-shadow:
-          var(--achievement-panel-shadow),
-          inset 0 0 0 3px #b97a3d,
-          inset 0 0 0 6px rgba(255, 244, 196, .78);
+        background-image: var(--achievement-game-card);
+        background-position: center;
+        background-repeat: no-repeat;
+        background-size: 100% 100%;
+        box-shadow: var(--achievement-panel-shadow);
       }
 
       .achievement-floating-window::before {
-        border-color: rgba(137, 104, 54, .32);
+        display: none;
       }
 
       .achievement-floating-titlebar {
@@ -2516,14 +2520,38 @@ function AchievementStyles() {
         color: #e9f1d8;
       }
 
+      /* gamecard.webp is the only full-window card. Keep the functional panels,
+         but remove the old rectangular title/body/footer shell around them. */
+      .achievement-floating-titlebar {
+        border-bottom: 0;
+        background: transparent;
+        box-shadow: none;
+      }
+
+      .achievement-floating-body {
+        background: transparent;
+      }
+
+      .achievement-floating-footer {
+        border-top: 0;
+        background: transparent;
+        box-shadow: none;
+      }
+
+      .achievement-floating-footer .achievement-footer-label,
+      .achievement-floating-footer strong,
+      .achievement-floating-footer small {
+        color: #5f563d;
+      }
+
       @media (max-width: 900px) {
         .achievement-floating-backdrop { padding: 12px; }
         .achievement-floating-window {
           width: 100%;
           height: calc(100dvh - 24px);
           min-height: 0;
+          padding: 30px 34px 34px;
           grid-template-rows: 64px minmax(0, 1fr) 46px;
-          border-radius: 18px;
         }
         .achievement-floating-titlebar {
           grid-template-columns: 1fr auto 1fr;
@@ -2566,8 +2594,7 @@ function AchievementStyles() {
         .achievement-floating-backdrop { padding: 0; }
         .achievement-floating-window {
           height: 100dvh;
-          border-width: 0;
-          border-radius: 0;
+          padding: 18px 16px 20px;
           grid-template-rows: 58px minmax(0, 1fr) 42px;
         }
         .achievement-title-ornament { display: none; }

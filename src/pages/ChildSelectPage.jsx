@@ -7,7 +7,12 @@ import StartButton from "../asset/home/start.webp";
 import BuildStartButton from "../asset/home/bu_start.webp";
 import DeleteButton from "../asset/home/delete.webp";
 import ReturnButton from "../asset/return.webp";
-import { getMyPatients, createMyPatient, deleteMyPatient } from "../lib/database";
+import {
+  getMyPatients,
+  createMyPatient,
+  deleteMyPatient,
+  isSupabaseConfigured,
+} from "../lib/database";
 import AddButton from "../asset/home/add.webp";
 import BearAvatar from "../asset/avatar/bear.webp";
 import ChickenAvatar from "../asset/avatar/chicken.webp";
@@ -18,17 +23,6 @@ import PeacockAvatar from "../asset/avatar/peacock.webp";
 import RabbitAvatar from "../asset/avatar/rabbit.webp";
 import SheepAvatar from "../asset/avatar/sheep.webp";
 import { setActivePatient } from "../utils/activePatientStorage";
-
-/**
- * ChildSelectPage.jsx
- *
- * 兒童角色卡選擇頁
- * - 使用 choice_ch.webp 純森林背景，避免背景內建大卡片與標題造成疊字
- * - 前景重新建立主卡片、標題、兒童數量與角色卡
- * - 兒童角色卡固定橫式排列，超過寬度時使用橫向滑桿
- * - 新增表單使用 asset/avatar 動物頭像
- * - 建立並開始按鈕使用 asset/home/bu_start.webp
- */
 
 const STORAGE_KEYS = {
   children: "childrenProfiles",
@@ -486,7 +480,14 @@ const ChildSelectPage = () => {
         },
       });
     } catch (error) {
-      console.warn("Supabase 新增兒童失敗，改存本機資料：", error);
+      console.warn("Supabase 新增兒童失敗：", error);
+
+      if (isSupabaseConfigured()) {
+        const errorCode = error?.code ? `（${error.code}）` : "";
+        const errorMessage = String(error?.message || "未知錯誤");
+        setErrorMessage(`雲端建立失敗${errorCode}：${errorMessage}。請確認登入狀態後再試。`);
+        return;
+      }
 
       const localChild = normalizeChild(
         {

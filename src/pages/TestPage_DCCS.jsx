@@ -1,6 +1,15 @@
-// src/pages/TestPage_DCCS.jsx
-
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import DccsShadowCloth from "../components/DccsShadowCloth";
+import { averageFiniteRounded } from "../utils/numericUtils";
+import {
+  arrangeDccsTargets as arrangeTargets,
+  getDccsBagImageSource as getBagImageSource,
+  getDccsImageSource as getImageSource,
+  getDccsTargetSide as getTargetSideForKey,
+  isDccsBagRecord as isBagRecord,
+  normalizeDccsToken as normalizeToken,
+  pickDiverseDccsCards as pickDiverseCards,
+} from "../utils/dccsCardUtils";
 import { useNavigate } from "react-router-dom";
 import "../styles/GamePage_DCCS.css";
 
@@ -124,16 +133,6 @@ const typeLabels = {
   ...(clothingTypeLabels || {}),
 };
 
-function normalizeToken(value = "") {
-  return String(value)
-    .trim()
-    .toLowerCase()
-    .replace(/\\/g, "/")
-    .replace(/\.(png|jpe?g|webp|svg)$/i, "")
-    .replace(/\s+/g, "_")
-    .replace(/-+/g, "_");
-}
-
 function normalizeColor(value = "") {
   const token = normalizeToken(value);
   const aliases = {
@@ -214,51 +213,6 @@ function normalizeType(value = "") {
 
   const matched = Object.keys(aliases).find((key) => token.includes(key));
   return matched ? aliases[matched] : token;
-}
-
-function getImageSource(raw = {}) {
-  return (
-    raw.normalImg ||
-    raw.normalImage ||
-    raw.img ||
-    raw.image ||
-    raw.src ||
-    raw.url ||
-    raw.asset ||
-    null
-  );
-}
-
-function getBagImageSource(raw = {}) {
-  return (
-    raw.bagImg ||
-    raw.bagImage ||
-    raw.packagedImg ||
-    raw.packagedImage ||
-    raw.bag ||
-    null
-  );
-}
-
-function isBagRecord(raw = {}) {
-  if (raw.isBagged === true || raw.bagged === true || raw.variant === "bag") {
-    return true;
-  }
-
-  const sourceText = [
-    raw.id,
-    raw.key,
-    raw.name,
-    raw.filename,
-    raw.path,
-    raw.src,
-    raw.url,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  return /(^|[\\/_-])bag([\\/_-]|$)|packaged|plastic/.test(sourceText);
 }
 
 function inferColor(raw = {}) {
@@ -412,45 +366,6 @@ function makeTarget(card, matchBy) {
     colorKey: card.color,
     typeKey: card.type,
   };
-}
-
-function arrangeTargets(correctTarget, wrongTarget, correctOnTop) {
-  return correctOnTop
-    ? { topTarget: correctTarget, bottomTarget: wrongTarget }
-    : { topTarget: wrongTarget, bottomTarget: correctTarget };
-}
-
-function getTargetSideForKey(targets, field, key) {
-  if (!key) return null;
-  if (targets.topTarget?.[field] === key) return "top";
-  if (targets.bottomTarget?.[field] === key) return "bottom";
-  return null;
-}
-
-function pickDiverseCards(cards, count) {
-  const selected = [];
-  const usedIds = new Set();
-  const usedPairs = new Set();
-
-  for (const card of cards) {
-    const pair = `${card.color}:${card.type}`;
-    if (!usedIds.has(card.id) && !usedPairs.has(pair)) {
-      selected.push(card);
-      usedIds.add(card.id);
-      usedPairs.add(pair);
-    }
-    if (selected.length >= count) return selected;
-  }
-
-  for (const card of cards) {
-    if (!usedIds.has(card.id)) {
-      selected.push(card);
-      usedIds.add(card.id);
-    }
-    if (selected.length >= count) break;
-  }
-
-  return selected;
 }
 
 function buildDccsTrialSets() {
@@ -764,16 +679,6 @@ function buildDccsTrialSets() {
   };
 }
 
-function average(numbers = []) {
-  const valid = numbers.filter(
-    (n) => typeof n === "number" && Number.isFinite(n)
-  );
-
-  if (valid.length === 0) return 0;
-
-  return Math.round(valid.reduce((sum, n) => sum + n, 0) / valid.length);
-}
-
 function safeParseStorageItem(key, fallback = null) {
   try {
     const value = window.localStorage?.getItem(key);
@@ -858,20 +763,6 @@ function positionToLegacySide(position) {
   if (position === "top") return "left";
   if (position === "bottom") return "right";
   return null;
-}
-
-function ShadowCloth({ src, label }) {
-  return (
-    <img
-      src={src}
-      alt={label}
-      className="Dcss-shadow-cloth"
-      aria-label={label}
-      width="330"
-      height="330"
-      loading="lazy"
-    />
-  );
 }
 
 function TestPage_DCCS() {
@@ -1113,10 +1004,10 @@ function TestPage_DCCS() {
       Math.ceil(formalLogs.length / 2)
     );
 
-    const firstHalfRT = average(
+    const firstHalfRT = averageFiniteRounded(
       firstHalfLogs.map((trial) => trial.reactionTime)
     );
-    const secondHalfRT = average(
+    const secondHalfRT = averageFiniteRounded(
       secondHalfLogs.map((trial) => trial.reactionTime)
     );
     const firstHalfErrors = firstHalfLogs.filter(
@@ -1140,10 +1031,10 @@ function TestPage_DCCS() {
       bagColorLogs.length > 0
         ? Math.round((bagColorCorrectCount / bagColorLogs.length) * 100)
         : 0;
-    const standardColorAvgReactionTime = average(
+    const standardColorAvgReactionTime = averageFiniteRounded(
       colorLogs.map((trial) => trial.reactionTime)
     );
-    const bagColorAvgReactionTime = average(
+    const bagColorAvgReactionTime = averageFiniteRounded(
       bagColorLogs.map((trial) => trial.reactionTime)
     );
     const visualInterferenceCost =
@@ -1160,7 +1051,7 @@ function TestPage_DCCS() {
       dualRuleLogs.length > 0
         ? Math.round((dualRuleCorrectCount / dualRuleLogs.length) * 100)
         : 0;
-    const dualRuleAvgReactionTime = average(
+    const dualRuleAvgReactionTime = averageFiniteRounded(
       dualRuleLogs.map((trial) => trial.reactionTime)
     );
     const dualRulePerseverativeErrors = dualRuleLogs.filter(
@@ -1696,7 +1587,7 @@ function TestPage_DCCS() {
                     />
                     <span className="Dcss-big-arrow">→</span>
                     <div className="Dcss-demo-target Dcss-demo-target-type">
-                      <ShadowCloth
+                      <DccsShadowCloth
                         src={correctTarget?.image}
                         label={`${correctTarget?.label || "服飾"}剪影`}
                       />
@@ -1771,7 +1662,7 @@ function TestPage_DCCS() {
                     />
                     <span className="Dcss-big-arrow">→</span>
                     <div className="Dcss-demo-target Dcss-demo-target-type">
-                      <ShadowCloth
+                      <DccsShadowCloth
                         src={correctTarget?.image}
                         label={`${correctTarget?.label || "相同顏色"}服飾`}
                       />

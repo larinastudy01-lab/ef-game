@@ -9,23 +9,7 @@ import trainingMapButton from "../asset/home/trainingmap.webp";
 import testIcon from "../asset/test.webp";
 import trainingIcon from "../asset/training.webp";
 import parentsIcon from "../asset/parents.webp";
-
-/**
- * ModeSelectPage.jsx / ModelSelectPage.jsx
- *
- * 更新重點：
- * - 背景使用 asset/home/model_background.webp
- * - 卡片使用 asset/home/card.webp
- * - 測驗按鈕使用 asset/home/testmap.webp
- * - 訓練按鈕使用 asset/home/trainingmap.webp
- * - 已移除標題下方說明文字與兩張卡片底部說明文字
- * - 「查看孩子紀錄」使用 parents.webp，顯示於設定按鈕左側
- * - 回首頁實際導向選擇小孩頁面 /child-select
- * - 依需求：測驗右上 icon 使用 asset/training.webp；訓練右上 icon 使用 asset/test.webp
- * - 點擊「進入訓練地圖」後，先選擇訓練時間與訓練項目
- * - 若完全沒有選擇項目，會使用推薦訓練
- * - 一次訓練最多 12 關
- */
+import returnButton from "../asset/return.webp";
 
 const safeParse = (value) => {
   if (!value) return null;
@@ -669,7 +653,7 @@ const ModeSelectPage = () => {
         onClick={backToChildSelect}
         aria-label="回到選擇孩子頁面"
       >
-        ← 回首頁
+        <img src={returnButton} alt="" aria-hidden="true" />
       </button>
 
       <button
@@ -867,19 +851,32 @@ const ModeSelectPage = () => {
           top: clamp(14px, 2vw, 24px);
           left: clamp(14px, 2vw, 24px);
           z-index: 20;
-          min-width: 118px;
-          min-height: 48px;
-          padding: 0 22px;
-          border: 4px solid rgba(255, 236, 170, 0.96);
-          border-radius: 999px;
-          background: linear-gradient(180deg, #9bea56 0%, #61c51f 64%, #3f9b17 100%);
-          color: #ffffff;
-          font-family: inherit;
-          font-size: clamp(0.92rem, 1.2vw, 1.05rem);
-          font-weight: 950;
-          text-shadow: 0 2px 0 rgba(38, 102, 15, 0.34);
+          width: clamp(74px, 6.4vw, 98px);
+          height: clamp(74px, 6.4vw, 98px);
+          padding: 0;
+          border: 0;
+          border-radius: 50%;
+          background: transparent;
           cursor: pointer;
-          box-shadow: 0 8px 0 #2f8617, 0 12px 18px rgba(48, 97, 29, 0.2);
+          transition: transform 0.16s ease, filter 0.16s ease;
+        }
+
+        .model-select-back:hover,
+        .model-select-back:focus-visible {
+          transform: translateY(-3px) scale(1.04);
+          filter: brightness(1.05) drop-shadow(0 8px 8px rgba(48, 97, 29, 0.24));
+          outline: none;
+        }
+
+        .model-select-back:active {
+          transform: translateY(1px) scale(0.97);
+        }
+
+        .model-select-back img {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
         }
 
         .model-select-content {
@@ -1494,9 +1491,8 @@ const ModeSelectPage = () => {
 
         @media (max-width: 520px) {
           .model-select-back {
-            min-width: 96px;
-            min-height: 42px;
-            padding: 0 16px;
+            width: 64px;
+            height: 64px;
           }
 
           .model-select-content {

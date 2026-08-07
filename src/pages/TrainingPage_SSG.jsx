@@ -1,5 +1,3 @@
-// src/pages/TrainingPage_SSG.jsx
-
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/GamePage_SSG.css";

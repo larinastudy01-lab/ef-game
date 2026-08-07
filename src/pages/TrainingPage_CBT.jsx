@@ -19,6 +19,7 @@ import mouseGuideImg from "../asset/mouse.webp";
 import "../styles/GamePage_CBT.css";
 import { saveUnifiedResult } from "../utils/resultManager";
 import { calculateCBTScore } from "../utils/cbtScoring";
+import { clampNumber, getTodayKey, safeParse } from "../utils/trainingDataUtils";
 
 const SHOW_SPEED = 700;
 const GAP_SPEED = 260;
@@ -585,20 +586,6 @@ function getAdaptiveSequenceLength(roundIndex, microDifficulty, correctStreak, w
   return Math.max(config.minLevel, Math.min(config.maxLevel, level));
 }
 
-function clampNumber(value, min, max) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return min;
-  return Math.min(max, Math.max(min, number));
-}
-
-function safeParse(value, fallback = null) {
-  try {
-    return value ? JSON.parse(value) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 function readJsonArray(key) {
   const value = safeParse(localStorage.getItem(key), []);
   return Array.isArray(value) ? value : [];
@@ -608,14 +595,6 @@ function writeJsonArrayUnique(key, values) {
   const current = readJsonArray(key);
   const merged = [...new Set([...current, ...values].filter(Boolean))];
   localStorage.setItem(key, JSON.stringify(merged));
-}
-
-function getTodayKey() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const date = String(today.getDate()).padStart(2, "0");
-  return `${year}-${month}-${date}`;
 }
 
 function getStoredObjectCandidates(keys) {

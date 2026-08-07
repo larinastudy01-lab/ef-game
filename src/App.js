@@ -248,13 +248,22 @@ function AppContent() {
   useEffect(() => {
     const handleVideoPlay = (event) => {
       if (event.target?.tagName === "VIDEO") {
+        // Videos start muted so browser autoplay can begin reliably. Once playback
+        // has actually started, hand the audio focus to the video immediately.
+        event.target.muted = false;
+        audioRef.current?.pause();
         setIsVideoPlaying(true);
       }
     };
 
     const handleVideoStop = (event) => {
       if (event.target?.tagName === "VIDEO") {
-        setIsVideoPlaying(false);
+        // A page transition can briefly contain more than one video. Only resume
+        // the BGM after every video has stopped.
+        const hasPlayingVideo = Array.from(document.querySelectorAll("video")).some(
+          (video) => !video.paused && !video.ended
+        );
+        setIsVideoPlaying(hasPlayingVideo);
       }
     };
 

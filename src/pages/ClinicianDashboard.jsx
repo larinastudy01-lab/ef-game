@@ -3,6 +3,13 @@ import assistIcon from "../asset/assist.webp";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import {
+  calculateAge,
+  daysSince,
+  formatDate,
+  formatGender,
+  formatTrendRecordDate,
+} from "../utils/clinicianDashboardFormatters";
 
 const RECORD_SOURCES = [
   { table: "game_results", fallbackType: "session" },
@@ -1152,50 +1159,6 @@ function ClinicianDashboard() {
     } finally {
       setAddPatientSubmitting(false);
     }
-  };
-
-  const calculateAge = (birthDate) => {
-    if (!birthDate) return "-";
-
-    const today = new Date();
-    const birth = new Date(birthDate);
-    let years = today.getFullYear() - birth.getFullYear();
-    let months = today.getMonth() - birth.getMonth();
-
-    if (today.getDate() < birth.getDate()) months--;
-    if (months < 0) {
-      years--;
-      months += 12;
-    }
-
-    return `${years} 歲 ${months} 個月`;
-  };
-
-  const formatGender = (gender) => {
-    if (!gender) return "未填寫";
-    if (gender === "male") return "男";
-    if (gender === "female") return "女";
-    return gender;
-  };
-
-  const formatDate = (value) => {
-    if (!value) return "-";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "-";
-    return date.toLocaleString("zh-TW", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const daysSince = (value) => {
-    if (!value) return null;
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return null;
-    return Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
   };
 
   const selectedPatient = useMemo(
@@ -3384,22 +3347,6 @@ function InfoItem({ label, value }) {
       <strong style={infoValueStyle}>{displayValue}</strong>
     </div>
   );
-}
-
-function formatTrendRecordDate(value) {
-  if (!value) return "時間未知";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-
-  return date.toLocaleString("zh-TW", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
 }
 
 function TrendChart({ data, theme, gameName, selectedRecordId, onSelectRecord }) {

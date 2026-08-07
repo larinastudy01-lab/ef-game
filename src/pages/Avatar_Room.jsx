@@ -6,24 +6,6 @@ import furnitureIcon from "../asset/home/Furniture.webp";
 import achievementIcon from "../asset/home/goal.webp";
 import backHomeIcon from "../asset/return.webp";
 
-/**
- * 角色小屋
- *
- * 目前房間初始不放置任何家具。
- * 之後 Furniture.jsx 可將已選擇的家具資料存入 localStorage：
- * avatar_room_layout_${childId}
- *
- * 範例：
- * [
- *   {
- *     "id": "bed01",
- *     "src": "/src/asset/Furniture/bed01.webp",
- *     "x": 12,
- *     "y": 58,
- *     "width": 24
- *   }
- * ]
- */
 function AvatarRoom() {
   const navigate = useNavigate();
 

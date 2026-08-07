@@ -61,6 +61,15 @@ export function buildRecommendationOutcome(result) {
 }
 
 async function ensureParticipant(patientId) {
+  const { data: patient, error: patientError } = await supabase.from("patients")
+    .select("id").eq("id", patientId).maybeSingle();
+  if (patientError) throw patientError;
+  if (!patient?.id) {
+    const error = new Error("The selected patient does not exist in the authenticated user's cloud account.");
+    error.code = "PATIENT_NOT_IN_CLOUD";
+    throw error;
+  }
+
   const { data: existing, error: selectError } = await supabase.from("research_participants")
     .select("id").eq("patient_id", patientId).maybeSingle();
   if (selectError) throw selectError;
