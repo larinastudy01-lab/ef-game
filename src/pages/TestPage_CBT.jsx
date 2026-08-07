@@ -12,6 +12,7 @@ import clickSoundFile from "../asset/Click.mp3";
 import startAvatar from "../asset/avatar/deer.webp";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
+import homeNextBtn from "../asset/home/next.webp";
 import homeBackBtn from "../asset/home/back.webp";
 import homeResultBtn from "../asset/home/result.webp";
 import mouseGuideImg from "../asset/mouse.webp";
@@ -1078,14 +1079,14 @@ function safeParseStorageObject(key) {
 }
 
 function getCurrentChildId() {
-  const currentChildId = localStorage.getItem("currentChildId");
-  if (currentChildId) return currentChildId;
-
   const currentChild = safeParseStorageObject("currentChild");
   if (currentChild?.childId || currentChild?.id) return currentChild.childId || currentChild.id;
 
   const selectedChild = safeParseStorageObject("selectedChild");
   if (selectedChild?.childId || selectedChild?.id) return selectedChild.childId || selectedChild.id;
+
+  const currentChildId = localStorage.getItem("currentChildId");
+  if (currentChildId) return currentChildId;
 
   return "guest-child";
 }
@@ -1230,8 +1231,11 @@ export default function TestPage_CBT() {
     const storageKeys = [
       "cbtTestResult",
       "latestCBTTestResult",
+      // TestMapPage reads this canonical key when deciding whether LB can start.
+      "ef_cbt_test_result",
       "ef_game_cbt_test_result",
       childId ? `cbtTestResult_${childId}` : null,
+      childId ? `ef_cbt_test_result_${childId}` : null,
     ].filter(Boolean);
 
     storageKeys.forEach((key) => {
@@ -1241,6 +1245,18 @@ export default function TestPage_CBT() {
         console.warn(`[TestPage_CBT] Failed to save ${key}:`, error);
       }
     });
+
+    // Keep map progression independent from result-schema migrations.  The
+    // result object remains the source for reports; this small marker is the
+    // authoritative signal used only to unlock the next test.
+    try {
+      localStorage.setItem("ef_test_CBT_completed", "true");
+      if (childId) {
+        localStorage.setItem(`ef_test_CBT_completed_${childId}`, "true");
+      }
+    } catch (error) {
+      console.warn("[TestPage_CBT] Failed to save completion marker:", error);
+    }
   }
 
   function resetTestData() {
@@ -2082,7 +2098,7 @@ export default function TestPage_CBT() {
       )}
 
       {phase === "warmupFeedback" && (
-        <div className="cbt-card cbt-card--small">
+        <div className="cbt-card cbt-card--small game-start-card-artwork cbt-feedback-card-artwork">
           <h1 className="cbt-title">會了！</h1>
 
           <div className="cbt-result-message">{message}</div>
@@ -2102,7 +2118,7 @@ export default function TestPage_CBT() {
 
 
       {phase === "countdown" && (
-        <div className="cbt-card cbt-card--small">
+        <div className="cbt-card cbt-card--small game-start-card-artwork cbt-countdown-card-artwork">
           <h1 className="cbt-title">準備</h1>
           <div
             className="cbt-result-message"
@@ -2149,7 +2165,7 @@ export default function TestPage_CBT() {
       )}
 
       {phase === "next" && (
-        <div className="cbt-card cbt-card--small">
+        <div className="cbt-card cbt-card--small game-start-card-artwork cbt-feedback-card-artwork">
           <h1 className="cbt-title">對了！</h1>
           <div className="cbt-result-message">{message}</div>
         </div>
@@ -2159,6 +2175,7 @@ export default function TestPage_CBT() {
         <VideoOnlyPage
           videoSrc={endingVideo}
           onDone={() => finishTest()}
+          showNext={false}
         />
       )}
 
@@ -2224,7 +2241,7 @@ export default function TestPage_CBT() {
 }
 
 
-function VideoOnlyPage({ videoSrc, onDone }) {
+function VideoOnlyPage({ videoSrc, onDone, showNext = true }) {
   return (
     <main className="cbt-video-only-card game-start-card-artwork cbt-video-card-artwork" aria-label="影片">
       <div className="cbt-video-wrapper">
@@ -2239,14 +2256,23 @@ function VideoOnlyPage({ videoSrc, onDone }) {
         />
       </div>
 
-      <GuidedImageButton
-        imgSrc={homeSkipBtn}
-        imgAlt="跳過動畫"
-        ariaLabel="跳過動畫"
-        onClick={onDone}
-        showMouse
-        variant="skip"
-      />
+      <div className="cbt-video-actions">
+        <GuidedImageButton
+          imgSrc={homeSkipBtn}
+          imgAlt="跳過動畫"
+          ariaLabel="跳過動畫"
+          onClick={onDone}
+          variant="skip"
+        />
+        {showNext && <GuidedImageButton
+          imgSrc={homeNextBtn}
+          imgAlt="下一步"
+          ariaLabel="下一步"
+          onClick={onDone}
+          showMouse
+          variant="next"
+        />}
+      </div>
     </main>
   );
 }

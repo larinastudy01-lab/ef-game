@@ -304,17 +304,31 @@ export default function ResultPage_PM() {
               <StatCard label="逾時題數" value={`${timeoutCount} 題`} helper="沒有在時間內完成" />
             </section>
 
+            <PerformanceCharts
+              memorySpan={memorySpan}
+              accuracyPercent={accuracyPercent}
+              correctCount={correctCount}
+              totalLevels={totalLevels}
+              timeoutCount={timeoutCount}
+              wrongTapCount={wrongTapCount}
+              averageCorrectReactionTime={averageCorrectReactionTime}
+              reactionTimeStd={reactionTimeStd}
+            />
+
+            <details style={styles.detailsPanel}>
+              <summary style={styles.detailsSummary}>查看進階指標與解讀</summary>
+              <div style={styles.detailsContent}>
             {mode === "training" && aiScore !== null && (
               <section style={styles.aiPanel}>
                 <div style={styles.aiHeader}>
                   <div>
-                    <h2 style={styles.sectionTitle}>AI 訓練分析</h2>
+                    <h2 style={styles.sectionTitle}>系統訓練分析</h2>
                     <p style={styles.aiIntro}>
                       系統根據正確率、反應時間、逾時、誤點與疲勞狀態，估算本次訓練難度是否合適。
                     </p>
                   </div>
                   <div style={{ ...styles.aiScoreBadge, ...styles.aiScoreTone(aiScoreTone) }}>
-                    <span style={styles.aiScoreLabel}>AI 分數</span>
+                    <span style={styles.aiScoreLabel}>訓練參考分數</span>
                     <strong style={styles.aiScoreValue}>{aiScore}</strong>
                   </div>
                 </div>
@@ -336,11 +350,15 @@ export default function ResultPage_PM() {
                     helper="反映作答速度是否合適"
                   />
                   <StatCard
-                    label="專注分數"
+                    label="注意與作答控制"
                     value={`${toSafeNumber(aiSubScores.focusScore, 0)} 分`}
                     helper="反映誤點與干擾影響"
                   />
                 </div>
+
+                <p style={styles.aiReferenceNote}>
+                  此分析與分數僅供訓練調整參考，不代表醫療診斷或固定能力。
+                </p>
 
                 {aiTrainingSuggestion && (
                   <div style={styles.aiSuggestionBox}>
@@ -367,6 +385,8 @@ export default function ResultPage_PM() {
                 ))}
               </div>
             </section>
+              </div>
+            </details>
 
             <section style={styles.suggestionPanel}>
               <h2 style={styles.sectionTitle}>下一步建議</h2>
@@ -423,6 +443,118 @@ function StatCard({ label, value, helper }) {
       <p style={styles.statHelper}>{helper}</p>
     </div>
   );
+}
+
+function PerformanceCharts({
+  memorySpan,
+  accuracyPercent,
+  correctCount,
+  totalLevels,
+  timeoutCount,
+  wrongTapCount,
+  averageCorrectReactionTime,
+  reactionTimeStd,
+}) {
+  const completed = Math.max(0, toSafeNumber(totalLevels, 0));
+  const correct = Math.max(0, toSafeNumber(correctCount, 0));
+  const timeout = Math.max(0, toSafeNumber(timeoutCount, 0));
+  const wrong = Math.max(0, toSafeNumber(wrongTapCount, 0));
+  const resultTotal = Math.max(1, correct + wrong + timeout);
+  const accuracy = clampNumber(toSafeNumber(accuracyPercent, 0), 0, 100);
+  const memoryPercent = clampNumber((toSafeNumber(memorySpan, 0) / 6) * 100, 0, 100);
+  const reactionSeconds =
+    averageCorrectReactionTime === null
+      ? null
+      : Math.max(0, averageCorrectReactionTime / 1000);
+  const reactionPercent =
+    reactionSeconds === null ? 0 : clampNumber((reactionSeconds / 10) * 100, 0, 100);
+
+  return (
+    <section style={styles.chartPanel} aria-labelledby="pm-performance-title">
+      <div style={styles.sectionHeaderRow}>
+        <div>
+          <h2 id="pm-performance-title" style={styles.sectionTitle}>本次表現圖表</h2>
+          <p style={styles.parentIntro}>
+            圖表整理本次的記憶量、正確率、作答狀況與反應穩定度，請搭配下方觀察重點一起看。
+          </p>
+        </div>
+      </div>
+
+      <div style={styles.chartGrid}>
+        <MetricBar
+          label="記憶量"
+          value={`${memorySpan} 個圖片`}
+          percent={memoryPercent}
+          helper="本次最多一次記住幾個圖片"
+          tone="memory"
+        />
+        <MetricBar
+          label="找圖正確率"
+          value={`${accuracy}%`}
+          percent={accuracy}
+          helper="答案完全正確的題目比例"
+          tone="accuracy"
+        />
+
+        <article style={styles.chartCard}>
+          <div style={styles.chartTitleRow}>
+            <h3 style={styles.chartTitle}>作答結果分布</h3>
+            <strong style={styles.chartValue}>{completed} 題</strong>
+          </div>
+          <div style={styles.stackedBar} aria-label={`答對 ${correct} 題，選錯 ${wrong} 題，逾時 ${timeout} 題`}>
+            <span style={styles.stackedPart("#62b892", (correct / resultTotal) * 100)} />
+            <span style={styles.stackedPart("#f3b45b", (wrong / resultTotal) * 100)} />
+            <span style={styles.stackedPart("#d88972", (timeout / resultTotal) * 100)} />
+          </div>
+          <div style={styles.legendRow}>
+            <ChartLegend color="#62b892" label={`答對 ${correct}`} />
+            <ChartLegend color="#f3b45b" label={`選錯 ${wrong}`} />
+            <ChartLegend color="#d88972" label={`逾時 ${timeout}`} />
+          </div>
+        </article>
+
+        <article style={styles.chartCard}>
+          <div style={styles.chartTitleRow}>
+            <h3 style={styles.chartTitle}>反應與穩定度</h3>
+            <strong style={styles.chartValue}>
+              {reactionSeconds === null ? "資料不足" : `${reactionSeconds.toFixed(1)} 秒`}
+            </strong>
+          </div>
+          <div style={styles.reactionTrack}>
+            <span style={styles.reactionGoodZone} />
+            {reactionSeconds !== null && <span style={styles.reactionMarker(reactionPercent)} />}
+          </div>
+          <div style={styles.reactionScale}><span>0 秒</span><span>3.5 秒</span><span>7.5 秒</span><span>10 秒以上</span></div>
+          <p style={styles.chartHelper}>
+            {reactionSeconds === null
+              ? "目前沒有足夠的正確作答時間資料。"
+              : `答對題平均約 ${reactionSeconds.toFixed(1)} 秒，反應起伏 ${
+                  reactionTimeStd === null ? "資料不足" : `${(reactionTimeStd / 1000).toFixed(1)} 秒`
+                }。`}
+          </p>
+        </article>
+      </div>
+    </section>
+  );
+}
+
+function MetricBar({ label, value, percent, helper, tone }) {
+  return (
+    <article style={styles.chartCard}>
+      <div style={styles.chartTitleRow}>
+        <h3 style={styles.chartTitle}>{label}</h3>
+        <strong style={styles.chartValue}>{value}</strong>
+      </div>
+      <div style={styles.metricTrack}>
+        <span style={styles.metricFill(percent, tone)} />
+      </div>
+      <p style={styles.chartHelper}>{helper}</p>
+    </article>
+  );
+}
+
+function ChartLegend({ color, label }) {
+  return <span style={styles.legendItem}><i style={styles.legendDot(color)} />{label}</span>;
 }
 
 function ObservationCard({ item }) {
@@ -1733,6 +1865,154 @@ const styles = {
     margin: 0,
   },
 
+  chartPanel: {
+    backgroundColor: "rgba(255,255,255,0.94)",
+    borderRadius: "28px",
+    padding: "22px 24px",
+    boxShadow: "0 8px 20px rgba(0,0,0,0.06)",
+    marginBottom: "16px",
+  },
+
+  chartGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: "14px",
+  },
+
+  chartCard: {
+    backgroundColor: "#fffaf4",
+    border: "1px solid #efd7bc",
+    borderRadius: "20px",
+    padding: "16px 18px",
+    textAlign: "left",
+  },
+
+  chartTitleRow: {
+    display: "flex",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: "12px",
+    marginBottom: "12px",
+  },
+
+  chartTitle: {
+    color: "#5c4033",
+    fontSize: "18px",
+    fontWeight: "900",
+    margin: 0,
+  },
+
+  chartValue: {
+    color: "#8b542f",
+    fontSize: "20px",
+    fontWeight: "900",
+    whiteSpace: "nowrap",
+  },
+
+  metricTrack: {
+    height: "18px",
+    backgroundColor: "#eadfd3",
+    borderRadius: "999px",
+    overflow: "hidden",
+  },
+
+  metricFill: (percent, tone) => ({
+    display: "block",
+    width: `${clampNumber(percent, 0, 100)}%`,
+    minWidth: percent > 0 ? "8px" : 0,
+    height: "100%",
+    borderRadius: "999px",
+    backgroundColor: tone === "memory" ? "#8f79c6" : "#62b892",
+  }),
+
+  stackedBar: {
+    display: "flex",
+    width: "100%",
+    height: "20px",
+    overflow: "hidden",
+    borderRadius: "999px",
+    backgroundColor: "#eadfd3",
+  },
+
+  stackedPart: (color, percent) => ({
+    display: "block",
+    width: `${Math.max(0, percent)}%`,
+    height: "100%",
+    backgroundColor: color,
+  }),
+
+  legendRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px 14px",
+    marginTop: "11px",
+  },
+
+  legendItem: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    color: "#6e5140",
+    fontSize: "13px",
+    fontWeight: "800",
+  },
+
+  legendDot: (color) => ({
+    display: "inline-block",
+    width: "10px",
+    height: "10px",
+    borderRadius: "50%",
+    backgroundColor: color,
+  }),
+
+  reactionTrack: {
+    position: "relative",
+    height: "18px",
+    borderRadius: "999px",
+    background: "linear-gradient(90deg, #62b892 0 35%, #f1c66f 35% 75%, #d88972 75% 100%)",
+    marginTop: "4px",
+  },
+
+  reactionGoodZone: {
+    position: "absolute",
+    left: "35%",
+    top: "-4px",
+    width: "2px",
+    height: "26px",
+    backgroundColor: "rgba(92,64,51,0.35)",
+  },
+
+  reactionMarker: (percent) => ({
+    position: "absolute",
+    left: `${clampNumber(percent, 0, 100)}%`,
+    top: "50%",
+    width: "24px",
+    height: "24px",
+    borderRadius: "50%",
+    backgroundColor: "#ffffff",
+    border: "4px solid #5c4033",
+    boxShadow: "0 2px 7px rgba(0,0,0,0.22)",
+    transform: "translate(-50%, -50%)",
+  }),
+
+  reactionScale: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "8px",
+    color: "#80644e",
+    fontSize: "11px",
+    fontWeight: "800",
+    marginTop: "7px",
+  },
+
+  chartHelper: {
+    color: "#6e5140",
+    fontSize: "13px",
+    fontWeight: "750",
+    lineHeight: 1.5,
+    margin: "10px 0 0",
+  },
+
   panel: {
     backgroundColor: "rgba(255,255,255,0.9)",
     borderRadius: "28px",
@@ -1873,6 +2153,32 @@ const styles = {
     color: "#3f5970",
     fontWeight: "800",
     margin: 0,
+  },
+  detailsPanel: {
+    border: "1px solid rgba(111, 162, 191, 0.34)",
+    borderRadius: 20,
+    background: "rgba(255, 255, 255, 0.78)",
+    overflow: "hidden",
+  },
+  detailsSummary: {
+    padding: "18px 22px",
+    color: "#35637d",
+    fontWeight: 900,
+    cursor: "pointer",
+  },
+  detailsContent: {
+    display: "grid",
+    gap: 18,
+    padding: "18px",
+    borderTop: "1px solid rgba(111, 162, 191, 0.26)",
+  },
+
+  aiReferenceNote: {
+    color: "#49647a",
+    fontSize: "14px",
+    fontWeight: "800",
+    lineHeight: 1.55,
+    margin: "12px 0 0",
   },
 
   aiScoreBadge: {

@@ -8,12 +8,12 @@ import dccsBackgroundImg from "../asset/DCCS/DCCS_background.webp";
 import startVideo from "../asset/optimized/mp4/DCCS_start.mp4";
 import stepVideo from "../asset/mp4/DCCS_step.mp4";
 import endingVideo from "../asset/optimized/mp4/DCCS_end.mp4";
-import homeStartBtn from "../asset/home/start.webp";
-import homeSkipBtn from "../asset/home/skip.webp";
-import homeNextBtn from "../asset/home/next.webp";
-import homeBackBtn from "../asset/home/back.webp";
+import homeStartBtn from "../asset/SRT/start.webp";
+import homeSkipBtn from "../asset/SRT/skip.webp";
+import homeNextBtn from "../asset/SRT/next.webp";
+import homeBackBtn from "../asset/SRT/back.webp";
 import homeAgainBtn from "../asset/home/again.webp";
-import homeResultBtn from "../asset/home/result.webp";
+import homeResultBtn from "../asset/SRT/result.webp";
 import mouseGuideImg from "../asset/mouse.webp";
 
 import { analyzePerformance } from "../ai/performanceAnalyzer";
@@ -2092,7 +2092,7 @@ function TrainingPage_DCCS() {
     );
   };
 
-  const renderVideoPage = ({ src, title, buttonText, onDone }) => {
+  const renderVideoPage = ({ src, title, buttonText, onDone, showNext = true }) => {
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
         <main className="Dcss-center-shell Dcss-video-shell">
@@ -2110,7 +2110,8 @@ function TrainingPage_DCCS() {
               />
             </div>
 
-            <div className="Dcss-guided-action Dcss-guided-skip">
+            <div className="Dcss-video-actions">
+              <div className="Dcss-guided-action Dcss-guided-skip">
               <button
                 type="button"
                 className="Dcss-forest-button Dcss-image-button Dcss-btn-skip"
@@ -2120,6 +2121,18 @@ function TrainingPage_DCCS() {
                 <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt={buttonText} />
               </button>
               <img width={1024} height={1024} loading="lazy" className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="點擊提示" aria-hidden="true" />
+              </div>
+              {showNext && <div className="Dcss-guided-action Dcss-guided-next">
+                <button
+                  type="button"
+                  className="Dcss-forest-button Dcss-image-button Dcss-btn-next"
+                  onClick={onDone}
+                  aria-label="下一步"
+                >
+                  <img width={532} height={177} loading="lazy" src={homeNextBtn} alt="下一步" />
+                </button>
+                <img width={156} height={156} loading="lazy" className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="" aria-hidden="true" />
+              </div>}
             </div>
           </section>
         </main>
@@ -2130,7 +2143,7 @@ function TrainingPage_DCCS() {
   const renderSwitchRulePage = () => {
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
-        <div className="Dcss-switch-card Dcss-picture-rule-card">
+        <div className="Dcss-switch-card Dcss-picture-rule-card game-start-card-artwork dccs-rule-card-artwork">
           <img src={peacockImg} alt="孔雀小姐" className="Dcss-peacock-rule" width="360" height="360" loading="lazy" />
 
           <div className="Dcss-rule-content Dcss-picture-rule-content">
@@ -2183,7 +2196,7 @@ function TrainingPage_DCCS() {
 
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
-        <div className="Dcss-switch-card Dcss-picture-rule-card">
+        <div className="Dcss-switch-card Dcss-picture-rule-card game-start-card-artwork dccs-rule-card-artwork">
           <img src={peacockImg} alt="孔雀小姐" className="Dcss-peacock-rule" width="360" height="360" loading="lazy" />
 
           <div className="Dcss-rule-content Dcss-picture-rule-content">
@@ -2377,6 +2390,7 @@ function TrainingPage_DCCS() {
       title: "完成說明",
       buttonText: "跳過說明",
       onDone: handleEndingVideoDone,
+      showNext: false,
     });
   }
 

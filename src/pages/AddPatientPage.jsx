@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import homeBackground from "../asset/Home_background.webp";
+import ReturnButton from "../asset/return.webp";
 
 import bearAvatar from "../asset/avatar/bear.webp";
 import chickenAvatar from "../asset/avatar/chicken.webp";
@@ -231,7 +232,7 @@ function AddPatientPage() {
       <main className="add-patient-shell" style={shellStyle}>
         <section className="add-patient-panel" style={introPanelStyle}>
           <button type="button" onClick={() => navigate(-1)} disabled={isSubmitting} style={isSubmitting ? secondaryButtonDisabledStyle : backButtonStyle}>
-            ← 返回
+            <img src={ReturnButton} alt="" style={{ width: "64px", height: "64px", objectFit: "contain" }} />
           </button>
 
           <div style={avatarPreviewWrapStyle} aria-hidden="true">
@@ -419,11 +420,11 @@ const formCardStyle = {
 };
 
 const backButtonStyle = {
-  border: "2px solid rgba(139, 108, 60, 0.18)",
-  background: "rgba(255,255,255,0.78)",
+  border: 0,
+  background: "transparent",
   color: "#5c4328",
   borderRadius: "999px",
-  padding: "10px 16px",
+  padding: 0,
   fontWeight: "900",
   cursor: "pointer",
   touchAction: "manipulation",

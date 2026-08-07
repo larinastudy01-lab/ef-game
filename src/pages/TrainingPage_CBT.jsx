@@ -10,7 +10,8 @@ import clickSoundFile from "../asset/Click.mp3";
 import startAvatar from "../asset/avatar/deer.webp";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
-import homeBackBtn from "../asset/home/back.webp";
+import homeNextBtn from "../asset/home/next.webp";
+import homeBackBtn from "../asset/return.webp";
 import homeAgainBtn from "../asset/home/again.webp";
 import homeResultBtn from "../asset/home/result.webp";
 import mouseGuideImg from "../asset/mouse.webp";
@@ -2976,7 +2977,7 @@ export default function TrainingPage_CBT() {
       )}
 
       {phase === "warmupFeedback" && (
-        <div className="cbt-card cbt-card--small">
+        <div className="cbt-card cbt-card--small game-start-card-artwork cbt-feedback-card-artwork">
           <h1 className="cbt-title">做得好！</h1>
 
           <div className="cbt-result-message">{message}</div>
@@ -3020,7 +3021,7 @@ export default function TrainingPage_CBT() {
       )}
 
       {phase === "feedback" && (
-        <div className="cbt-card cbt-card--small">
+        <div className="cbt-card cbt-card--small game-start-card-artwork cbt-feedback-card-artwork">
           <h1 className="cbt-title">
             {feedbackType === "correct" ? "答對了" : "再試一次"}
           </h1>
@@ -3062,7 +3063,7 @@ export default function TrainingPage_CBT() {
       )}
 
       {phase === "finish" && (
-        <div className="cbt-card cbt-card--small">
+        <div className="cbt-card cbt-card--small game-start-card-artwork cbt-feedback-card-artwork">
           <h1 className="cbt-title">完成了！</h1>
 
           <div className="cbt-result-message" style={{ marginTop: 12 }}>
@@ -3075,6 +3076,7 @@ export default function TrainingPage_CBT() {
         <VideoOnlyPage
           videoSrc={introVideo}
           onDone={() => goResultPage(historyRef.current, false)}
+          showNext={false}
         />
       )}
 
@@ -3130,7 +3132,7 @@ export default function TrainingPage_CBT() {
   );
 }
 
-function VideoOnlyPage({ videoSrc, onDone }) {
+function VideoOnlyPage({ videoSrc, onDone, showNext = true }) {
   return (
     <main className="cbt-video-only-card game-start-card-artwork cbt-video-card-artwork" aria-label="影片">
       <div className="cbt-video-wrapper">
@@ -3145,14 +3147,23 @@ function VideoOnlyPage({ videoSrc, onDone }) {
         />
       </div>
 
-      <GuidedImageButton
-        imgSrc={homeSkipBtn}
-        imgAlt="跳過動畫"
-        ariaLabel="跳過動畫"
-        onClick={onDone}
-        showMouse
-        variant="skip"
-      />
+      <div className="cbt-video-actions">
+        <GuidedImageButton
+          imgSrc={homeSkipBtn}
+          imgAlt="跳過動畫"
+          ariaLabel="跳過動畫"
+          onClick={onDone}
+          variant="skip"
+        />
+        {showNext && <GuidedImageButton
+          imgSrc={homeNextBtn}
+          imgAlt="下一步"
+          ariaLabel="下一步"
+          onClick={onDone}
+          showMouse
+          variant="next"
+        />}
+      </div>
     </main>
   );
 }

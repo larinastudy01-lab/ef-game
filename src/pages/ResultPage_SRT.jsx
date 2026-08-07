@@ -213,7 +213,7 @@ const ResultPage_SRT = ({
     return calculateSrtScore([]);
   }, [normalizedRecords, providedScoring]);
 
-  const summary = scoringResult?.summary || {};
+  const summary = useMemo(() => scoringResult?.summary || {}, [scoringResult]);
   const childView = scoringResult?.childView || {};
   const parentView = scoringResult?.parentView || {};
 
@@ -437,6 +437,75 @@ const ResultPage_SRT = ({
         },
       ];
 
+  const performanceSegments = useMemo(
+    () =>
+      ["前段", "中段", "後段"].map((label, index) => ({
+        label,
+        ...getSegmentSummaryFromRecords(normalizedRecords, index, 3),
+      })),
+    [normalizedRecords]
+  );
+
+  const chartHasRecords = normalizedRecords.length > 0;
+  const maxSegmentRt = Math.max(
+    1,
+    ...performanceSegments.map((segment) => segment.avgRT || 0)
+  );
+
+  const responseDistribution = useMemo(() => {
+    const fromRecords = {
+      hit: normalizedRecords.filter(
+        (record) =>
+          record.trainingAction === "hit" ||
+          (record.isCorrect && record.trainingAction !== "correctAvoid")
+      ).length,
+      correctAvoid: normalizedRecords.filter(
+        (record) => record.trainingAction === "correctAvoid"
+      ).length,
+      miss: normalizedRecords.filter(
+        (record) => record.missed || record.timeout
+      ).length,
+      clickedRotten: normalizedRecords.filter(
+        (record) =>
+          record.clickedRotten || record.trainingAction === "clickedRotten"
+      ).length,
+    };
+
+    if (normalizedRecords.length > 0) return fromRecords;
+
+    return {
+      hit: isTrainingMode
+        ? safeNumber(resolvedTrainingData?.hitCount, 0)
+        : safeNumber(summary?.correctCount, 0),
+      correctAvoid: isTrainingMode
+        ? safeNumber(resolvedTrainingData?.correctAvoidCount, 0)
+        : safeNumber(summary?.rottenAvoidedCount, 0),
+      miss: isTrainingMode
+        ? safeNumber(resolvedTrainingData?.missCount ?? missCount, 0)
+        : safeNumber(summary?.missCount ?? summary?.timeoutCount ?? missCount, 0),
+      clickedRotten: isTrainingMode
+        ? safeNumber(resolvedTrainingData?.clickedRottenCount, 0)
+        : safeNumber(summary?.clickedRottenCount, 0),
+    };
+  }, [
+    normalizedRecords,
+    isTrainingMode,
+    resolvedTrainingData,
+    summary,
+    missCount,
+  ]);
+
+  const distributionItems = [
+    { key: "hit", label: "接到橡實", color: "#739a48" },
+    { key: "correctAvoid", label: "避開壞橡實", color: "#65b8e8" },
+    { key: "miss", label: "漏接/逾時", color: "#e7a62f" },
+    { key: "clickedRotten", label: "誤點壞橡實", color: "#e98f7d" },
+  ].map((item) => ({ ...item, value: responseDistribution[item.key] || 0 }));
+  const distributionTotal = Math.max(
+    1,
+    distributionItems.reduce((sum, item) => sum + item.value, 0)
+  );
+
   const handleBackToMenu = () => {
     if (backActionLockedRef.current) return;
     backActionLockedRef.current = true;
@@ -558,16 +627,108 @@ const ResultPage_SRT = ({
             </div>
           </section>
 
-          <section className="srt-quick-stats">
-            {quickStats.map((item) => (
-              <article key={item.label} className="srt-stat-card">
-                <p className="srt-stat-label">{item.label}</p>
-                <p className="srt-stat-value">{item.value}</p>
-                <p className="srt-stat-helper">{item.helper}</p>
+          <section className="srt-panel-block srt-chart-summary">
+            <div className="srt-section-heading-row">
+              <div>
+                <p className="srt-section-kicker">本次數據</p>
+                <h2 className="srt-section-title">圖表摘要</h2>
+              </div>
+              <p>先看整體數字，再觀察前、中、後段的變化。</p>
+            </div>
+
+            <div className="srt-quick-stats">
+              {quickStats.map((item) => (
+                <article key={item.label} className="srt-stat-card">
+                  <p className="srt-stat-label">{item.label}</p>
+                  <p className="srt-stat-value">{item.value}</p>
+                  <p className="srt-stat-helper">{item.helper}</p>
+                </article>
+              ))}
+            </div>
+
+            <div className="srt-chart-grid">
+              <article className="srt-chart-card">
+                <div className="srt-chart-title-row">
+                  <div>
+                    <h3>前、中、後段表現</h3>
+                    <p>比較正確率與成功反應的平均速度</p>
+                  </div>
+                  <div className="srt-chart-legend" aria-label="圖例">
+                    <span><i className="accuracy" />正確率</span>
+                    <span><i className="reaction" />反應時間</span>
+                  </div>
+                </div>
+
+                {chartHasRecords ? (
+                  <div className="srt-segment-chart">
+                    {performanceSegments.map((segment) => (
+                      <div className="srt-segment-column" key={segment.label}>
+                        <div className="srt-segment-bars">
+                          <div
+                            className="srt-segment-bar accuracy"
+                            style={{ height: `${Math.max(4, segment.accuracy)}%` }}
+                            title={`${segment.label}正確率 ${segment.accuracy}%`}
+                          >
+                            <span>{segment.accuracy}%</span>
+                          </div>
+                          <div
+                            className="srt-segment-bar reaction"
+                            style={{
+                              height: `${Math.max(
+                                4,
+                                Math.round((segment.avgRT / maxSegmentRt) * 100)
+                              )}%`,
+                            }}
+                            title={`${segment.label}平均反應 ${formatMsShort(segment.avgRT)}`}
+                          >
+                            <span>{formatMsShort(segment.avgRT)}</span>
+                          </div>
+                        </div>
+                        <strong>{segment.label}</strong>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="srt-chart-empty">目前分段資料不足，完成一次完整挑戰後即可顯示趨勢。</p>
+                )}
               </article>
-            ))}
+
+              <article className="srt-chart-card">
+                <div className="srt-chart-title-row">
+                  <div>
+                    <h3>作答結果分布</h3>
+                    <p>呈現本次接到、避開、漏接與誤點的次數</p>
+                  </div>
+                </div>
+                <div className="srt-distribution-track" aria-label="作答結果分布">
+                  {distributionItems.map((item) =>
+                    item.value > 0 ? (
+                      <span
+                        key={item.key}
+                        style={{
+                          width: `${(item.value / distributionTotal) * 100}%`,
+                          backgroundColor: item.color,
+                        }}
+                        title={`${item.label} ${item.value} 次`}
+                      />
+                    ) : null
+                  )}
+                </div>
+                <div className="srt-distribution-list">
+                  {distributionItems.map((item) => (
+                    <div key={item.key}>
+                      <span><i style={{ backgroundColor: item.color }} />{item.label}</span>
+                      <strong>{item.value} 次</strong>
+                    </div>
+                  ))}
+                </div>
+              </article>
+            </div>
           </section>
 
+          <details className="srt-collapsible-results">
+            <summary>查看進階指標與解讀</summary>
+            <div className="srt-collapsible-content">
           <section className="srt-panel-block">
             <h2 className="srt-section-title">結果快速解讀</h2>
             <p className="srt-parent-summary-text">{resultPlainSummary}</p>
@@ -612,7 +773,12 @@ const ResultPage_SRT = ({
                     </div>
                   </div>
                   {item.value !== undefined && !isTrainingMode && (
-                    <p className="srt-indicator-score">{item.value} / 100</p>
+                    <>
+                      <p className="srt-indicator-score">{item.value} / 100</p>
+                      <div className="srt-ability-track" aria-hidden="true">
+                        <span style={{ width: `${clampPercent(item.value)}%` }} />
+                      </div>
+                    </>
                   )}
                   <p>{item.description || item.desc}</p>
                   {item.advice && <p className="srt-card-meaning">{item.advice}</p>}
@@ -620,6 +786,8 @@ const ResultPage_SRT = ({
               ))}
             </div>
           </section>
+            </div>
+          </details>
 
           <section className="srt-next-card">
             <h2 className="srt-section-title">下一步建議</h2>
@@ -1904,7 +2072,7 @@ const resultPageCss = `
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
-  margin-bottom: 22px;
+  margin: 18px 0 22px;
 }
 
 .srt-stat-card {
@@ -1929,6 +2097,158 @@ const resultPageCss = `
 .srt-next-card,
 .srt-note-box { padding: clamp(18px, 3vw, 28px); margin-bottom: 22px; }
 .srt-section-title { margin: 0 0 12px; color: var(--srt-wood); font-size: clamp(20px, 2.4vw, 25px); font-weight: 900; }
+
+.srt-chart-summary { border-top: 5px solid var(--srt-sky); }
+.srt-collapsible-results { border: 1px solid var(--srt-line); border-radius: 20px; background: rgba(255,255,255,.76); overflow: hidden; }
+.srt-collapsible-results > summary { padding: 18px 22px; color: var(--srt-wood); font-weight: 900; cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; }
+.srt-collapsible-results > summary::-webkit-details-marker { display: none; }
+.srt-collapsible-results > summary::after { content: "+"; font-size: 26px; line-height: 1; }
+.srt-collapsible-results[open] > summary::after { content: "−"; }
+.srt-collapsible-results > summary:focus-visible { outline: 3px solid rgba(68,166,215,.35); outline-offset: -3px; }
+.srt-collapsible-content { display: grid; gap: 18px; padding: 0 18px 18px; border-top: 1px solid var(--srt-line); }
+.srt-collapsible-content > :first-child { margin-top: 18px; }
+.srt-collapsible-content .srt-panel-block { box-shadow: none; }
+.srt-section-heading-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+.srt-section-heading-row .srt-section-title { margin-bottom: 0; }
+.srt-section-heading-row > p,
+.srt-section-kicker {
+  margin: 0;
+  color: #876c55;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.srt-section-kicker {
+  margin-bottom: 4px;
+  color: #3d7898;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.srt-chart-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(300px, .8fr);
+  gap: 16px;
+}
+.srt-chart-card {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid #dfd4c1;
+  border-radius: 14px;
+  background: #fffdf9;
+}
+.srt-chart-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+.srt-chart-title-row h3 {
+  margin: 0 0 5px;
+  color: var(--srt-wood);
+  font-size: 18px;
+  font-weight: 900;
+}
+.srt-chart-title-row p,
+.srt-chart-empty {
+  margin: 0;
+  color: #846b57;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.srt-chart-legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 12px; }
+.srt-chart-legend span,
+.srt-distribution-list span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #755d49;
+  font-size: 12px;
+  font-weight: 700;
+}
+.srt-chart-legend i,
+.srt-distribution-list i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+}
+.srt-chart-legend i.accuracy { background: var(--srt-leaf); }
+.srt-chart-legend i.reaction { background: var(--srt-sky); }
+
+.srt-segment-chart {
+  height: 238px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  align-items: end;
+  margin-top: 22px;
+  padding: 16px 12px 0;
+  border-bottom: 1px solid #dbcdb7;
+  background: repeating-linear-gradient(to top, transparent 0, transparent 49px, rgba(218,203,181,.45) 50px);
+}
+.srt-segment-column { min-width: 0; text-align: center; }
+.srt-segment-bars {
+  height: 178px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 8px;
+}
+.srt-segment-bar {
+  position: relative;
+  width: min(35%, 46px);
+  min-height: 4px;
+  border-radius: 7px 7px 2px 2px;
+  transition: height .3s ease;
+}
+.srt-segment-bar.accuracy { background: linear-gradient(180deg, #8db662, var(--srt-leaf)); }
+.srt-segment-bar.reaction { background: linear-gradient(180deg, #8dd0f3, var(--srt-sky)); }
+.srt-segment-bar span {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 5px);
+  transform: translateX(-50%);
+  color: #664d39;
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.srt-segment-column > strong {
+  display: block;
+  padding: 9px 0;
+  color: var(--srt-wood);
+  font-size: 14px;
+}
+.srt-chart-empty { padding: 34px 10px; text-align: center; }
+
+.srt-distribution-track {
+  width: 100%;
+  height: 30px;
+  display: flex;
+  overflow: hidden;
+  margin: 28px 0 20px;
+  border-radius: 9px;
+  background: #eee6d9;
+  box-shadow: inset 0 0 0 1px rgba(108,72,31,.08);
+}
+.srt-distribution-track span { min-width: 3px; }
+.srt-distribution-list { display: grid; gap: 9px; }
+.srt-distribution-list > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #e7dac5;
+}
+.srt-distribution-list > div:last-child { border-bottom: 0; }
+.srt-distribution-list strong { color: var(--srt-wood); font-size: 14px; }
 
 .srt-highlight-grid,
 .srt-indicator-grid {
@@ -1973,6 +2293,19 @@ const resultPageCss = `
 .srt-status-pill.neutral { background: var(--srt-sky-soft); color: #3d7898; border-color: #c5e2f2; }
 
 .srt-indicator-score { color: var(--srt-wood) !important; font-size: 22px !important; font-weight: 900 !important; margin-bottom: 6px !important; }
+.srt-ability-track {
+  height: 9px;
+  overflow: hidden;
+  margin: 0 0 12px;
+  border-radius: 999px;
+  background: #e7dfd2;
+}
+.srt-ability-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--srt-sky), var(--srt-leaf));
+}
 .srt-card-meaning { margin-top: 10px !important; padding-top: 10px; border-top: 1px solid #eadcc5; color: #7e6754 !important; font-size: 15px !important; }
 
 .srt-next-card {
@@ -2016,6 +2349,7 @@ const resultPageCss = `
   .srt-star-summary { flex-basis: auto; }
   .srt-quick-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .srt-highlight-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .srt-chart-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 700px) {
@@ -2028,6 +2362,12 @@ const resultPageCss = `
   .srt-score-circle { width: 96px; height: 96px; min-width: 96px; border-radius: 14px; }
   .srt-score-number { font-size: 36px; }
   .srt-score-unit { font-size: 16px; margin-bottom: 21px; }
+  .srt-section-heading-row,
+  .srt-chart-title-row { align-items: flex-start; flex-direction: column; }
+  .srt-chart-legend { justify-content: flex-start; }
+  .srt-chart-card { padding: 16px; }
+  .srt-segment-chart { gap: 8px; padding-inline: 4px; }
+  .srt-segment-bars { gap: 5px; }
   .srt-quick-stats,
   .srt-highlight-grid,
   .srt-indicator-grid { grid-template-columns: 1fr; }

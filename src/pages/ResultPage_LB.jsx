@@ -6,9 +6,8 @@ import calculateLBScore from "../utils/lbScoring";
 import "../styles/GamePage_LB.css";
 
 import backgroundImg from "../asset/LB/LB_background.webp";
-import sheepImg from "../asset/LB/blowing_bubbles.webp";
+import sheepImg from "../asset/LB/walk/blowing_bubbles.webp";
 import homeBackBtn from "../asset/home/back.webp";
-import homeAgainBtn from "../asset/home/again.webp";
 
 /*
   =========================================================
@@ -26,8 +25,6 @@ import homeAgainBtn from "../asset/home/again.webp";
 
 const MENU_ROUTE = "/game-menu";
 const TEST_MAP_ROUTE = "/test-map";
-const TEST_ROUTE = "/test-lb";
-const TRAINING_ROUTE = "/training-lb";
 const SESSION_KEY = "LB_RESULT";
 const CLICK_SOUND_SRC = "/sounds/click.mp3";
 const HAT_GAME_ROUTE = "/hat-sticker-game";
@@ -747,6 +744,7 @@ function buildDetailedLBTrainingOverview({ result, clinician, parentMetrics, pay
   };
 }
 
+// eslint-disable-next-line no-unused-vars
 function buildDetailedLBTrainingCards({ result, clinician, parentMetrics, payload, trialLogs }) {
   const stars = getLBDetailedStars(result);
   const levelInfo = getLBDetailedLevelInfo(payload, trialLogs);
@@ -868,16 +866,6 @@ export default function ResultPage_LB() {
     }
   };
 
-  const handleNavigate = (route, { clearCache = false } = {}) => {
-    playClickSound();
-
-    if (clearCache) {
-      sessionStorage.removeItem(SESSION_KEY);
-    }
-
-    navigate(route);
-  };
-
   const trialLogs = useMemo(() => getTrialLogsFromPayload(payload), [payload]);
 
   const result = useMemo(
@@ -909,24 +897,10 @@ export default function ResultPage_LB() {
     FINISH_REASON_LABELS[rawFinishReason] || rawFinishReason || "測驗完成";
 
   const mode = payload?.config?.mode || payload?.mode || "test";
-  const retryRoute = mode === "training" ? TRAINING_ROUTE : TEST_ROUTE;
   const detailedTrainingOverview = useMemo(
     () =>
       mode === "training"
         ? buildDetailedLBTrainingOverview({
-            result,
-            clinician,
-            parentMetrics,
-            payload,
-            trialLogs,
-          })
-        : null,
-    [mode, result, clinician, parentMetrics, payload, trialLogs]
-  );
-  const detailedTrainingCards = useMemo(
-    () =>
-      mode === "training"
-        ? buildDetailedLBTrainingCards({
             result,
             clinician,
             parentMetrics,
@@ -1039,27 +1013,22 @@ export default function ResultPage_LB() {
               </div>
             </section>
 
-            <section style={styles.quickStats}>
-              <StatCard label="完成題數" value={`${completedTrials}/${totalTrials}`} helper="孩子完成了多少題" />
-              <StatCard label="結束原因" value={finishReason} helper="本次任務如何結束" />
-              <StatCard label="整體正確率" value={formatPercent(clinician?.accuracy)} helper="作答是否看對規則" />
-              <StatCard label="平均反應" value={formatMs(clinician?.avgReactionTime)} helper="作答速度參考" />
+            <section style={styles.overviewGrid}>
+              <AccuracyDonut value={clinician?.accuracy} />
+              <div style={styles.summaryFacts}>
+                <StatCard label="完成題數" value={`${completedTrials}/${totalTrials}`} />
+                <StatCard label="平均反應" value={formatMs(clinician?.avgReactionTime)} />
+                <StatCard label="結束狀態" value={finishReason} />
+              </div>
             </section>
 
             <ParentView
               result={result}
               clinician={clinician}
               parentMetrics={parentMetrics}
-              summaryCards={detailedTrainingCards}
+              trialLogs={trialLogs}
               suggestion={detailedTrainingSuggestion}
             />
-
-            <section style={styles.noteBox}>
-              <h3 style={styles.noteTitle}>給家長的小提醒</h3>
-              <p style={styles.noteText}>
-                這份結果是本次遊戲中的觀察紀錄，可幫助了解孩子在「看線索、切換規則、穩定作答」時的狀況；不代表醫療診斷，建議搭配多次練習或其他任務一起觀察。
-              </p>
-            </section>
           </section>
 
           <footer style={styles.buttonRow}>
@@ -1072,16 +1041,6 @@ export default function ResultPage_LB() {
               <img width={1024} height={341} loading="lazy" src={homeBackBtn} alt="回到森林" style={styles.imageButtonImg} />
             </button>
 
-            {mode === "training" && (
-              <button
-                type="button"
-                style={styles.resultImageButton}
-                onClick={() => handleNavigate(retryRoute, { clearCache: true })}
-                aria-label="play again"
-              >
-                <img width={1024} height={341} loading="lazy" src={homeAgainBtn} alt="play again" style={styles.imageButtonImg} />
-              </button>
-            )}
           </footer>
         </main>
       </div>
@@ -1089,29 +1048,27 @@ export default function ResultPage_LB() {
   );
 }
 
-function ParentView({ result, clinician, parentMetrics, summaryCards: providedSummaryCards, suggestion }) {
-  const summaryCards = Array.isArray(providedSummaryCards)
-    ? providedSummaryCards
-    : getParentSummaryCards(clinician, parentMetrics);
+function ParentView({ result, clinician, parentMetrics, trialLogs, suggestion }) {
+  const summaryCards = getParentSummaryCards(clinician, parentMetrics);
 
   return (
     <>
       <section style={styles.panel}>
         <div style={styles.sectionHeaderRow}>
           <div>
-            <h2 style={styles.sectionTitle}>家長可以這樣看</h2>
-            <p style={styles.parentIntro}>
-              不需要先懂專有名詞，只要看每張卡片的「孩子在做什麼」和「代表什麼」。
-            </p>
+            <h2 style={styles.sectionTitle}>能力表現</h2>
+            <p style={styles.parentIntro}>長條越長，代表孩子這次在該項目的表現越穩定。</p>
           </div>
         </div>
 
-        <div style={styles.abilityGrid}>
+        <div style={styles.abilityChart}>
           {summaryCards.map((item) => (
-            <AbilityCard key={item.label} item={item} />
+            <AbilityChartBar key={item.label} item={item} />
           ))}
         </div>
       </section>
+
+      <SwitchComparison clinician={clinician} trialLogs={trialLogs} />
 
       <section style={styles.suggestionPanel}>
         <h2 style={styles.sectionTitle}>下一步建議</h2>
@@ -1122,20 +1079,104 @@ function ParentView({ result, clinician, parentMetrics, summaryCards: providedSu
           </p>
         </div>
       </section>
+
+      <details style={styles.detailsPanel}>
+        <summary style={styles.detailsSummary}>查看詳細指標說明</summary>
+        <div style={styles.detailsContent}>
+          {summaryCards.map((item) => (
+            <div key={item.label} style={styles.detailItem}>
+              <strong>{item.label}：</strong>{item.note}。{getAbilityMeaning(item.label, percent(item.value))}
+            </div>
+          ))}
+          <p style={styles.disclaimer}>
+            本結果是本次遊戲的觀察紀錄，不代表醫療診斷，建議搭配多次練習或其他任務一起觀察。
+          </p>
+        </div>
+      </details>
     </>
   );
 }
 
-function StatCard({ label, value, helper }) {
+function StatCard({ label, value }) {
   return (
     <div style={styles.statCard}>
       <p style={styles.statLabel}>{label}</p>
       <p style={styles.statValue}>{value}</p>
-      <p style={styles.statHelper}>{helper}</p>
     </div>
   );
 }
 
+function AccuracyDonut({ value }) {
+  const finalValue = clamp(percent(value), 0, 100);
+  return (
+    <div style={styles.donutCard}>
+      <div style={styles.donut(finalValue)}>
+        <div style={styles.donutCenter}>
+          <strong style={styles.donutValue}>{Math.round(finalValue)}%</strong>
+          <span style={styles.donutLabel}>整體正確率</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AbilityChartBar({ item }) {
+  const value = clamp(percent(item.value), 0, 100);
+  const color = value >= 80 ? "#62b879" : value >= 55 ? "#f0b64d" : "#ef8b62";
+  const status = value >= 80 ? "表現穩定" : value >= 55 ? "持續觀察" : "優先練習";
+
+  return (
+    <div style={styles.abilityRow}>
+      <div style={styles.abilityMeta}>
+        <strong>{item.label}</strong>
+        <span style={{ ...styles.abilityStatus, color }}>{status}</span>
+      </div>
+      <div style={styles.barLine}>
+        <div style={styles.barTrack}>
+          <div style={{ ...styles.barFill, width: `${value}%`, backgroundColor: color }} />
+        </div>
+        <strong style={styles.barValue}>{Math.round(value)}</strong>
+      </div>
+    </div>
+  );
+}
+
+function SwitchComparison({ clinician, trialLogs }) {
+  const logs = Array.isArray(trialLogs) ? trialLogs : [];
+  const switchLogs = logs.filter((log) => log.isRuleSwitch || log.isSwitch || log.switchTrial);
+  const regularLogs = logs.filter((log) => !(log.isRuleSwitch || log.isSwitch || log.switchTrial));
+  const accuracyOf = (items, fallback) => {
+    if (!items.length) return clamp(percent(fallback), 0, 100);
+    const correct = items.filter((log) => formatTrialResult(log) === "正確").length;
+    return Math.round((correct / items.length) * 100);
+  };
+  const overall = clamp(percent(clinician?.accuracy), 0, 100);
+  const switchValue = accuracyOf(switchLogs, clinician?.switchAccuracy);
+  const regularValue = accuracyOf(regularLogs, overall);
+
+  return (
+    <section style={styles.panel}>
+      <h2 style={styles.sectionTitle}>題型比較</h2>
+      <p style={styles.parentIntro}>比較維持原規則與切換新規則時的正確率。</p>
+      <ComparisonBar label="一般題" value={regularValue} color="#62b879" />
+      <ComparisonBar label="切換題" value={switchValue} color="#f0a24d" />
+    </section>
+  );
+}
+
+function ComparisonBar({ label, value, color }) {
+  return (
+    <div style={styles.comparisonRow}>
+      <strong style={styles.comparisonLabel}>{label}</strong>
+      <div style={styles.barTrack}>
+        <div style={{ ...styles.barFill, width: `${value}%`, backgroundColor: color }} />
+      </div>
+      <strong style={styles.comparisonValue}>{Math.round(value)}%</strong>
+    </div>
+  );
+}
+
+// eslint-disable-next-line no-unused-vars
 function AbilityCard({ item }) {
   const finalValue = clamp(safeNumber(item.value, 0), 0, 100);
   const tone = finalValue >= 80 ? "good" : finalValue >= 55 ? "normal" : "watch";
@@ -1551,11 +1592,60 @@ const styles = {
     margin: 0,
   },
 
-  quickStats: {
+  overviewGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-    gap: "12px",
+    gridTemplateColumns: "220px minmax(0, 1fr)",
+    gap: "16px",
     marginBottom: "16px",
+  },
+
+  donutCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: "24px",
+    padding: "18px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 8px 18px rgba(0,0,0,0.07)",
+  },
+
+  donut: (value) => ({
+    width: "150px",
+    height: "150px",
+    borderRadius: "50%",
+    background: `conic-gradient(#62b879 0 ${value}%, #f1e4d5 ${value}% 100%)`,
+    display: "grid",
+    placeItems: "center",
+  }),
+
+  donutCenter: {
+    width: "112px",
+    height: "112px",
+    borderRadius: "50%",
+    backgroundColor: "#ffffff",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  donutValue: {
+    color: "#4d3b2f",
+    fontSize: "30px",
+    lineHeight: 1.1,
+  },
+
+  donutLabel: {
+    color: "#8b5e3c",
+    fontSize: "14px",
+    fontWeight: "900",
+    marginTop: "5px",
+  },
+
+  summaryFacts: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: "12px",
   },
 
   statCard: {
@@ -1622,6 +1712,78 @@ const styles = {
     display: "grid",
     gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
     gap: "14px",
+  },
+
+  abilityChart: {
+    display: "grid",
+    gap: "14px",
+  },
+
+  abilityRow: {
+    backgroundColor: "#fffaf4",
+    borderRadius: "18px",
+    padding: "13px 16px",
+  },
+
+  abilityMeta: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+    color: "#5c4033",
+    fontSize: "17px",
+    marginBottom: "9px",
+  },
+
+  abilityStatus: {
+    fontSize: "13px",
+    fontWeight: "900",
+  },
+
+  barLine: {
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr) 38px",
+    alignItems: "center",
+    gap: "10px",
+  },
+
+  barTrack: {
+    height: "14px",
+    borderRadius: "999px",
+    backgroundColor: "#eee3d7",
+    overflow: "hidden",
+  },
+
+  barFill: {
+    height: "100%",
+    minWidth: "3px",
+    borderRadius: "999px",
+    transition: "width 0.35s ease",
+  },
+
+  barValue: {
+    color: "#5c4033",
+    fontSize: "16px",
+    textAlign: "right",
+  },
+
+  comparisonRow: {
+    display: "grid",
+    gridTemplateColumns: "72px minmax(0, 1fr) 54px",
+    alignItems: "center",
+    gap: "12px",
+    marginTop: "14px",
+  },
+
+  comparisonLabel: {
+    color: "#5c4033",
+    fontSize: "16px",
+  },
+
+  comparisonValue: {
+    color: "#5c4033",
+    fontSize: "17px",
+    textAlign: "right",
   },
 
   abilityCard: {
@@ -1714,6 +1876,43 @@ const styles = {
     fontWeight: "800",
     lineHeight: 1.6,
     margin: 0,
+  },
+
+  detailsPanel: {
+    backgroundColor: "rgba(255,255,255,0.9)",
+    border: "2px solid #efd3b4",
+    borderRadius: "20px",
+    padding: "0 18px",
+    marginBottom: "4px",
+  },
+
+  detailsSummary: {
+    color: "#6d4933",
+    cursor: "pointer",
+    fontSize: "16px",
+    fontWeight: "900",
+    padding: "15px 0",
+  },
+
+  detailsContent: {
+    borderTop: "1px solid #ead8c5",
+    padding: "14px 0 4px",
+  },
+
+  detailItem: {
+    color: "#5f493a",
+    fontSize: "14px",
+    fontWeight: "700",
+    lineHeight: 1.65,
+    marginBottom: "10px",
+  },
+
+  disclaimer: {
+    color: "#86654e",
+    fontSize: "13px",
+    fontWeight: "750",
+    lineHeight: 1.6,
+    margin: "14px 0",
   },
 
   noteBox: {

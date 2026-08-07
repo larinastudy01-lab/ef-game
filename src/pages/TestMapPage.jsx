@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import gameMapBackground from "../asset/GameMap.webp";
 import srtIcon from "../asset/SRT/SRT_icon.webp";
@@ -8,7 +8,7 @@ import ssgIcon from "../asset/SSG/cat.webp";
 import dccsIcon from "../asset/DCCS_icon.webp";
 import lbIcon from "../asset/LB_icon.webp";
 import mouseGuide from "../asset/mouse.webp";
-import resetIcon from "../asset/home/remove.webp";
+import ReturnButton from "../asset/return.webp";
 import useTemporaryTestUnlock from "../utils/useTemporaryTestUnlock";
 import "../styles/TestMapPage.css";
 
@@ -27,7 +27,7 @@ const TEST_GAMES = [
   {
     gameId: "SSG",
     level: 1,
-    name: "SSG 聲音符號遊戲",
+    name: "貓狗合唱團",
     childText: "聽聲音選相反動物",
     route: "/test-ssg",
     icon: ssgIcon,
@@ -100,7 +100,15 @@ const STORAGE_KEYS = {
 const LEGACY_RESULT_KEYS = {
   SRT: ["srtTestResult", "SRT_RESULT", "srtResult", "testResult_SRT", "SRT_testResult"],
   PM: ["pmTestResult", "PM_RESULT", "pmResult", "pictureMemoryTestResult", "testResult_PM", "PM_testResult"],
-  CBT: ["cbtTestResult", "CBT_RESULT", "cbtResult", "testResult_CBT", "CBT_testResult"],
+  CBT: [
+    "cbtTestResult",
+    "latestCBTTestResult",
+    "ef_game_cbt_test_result",
+    "CBT_RESULT",
+    "cbtResult",
+    "testResult_CBT",
+    "CBT_testResult",
+  ],
   SSG: ["ssgTestResult", "SSG_RESULT", "testResult_SSG", "SSG_testResult"],
   DCCS: ["dccsTestResult", "DCCS_RESULT", "dccsResult", "testResult_DCCS", "DCCS_testResult"],
   LB: ["lbTestResult", "LB_RESULT", "linkingBalloonsTestResult", "testResult_LB", "LB_testResult"],
@@ -243,6 +251,16 @@ const getStoredResult = (gameId) => {
   return null;
 };
 
+const isGameMarkedCompleted = (gameId) => {
+  const childId = getCurrentChildId();
+  const scopedKey = childId ? `ef_test_${gameId}_completed_${childId}` : null;
+
+  return (
+    (scopedKey && readStorage(scopedKey) === true) ||
+    readStorage(`ef_test_${gameId}_completed`) === true
+  );
+};
+
 const getStoredStars = (gameId, result) => {
   const canonicalKey = STORAGE_KEYS.stars(gameId);
   const canonicalSummaryKey = STORAGE_KEYS.trainingSummary(gameId);
@@ -382,33 +400,37 @@ const TestMapPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const child = location.state?.child || getCurrentChild();
-  const [resetVersion, setResetVersion] = useState(0);
   const isTestUnlockEnabled = useTemporaryTestUnlock();
 
   const gamesWithStatus = useMemo(() => {
-    void resetVersion;
     const aiRecommendedIds = getAiRecommendedGameIds();
     const games = TEST_GAMES.map((game) => {
       const result = getStoredResult(game.gameId);
       const stars = getStoredStars(game.gameId, result);
+      const completionMarker = isGameMarkedCompleted(game.gameId);
 
       return {
         ...game,
         result,
         stars,
+        completionMarker,
         isPassedByStars: stars >= PASSING_STARS,
         isAiRecommended: aiRecommendedIds.includes(game.gameId),
       };
     });
 
-    const firstIncompleteIndex = games.findIndex((game) => !game.result && !game.isPassedByStars);
+    const firstIncompleteIndex = games.findIndex(
+      (game) => !game.result && !game.isPassedByStars && !game.completionMarker
+    );
     const activeIndex = firstIncompleteIndex === -1 ? games.length - 1 : firstIncompleteIndex;
 
     return games.map((game, index) => {
       const previousGame = games[index - 1];
-      const isCompleted = Boolean(game.result) || game.isPassedByStars;
+      const isCompleted = Boolean(game.result) || game.isPassedByStars || game.completionMarker;
       const isSequentiallyAvailable = index <= activeIndex;
-      const isUnlockedByPreviousStars = index === 0 || Boolean(previousGame?.isPassedByStars || previousGame?.result);
+      const isUnlockedByPreviousStars = index === 0 || Boolean(
+        previousGame?.isPassedByStars || previousGame?.result || previousGame?.completionMarker
+      );
       const isUnlocked = isCompleted || isSequentiallyAvailable || isUnlockedByPreviousStars;
       const isActive = !isCompleted && isUnlocked;
       const isLocked = !isTestUnlockEnabled && !isUnlocked;
@@ -432,7 +454,7 @@ const TestMapPage = () => {
                 : "尚未解鎖",
       };
     });
-  }, [isTestUnlockEnabled, resetVersion]);
+  }, [isTestUnlockEnabled]);
 
   const guideGame = gamesWithStatus.find((game) => game.isActive) || null;
 
@@ -462,55 +484,6 @@ const TestMapPage = () => {
         isAiRecommended: game.isAiRecommended,
       },
     });
-  };
-
-  const resetAllTests = () => {
-    const childId = getCurrentChildId();
-
-    TEST_GAMES.forEach((game) => {
-      const canonicalKeys = [
-        STORAGE_KEYS.result(game.gameId),
-        STORAGE_KEYS.trainingSummary(game.gameId),
-        STORAGE_KEYS.stars(game.gameId),
-      ];
-      const legacyKeys = [
-        ...(LEGACY_RESULT_KEYS[game.gameId] || []),
-        ...(LEGACY_STAR_KEYS[game.gameId] || []),
-      ];
-      const childScopedKeys = childId
-        ? [
-            `result:${childId}:${game.gameId}:test`,
-            ...canonicalKeys.map((key) => `${key}_${childId}`),
-            ...legacyKeys.map((key) => `${key}_${childId}`),
-          ]
-        : [];
-
-      [...canonicalKeys, ...legacyKeys, ...childScopedKeys].forEach((key) => {
-        localStorage.removeItem(key);
-        sessionStorage.removeItem(key);
-      });
-    });
-
-    [
-      STORAGE_KEYS.latestResults,
-      STORAGE_KEYS.aiRecommendation,
-      STORAGE_KEYS.testFlow,
-      "latestResults",
-      "latestTestResults",
-      "parentLatestResults",
-      "aiRecommendation",
-      "aiDifficultyRecommendation",
-      "recommendedDifficulty",
-      "trainingRecommendation",
-      "currentAIRecommendation",
-      "latestRecommendation",
-      "currentTestFlow",
-    ].forEach((key) => {
-      localStorage.removeItem(key);
-      sessionStorage.removeItem(key);
-    });
-
-    setResetVersion((value) => value + 1);
   };
 
   return (
@@ -626,14 +599,15 @@ const TestMapPage = () => {
         }
 
         .kid-map-back {
-          min-height: 46px;
-          padding: 0 18px;
-          border-radius: 999px;
-          color: #5e4027;
-          background: linear-gradient(180deg, #fff7cd, #f2cd74);
-          box-shadow: inset 0 -5px 0 rgba(147, 93, 33, 0.22), 0 9px 16px rgba(58, 91, 48, 0.18);
-          white-space: nowrap;
+          width: 68px;
+          height: 68px;
+          min-height: 0;
+          padding: 0;
+          background: transparent;
+          box-shadow: none;
         }
+
+        .kid-map-back img { width: 100%; height: 100%; object-fit: contain; }
 
         .kid-map-reset {
           width: 72px;
@@ -981,22 +955,11 @@ const TestMapPage = () => {
               className="kid-map-back"
               onClick={() => navigate("/mode-select", { state: { child } })}
             >
-              ← 返回
+              <img src={ReturnButton} alt="" />
             </button>
 
           </div>
 
-          <div className="kid-map-right-tools">
-            <button
-              type="button"
-              className="kid-map-reset"
-              onClick={resetAllTests}
-              aria-label="重新測驗"
-              title="重新測驗"
-            >
-              <img width={1024} height={341} src={resetIcon} alt="" draggable="false" />
-            </button>
-          </div>
         </header>
 
         <div className="kid-map-canvas">

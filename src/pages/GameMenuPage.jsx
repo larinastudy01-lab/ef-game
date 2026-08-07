@@ -27,6 +27,8 @@ import storyIcon from "../asset/home/story.webp";
 import testIcon from "../asset/home/test.webp";
 import goalIcon from "../asset/home/goal.webp";
 import avatarHomeImg from "../asset/home/avatar_home.webp";
+import furnitureIcon from "../asset/home/Furniture.webp";
+import returnIcon from "../asset/return.webp";
 
 const COMPLETED_LEVELS_STORAGE_KEY = "ef_game_completed_training_levels";
 const COMPLETION_VIDEO_SEEN_KEY = "ef_game_today_training_completion_video_seen";
@@ -1082,7 +1084,6 @@ function GameMenuPage() {
 
         .map-home-button,
         .map-player-button,
-        .map-setting-button,
         .map-story-button,
         .medical-reminder-card,
         .map-bottom-button,
@@ -1098,15 +1099,22 @@ function GameMenuPage() {
           z-index: 20;
           width: clamp(74px, 5.5vw, 98px);
           height: clamp(74px, 5.5vw, 98px);
-          border: 6px solid #f8d577;
+          border: 0;
           border-radius: 50%;
           display: grid;
           place-items: center;
-          background: linear-gradient(180deg, #fff8d7 0%, #ffe7a2 58%, #efbf56 100%);
-          color: #9a5f11;
-          font-size: clamp(2.1rem, 3vw, 3rem);
-          box-shadow: inset 0 -7px 0 rgba(143, 85, 16, 0.18), 0 10px 20px rgba(68, 79, 38, 0.24);
+          background: transparent;
+          box-shadow: none;
           cursor: pointer;
+          overflow: hidden;
+          padding: 0;
+        }
+
+        .map-home-button img {
+          width: 100%;
+          height: 100%;
+          display: block;
+          object-fit: contain;
         }
 
         .map-top-progress {
@@ -1222,7 +1230,7 @@ function GameMenuPage() {
 
         .map-player-button {
           position: absolute;
-          right: max(24px, env(safe-area-inset-right));
+          right: max(112px, calc(env(safe-area-inset-right) + 88px));
           top: max(22px, env(safe-area-inset-top));
           z-index: 20;
           min-width: clamp(180px, 14vw, 260px);
@@ -1273,34 +1281,6 @@ function GameMenuPage() {
         }
 
 
-
-        .map-setting-button {
-          position: absolute;
-          right: max(34px, env(safe-area-inset-right));
-          top: clamp(116px, 9vw, 132px);
-          z-index: 19;
-          width: clamp(72px, 5.2vw, 96px);
-          min-height: clamp(72px, 5.2vw, 96px);
-          border: 5px solid #f7d677;
-          border-radius: 28px;
-          display: grid;
-          place-items: center;
-          gap: 2px;
-          background: linear-gradient(180deg, #fff9d8, #ffd98b);
-          color: #754719;
-          font-weight: 1000;
-          box-shadow: inset 0 -6px 0 rgba(137, 80, 18, 0.14), 0 10px 18px rgba(53, 72, 42, 0.2);
-          cursor: pointer;
-        }
-
-        .map-setting-button span:first-child {
-          font-size: clamp(1.9rem, 2.5vw, 2.7rem);
-          line-height: 1;
-        }
-
-        .map-setting-button span:last-child {
-          font-size: clamp(0.82rem, 0.95vw, 1rem);
-        }
 
         .profile-modal-card {
           width: min(90vw, 520px);
@@ -1929,7 +1909,6 @@ function GameMenuPage() {
           .map-title-board { width: min(430px, 52vw); }
           .map-player-button { min-width: 140px; }
           .map-player-name { max-width: 90px; }
-          .map-setting-button { top: 92px; right: 18px; }
           .map-story-button { top: 174px; }
           .medical-reminder-card { top: 154px; left: 14px; width: min(270px, 36vw); padding: 12px 14px; }
           .map-bottom-nav { left: 14px; gap: 10px; }
@@ -1945,11 +1924,9 @@ function GameMenuPage() {
           .map-title-wood { min-height: 46px; border-radius: 14px; }
           .map-title-wood h1 { font-size: 1.25rem; }
           .map-title-subtitle { width: 92%; font-size: 0.76rem; padding: 7px 8px 9px; }
-          .map-player-button { right: 8px; top: 12px; min-width: 92px; height: 54px; padding: 6px; border-width: 4px; }
+          .map-player-button { right: 72px; top: 12px; min-width: 92px; height: 54px; padding: 6px; border-width: 4px; }
           .map-player-avatar { width: 38px; height: 38px; }
           .map-player-name { display: none; }
-          .map-setting-button { right: 10px; top: 74px; width: 58px; min-height: 58px; border-radius: 18px; border-width: 4px; }
-          .map-setting-button span:last-child { display: none; }
           .map-story-button { right: 10px; top: 136px; width: 58px; min-height: 58px; border-radius: 18px; }
           .map-story-button span:last-child { display: none; }
           .medical-reminder-card { left: 10px; top: auto; bottom: 112px; width: min(270px, 68vw); padding: 10px 12px; border-width: 4px; }
@@ -2029,9 +2006,9 @@ function GameMenuPage() {
             type="button"
             className="map-home-button"
             onClick={() => navigate("/mode-select")}
-            aria-label="回首頁"
+            aria-label="返回模式選擇"
           >
-            🏠
+            <img src={returnIcon} alt="" aria-hidden="true" />
           </button>
 
           <section className="map-top-progress" aria-label="蜂巢收集進度">
@@ -2049,15 +2026,6 @@ function GameMenuPage() {
             </span>
             <span className="map-player-name">{userProfileName}</span>
             <span className="map-player-caret" aria-hidden="true">›</span>
-          </button>
-
-          <button type="button" className="map-setting-button" onClick={() => navigate("/settings")} aria-label="開啟設定">
-            <span aria-hidden="true">⚙️</span>
-            <span>設定</span>
-          </button>
-
-          <button type="button" className="map-story-button" onClick={() => setShowStoryVideo(true)} aria-label="播放故事影片">
-            <img width={1024} height={1024} loading="lazy" className="homey-menu-icon story-homey-icon" src={storyIcon} alt="" aria-hidden="true" />
           </button>
 
           {visibleDailyStages.map((stage) => {
@@ -2131,6 +2099,17 @@ function GameMenuPage() {
               aria-label="進入角色小屋"
             >
               <img width={500} height={500} loading="lazy" className="avatar-room-menu-icon" src={avatarHomeImg} alt="" aria-hidden="true" draggable={false} />
+            </button>
+            <button
+              type="button"
+              className="map-bottom-button"
+              onClick={() => navigate("/furniture")}
+              aria-label="進入傢俱佈置"
+            >
+              <img width={1024} height={1024} loading="lazy" className="homey-menu-icon bottom-homey-icon" src={furnitureIcon} alt="" aria-hidden="true" />
+            </button>
+            <button type="button" className="map-bottom-button" onClick={() => setShowStoryVideo(true)} aria-label="播放故事影片">
+              <img width={1024} height={1024} loading="lazy" className="homey-menu-icon bottom-homey-icon" src={storyIcon} alt="" aria-hidden="true" />
             </button>
           </nav>
         </div>      </section>

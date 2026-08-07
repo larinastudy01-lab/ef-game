@@ -1,5 +1,3 @@
-// src/pages/TestPage_SSG.jsx
-
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/GamePage_SSG.css";
@@ -505,7 +503,7 @@ export default function TestPage_SSG() {
     const finishedAt = new Date().toISOString();
 
     const result = {
-      taskName: "SSG 聲音符號遊戲",
+      taskName: "貓狗合唱團",
       taskCode: "SSG",
       taskVersion: TASK_VERSION,
       scoringVersion: ssgScoring.scoringVersion || SCORING_VERSION,
@@ -623,8 +621,8 @@ export default function TestPage_SSG() {
       <div className="ssg-page ssg-page--soft" style={{ "--ssg-bg": `url(${asset.background})` }}>
         <style>{ssgInlineCss}</style>
         <main className="ssg-center-shell ssg-start-shell">
-          <section className="ssg-soft-panel ssg-start-panel game-start-card-artwork" aria-label="開始畫面">
-            <div className="ssg-game-title">SSG 聲音符號遊戲</div>
+          <section className="ssg-soft-panel ssg-start-panel game-start-card-artwork ssg-opening-card-artwork" aria-label="開始畫面">
+            <div className="ssg-game-title">貓狗合唱團</div>
             <div className="ssg-start-content">
               <div className="ssg-dialog-bubble ssg-opening-bubble">仔細聽聲音，選出相反的動物。</div>
               <div className="ssg-round-icon ssg-start-avatar"><img src={asset.startAvatar} alt="開始角色" draggable="false" /></div>
@@ -653,7 +651,7 @@ export default function TestPage_SSG() {
       <div className="ssg-page ssg-page--soft" style={{ "--ssg-bg": `url(${asset.background})` }}>
         <style>{ssgInlineCss}</style>
         <main className="ssg-center-shell">
-          <section className="ssg-soft-panel ssg-video-panel game-start-card-artwork" aria-label={isIntro ? "前導動畫" : isTeaching ? "步驟教學影片" : "結束動畫"}>
+          <section className="ssg-soft-panel ssg-video-panel game-start-card-artwork ssg-video-card-artwork" aria-label={isIntro ? "前導動畫" : isTeaching ? "步驟教學影片" : "結束動畫"}>
             <div className="ssg-video-frame">
               <video className="ssg-video" src={videoSrc} autoPlay muted playsInline controls preload="metadata" onEnded={onEnded}>
                 你的瀏覽器不支援影片播放。

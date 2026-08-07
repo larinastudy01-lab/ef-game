@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import coinIcon from "../asset/coin.webp";
-import backIcon from "../asset/home/back.webp";
+import backIcon from "../asset/return.webp";
 import roomBackground from "../asset/Furniture/Avatar_Room.webp";
 import { getFurniturePrice } from "../config/furnitureConfig";
 import { getActiveChildId, getEconomy, purchaseFurniture } from "../utils/economyManager";

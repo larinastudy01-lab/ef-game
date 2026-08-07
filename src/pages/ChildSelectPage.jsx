@@ -6,6 +6,7 @@ import CardFrame from "../asset/home/card.webp";
 import StartButton from "../asset/home/start.webp";
 import BuildStartButton from "../asset/home/bu_start.webp";
 import DeleteButton from "../asset/home/delete.webp";
+import ReturnButton from "../asset/return.webp";
 import { getMyPatients, createMyPatient, deleteMyPatient } from "../lib/database";
 import AddButton from "../asset/home/add.webp";
 import BearAvatar from "../asset/avatar/bear.webp";
@@ -624,22 +625,22 @@ const ChildSelectPage = () => {
           z-index: 10;
           display: inline-flex;
           align-items: center;
-          gap: 8px;
-          min-height: clamp(46px, 5vw, 58px);
-          padding: 0 clamp(18px, 2.2vw, 28px);
-          border: 4px solid #f2cf86;
-          border-radius: 999px;
-          background: linear-gradient(180deg, #fff3bd 0%, #e2a44b 100%);
+          width: clamp(58px, 6vw, 76px);
+          height: clamp(58px, 6vw, 76px);
+          min-height: 0;
+          padding: 0;
+          border: 0;
+          background: transparent;
           color: #5b3514;
           font-size: clamp(1rem, 1.25vw, 1.2rem);
           font-weight: 950;
           letter-spacing: 0.04em;
-          box-shadow:
-            0 8px 0 rgba(98, 58, 18, 0.22),
-            inset 0 0 0 3px rgba(255, 250, 223, 0.58);
+          box-shadow: none;
           text-shadow: 0 2px 0 rgba(255, 246, 212, 0.72);
           transition: transform 0.16s ease, filter 0.16s ease;
         }
+
+        .child-back-button img { width: 100%; height: 100%; object-fit: contain; }
 
         .child-back-button:hover {
           transform: translateY(-2px);
@@ -662,6 +663,7 @@ const ChildSelectPage = () => {
           width: min(1210px, 84vw);
           min-height: min(690px, 83vh);
           position: relative;
+          transform: translateY(clamp(42px, 6vh, 58px));
           display: flex;
           flex-direction: column;
           padding: clamp(30px, 3.4vw, 54px) clamp(44px, 4.7vw, 76px);
@@ -1221,8 +1223,7 @@ const ChildSelectPage = () => {
       `}</style>
 
       <button type="button" className="child-back-button" onClick={() => navigate("/")} aria-label="回到上一頁">
-        <span className="child-back-icon" aria-hidden="true">←</span>
-        上一頁
+        <img src={ReturnButton} alt="" />
       </button>
 
       <section className="child-board" aria-label="兒童角色卡選擇" aria-busy={isSyncing}>

@@ -44,15 +44,14 @@ function HomePage() {
           isolation: isolate;
         }
 
-        .home-login-page::before {
-          content: "";
+        .home-background {
           position: absolute;
           inset: 0;
           z-index: 0;
-          background-image: url(${homeBackground});
-          background-size: cover;
-          background-position: center center;
-          background-repeat: no-repeat;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: center center;
         }
 
         .home-login-page::after {
@@ -128,8 +127,8 @@ function HomePage() {
         }
 
         @media (max-width: 720px) {
-          .home-login-page::before {
-            background-position: center center;
+          .home-background {
+            object-position: center center;
           }
 
           .home-button-area {
@@ -146,6 +145,17 @@ function HomePage() {
         }
       `}</style>
 
+      <img
+        className="home-background"
+        src={homeBackground}
+        alt=""
+        width={1920}
+        height={1080}
+        fetchPriority="high"
+        decoding="async"
+        draggable="false"
+      />
+
       <section className="home-button-area" aria-label="登入、註冊與醫療人員登入按鈕">
         <button
           type="button"
@@ -156,7 +166,6 @@ function HomePage() {
           <img
             width={1024}
             height={341}
-            fetchPriority="high"
             decoding="async"
             src={registerButton}
             alt="註冊"

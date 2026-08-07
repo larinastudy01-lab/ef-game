@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ReturnButton from "../asset/return.webp";
 import { useNavigate } from "react-router-dom";
 import "../styles/SettingsPage.css";
 import { supabase } from "../lib/supabaseClient";
@@ -1122,7 +1123,7 @@ function SettingsPage() {
             onClick={() => navigate(-1)}
             aria-label="回到上一頁"
           >
-            ←
+            <img src={ReturnButton} alt="" />
           </button>
 
           <div>

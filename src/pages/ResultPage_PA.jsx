@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import homeBackground from "../asset/Home_background.webp";
+import ReturnButton from "../asset/return.webp";
 import assistIcon from "../asset/assist.webp";
+import resetIcon from "../asset/home/remove.webp";
 import { getResultsByPatientFromCloud } from "../lib/database";
+import { resetTestRecords } from "../utils/resetTestRecords";
 import "../styles/ResultPage_PA.css";
 
 /**
@@ -763,7 +766,6 @@ const ResultPage_PA = () => {
     () => dailyHistoryRecords.filter((record) => historyFilter === "all" || record.mode === historyFilter),
     [dailyHistoryRecords, historyFilter],
   );
-
   const displayedHistoryDate = latestHistoryDayKey
     ? latestHistoryDayKey.replace(/-/g, "/")
     : "尚無紀錄";
@@ -860,6 +862,12 @@ const ResultPage_PA = () => {
 
   const goForest = () => {
     navigate("/game-menu", { state: { childName } });
+  };
+
+  const resetAllTests = () => {
+    resetTestRecords(currentChildId);
+    setSelectedHistoryRecord(null);
+    setStorageVersion((version) => version + 1);
   };
 
   const applyAiRecommendation = () => {
@@ -1135,7 +1143,7 @@ const ResultPage_PA = () => {
 
       <header className="result-pa-topbar">
         <button type="button" className="forest-pill-button" onClick={closeParentPage}>
-          ← 返回
+          <img src={ReturnButton} alt="" />
         </button>
 
         <section className="child-title-chip" aria-label="目前兒童">
@@ -1174,6 +1182,16 @@ const ResultPage_PA = () => {
 
           <button type="button" className="forest-primary-button menu-home-button" onClick={goForest}>
             回到主頁
+          </button>
+          <button
+            type="button"
+            className="forest-primary-button menu-reset-button"
+            onClick={resetAllTests}
+            aria-label="重新測驗"
+            title="重新測驗"
+          >
+            <img src={resetIcon} alt="" draggable="false" />
+            <span>重新測驗</span>
           </button>
         </aside>
 
@@ -1459,6 +1477,12 @@ const resultPageStyle = `
   white-space: nowrap;
 }
 
+.forest-pill-button img {
+  width: 58px;
+  height: 58px;
+  object-fit: contain;
+}
+
 .child-title-chip {
   justify-self: center;
   min-height: 56px;
@@ -1616,6 +1640,21 @@ const resultPageStyle = `
 
 .menu-home-button {
   margin-top: 0;
+}
+
+.menu-reset-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: linear-gradient(180deg, #fff8df, #ffe8aa);
+  color: #68451f;
+}
+
+.menu-reset-button img {
+  width: 42px;
+  height: 28px;
+  object-fit: contain;
 }
 
 .menu-content-panel {

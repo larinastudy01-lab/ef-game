@@ -1701,7 +1701,8 @@ const testPageCss = `
 
 .srt-practice-acorn img {
   width: 100%;
-  height: 100%;
+  height: auto;
+  max-height: 100%;
   object-fit: contain;
 }
 
@@ -1770,6 +1771,8 @@ const testPageCss = `
 
 .srt-test-item {
   position: absolute;
+  height: auto;
+  object-fit: contain;
   cursor: pointer;
   transform: translate(-50%, -50%);
   touch-action: manipulation;

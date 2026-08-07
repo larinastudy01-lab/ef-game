@@ -15,7 +15,7 @@ import clickSoundFile from "../asset/Click.mp3";
 import homeStartBtn from "../asset/SRT/start.webp";
 import homeSkipBtn from "../asset/SRT/skip.webp";
 import homeNextBtn from "../asset/SRT/next.webp";
-import homeBackBtn from "../asset/SRT/back.webp";
+import homeBackBtn from "../asset/return.webp";
 import homeAgainBtn from "../asset/SRT/again.webp";
 import homeResultBtn from "../asset/SRT/result.webp";
 import mouseGuideImg from "../asset/mouse.webp";
@@ -2235,13 +2235,13 @@ const TrainingPage_SRT = () => {
       {phase === "start" && (
         <main className="srt-center-shell srt-start-shell">
           <section className="srt-soft-panel srt-start-panel game-start-card-artwork srt-opening-card-artwork" aria-label="訓練開始畫面">
-            <div className="srt-game-title">小松鼠的橡實練習</div>
+            <div className="srt-game-title">幫小飛鼠弟弟接橡實</div>
             <div className="srt-start-content">
               <div className="srt-dialog-bubble srt-opening-bubble">
-                幫小松鼠找橡實！
+                一起幫小飛鼠弟弟接橡實！
               </div>
               <div className="srt-round-icon srt-start-avatar">
-                <img src={startAvatar} width="364" height="364" alt="小松鼠頭像" />
+                <img src={startAvatar} width="364" height="364" alt="小飛鼠頭像" />
               </div>
             </div>
             <div className="srt-guided-action srt-guided-start">
@@ -3096,7 +3096,8 @@ const trainingPageCss = `
 
 .srt-practice-acorn img {
   width: 100%;
-  height: 100%;
+  height: auto;
+  max-height: 100%;
   object-fit: contain;
 }
 
@@ -3167,6 +3168,9 @@ const trainingPageCss = `
 
 .srt-test-item {
   display: block;
+  height: auto;
+  max-height: 100%;
+  object-fit: contain;
   cursor: pointer;
   touch-action: manipulation;
   user-select: none;

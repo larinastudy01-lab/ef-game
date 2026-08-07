@@ -7,12 +7,13 @@ import { saveUnifiedResult } from "../utils/resultManager";
 
 import backgroundImg from "../asset/LB/LB_background.webp";
 import homeImg from "../asset/LB/grandma_sheep_house.webp";
-import blowingBubblesImg from "../asset/LB/blowing_bubbles.webp";
+import blowingBubblesImg from "../asset/LB/walk/blowing_bubbles.webp";
 import storyVideo from "../asset/optimized/mp4/LB_start.mp4";
 import tutorialVideo from "../asset/optimized/mp4/LB_step.mp4";
 import endingVideo from "../asset/optimized/mp4/LB_end.mp4";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
+import homeNextBtn from "../asset/home/next.webp";
 import homeBackBtn from "../asset/home/back.webp";
 import homeResultBtn from "../asset/home/result.webp";
 import homeSendBtn from "../asset/home/send.webp";
@@ -34,6 +35,8 @@ const LOCAL_KEY = "lbTestResult";
 const doorplateAssets = require.context("../asset/LB", false, /(?:blue|yellow)_\d{2}\.webp$/);
 const walkAssets = require.context("../asset/LB/walk", false, /\.webp$/);
 const WALK_IMAGES = walkAssets.keys().sort().map(walkAssets);
+const WALK_JUMP_DURATION_MS = 700;
+const WALK_HOME_DURATION_MS = 1000;
 
 function getDoorplateImage(item) {
   const color = item.color === "blue" ? "blue" : "yellow";
@@ -351,7 +354,7 @@ function createResultPayload({ trials, stageRecords, startedAt, completed }) {
   };
 }
 
-function DoorplateButton({ item, disabled, completed, isWrong, isCorrect, onClick }) {
+function DoorplateButton({ item, disabled, completed, visited, isWrong, isCorrect, onClick }) {
   return (
     <button
       type="button"
@@ -359,6 +362,7 @@ function DoorplateButton({ item, disabled, completed, isWrong, isCorrect, onClic
         "lb-doorplate",
         `lb-doorplate-${item.color}`,
         completed ? "is-completed" : "",
+        visited ? "is-visited" : "",
         isWrong ? "is-wrong" : "",
         isCorrect ? "is-correct" : "",
       ]
@@ -401,6 +405,8 @@ function TestPageLB() {
   const [wrongKey, setWrongKey] = useState("");
   const [correctKey, setCorrectKey] = useState("");
   const [walkImageIndex, setWalkImageIndex] = useState(0);
+  const [walkerStepIndex, setWalkerStepIndex] = useState(-1);
+  const [walkerEnteringHome, setWalkerEnteringHome] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [resultPayload, setResultPayload] = useState(null);
 
@@ -409,6 +415,7 @@ function TestPageLB() {
   const selectionLogsRef = useRef([]);
   const finishedRef = useRef(false);
   const timeoutRef = useRef(null);
+  const walkerTimersRef = useRef([]);
   const storyVideoRef = useRef(null);
   const tutorialVideoRef = useRef(null);
   const endingVideoRef = useRef(null);
@@ -416,11 +423,6 @@ function TestPageLB() {
   const currentStage = STAGES[stageIndex];
   const displayItems = useMemo(() => buildStageItems(currentStage), [currentStage]);
   const stageDone = completedKeys.length === currentStage.sequence.length;
-  const routePolylinePoints = routeKeys
-    .map((key) => displayItems.find((item) => item.key === key))
-    .filter(Boolean)
-    .map((item) => `${parseFloat(item.position.left)},${parseFloat(item.position.top)}`)
-    .join(" ");
 
   const pauseVideo = useCallback((videoRef) => {
     const video = videoRef.current;
@@ -441,9 +443,34 @@ function TestPageLB() {
   useEffect(() => {
     return () => {
       window.clearTimeout(timeoutRef.current);
+      walkerTimersRef.current.forEach((timer) => window.clearTimeout(timer));
       pauseAllVideos();
     };
   }, [pauseAllVideos]);
+
+  useEffect(() => {
+    walkerTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    walkerTimersRef.current = [];
+
+    if (!routeVisible || routeKeys.length === 0) return undefined;
+
+    routeKeys.slice(1).forEach((_, index) => {
+      walkerTimersRef.current.push(
+        window.setTimeout(() => setWalkerStepIndex(index + 1), (index + 1) * WALK_JUMP_DURATION_MS)
+      );
+    });
+
+    if (submittedCorrect) {
+      walkerTimersRef.current.push(
+        window.setTimeout(() => setWalkerEnteringHome(true), routeKeys.length * WALK_JUMP_DURATION_MS)
+      );
+    }
+
+    return () => {
+      walkerTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      walkerTimersRef.current = [];
+    };
+  }, [routeKeys, routeVisible, submittedCorrect]);
 
   const resetWholeTest = () => {
     window.clearTimeout(timeoutRef.current);
@@ -461,6 +488,8 @@ function TestPageLB() {
     setMessage("請依照前導教學中的規則完成測驗。");
     setWrongKey("");
     setCorrectKey("");
+    setWalkerStepIndex(-1);
+    setWalkerEnteringHome(false);
     setIsLocked(false);
     setResultPayload(null);
   };
@@ -491,6 +520,8 @@ function TestPageLB() {
     setSubmittedCorrect(null);
     setWrongKey("");
     setCorrectKey("");
+    setWalkerStepIndex(-1);
+    setWalkerEnteringHome(false);
     setIsLocked(false);
     stageStartedAtRef.current = Date.now();
     selectionLogsRef.current = [];
@@ -667,6 +698,8 @@ function TestPageLB() {
     setRouteKeys(selectedKeys);
     setWalkImageIndex(Math.floor(Math.random() * Math.max(1, WALK_IMAGES.length)));
     setRouteVisible(true);
+    setWalkerStepIndex(0);
+    setWalkerEnteringHome(false);
     setSubmittedCorrect(isAllCorrect);
     setIsLocked(true);
     setMessage(isAllCorrect ? "完成！路線連起來了。" : "答案已送出，現在顯示你走的路線。");
@@ -674,7 +707,12 @@ function TestPageLB() {
     window.clearTimeout(timeoutRef.current);
     timeoutRef.current = window.setTimeout(() => {
       if (nextStageIndex < STAGES.length) {
-        setGamePhase("stageComplete");
+        if (isAllCorrect) {
+          setGamePhase("stageComplete");
+        } else {
+          resetStageState(nextStageIndex);
+          setGamePhase("playing");
+        }
         setMessage(`${currentStage.title}完成。`);
         return;
       }
@@ -684,7 +722,7 @@ function TestPageLB() {
         extraStageRecord: currentRecord,
         finalTrials: mergedTrials,
       });
-    }, 1500);
+    }, selectedKeys.length * WALK_JUMP_DURATION_MS + (isAllCorrect ? WALK_HOME_DURATION_MS : 80));
   };
 
   const goNextStage = () => {
@@ -794,11 +832,18 @@ function TestPageLB() {
             <div className="lb-video-frame">
               <video ref={storyVideoRef} src={storyVideo} autoPlay muted playsInline controls onEnded={handleStoryVideoEnd} className="lb-video" />
             </div>
-            <div className="lb-guided-action lb-guided-skip">
-              <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleStoryVideoEnd} aria-label="跳過故事動畫">
-                <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過故事動畫" />
-              </button>
-              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+            <div className="lb-video-actions">
+              <div className="lb-guided-action lb-guided-skip">
+                <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleStoryVideoEnd} aria-label="跳過故事動畫">
+                  <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過故事動畫" />
+                </button>
+              </div>
+              <div className="lb-guided-action lb-guided-next">
+                <button type="button" className="lb-forest-button lb-image-button lb-btn-next" onClick={handleStoryVideoEnd} aria-label="下一步">
+                  <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" />
+                </button>
+                <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="" aria-hidden="true" />
+              </div>
             </div>
           </section>
         </main>
@@ -815,11 +860,18 @@ function TestPageLB() {
             <div className="lb-video-frame">
               <video ref={tutorialVideoRef} src={tutorialVideo} autoPlay muted playsInline controls onEnded={handleTutorialVideoEnd} className="lb-video" />
             </div>
-            <div className="lb-guided-action lb-guided-skip">
-              <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleTutorialVideoEnd} aria-label="跳過前導教學">
-                <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過前導教學" />
-              </button>
-              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
+            <div className="lb-video-actions">
+              <div className="lb-guided-action lb-guided-skip">
+                <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleTutorialVideoEnd} aria-label="跳過前導教學">
+                  <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過前導教學" />
+                </button>
+              </div>
+              <div className="lb-guided-action lb-guided-next">
+                <button type="button" className="lb-forest-button lb-image-button lb-btn-next" onClick={handleTutorialVideoEnd} aria-label="下一步">
+                  <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" />
+                </button>
+                <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="" aria-hidden="true" />
+              </div>
             </div>
           </section>
         </main>
@@ -839,8 +891,13 @@ function TestPageLB() {
             <p className="lb-kicker">Linking Balloons</p>
             <h1>{currentStage.title}完成</h1>
             <p>很好，準備走下一段小路。</p>
-            <button type="button" className="lb-primary-button" onClick={goNextStage}>
-              開始{nextStage?.title || "下一關"}
+            <button
+              type="button"
+              className="lb-forest-button lb-image-button lb-btn-next"
+              onClick={goNextStage}
+              aria-label={`開始${nextStage?.title || "下一關"}`}
+            >
+              <img width={1024} height={341} src={homeNextBtn} alt="下一關" draggable="false" />
             </button>
           </section>
         </main>
@@ -917,27 +974,25 @@ function TestPageLB() {
       <LBResetStyle />
       <main className="lb-game-card lb-playing-panel">
         <section className="lb-play-board" onClick={handleBlankClick}>
-          {routeVisible && routeKeys.length > 1 && routePolylinePoints && (
-            <svg className="lb-route-layer" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-              <polyline className="lb-route-outline" points={routePolylinePoints} />
-              <polyline
-                points={routePolylinePoints}
-                className={submittedCorrect ? "lb-route-main is-correct" : "lb-route-main is-submitted"}
-              />
-            </svg>
-          )}
           <img width={1024} height={1024} loading="lazy" className="lb-map-home" src={homeImg} alt="綿羊奶奶的房子" draggable="false" />
-          {routeVisible && routeKeys.length > 0 && WALK_IMAGES.length > 0 && (() => {
-            const lastItem = displayItems.find((item) => item.key === routeKeys[routeKeys.length - 1]);
-            if (!lastItem) return null;
-            const walkImg = WALK_IMAGES[walkImageIndex % WALK_IMAGES.length];
+          {routeVisible && walkerStepIndex >= 0 && routeKeys.length > 0 && WALK_IMAGES.length > 0 && (() => {
+            const activeKey = routeKeys[Math.min(walkerStepIndex, routeKeys.length - 1)];
+            const activeItem = displayItems.find((item) => item.key === activeKey);
+            if (!activeItem) return null;
+            const walkImg = WALK_IMAGES[
+              (walkImageIndex + Math.min(walkerStepIndex, routeKeys.length - 1)) % WALK_IMAGES.length
+            ];
             return (
-              <img loading="lazy"
-                className="lb-route-walker"
+              <img
+                key={`${walkerStepIndex}-${walkerEnteringHome}`}
+                loading="lazy"
+                className={`lb-route-walker${walkerEnteringHome ? " is-entering-home" : " is-jumping"}`}
                 src={walkImg}
                 alt="沿著答案路線前進的朋友"
                 draggable="false"
-                style={{ left: lastItem.position.left, top: lastItem.position.top }}
+                style={walkerEnteringHome
+                  ? { left: "91%", top: "82%" }
+                  : { left: activeItem.position.left, top: activeItem.position.top }}
               />
             );
           })()}
@@ -947,6 +1002,7 @@ function TestPageLB() {
               item={item}
               disabled={isLocked}
               completed={completedKeys.includes(item.key)}
+              visited={routeVisible && routeKeys.indexOf(item.key) <= walkerStepIndex && routeKeys.includes(item.key)}
               isWrong={wrongKey === item.key}
               isCorrect={correctKey === item.key}
               onClick={handleNumberClick}
@@ -2351,7 +2407,8 @@ function LBResetStyle() {
 
       .lb-image-button:active img { transform: translateY(2px) scale(0.99); }
       .lb-btn-start img { width: clamp(210px, 23vw, 300px); }
-      .lb-btn-skip img { width: clamp(154px, 16vw, 224px); }
+      .lb-btn-skip img,
+      .lb-btn-next img { width: clamp(154px, 16vw, 224px); }
       .lb-btn-home img,
       .lb-btn-replay img,
       .lb-btn-detail img { width: clamp(136px, 15vw, 188px); }
@@ -2544,6 +2601,43 @@ function LBResetStyle() {
         justify-content: center;
         gap: clamp(10px, 1.6vw, 16px);
         pointer-events: none;
+      }
+
+      .lb-route-walker {
+        position: absolute;
+        z-index: 8;
+        width: clamp(72px, 10vw, 150px);
+        max-height: 22vh;
+        object-fit: contain;
+        pointer-events: none;
+        filter: drop-shadow(0 8px 10px rgba(70, 48, 25, 0.25));
+      }
+
+      .lb-route-walker.is-jumping {
+        animation: lbWalkerJump ${WALK_JUMP_DURATION_MS}ms cubic-bezier(.2, .75, .32, 1) both;
+      }
+
+      .lb-route-walker.is-entering-home {
+        animation: lbWalkerEnterHome ${WALK_HOME_DURATION_MS}ms ease-in both;
+      }
+
+      .lb-doorplate.is-visited {
+        opacity: 0;
+        visibility: hidden;
+        transform: translate(-50%, -50%) scale(.3);
+        pointer-events: none;
+      }
+
+      @keyframes lbWalkerJump {
+        0% { opacity: .82; transform: translate(-50%, -78%) scale(.9); }
+        48% { opacity: 1; transform: translate(-50%, -128%) scale(1.05); }
+        100% { opacity: 1; transform: translate(-50%, -78%) scale(1); }
+      }
+
+      @keyframes lbWalkerEnterHome {
+        0% { opacity: 1; transform: translate(-50%, -78%) scale(1); }
+        70% { opacity: .9; transform: translate(-50%, -65%) scale(.62); }
+        100% { opacity: 0; transform: translate(-50%, -58%) scale(.18); }
       }
 
       .lb-playing-panel .lb-message {

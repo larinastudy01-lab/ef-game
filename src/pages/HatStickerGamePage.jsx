@@ -10,7 +10,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import capImage from "../asset/cap.webp";
 import startButtonImage from "../asset/home/start.webp";
 import againButtonImage from "../asset/home/again.webp";
-import backHomeButtonImage from "../asset/home/back.webp";
+import backHomeButtonImage from "../asset/return.webp";
 
 import stickerR1 from "../asset/sticker/regular/R1.webp";
 import stickerR2 from "../asset/sticker/regular/R2.webp";

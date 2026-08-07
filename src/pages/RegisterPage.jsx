@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
-import pageBg from "../asset/home/dashboard_background.webp";
+import pageBg from "../asset/home/background.webp";
 import registerBtnImg from "../asset/home/register.webp";
 
 function RegisterPage() {

@@ -524,6 +524,8 @@ function buildDetailedSsgTrainingSummary(result = {}, stars = 1) {
   return `這次訓練屬於「${levelInfo.label}」的${levelInfo.title}。${levelInfo.meaning} 本次拿到 ${stars} 星，代表${starInfo.meaning} 主要觀察到的型態是「${profile.title}」：${profile.meaning} 數據上，孩子完成 ${result.totalTrials} 題、正確 ${result.correctCount} 題，正確率約 ${Math.round(result.accuracyPercent)}%，太早按 ${result.anticipationCount} 次，相同動物錯誤率約 ${Math.round(result.sameAnimalErrorRate)}%，${rtText}。${profile.observation}`;
 }
 
+// Legacy card builders are retained temporarily for compatibility with older result layouts.
+// eslint-disable-next-line no-unused-vars
 function buildDetailedSsgTrainingHighlights(result = {}, stars = 1) {
   const levelInfo = getDetailedSsgLevelInfo(result);
   const starInfo = getDetailedSsgStarInfo(stars);
@@ -578,6 +580,7 @@ function buildDetailedSsgTrainingHighlights(result = {}, stars = 1) {
   ];
 }
 
+// eslint-disable-next-line no-unused-vars
 function buildDetailedSsgTrainingIndicators(result = {}) {
   const rt = result.representativeReactionTime || result.avgReactionTime;
   const profile = getDetailedSsgProfile(result);
@@ -683,6 +686,7 @@ function buildOneSentence(result) {
   );
 }
 
+// eslint-disable-next-line no-unused-vars
 function buildQuickStats(result) {
   return [
     {
@@ -718,6 +722,7 @@ function buildQuickStats(result) {
   ];
 }
 
+// eslint-disable-next-line no-unused-vars
 function buildHighlights(result) {
   const rt = result.representativeReactionTime || result.avgReactionTime;
   const soundDifference = Math.abs(result.catSoundAccuracy - result.dogSoundAccuracy);
@@ -760,6 +765,7 @@ function buildHighlights(result) {
   ];
 }
 
+// eslint-disable-next-line no-unused-vars
 function buildIndicators(result) {
   const officialIndicators = result?.scoring?.parentView?.indicators;
   if (Array.isArray(officialIndicators) && officialIndicators.length > 0) {
@@ -842,6 +848,26 @@ function getDataQualityNotes(result) {
     notes.push("前後半段題數不足，暫不單獨解讀注意力變化。");
   }
   return notes;
+}
+
+function ComparisonChart({ title, items }) {
+  return (
+    <article className="ssg-comparison-card">
+      <h3>{title}</h3>
+      {items.map((item) => {
+        const value = clamp(item.value);
+        return (
+          <div key={item.label} className="ssg-comparison-row">
+            <span>{item.label}</span>
+            <div className="ssg-comparison-track" aria-label={`${item.label} ${Math.round(value)}%`}>
+              <span style={{ width: `${value}%` }} />
+            </div>
+            <strong>{Math.round(value)}%</strong>
+          </div>
+        );
+      })}
+    </article>
+  );
 }
 
 /* ========= 主頁面 ========= */
@@ -942,13 +968,6 @@ export default function ResultPage_SSG() {
   const oneSentenceResult = isTraining
     ? buildDetailedSsgTrainingOneSentence(result, detailedTrainingStars)
     : buildOneSentence(result);
-  const quickStats = buildQuickStats(result);
-  const highlights = isTraining
-    ? buildDetailedSsgTrainingHighlights(result, detailedTrainingStars)
-    : buildHighlights(result);
-  const indicators = isTraining
-    ? buildDetailedSsgTrainingIndicators(result)
-    : buildIndicators(result);
   const nextSuggestion = isTraining
     ? buildDetailedSsgTrainingNextSuggestion(result)
     : buildNextSuggestion(result);
@@ -958,6 +977,36 @@ export default function ResultPage_SSG() {
   const dataQualityNotes = getDataQualityNotes(result);
   const profileText = getProfileText(result.aiAnalysis?.attentionProfile);
   const weaknessText = getWeaknessText(result.aiAnalysis?.mainWeakness);
+  const outcomeSegments = [
+    { key: "correct", label: "正確", value: result.correctCount, tone: "correct" },
+    { key: "same", label: "同動物錯誤", value: result.sameAnimalErrorCount, tone: "same" },
+    { key: "early", label: "過早反應", value: result.anticipationCount, tone: "early" },
+    { key: "timeout", label: "逾時", value: result.timeoutCount, tone: "timeout" },
+  ];
+  const performanceBars = [
+    {
+      key: "accuracy",
+      label: "相反規則正確率",
+      value: clamp(result.accuracyPercent),
+      helper: "依照聲音選擇相反動物",
+    },
+    {
+      key: "waiting",
+      label: "等待完成率",
+      value: clamp(100 - result.anticipationRate),
+      helper: "等待聲音判斷完成後再作答",
+    },
+    {
+      key: "opposite",
+      label: "相反選擇率",
+      value: clamp(100 - result.sameAnimalErrorRate),
+      helper: "避免依直覺選擇發出聲音的動物",
+    },
+  ];
+  const halfComparison = [
+    { label: "前半段", value: safeNumber(result.summary?.firstHalfAccuracy, 0) },
+    { label: "後半段", value: safeNumber(result.summary?.secondHalfAccuracy, 0) },
+  ];
 
   return (
     <div className="ssg-result-page" style={{ backgroundImage: `linear-gradient(rgba(255,255,255,0.22), rgba(255,255,255,0.22)), url(${backgroundImg})` }}>
@@ -967,7 +1016,7 @@ export default function ResultPage_SSG() {
         <header className="ssg-result-header">
           <p className="ssg-mode-tag">{getResultModeText(result.mode)}</p>
           <h1 className="ssg-result-main-title">
-            {isTraining ? "相反動物練習完成" : "相反動物測驗完成"}
+            {isTraining ? "相反動物練習完成" : "貓狗合唱團完成"}
           </h1>
           <p className="ssg-mode-desc">
             {isTraining
@@ -1000,29 +1049,81 @@ export default function ResultPage_SSG() {
           </div>
         </section>
 
-        <section className="ssg-quick-stats">
-          {quickStats.map((item) => (
-            <article key={item.label} className="ssg-stat-card">
-              <p className="ssg-stat-label">{item.label}</p>
-              <p className="ssg-stat-value">{item.value}</p>
-              <p className="ssg-stat-helper">{item.helper}</p>
-            </article>
-          ))}
-        </section>
-
-        <section className="ssg-panel-block">
-          <h2 className="ssg-section-title">家長快速解讀</h2>
-          {parentSummaryText ? (
-            <p className="ssg-parent-summary-text">
-              {parentSummaryText}
-            </p>
-          ) : (
-            <>
-              <p className="ssg-parent-summary-text">孩子這次已完成聽聲音選相反動物任務，可從相反規則、反應速度、抑制直覺與注意力穩定度一起觀察。</p>
-              <p className="ssg-parent-summary-text">建議不要只看單次分數，可以搭配多次測驗與訓練趨勢判斷是否進步。</p>
-            </>
+        <section className="ssg-panel-block ssg-chart-panel">
+          <div className="ssg-section-heading">
+            <div>
+              <p className="ssg-card-label">本次共 {result.totalTrials} 題</p>
+              <h2 className="ssg-section-title">作答結果分布</h2>
+            </div>
+            <p className="ssg-chart-summary">代表性反應時間：{formatMs(result.representativeReactionTime || result.avgReactionTime)}</p>
+          </div>
+          <div className="ssg-outcome-chart" aria-label="作答結果分布圖">
+            {outcomeSegments.map((item) => (
+              item.value > 0 && (
+                <span
+                  key={item.key}
+                  className={`ssg-outcome-segment ${item.tone}`}
+                  style={{ width: `${result.totalTrials > 0 ? (item.value / result.totalTrials) * 100 : 0}%` }}
+                  title={`${item.label} ${item.value} 題`}
+                />
+              )
+            ))}
+          </div>
+          <div className="ssg-chart-legend">
+            {outcomeSegments.map((item) => (
+              <div key={item.key} className="ssg-legend-item">
+                <span className={`ssg-legend-dot ${item.tone}`} />
+                <span>{item.label}</span>
+                <strong>{item.value} 題</strong>
+              </div>
+            ))}
+          </div>
+          {result.sameAnimalErrorCount > 0 && (
+            <p className="ssg-chart-note">同動物錯誤表示孩子較容易依直覺選擇發出聲音的動物，相反規則仍有待加強。</p>
           )}
         </section>
+
+        <details className="ssg-collapsible-results">
+          <summary>查看進階指標與解讀</summary>
+          <div className="ssg-collapsible-content">
+        <section className="ssg-panel-block ssg-chart-panel">
+          <h2 className="ssg-section-title">關鍵表現</h2>
+          <p className="ssg-section-intro">以下呈現本次實際作答比例，不是診斷或固定能力標籤。</p>
+          <div className="ssg-performance-chart">
+            {performanceBars.map((item) => (
+              <div key={item.key} className="ssg-performance-row">
+                <div className="ssg-performance-copy">
+                  <strong>{item.label}</strong>
+                  <span>{item.helper}</span>
+                </div>
+                <div className="ssg-performance-track" aria-label={`${item.label} ${Math.round(item.value)}%`}>
+                  <span style={{ width: `${item.value}%` }} />
+                </div>
+                <strong className="ssg-performance-value">{Math.round(item.value)}%</strong>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {(result.hasReliableSoundComparison || result.hasReliableHalfComparison) && (
+          <section className="ssg-panel-block ssg-chart-panel">
+            <h2 className="ssg-section-title">表現比較</h2>
+            <div className="ssg-comparison-grid">
+              {result.hasReliableSoundComparison && (
+                <ComparisonChart
+                  title="不同聲音題型"
+                  items={[
+                    { label: "貓叫題", value: result.catSoundAccuracy },
+                    { label: "狗叫題", value: result.dogSoundAccuracy },
+                  ]}
+                />
+              )}
+              {result.hasReliableHalfComparison && (
+                <ComparisonChart title="前後半段" items={halfComparison} />
+              )}
+            </div>
+          </section>
+        )}
 
         {dataQualityNotes.length > 0 && (
           <section className="ssg-note-box ssg-note-box--warning">
@@ -1030,53 +1131,17 @@ export default function ResultPage_SSG() {
             {dataQualityNotes.map((note) => <p key={note}>{note}</p>)}
           </section>
         )}
-
-        <section className="ssg-panel-block">
-          <h2 className="ssg-section-title">家長可以這樣看</h2>
-          <div className="ssg-highlight-grid">
-            {highlights.map((item) => (
-              <article key={item.title} className="ssg-observation-card">
-                <div className="ssg-observation-top">
-                  <span className={`ssg-status-pill ${item.tone}`}>{item.badge}</span>
-                  <div>
-                    <p className="ssg-card-label">觀察重點</p>
-                    <h3>{item.title}</h3>
-                  </div>
-                </div>
-                <p>{item.text}</p>
-              </article>
-            ))}
           </div>
-        </section>
-
-        <section className="ssg-panel-block">
-          <h2 className="ssg-section-title">孩子這次主要表現</h2>
-          <div className="ssg-indicator-grid">
-            {indicators.map((item) => (
-              <article key={item.key} className="ssg-observation-card">
-                <div className="ssg-observation-top">
-                  <span className="ssg-status-pill neutral">{item.status}</span>
-                  <div>
-                    <p className="ssg-card-label">能力指標</p>
-                    <h3>{item.title}</h3>
-                  </div>
-                </div>
-                <p className="ssg-indicator-score">{item.value} / 100</p>
-                <div className="ssg-score-bar" aria-hidden="true"><span style={{ width: `${clamp(item.value)}%` }} /></div>
-                <p>{item.description}</p>
-                <p className="ssg-card-meaning">{item.advice}</p>
-              </article>
-            ))}
-          </div>
-        </section>
+        </details>
 
         <section className="ssg-ai-card">
-          <h2 className="ssg-section-title">系統觀察</h2>
+          <h2 className="ssg-section-title">本次觀察與下一步</h2>
           <div className="ssg-ai-grid">
             <div>
               <p className="ssg-ai-label">本次主要觀察</p>
               <h3>{profileText}</h3>
               <p>需要多觀察的地方：{weaknessText}</p>
+              {parentSummaryText && <p className="ssg-ai-summary">{parentSummaryText}</p>}
             </div>
             <div>
               <p className="ssg-ai-label">下一輪建議</p>
@@ -1239,6 +1304,42 @@ const resultPageCss = `
 .ssg-stat-helper, .ssg-observation-card p, .ssg-note-box p, .ssg-ai-card p { margin: 0; color: #6d5845; line-height: 1.65; }
 .ssg-panel-block, .ssg-ai-card, .ssg-note-box { margin-top: 18px; }
 .ssg-section-title { margin: 0 0 15px; font-size: clamp(23px, 3vw, 30px); font-weight: 900; color: #5a3e27; }
+.ssg-section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 16px; }
+.ssg-section-heading .ssg-section-title { margin-bottom: 0; }
+.ssg-section-intro, .ssg-chart-summary { margin: -7px 0 18px; color: #7b6856; line-height: 1.55; }
+.ssg-chart-summary { margin: 0; text-align: right; font-weight: 800; }
+.ssg-outcome-chart { display: flex; width: 100%; min-height: 42px; overflow: hidden; border-radius: 14px; background: #eee6db; box-shadow: inset 0 1px 3px rgba(82, 55, 28, .12); }
+.ssg-outcome-segment { display: block; min-width: 3px; transition: width .35s ease; }
+.ssg-outcome-segment.correct, .ssg-legend-dot.correct { background: #8fbe55; }
+.ssg-outcome-segment.same, .ssg-legend-dot.same { background: #ef9a67; }
+.ssg-outcome-segment.early, .ssg-legend-dot.early { background: #e8bd4f; }
+.ssg-outcome-segment.timeout, .ssg-legend-dot.timeout { background: #8fb5cc; }
+.ssg-chart-legend { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 15px; }
+.ssg-legend-item { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; background: #fbf7ef; color: #67513e; }
+.ssg-legend-dot { width: 11px; height: 11px; border-radius: 50%; }
+.ssg-chart-note { margin: 15px 0 0; padding: 12px 14px; border-radius: 12px; background: #fff4dc; color: #71562d; line-height: 1.65; }
+.ssg-performance-chart { display: grid; gap: 17px; }
+.ssg-performance-row { display: grid; grid-template-columns: minmax(190px, 1.1fr) minmax(240px, 2fr) 60px; align-items: center; gap: 18px; }
+.ssg-performance-copy { display: flex; flex-direction: column; gap: 3px; color: #533b29; }
+.ssg-performance-copy span { color: #806d5b; font-size: 14px; }
+.ssg-performance-track, .ssg-comparison-track { height: 17px; overflow: hidden; border-radius: 999px; background: #eee6da; }
+.ssg-performance-track > span, .ssg-comparison-track > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #78bfe8, #8fbe55); }
+.ssg-performance-value { color: #533b29; text-align: right; font-size: 19px; }
+.ssg-comparison-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+.ssg-comparison-card { padding: 17px; border: 1px solid #ead9c5; border-radius: 15px; background: #fffdf8; }
+.ssg-comparison-card h3 { margin: 0 0 15px; color: #5b422d; }
+.ssg-comparison-row { display: grid; grid-template-columns: 62px 1fr 48px; align-items: center; gap: 10px; margin-top: 11px; color: #735d49; }
+.ssg-comparison-track { height: 12px; }
+.ssg-ai-summary { margin-top: 12px !important; padding-top: 12px; border-top: 1px dashed rgba(102, 122, 75, .35); }
+.ssg-collapsible-results { border: 1px solid #ead8bd; border-radius: 20px; background: rgba(255,255,255,.76); overflow: hidden; }
+.ssg-collapsible-results > summary { padding: 18px 22px; color: #6a4a2b; font-weight: 900; cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; }
+.ssg-collapsible-results > summary::-webkit-details-marker { display: none; }
+.ssg-collapsible-results > summary::after { content: "+"; font-size: 26px; line-height: 1; }
+.ssg-collapsible-results[open] > summary::after { content: "−"; }
+.ssg-collapsible-results > summary:focus-visible { outline: 3px solid rgba(76,157,194,.34); outline-offset: -3px; }
+.ssg-collapsible-content { display: grid; gap: 18px; padding: 0 18px 18px; border-top: 1px solid #ead8bd; }
+.ssg-collapsible-content > :first-child { margin-top: 18px; }
+.ssg-collapsible-content .ssg-panel-block, .ssg-collapsible-content .ssg-note-box { box-shadow: none; }
 .ssg-parent-summary-text { margin: 0 0 8px; font-size: clamp(16px, 2vw, 19px); line-height: 1.8; color: #66513f; }
 .ssg-observation-top { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
 .ssg-observation-card h3, .ssg-ai-card h3 { margin: 0; font-size: clamp(19px, 2.2vw, 23px); color: #4e3928; }
@@ -1294,6 +1395,8 @@ const resultPageCss = `
   .ssg-overview-card { align-items: stretch; }
   .ssg-star-summary { min-width: 200px; }
   .ssg-quick-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ssg-chart-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ssg-performance-row { grid-template-columns: minmax(170px, 1fr) minmax(180px, 1.7fr) 56px; }
 }
 
 @media (max-width: 680px) {
@@ -1307,6 +1410,12 @@ const resultPageCss = `
   .ssg-highlight-grid,
   .ssg-indicator-grid,
   .ssg-ai-grid { grid-template-columns: 1fr; }
+  .ssg-section-heading { align-items: flex-start; flex-direction: column; gap: 7px; }
+  .ssg-chart-summary { text-align: left; }
+  .ssg-chart-legend, .ssg-comparison-grid { grid-template-columns: 1fr; }
+  .ssg-performance-row { grid-template-columns: 1fr auto; gap: 8px 12px; }
+  .ssg-performance-copy { grid-column: 1 / -1; }
+  .ssg-performance-track { min-width: 0; }
   .ssg-action-btns {
     position: sticky;
     bottom: 0;

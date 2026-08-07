@@ -31,7 +31,7 @@ import endingVideo from "../asset/optimized/mp4/PM_end.mp4";
 import mouseGuideImg from "../asset/mouse.webp";
 import homeResultBtn from "../asset/home/result.webp";
 import homeAgainBtn from "../asset/home/again.webp";
-import homeBackBtn from "../asset/home/back.webp";
+import homeBackBtn from "../asset/return.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
 import homeStartBtn from "../asset/home/start.webp";
 import homeNextBtn from "../asset/home/next.webp";
@@ -1257,7 +1257,7 @@ export default function TrainingPage_PM() {
       >
         <img loading="lazy" src={src} alt={alt} style={styles.imageButtonImg} />
       </button>
-      {buttonMouse}
+      {variant !== "skip" && buttonMouse}
     </div>
   );
 
@@ -1314,12 +1314,19 @@ export default function TrainingPage_PM() {
                 />
               </div>
 
-              {renderImageButton({
-                src: homeSkipBtn,
-                alt: "跳過動畫",
-                variant: "skip",
-                onClick: handleIntroVideoEnd,
-              })}
+              <div style={styles.videoActions}>
+                {renderImageButton({
+                  src: homeSkipBtn,
+                  alt: "跳過動畫",
+                  variant: "skip",
+                  onClick: handleIntroVideoEnd,
+                })}
+                {renderImageButton({
+                  src: homeNextBtn,
+                  alt: "下一步",
+                  onClick: handleIntroVideoEnd,
+                })}
+              </div>
             </div>
           )}
 
@@ -1337,11 +1344,19 @@ export default function TrainingPage_PM() {
                 />
               </div>
 
-              {renderImageButton({
-                src: homeNextBtn,
-                alt: "下一步",
-                onClick: handleStepVideoEnd,
-              })}
+              <div style={styles.videoActions}>
+                {renderImageButton({
+                  src: homeSkipBtn,
+                  alt: "跳過動畫",
+                  variant: "skip",
+                  onClick: handleStepVideoEnd,
+                })}
+                {renderImageButton({
+                  src: homeNextBtn,
+                  alt: "下一步",
+                  onClick: handleStepVideoEnd,
+                })}
+              </div>
             </div>
           )}
 
@@ -1449,7 +1464,7 @@ export default function TrainingPage_PM() {
           )}
 
           {phase === "endingVideo" && (
-            <div className="game-start-card-artwork pm-video-card-artwork" style={styles.videoPanel}>
+            <div className="game-start-card-artwork pm-video-card-artwork" style={{ ...styles.videoPanel, outline: "none" }}>
               <div style={styles.videoFrame}>
                 <video
                   src={endingVideo}
@@ -1574,9 +1589,6 @@ const styles = {
     width: "min(78vw, 820px)",
     minHeight: "min(68vh, 610px)",
     background: softCream,
-    border: "5px solid #ffb21e",
-    outline: "3px solid rgba(255, 132, 38, 0.92)",
-    outlineOffset: "-12px",
     borderRadius: "58px",
     boxSizing: "border-box",
     boxShadow: leafShadow,
@@ -1592,8 +1604,7 @@ const styles = {
     width: "min(82vw, 920px)",
     background: softCream,
     border: "5px solid #ffb21e",
-    outline: "3px solid rgba(255, 132, 38, 0.92)",
-    outlineOffset: "-12px",
+    outline: "none",
     borderRadius: "58px",
     boxSizing: "border-box",
     boxShadow: leafShadow,
@@ -1841,8 +1852,7 @@ const styles = {
     minHeight: "min(86vh, 790px)",
     background: softCream,
     border: "5px solid #ffb21e",
-    outline: "3px solid rgba(255, 132, 38, 0.86)",
-    outlineOffset: "-12px",
+    outline: "none",
     borderRadius: "58px",
     boxSizing: "border-box",
     boxShadow: leafShadow,
@@ -2045,6 +2055,7 @@ const styles = {
     marginBottom: "-10px",
     filter: "drop-shadow(0 8px 0 rgba(63, 76, 111, 0.14))",
     pointerEvents: "none",
+    transform: "translateY(-18px)",
   },
 
   starShell: {
@@ -2149,6 +2160,14 @@ const styles = {
     background: "linear-gradient(180deg, #b6947b 0%, #8d6e63 100%)",
     boxShadow: "0 6px 0 rgba(94, 66, 53, 0.38), 0 10px 18px rgba(67, 48, 38, 0.15)",
     touchAction: "manipulation",
+  },
+
+  videoActions: {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "clamp(28px, 4vw, 58px)",
   },
 
   guidedAction: {

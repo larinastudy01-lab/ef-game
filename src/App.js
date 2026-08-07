@@ -1,4 +1,11 @@
-import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
+import React, {
+  lazy,
+  startTransition,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -141,9 +148,11 @@ function AppContent() {
   const [appSettings, setAppSettings] = useState(loadAppSettings);
 
   // 醫療端不播放音樂，也不顯示音樂控制按鈕
-  const isClinicianDashboard =
+  const isClinicianPage =
+    location.pathname === "/clinician-login" ||
     location.pathname === "/clinician-dashboard";
   const isSettingsPage = location.pathname === "/settings";
+  const isHomePage = location.pathname === "/";
 
   useEffect(() => {
     setIsSettingsMenuOpen(false);
@@ -153,7 +162,7 @@ function AppContent() {
   const shouldPlayBGM =
     !isMuted &&
     !isVideoPlaying &&
-    !isClinicianDashboard &&
+    !isClinicianPage &&
     hasUserInteracted;
 
   useEffect(() => {
@@ -194,7 +203,9 @@ function AppContent() {
   // 使用者第一次操作頁面後，才嘗試播放音樂
   useEffect(() => {
     const handleFirstInteraction = () => {
-      setHasUserInteracted(true);
+      startTransition(() => {
+        setHasUserInteracted(true);
+      });
     };
 
     document.addEventListener("click", handleFirstInteraction, {
@@ -203,6 +214,7 @@ function AppContent() {
 
     document.addEventListener("touchstart", handleFirstInteraction, {
       once: true,
+      passive: true,
     });
 
     document.addEventListener("keydown", handleFirstInteraction, {
@@ -268,12 +280,12 @@ function AppContent() {
         .filter(Boolean)
         .join(" ")}
       style={{
-        "--app-brightness": appSettings.brightness / 100,
+        "--app-brightness": isHomePage ? 1 : appSettings.brightness / 100,
       }}
     >
-      <audio ref={audioRef} src={BGM} loop preload="auto" />
+      <audio ref={audioRef} src={BGM} loop preload="none" />
 
-      {!isSettingsPage && (
+      {!isSettingsPage && !isClinicianPage && (
         <div className="app-settings-menu">
           <button
             type="button"
@@ -287,7 +299,7 @@ function AppContent() {
 
           {isSettingsMenuOpen && (
             <div className="app-settings-popover" role="dialog" aria-label="快速設定">
-              {!isClinicianDashboard && (
+              {!isClinicianPage && (
                 <button
                   type="button"
                   className="app-music-toggle"

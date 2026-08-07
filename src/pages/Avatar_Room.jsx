@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import roomBackground from "../asset/Furniture/Avatar_Room.webp";
 import furnitureIcon from "../asset/home/Furniture.webp";
 import achievementIcon from "../asset/home/goal.webp";
-import backHomeIcon from "../asset/home/back.webp";
+import backHomeIcon from "../asset/return.webp";
 
 /**
  * 角色小屋

@@ -8,6 +8,7 @@ import testMapButton from "../asset/home/testmap.webp";
 import trainingMapButton from "../asset/home/trainingmap.webp";
 import testIcon from "../asset/test.webp";
 import trainingIcon from "../asset/training.webp";
+import parentsIcon from "../asset/parents.webp";
 
 /**
  * ModeSelectPage.jsx / ModelSelectPage.jsx
@@ -18,7 +19,7 @@ import trainingIcon from "../asset/training.webp";
  * - 測驗按鈕使用 asset/home/testmap.webp
  * - 訓練按鈕使用 asset/home/trainingmap.webp
  * - 已移除標題下方說明文字與兩張卡片底部說明文字
- * - 「查看孩子紀錄」與「最近訓練」交換位置，避免重疊
+ * - 「查看孩子紀錄」使用 parents.webp，顯示於設定按鈕左側
  * - 回首頁實際導向選擇小孩頁面 /child-select
  * - 依需求：測驗右上 icon 使用 asset/training.webp；訓練右上 icon 使用 asset/test.webp
  * - 點擊「進入訓練地圖」後，先選擇訓練時間與訓練項目
@@ -66,25 +67,7 @@ const saveTrainingSettings = (settings) => {
   sessionStorage.setItem("ef_game_training_settings", serializedSettings);
 };
 
-const RESULT_STORAGE_KEYS = [
-  "srtTrainingResult",
-  "pmTrainingResult",
-  "cbtTrainingResult",
-  "ssgTrainingResult",
-  "dccsTrainingResult",
-  "lbTrainingResult",
-];
-
 const ALL_RESULTS_KEY = "efGameResults";
-
-const GAME_LABELS = {
-  srtTrainingResult: "反應小松鼠",
-  pmTrainingResult: "記憶收藏家",
-  cbtTrainingResult: "石頭記憶任務",
-  ssgTrainingResult: "專注小幫手",
-  dccsTrainingResult: "規則小隊長",
-  lbTrainingResult: "順序切換任務",
-};
 
 const TRAINING_GAME_IDS = ["srt", "pm", "cbt", "ssg", "dccs", "lb"];
 
@@ -174,26 +157,6 @@ const belongsToCurrentChild = (result) => {
 
   if (!currentChildId || !resultChildId) return true;
   return String(currentChildId) === String(resultChildId);
-};
-
-const readGameStorageValue = (key, gameId, mode = "training") => {
-  const childId = getCurrentChildId();
-  const normalizedGameId = String(gameId || "").toUpperCase();
-  const childKeys = childId
-    ? [
-        `result:${childId}:${normalizedGameId}:${mode}`,
-        `${key}_${childId}`,
-      ]
-    : [];
-
-  for (const candidateKey of [...childKeys, key]) {
-    const value = readStorageValue(candidateKey);
-    if (!value) continue;
-    if (typeof value === "object" && !Array.isArray(value) && !belongsToCurrentChild(value)) continue;
-    return value;
-  }
-
-  return null;
 };
 
 const readGameStorageValues = (key, gameId, mode = "training") => {
@@ -438,18 +401,6 @@ const getAllLevelResultsForGame = (gameId, additionalResults = []) => {
     .slice(0, MAX_RECENT_LEVEL_RESULTS);
 };
 
-const getLatestTrainingResult = () => {
-  const results = RESULT_STORAGE_KEYS.flatMap((key) =>
-    asArray(readGameStorageValue(key, key.replace(/TrainingResult$/, ""))).map((data) => ({
-      key,
-      createdAt: getResultTimestamp(data),
-      ...data,
-    }))
-  );
-
-  return results.sort((a, b) => b.createdAt - a.createdAt)[0] || null;
-};
-
 const getTrainingRecommendations = (additionalResults = []) => {
   const recommendations = TRAINING_GAME_OPTIONS.map((game, index) => {
     const levelResults = getAllLevelResultsForGame(game.id, additionalResults);
@@ -541,7 +492,6 @@ const ModeSelectPage = () => {
   const location = useLocation();
 
   const child = location.state?.child || getCurrentChild();
-  const latestTraining = useMemo(() => getLatestTrainingResult(), []);
   const [isTrainingSettingOpen, setIsTrainingSettingOpen] = useState(false);
   const [trainingMinutes, setTrainingMinutes] = useState(20);
   const [selectedTrainingGameIds, setSelectedTrainingGameIds] = useState([]);
@@ -722,6 +672,16 @@ const ModeSelectPage = () => {
         ← 回首頁
       </button>
 
+      <button
+        type="button"
+        className="record-button"
+        onClick={openHistory}
+        aria-label="查看孩子紀錄"
+        title="查看孩子紀錄"
+      >
+        <img src={parentsIcon} alt="" />
+      </button>
+
       <section className="model-select-content" aria-label="選擇模式">
         <div className="model-title-board" aria-hidden="true">
           <span>選</span>
@@ -887,21 +847,6 @@ const ModeSelectPage = () => {
         </section>
       )}
 
-      <section className="model-bottom-bar" aria-label="孩子紀錄">
-        <button type="button" className="record-button" onClick={openHistory}>
-          <span aria-hidden="true">⭐</span>
-          查看孩子紀錄
-        </button>
-
-        <div className="recent-practice">
-          <span className="squirrel" aria-hidden="true">🐿️</span>
-          <span>最近訓練：</span>
-          <strong>
-            {latestTraining ? GAME_LABELS[latestTraining.key] || "森林任務" : "尚未開始"}
-          </strong>
-        </div>
-      </section>
-
       <style>{`
         .model-select-page {
           position: relative;
@@ -946,7 +891,7 @@ const ModeSelectPage = () => {
           width: min(1180px, calc(100% - 48px));
           min-height: 100dvh;
           margin: 0 auto;
-          padding: clamp(32px, 4.2vh, 52px) 0 clamp(116px, 13vh, 150px);
+          padding: clamp(32px, 4.2vh, 52px) 0 clamp(36px, 4.5vh, 56px);
         }
 
         .model-title-board {
@@ -1151,72 +1096,42 @@ const ModeSelectPage = () => {
           height: auto;
         }
 
-        .model-bottom-bar {
+        .record-button {
           position: fixed;
-          left: clamp(28px, 4vw, 62px);
-          right: clamp(28px, 4vw, 62px);
-          bottom: clamp(20px, 3vh, 36px);
-          z-index: 10;
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-end;
-          gap: clamp(22px, 4vw, 54px);
-          pointer-events: none;
-        }
-
-        .recent-practice,
-        .record-button {
-          pointer-events: auto;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 66px;
-          border: 5px solid #ffe7b0;
-          border-radius: 999px;
-          background: rgba(255, 244, 211, 0.96);
-          color: #8b4f20;
-          font-family: inherit;
-          font-size: clamp(1rem, 1.55vw, 1.3rem);
-          font-weight: 950;
-          box-shadow: 0 8px 0 rgba(198, 141, 56, 0.32), 0 14px 18px rgba(81, 56, 22, 0.12);
-          white-space: nowrap;
-        }
-
-        .record-button {
-          order: 1;
-          gap: 10px;
-          min-width: clamp(230px, 25vw, 320px);
-          padding: 0 28px;
-          border-color: #fff0bb;
-          color: #287b2d;
+          top: max(18px, env(safe-area-inset-top));
+          right: calc(max(18px, env(safe-area-inset-right)) + 70px);
+          z-index: 9999;
+          width: 58px;
+          height: 58px;
+          min-height: 0 !important;
+          padding: 0;
+          border: 0;
+          border-radius: 50%;
+          background: transparent;
           cursor: pointer;
+          filter: drop-shadow(0 5px 7px rgba(62, 42, 22, 0.28));
+          transition: transform 0.16s ease, filter 0.16s ease;
         }
 
-        .record-button span {
-          color: #eebd2d;
-          text-shadow: 0 2px 0 #fff4c6;
+        .record-button:hover,
+        .record-button:focus-visible {
+          transform: scale(1.06);
+          filter: drop-shadow(0 7px 9px rgba(62, 42, 22, 0.34));
         }
 
-        .recent-practice {
-          order: 2;
-          min-width: clamp(280px, 33vw, 430px);
-          padding: 0 28px 0 14px;
+        .record-button:active {
+          transform: scale(0.94);
         }
 
-        .recent-practice strong {
-          margin-left: 8px;
-          color: #0870d0;
-        }
-
-        .squirrel {
-          display: grid;
-          place-items: center;
-          width: 54px;
-          aspect-ratio: 1;
-          margin-right: 12px;
-          border-radius: 999px;
-          background: #fff7e8;
-          font-size: 2rem;
+        .record-button img {
+          display: block;
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 88px;
+          height: 88px;
+          object-fit: contain;
+          transform: translate(-50%, -50%);
         }
 
 
@@ -1538,7 +1453,7 @@ const ModeSelectPage = () => {
 
           .model-select-content {
             min-height: auto;
-            padding-bottom: 150px;
+            padding-bottom: 48px;
           }
 
           .model-card-row {
@@ -1575,19 +1490,6 @@ const ModeSelectPage = () => {
             grid-template-columns: 1fr;
           }
 
-          .model-bottom-bar {
-            position: static;
-            display: grid;
-            grid-template-columns: 1fr;
-            padding: 0 16px 22px;
-            margin-top: -120px;
-          }
-
-          .record-button,
-          .recent-practice {
-            width: min(100%, 430px);
-            justify-self: center;
-          }
         }
 
         @media (max-width: 520px) {
@@ -1651,11 +1553,15 @@ const ModeSelectPage = () => {
             width: min(100%, 360px);
           }
 
-          .recent-practice,
           .record-button {
-            min-width: 0;
-            white-space: normal;
-            text-align: center;
+            width: 52px;
+            height: 52px;
+            right: calc(max(12px, env(safe-area-inset-right)) + 62px);
+          }
+
+          .record-button img {
+            width: 79px;
+            height: 79px;
           }
         }
       `}</style>

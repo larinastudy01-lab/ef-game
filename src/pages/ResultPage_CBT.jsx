@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import bgImg from "../asset/CBT/CBT_background.webp";
+import backImg from "../asset/home/back.webp";
 import "../styles/GamePage_CBT.css";
 
 /*
@@ -58,16 +59,18 @@ export default function ResultPage_CBT() {
                 </h1>
               </div>
 
-              <div style={styles.starCard} aria-label={`${result.stars} 顆星`}>
+              <div style={styles.starCardCompact} aria-label={`${result.stars} 顆星，本次完成表現`}>
                 <div style={styles.stars}>{renderStars(result.stars)}</div>
                 <strong style={styles.starText}>{result.starLabel}</strong>
               </div>
             </header>
 
             <section style={styles.overviewCard}>
-              <div>
-                <span style={styles.label}>{result.isTestMode ? "這次挑戰" : "這次練習"}</span>
-                <strong style={styles.scoreValue}>{result.weightedAccuracyPercent} 分</strong>
+              <div style={styles.coreResult}>
+                <span style={styles.label}>{result.isTestMode ? "最高通過" : "自己記住"}</span>
+                <strong style={styles.scoreValue}>
+                  {result.independentSpan > 0 ? `${result.independentSpan} 步` : "熟悉中"}
+                </strong>
               </div>
               <div style={styles.overviewCopy}>
                 <h2 style={styles.taskTitle}>{result.overviewTitle}</h2>
@@ -78,104 +81,86 @@ export default function ResultPage_CBT() {
               </div>
             </section>
 
-            <section style={styles.recordCard}>
-              <h2 style={styles.sectionTitle}>數據摘要</h2>
-              <div style={styles.recordGrid}>
-                <MiniRecord
-                  label={result.isTestMode ? "最高通過" : "自己記住"}
-                  value={result.independentSpan > 0 ? `${result.independentSpan} 步` : "熟悉中"}
-                />
-                {!result.isTestMode && (
-                  <MiniRecord label="提示後完成" value={result.assistedSpan > 0 ? `${result.assistedSpan} 步` : "暫無資料"} />
-                )}
-                <MiniRecord label="路線正確率" value={`${result.weightedAccuracyPercent}%`} />
-                <MiniRecord label="完成題數" value={`${result.totalTrials} 題`} />
-                <MiniRecord
-                  label={result.isTestMode ? "最高嘗試" : "再看一次"}
-                  value={result.isTestMode ? `${result.maxAttemptSpan} 步` : `${result.totalReplayCount} 次`}
-                />
-              </div>
-            </section>
-
-            <section style={styles.bigSummary}>
-              <span style={styles.label}>結果快速解讀</span>
-              <p style={styles.meaningText}>{result.quickInterpretation}</p>
-              {result.systemSummary && <p style={styles.systemText}>系統補充：{result.systemSummary}</p>}
-            </section>
-
-            <section style={styles.sectionBlock}>
-              <h2 style={styles.sectionTitle}>可以這樣看</h2>
-              <p style={styles.sectionLead}>不需要先懂專有名詞，只要看每張卡片的本次表現與代表什麼。</p>
-              <div style={styles.cardGrid} aria-label="結果觀察重點">
-                {result.cards.map((card) => <ParentCard key={card.key} {...card} />)}
-              </div>
-            </section>
-
-            <section style={styles.sectionBlock}>
-              <h2 style={styles.sectionTitle}>{result.isTestMode ? "孩子這次主要表現" : "這次練習看什麼？"}</h2>
-              <div style={styles.insightGrid}>
-                {result.insights.map((item) => (
-                  <article key={item.title} style={styles.insightCard}>
-                    <h3 style={styles.subTitle}>{item.title}</h3>
-                    <p style={styles.bodyText}>{item.text}</p>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            {result.isTestMode && (
-              <section style={styles.ruleCard}>
-                <h2 style={styles.sectionTitle}>測驗規則與結束方式</h2>
-                <p style={styles.bodyText}>每個記憶數量會做 2 題；同一記憶數量連續 2 題未完成，或連續 2 題逾時，測驗就會結束。</p>
-                <p style={styles.ruleReason}><strong>本次結束原因：</strong>{result.stopReasonText}</p>
-              </section>
-            )}
+            <ResultCharts result={result} />
 
             <section style={styles.suggestionCard}>
               <h2 style={styles.sectionTitle}>下一步建議</h2>
-              <ol style={styles.suggestionList}>
-                {result.nextSteps.map((step) => <li key={step} style={styles.suggestionItem}>{step}</li>)}
-              </ol>
+              <p style={styles.primarySuggestion}>{result.nextSteps[0]}</p>
             </section>
 
             <aside style={styles.disclaimer}>
               <strong>結果小提醒</strong>
-              <p style={styles.disclaimerText}>這份結果是本次遊戲中的觀察紀錄，可協助了解孩子在「看見位置、記住順序、依序完成」時的狀況；結果可能受到注意力、疲勞、情緒與操作熟悉度影響，不代表醫療診斷。</p>
+              <p style={styles.disclaimerText}>這份結果是針對孩子在遊戲中反應的分析，結果可能受到孩子本身的能力、當時的注意力、疲勞、情緒或操作熟悉度所影響，結果僅供參考，並非正式醫療診斷。</p>
             </aside>
+
+            <details style={styles.detailsCard}>
+              <summary style={styles.detailsSummary}>查看完整分析</summary>
+              <div style={styles.detailsContent}>
+                <section style={styles.recordCard}>
+                  <h2 style={styles.sectionTitle}>數據摘要</h2>
+                  <div style={styles.recordGrid}>
+                    <MiniRecord label={result.isTestMode ? "最高通過" : "自己記住"} value={result.independentSpan > 0 ? `${result.independentSpan} 步` : "熟悉中"} />
+                    {!result.isTestMode && <MiniRecord label="提示後完成" value={result.assistedSpan > 0 ? `${result.assistedSpan} 步` : "暫無資料"} />}
+                    <MiniRecord label="路線正確率" value={`${result.weightedAccuracyPercent}%`} />
+                    <MiniRecord label="完成題數" value={`${result.totalTrials} 題`} />
+                    <MiniRecord label={result.isTestMode ? "最高嘗試" : "再看一次"} value={result.isTestMode ? `${result.maxAttemptSpan} 步` : `${result.totalReplayCount} 次`} />
+                  </div>
+                </section>
+
+                <section style={styles.bigSummary}>
+                  <span style={styles.label}>結果快速解讀</span>
+                  <p style={styles.meaningText}>{result.quickInterpretation}</p>
+                  {result.systemSummary && <p style={styles.systemText}>系統補充：{result.systemSummary}</p>}
+                </section>
+
+                <section style={styles.sectionBlock}>
+                  <h2 style={styles.sectionTitle}>可以這樣看</h2>
+                  <p style={styles.sectionLead}>不需要先懂專有名詞，只要看每張卡片的本次表現與代表什麼。</p>
+                  <div style={styles.cardGrid} aria-label="結果觀察重點">
+                    {result.cards.map((card) => <ParentCard key={card.key} {...card} />)}
+                  </div>
+                </section>
+
+                <section style={styles.sectionBlock}>
+                  <h2 style={styles.sectionTitle}>{result.isTestMode ? "孩子這次主要表現" : "這次練習看什麼？"}</h2>
+                  <div style={styles.insightGrid}>
+                    {result.insights.map((item) => (
+                      <article key={item.title} style={styles.insightCard}>
+                        <h3 style={styles.subTitle}>{item.title}</h3>
+                        <p style={styles.bodyText}>{item.text}</p>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+
+                {result.isTestMode && (
+                  <section style={styles.ruleCard}>
+                    <h2 style={styles.sectionTitle}>測驗規則與結束方式</h2>
+                    <p style={styles.bodyText}>每個記憶數量會做 2 題；同一記憶數量連續 2 題未完成，或連續 2 題逾時，測驗就會結束。</p>
+                    <p style={styles.ruleReason}><strong>本次結束原因：</strong>{result.stopReasonText}</p>
+                  </section>
+                )}
+
+                {result.nextSteps.length > 1 && (
+                  <section style={styles.suggestionCard}>
+                    <h2 style={styles.sectionTitle}>更多練習建議</h2>
+                    <ol style={styles.suggestionList}>
+                      {result.nextSteps.slice(1).map((step) => <li key={step} style={styles.suggestionItem}>{step}</li>)}
+                    </ol>
+                  </section>
+                )}
+              </div>
+            </details>
 
             <footer style={styles.actions}>
               <button
                 type="button"
-                className="cbt-secondary-button"
+                style={styles.backImageButton}
                 disabled={isNavigating}
-                onClick={() => handleNavigate("/game-menu")}
+                onClick={() => handleNavigate(result.isTestMode ? "/test-map" : "/game-menu")}
+                aria-label={result.isTestMode ? "返回測驗地圖" : "返回遊戲地圖"}
               >
-                返回遊戲地圖
-              </button>
-
-              <button
-                type="button"
-                className="cbt-main-button"
-                disabled={isNavigating}
-                onClick={() =>
-                  handleNavigate("/training-cbt", {
-                    state: {
-                      suggestedSpan: result.suggestedSpan,
-                      source: "cbt-parent-result",
-                    },
-                  })
-                }
-              >
-                依建議繼續練習
-              </button>
-
-              <button
-                type="button"
-                className="cbt-secondary-button"
-                disabled={isNavigating}
-                onClick={() => handleNavigate("/test-cbt")}
-              >
-                再測一次
+                <img src={backImg} alt="" style={styles.backImage} />
               </button>
             </footer>
           </>
@@ -217,6 +202,95 @@ function MiniRecord({ label, value }) {
       <span style={styles.miniLabel}>{label}</span>
       <strong style={styles.miniValue}>{value}</strong>
     </div>
+  );
+}
+
+function ResultCharts({ result }) {
+  const scaleMax = Math.max(
+    result.maxAttemptSpan,
+    result.independentSpan,
+    result.isTestMode ? 0 : result.assistedSpan,
+    result.suggestedSpan,
+    5
+  );
+  const bars = [
+    {
+      key: "independent",
+      label: result.isTestMode ? "最高通過" : "自己記住",
+      value: result.independentSpan,
+      color: "#6fb071",
+    },
+    ...(!result.isTestMode
+      ? [{ key: "assisted", label: "提示後完成", value: result.assistedSpan, color: "#eea85d" }]
+      : []),
+    { key: "suggested", label: "下次建議", value: result.suggestedSpan, color: "#6b93c2" },
+  ];
+
+  return (
+    <section style={styles.chartsGrid} aria-label="本次 CBT 圖表摘要">
+      <article style={styles.chartCard}>
+        <div style={styles.chartHeading}>
+          <div>
+            <h2 style={styles.sectionTitle}>本次路線記憶</h2>
+            <p style={styles.chartDescription}>比較孩子本次完成的路線步數，不代表固定能力。</p>
+          </div>
+        </div>
+        <div style={styles.spanChart}>
+          {bars.map((bar) => (
+            <div key={bar.key} style={styles.spanRow}>
+              <span style={styles.spanLabel}>{bar.label}</span>
+              <div style={styles.barTrack} aria-hidden="true">
+                <span
+                  style={{
+                    ...styles.barFill,
+                    width: `${Math.max((bar.value / scaleMax) * 100, bar.value > 0 ? 8 : 0)}%`,
+                    background: bar.color,
+                  }}
+                />
+              </div>
+              <strong style={styles.spanValue}>{bar.value > 0 ? `${bar.value} 步` : "暫無"}</strong>
+            </div>
+          ))}
+        </div>
+        {result.isTestMode && <p style={styles.chartFootnote}>正式測驗沒有再看一次或提示，因此只呈現無提示情境下的本次表現。</p>}
+      </article>
+
+      <article style={styles.chartCard}>
+        <h2 style={styles.sectionTitle}>每回合作答歷程</h2>
+        <p style={styles.chartDescription}>查看路線變長後的完成情況，以及是否使用提示。</p>
+        {result.trialTimeline.length > 0 ? (
+          <>
+            <div style={styles.timeline}>
+              {result.trialTimeline.map((trial, index) => (
+                <div key={`${trial.status}-${index}`} style={styles.trialItem}>
+                  <span
+                    style={{ ...styles.trialDot, background: trial.color }}
+                    title={`第 ${index + 1} 回合：${trial.label}，${trial.length || 0} 步`}
+                    aria-label={`第 ${index + 1} 回合，${trial.label}，${trial.length || 0} 步`}
+                  >
+                    {trial.symbol}
+                  </span>
+                  <small style={styles.trialRound}>{index + 1}</small>
+                  <strong style={styles.trialLength}>{trial.length > 0 ? `${trial.length}步` : "-"}</strong>
+                </div>
+              ))}
+            </div>
+            <div style={styles.legend}>
+              {[
+                ["#6fb071", "自己完成"],
+                ["#eea85d", "提示後完成"],
+                ["#df776e", "未完成"],
+                ["#9aa3ad", "逾時"],
+              ].map(([color, label]) => (
+                <span key={label} style={styles.legendItem}><i style={{ ...styles.legendDot, background: color }} />{label}</span>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p style={styles.emptyChart}>本次沒有可顯示的逐題紀錄，完整數據仍可在下方查看。</p>
+        )}
+      </article>
+    </section>
   );
 }
 
@@ -481,6 +555,7 @@ function buildParentFriendlyResult(historyInput, state = {}, mode = "training") 
     }),
     getPatternSuggestion(pattern.key),
   ].filter(Boolean);
+  const trialTimeline = buildTrialTimeline(history);
 
   return {
     totalTrials,
@@ -494,6 +569,7 @@ function buildParentFriendlyResult(historyInput, state = {}, mode = "training") 
     totalReplayCount,
     replayTrialCount,
     rescueTrialCount,
+    trialTimeline,
     isTestMode,
     stars,
     starLabel: getStarLabel(stars),
@@ -952,6 +1028,29 @@ function normalizeHistory(value) {
   });
 }
 
+function buildTrialTimeline(history) {
+  return history.map((item) => {
+    const assisted =
+      getReplayCount(item) > 0 ||
+      item.usedHint === true ||
+      item.hintUsed === true ||
+      item.wasRescued === true ||
+      item.rescueUsed === true ||
+      item.isRescueAttempt === true;
+
+    if (item.timeout || item.isTimeout) {
+      return { status: "timeout", label: "逾時", symbol: "○", color: "#9aa3ad", length: getTrialLength(item) };
+    }
+    if ((item.correct || item.isCorrect) && assisted) {
+      return { status: "assisted", label: "提示後完成", symbol: "◐", color: "#eea85d", length: getTrialLength(item) };
+    }
+    if (item.correct || item.isCorrect) {
+      return { status: "correct", label: "自己完成", symbol: "✓", color: "#6fb071", length: getTrialLength(item) };
+    }
+    return { status: "wrong", label: "未完成", symbol: "×", color: "#df776e", length: getTrialLength(item) };
+  });
+}
+
 function toArray(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -1127,6 +1226,14 @@ const styles = {
     textAlign: "center",
   },
 
+  starCardCompact: {
+    padding: "10px 14px",
+    borderRadius: "20px",
+    background: "rgba(255, 250, 245, 0.88)",
+    boxShadow: "0 6px 14px rgba(70, 45, 25, 0.07)",
+    textAlign: "center",
+  },
+
   stars: {
     display: "flex",
     justifyContent: "center",
@@ -1189,8 +1296,165 @@ const styles = {
     minWidth: 0,
   },
 
+  coreResult: {
+    display: "grid",
+    alignContent: "center",
+    justifyItems: "start",
+    minHeight: "130px",
+  },
+
   starNotice: {
     margin: "10px 0 0",
+    color: "#795b46",
+    fontSize: "14px",
+    fontWeight: 700,
+    lineHeight: 1.6,
+  },
+
+  chartsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+    gap: "18px",
+    marginBottom: "18px",
+  },
+
+  chartCard: {
+    minWidth: 0,
+    padding: "22px",
+    borderRadius: "28px",
+    background: "rgba(255, 250, 245, 0.97)",
+    border: "2px solid rgba(128, 92, 52, 0.12)",
+    boxShadow: "0 8px 18px rgba(70, 45, 25, 0.08)",
+    textAlign: "left",
+  },
+
+  chartHeading: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "12px",
+  },
+
+  chartDescription: {
+    margin: "-5px 0 18px",
+    color: "#6f513e",
+    fontSize: "14px",
+    fontWeight: 700,
+    lineHeight: 1.55,
+  },
+
+  spanChart: {
+    display: "grid",
+    gap: "16px",
+  },
+
+  spanRow: {
+    display: "grid",
+    gridTemplateColumns: "82px minmax(90px, 1fr) 54px",
+    alignItems: "center",
+    gap: "10px",
+  },
+
+  spanLabel: {
+    color: "#5c4033",
+    fontSize: "14px",
+    fontWeight: 900,
+  },
+
+  barTrack: {
+    height: "18px",
+    overflow: "hidden",
+    borderRadius: "999px",
+    background: "#eee4da",
+  },
+
+  barFill: {
+    display: "block",
+    height: "100%",
+    borderRadius: "inherit",
+  },
+
+  spanValue: {
+    color: "#4a2b1c",
+    fontSize: "15px",
+    textAlign: "right",
+  },
+
+  chartFootnote: {
+    margin: "16px 0 0",
+    padding: "10px 12px",
+    borderRadius: "14px",
+    background: "#f1f6fb",
+    color: "#53687c",
+    fontSize: "13px",
+    fontWeight: 700,
+    lineHeight: 1.55,
+  },
+
+  timeline: {
+    display: "flex",
+    gap: "10px",
+    overflowX: "auto",
+    padding: "4px 2px 10px",
+  },
+
+  trialItem: {
+    flex: "0 0 46px",
+    display: "grid",
+    justifyItems: "center",
+    gap: "3px",
+  },
+
+  trialDot: {
+    width: "38px",
+    height: "38px",
+    display: "grid",
+    placeItems: "center",
+    borderRadius: "50%",
+    color: "white",
+    fontSize: "20px",
+    fontWeight: 1000,
+    boxShadow: "0 4px 9px rgba(70, 45, 25, 0.12)",
+  },
+
+  trialRound: {
+    color: "#8b7564",
+    fontSize: "11px",
+    fontWeight: 800,
+  },
+
+  trialLength: {
+    color: "#5c4033",
+    fontSize: "12px",
+  },
+
+  legend: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px 14px",
+    marginTop: "10px",
+  },
+
+  legendItem: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    color: "#6f513e",
+    fontSize: "12px",
+    fontWeight: 800,
+  },
+
+  legendDot: {
+    width: "10px",
+    height: "10px",
+    display: "inline-block",
+    borderRadius: "50%",
+  },
+
+  emptyChart: {
+    margin: 0,
+    padding: "18px",
+    borderRadius: "18px",
+    background: "#f6f0ea",
     color: "#795b46",
     fontSize: "14px",
     fontWeight: 700,
@@ -1416,6 +1680,40 @@ const styles = {
     textAlign: "left",
   },
 
+  primarySuggestion: {
+    margin: 0,
+    padding: "14px 16px",
+    borderRadius: "18px",
+    background: "rgba(255,255,255,0.72)",
+    color: "#4a2b1c",
+    fontSize: "17px",
+    fontWeight: 850,
+    lineHeight: 1.7,
+  },
+
+  detailsCard: {
+    marginTop: "18px",
+    borderRadius: "24px",
+    background: "rgba(255, 250, 245, 0.9)",
+    border: "2px solid rgba(128, 92, 52, 0.14)",
+    overflow: "hidden",
+  },
+
+  detailsSummary: {
+    padding: "18px 22px",
+    color: "#5c4033",
+    fontSize: "17px",
+    fontWeight: 950,
+    cursor: "pointer",
+    textAlign: "center",
+  },
+
+  detailsContent: {
+    display: "grid",
+    gap: "18px",
+    padding: "4px 18px 18px",
+  },
+
   sectionTitle: {
     margin: "0 0 12px",
     color: "#4a2b1c",
@@ -1498,9 +1796,21 @@ const styles = {
   actions: {
     display: "flex",
     justifyContent: "center",
-    flexWrap: "wrap",
-    gap: "14px",
     marginTop: "22px",
+  },
+
+  backImageButton: {
+    display: "block",
+    padding: 0,
+    border: 0,
+    background: "transparent",
+    cursor: "pointer",
+  },
+
+  backImage: {
+    display: "block",
+    width: "clamp(112px, 18vw, 168px)",
+    height: "auto",
   },
 
   emptyState: {

@@ -65,7 +65,7 @@ const GAME_CONFIG = {
     storageKey: "srtTrainingResult",
   },
   SSG: {
-    name: "SSG 聲音符號遊戲",
+    name: "貓狗合唱團",
     character: "貓咪與狗狗",
     ability: "inhibition",
     description: "找到搗亂蒼蠅，幫派對順利開始。",

@@ -9,13 +9,14 @@ import {
 
 import backgroundImg from "../asset/LB/LB_background.webp";
 import homeImg from "../asset/LB/grandma_sheep_house.webp";
-import blowingBubblesImg from "../asset/LB/blowing_bubbles.webp";
+import blowingBubblesImg from "../asset/LB/walk/blowing_bubbles.webp";
 import introVideo from "../asset/optimized/mp4/LB_start.mp4";
 import stepVideo from "../asset/optimized/mp4/LB_step.mp4";
 import endingVideo from "../asset/optimized/mp4/LB_end.mp4";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
-import homeBackBtn from "../asset/home/back.webp";
+import homeNextBtn from "../asset/home/next.webp";
+import homeBackBtn from "../asset/return.webp";
 import homeAgainBtn from "../asset/home/again.webp";
 import homeResultBtn from "../asset/home/result.webp";
 import mouseGuideImg from "../asset/mouse.webp";
@@ -2137,12 +2138,14 @@ export default function TrainingPage_LB() {
                 className="lb-video"
               />
             </div>
-            <div className="lb-guided-action lb-guided-skip">
+            <div className="lb-video-actions"><div className="lb-guided-action lb-guided-skip">
               <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleIntroVideoEnd} aria-label="跳過動畫">
                 <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過動畫" draggable="false" />
               </button>
-              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
-            </div>
+            </div><div className="lb-guided-action lb-guided-next">
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-next" onClick={handleIntroVideoEnd} aria-label="下一步"><img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" draggable="false" /></button>
+              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="" aria-hidden="true" draggable="false" />
+            </div></div>
           </section>
         </main>
       </div>
@@ -2167,12 +2170,14 @@ export default function TrainingPage_LB() {
                 className="lb-video"
               />
             </div>
-            <div className="lb-guided-action lb-guided-skip">
+            <div className="lb-video-actions"><div className="lb-guided-action lb-guided-skip">
               <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleStepVideoEnd} aria-label="跳過步驟說明">
                 <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過步驟說明" draggable="false" />
               </button>
-              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
-            </div>
+            </div><div className="lb-guided-action lb-guided-next">
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-next" onClick={handleStepVideoEnd} aria-label="下一步"><img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" draggable="false" /></button>
+              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="" aria-hidden="true" draggable="false" />
+            </div></div>
           </section>
         </main>
       </div>

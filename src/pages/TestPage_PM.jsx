@@ -989,7 +989,7 @@ export default function TestPage_PM() {
         <div style={styles.container}>
           {phase === "rules" && (
             <div className="game-start-card-artwork pm-opening-card-artwork" style={styles.startPanel}>
-              <div style={styles.gameTitle}>圖片記憶任務</div>
+              <div style={styles.gameTitle}>找出兔子妹妹遺失的物品</div>
 
               <div style={styles.startContent}>
                 <div style={styles.dialogBubble}>
@@ -1028,6 +1028,9 @@ export default function TestPage_PM() {
                 <button type="button" style={{ ...styles.imageButton, ...styles.skipImageButton }} onClick={handleIntroVideoEnd} aria-label="跳過動畫">
                   <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過動畫" style={styles.imageButtonImg} />
                 </button>
+                <button type="button" style={styles.imageButton} onClick={handleIntroVideoEnd} aria-label="下一步">
+                  <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" style={styles.imageButtonImg} />
+                </button>
                 <img width={1024} height={1024} loading="lazy" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
               </div>
             </div>
@@ -1048,6 +1051,9 @@ export default function TestPage_PM() {
               </div>
 
               <div style={styles.guidedAction}>
+                <button type="button" style={{ ...styles.imageButton, ...styles.skipImageButton }} onClick={handleStepVideoEnd} aria-label="跳過動畫">
+                  <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過動畫" style={styles.imageButtonImg} />
+                </button>
                 <button type="button" style={styles.imageButton} onClick={handleStepVideoEnd} aria-label="下一步">
                   <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" style={styles.imageButtonImg} />
                 </button>
@@ -1150,7 +1156,7 @@ export default function TestPage_PM() {
           )}
 
           {phase === "endingVideo" && (
-            <div className="game-start-card-artwork pm-video-card-artwork" style={styles.videoPanel}>
+            <div className="game-start-card-artwork pm-video-card-artwork" style={{ ...styles.videoPanel, outline: "none" }}>
               <div style={styles.videoFrame}>
                 <video
                   src={endingVideo}
@@ -1280,8 +1286,7 @@ const styles = {
     minHeight: "min(68vh, 610px)",
     background: softCream,
     border: "5px solid #ffb21e",
-    outline: "3px solid rgba(255, 132, 38, 0.92)",
-    outlineOffset: "-12px",
+    outline: "none",
     borderRadius: "58px",
     boxSizing: "border-box",
     boxShadow: leafShadow,
@@ -1297,8 +1302,7 @@ const styles = {
     width: "min(82vw, 920px)",
     background: softCream,
     border: "5px solid #ffb21e",
-    outline: "3px solid rgba(255, 132, 38, 0.92)",
-    outlineOffset: "-12px",
+    outline: "none",
     borderRadius: "58px",
     boxSizing: "border-box",
     boxShadow: leafShadow,
@@ -1509,8 +1513,7 @@ const styles = {
     minHeight: "min(86vh, 790px)",
     background: softCream,
     border: "5px solid #ffb21e",
-    outline: "3px solid rgba(255, 132, 38, 0.86)",
-    outlineOffset: "-12px",
+    outline: "none",
     borderRadius: "58px",
     boxSizing: "border-box",
     boxShadow: leafShadow,
@@ -1708,6 +1711,7 @@ const styles = {
     marginBottom: "-10px",
     filter: "drop-shadow(0 8px 0 rgba(63, 76, 111, 0.14))",
     pointerEvents: "none",
+    transform: "translateY(-18px)",
   },
 
   starShell: {
