@@ -37,12 +37,17 @@ jobs:
           PUBLIC_URL: /ef-game
           REACT_APP_GIT_COMMIT: ${{ github.sha }}
           GENERATE_SOURCEMAP: "false"
-          CI: "false"
+          # Keep warnings fatal in deployment so hook/lint regressions cannot
+          # silently reach the clinical production site.
+          CI: "true"
         run: npm run build
 
       - name: Add single-page app fallback
         shell: bash
         run: cp build/index.html build/404.html
+
+      - name: Verify deployment size and assets
+        run: npm run check:deploy
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

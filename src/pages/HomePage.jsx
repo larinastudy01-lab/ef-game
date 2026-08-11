@@ -5,7 +5,7 @@ import loginButton from "../asset/home/login.webp";
 import registerButton from "../asset/home/register.webp";
 import medicalLoginButton from "../asset/home/dc_register.webp";
 
-const CLINICIAN_DASHBOARD_ROUTE = "/clinician-dashboard";
+const CLINICIAN_LOGIN_ROUTE = "/clinician-login";
 
 function HomePage() {
   const navigate = useNavigate();
@@ -19,7 +19,7 @@ function HomePage() {
   };
 
   const goMedicalLogin = () => {
-    navigate(CLINICIAN_DASHBOARD_ROUTE);
+    navigate(CLINICIAN_LOGIN_ROUTE);
   };
 
   return (
@@ -73,9 +73,9 @@ function HomePage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: clamp(18px, 2.8vw, 44px);
+          gap: clamp(32px, 4vw, 64px);
           transform: translateX(-50%);
-          width: min(980px, 88vw);
+          width: min(1060px, 92vw);
         }
 
         .home-image-button {
@@ -89,6 +89,9 @@ function HomePage() {
           transition: transform 0.16s ease, filter 0.16s ease;
           -webkit-tap-highlight-color: transparent;
           z-index: 10;
+          flex: 1 1 0;
+          width: 100%;
+          height: clamp(96px, 10vw, 142px);
         }
 
         .home-image-button:hover,
@@ -104,25 +107,25 @@ function HomePage() {
 
         .home-image-button img {
           display: block;
-          width: clamp(170px, 18vw, 260px);
-          height: auto;
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
           user-select: none;
           pointer-events: none;
         }
 
         .home-image-button.is-medical img {
-          width: clamp(170px, 18vw, 260px);
+          width: 100%;
         }
 
         @media (max-width: 980px) {
           .home-button-area {
             width: min(820px, 90vw);
-            gap: 16px;
+            gap: 24px;
           }
 
-          .home-image-button img,
-          .home-image-button.is-medical img {
-            width: clamp(150px, 27vw, 220px);
+          .home-image-button {
+            height: clamp(82px, 14vw, 118px);
           }
         }
 
@@ -141,6 +144,12 @@ function HomePage() {
           .home-image-button img,
           .home-image-button.is-medical img {
             width: min(240px, 68vw);
+          }
+
+          .home-image-button {
+            flex: 0 0 auto;
+            width: min(240px, 68vw);
+            height: 80px;
           }
         }
       `}</style>

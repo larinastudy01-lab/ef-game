@@ -22,7 +22,12 @@ import MeerkatsAvatar from "../asset/avatar/meerkats.webp";
 import PeacockAvatar from "../asset/avatar/peacock.webp";
 import RabbitAvatar from "../asset/avatar/rabbit.webp";
 import SheepAvatar from "../asset/avatar/sheep.webp";
-import { setActivePatient } from "../utils/activePatientStorage";
+import {
+  clearActivePatient,
+  getActivePatient,
+  getActivePatientId,
+  setActivePatient,
+} from "../utils/activePatientStorage";
 
 const STORAGE_KEYS = {
   children: "childrenProfiles",
@@ -32,6 +37,7 @@ const STORAGE_KEYS = {
 };
 
 const CHILD_GAME_CACHE_PREFIX = "childGameCache";
+const CHILD_GAME_CACHE_VERSION = 1;
 
 const MAX_CHILD_AGE = 18;
 
@@ -203,13 +209,22 @@ const snapshotGameplayCacheForChild = (childId) => {
     }
   }
 
-  localStorage.setItem(getChildGameCacheKey(childId), JSON.stringify(cache));
+  localStorage.setItem(
+    getChildGameCacheKey(childId),
+    JSON.stringify({ version: CHILD_GAME_CACHE_VERSION, childId, values: cache })
+  );
 };
 
 const restoreGameplayCacheForChild = (childId) => {
   if (!childId) return;
 
-  const cache = safeParse(localStorage.getItem(getChildGameCacheKey(childId)), {});
+  const stored = safeParse(localStorage.getItem(getChildGameCacheKey(childId)), {});
+  if (!stored || typeof stored !== "object" || Array.isArray(stored)) return;
+
+  // Versioned snapshots carry their owner id to prevent a corrupted/misnamed
+  // cache entry from restoring one child's unfinished game into another child.
+  if (stored.version && stored.childId !== childId) return;
+  const cache = stored.version ? stored.values : stored;
   if (!cache || typeof cache !== "object" || Array.isArray(cache)) return;
 
   Object.entries(cache).forEach(([key, value]) => {
@@ -363,7 +378,7 @@ const ChildSelectPage = () => {
     avatarIcon: "fox",
   });
 
-  const currentChildId = localStorage.getItem(STORAGE_KEYS.currentChildId);
+  const currentChildId = getActivePatientId();
   const birthdayLimits = getBirthdayLimits();
 
   const saveChildren = (nextChildren) => {
@@ -405,7 +420,7 @@ const ChildSelectPage = () => {
   const selectChild = (child) => {
     if (isSyncing) return;
 
-    const previousChildId = localStorage.getItem(STORAGE_KEYS.currentChildId);
+    const previousChildId = getActivePatientId();
     const childToSave = { ...child, selectedAt: new Date().toISOString() };
 
     if (previousChildId && previousChildId !== child.childId) {
@@ -537,8 +552,8 @@ const ChildSelectPage = () => {
     if (!childToRemove) return;
 
     const previousChildren = children;
-    const wasCurrentChild = localStorage.getItem(STORAGE_KEYS.currentChildId) === childId;
-    const previousCurrentChild = localStorage.getItem(STORAGE_KEYS.currentChild);
+    const previousActivePatient = getActivePatient();
+    const wasCurrentChild = previousActivePatient?.childId === childId;
     const nextChildren = children.filter((item) => item.childId !== childId);
 
     setIsSyncing(true);
@@ -553,26 +568,7 @@ const ChildSelectPage = () => {
 
       if (wasCurrentChild) {
         snapshotGameplayCacheForChild(childId);
-        localStorage.removeItem(STORAGE_KEYS.currentChildId);
-        localStorage.removeItem(STORAGE_KEYS.currentChild);
-        localStorage.removeItem("selectedChildId");
-        localStorage.removeItem("childId");
-        localStorage.removeItem("selectedPatientId");
-        localStorage.removeItem("currentPatientId");
-        localStorage.removeItem("selectedChild");
-        localStorage.removeItem("activeChild");
-        localStorage.removeItem("selectedPatient");
-        localStorage.removeItem("currentPatient");
-        sessionStorage.removeItem(STORAGE_KEYS.currentChildId);
-        sessionStorage.removeItem(STORAGE_KEYS.currentChild);
-        sessionStorage.removeItem("selectedChildId");
-        sessionStorage.removeItem("childId");
-        sessionStorage.removeItem("selectedPatientId");
-        sessionStorage.removeItem("currentPatientId");
-        sessionStorage.removeItem("selectedChild");
-        sessionStorage.removeItem("activeChild");
-        sessionStorage.removeItem("selectedPatient");
-        sessionStorage.removeItem("currentPatient");
+        clearActivePatient();
         clearGameplayCacheForChildSwitch();
       }
 
@@ -580,9 +576,8 @@ const ChildSelectPage = () => {
     } catch (error) {
       console.warn("Supabase 刪除兒童資料失敗：", error);
       saveChildren(previousChildren);
-      if (wasCurrentChild && previousCurrentChild) {
-        localStorage.setItem(STORAGE_KEYS.currentChildId, childId);
-        localStorage.setItem(STORAGE_KEYS.currentChild, previousCurrentChild);
+      if (wasCurrentChild && previousActivePatient) {
+        setActivePatient(previousActivePatient);
       }
       setErrorMessage("刪除失敗，請確認網路或稍後再試。");
     } finally {

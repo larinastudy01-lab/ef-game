@@ -20,6 +20,7 @@ import BGM from "./asset/BGM.mp3";
 import SetIcon from "./asset/Set_icon.webp";
 import HomePage from "./pages/HomePage";
 
+const ProtectedRoute = lazy(() => import("./components/ProtectedRoute"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const GameMenuPage = lazy(() => import("./pages/GameMenuPage"));
 const ChildSelectPage = lazy(() => import("./pages/ChildSelectPage"));
@@ -70,15 +71,21 @@ const ResultPagePA = lazy(() => import("./pages/ResultPage_PA"));
 const ResultPageDC = lazy(() => import("./pages/ResultPage_DC"));
 
 const SETTINGS_STORAGE_KEY = "efGameTrainingSettings";
+const CLINICIAN_ROLES = ["clinician", "medical", "doctor"];
+
+function ClinicianRoute({ children }) {
+  return (
+    <ProtectedRoute allowedRoles={CLINICIAN_ROLES} redirectTo="/clinician-login">
+      {children}
+    </ProtectedRoute>
+  );
+}
 
 const DEFAULT_APP_SETTINGS = {
   bgmVolume: 60,
   sfxVolume: 75,
-  trainingMinutes: 10,
   brightness: 72,
   eyeCareMode: true,
-  parentLock: true,
-  parentPin: "",
   fontSize: "normal",
   buttonSize: "large",
 };
@@ -453,13 +460,13 @@ function AppContent() {
         <Route path="/add-patient" element={<AddPatient />} />
         <Route
           path="/clinician-dashboard"
-          element={<ClinicianDashboard />}
+          element={<ClinicianRoute><ClinicianDashboard /></ClinicianRoute>}
         />
-        <Route path="/research-statistics" element={<ResearchStatistics />} />
-        <Route path="/ai-behavioral-analysis" element={<AIBehavioralAnalysis />} />
-        <Route path="/adaptive-recommendation-research" element={<AdaptiveRecommendationResearch />} />
-        <Route path="/longitudinal-dashboard" element={<LongitudinalDashboard />} />
-        <Route path="/research-professional-dashboard" element={<ResearchProfessionalDashboard />} />
+        <Route path="/research-statistics" element={<ClinicianRoute><ResearchStatistics /></ClinicianRoute>} />
+        <Route path="/ai-behavioral-analysis" element={<ClinicianRoute><AIBehavioralAnalysis /></ClinicianRoute>} />
+        <Route path="/adaptive-recommendation-research" element={<ClinicianRoute><AdaptiveRecommendationResearch /></ClinicianRoute>} />
+        <Route path="/longitudinal-dashboard" element={<ClinicianRoute><LongitudinalDashboard /></ClinicianRoute>} />
+        <Route path="/research-professional-dashboard" element={<ClinicianRoute><ResearchProfessionalDashboard /></ClinicianRoute>} />
         <Route path="/settings" element={<SettingsPage />} />
 
         {/* 找不到頁面時回首頁 */}

@@ -313,7 +313,7 @@ const styles = `
   }
 
   .password-group {
-    margin-bottom: clamp(30px, 4.2vh, 44px);
+    margin-bottom: clamp(12px, 1.8vh, 18px);
   }
 
   .field-group label,
@@ -397,7 +397,7 @@ const styles = `
   }
 
   .image-button {
-    width: min(100%, 300px);
+    width: min(100%, 380px);
     border: 0;
     background: transparent;
     padding: 0;
@@ -450,7 +450,7 @@ const styles = `
   }
 
   .continue-button {
-    margin-top: clamp(8px, 1.8vh, 16px);
+    margin-top: clamp(-28px, -2.4vh, -18px);
   }
 
   @media (max-width: 1100px) {
@@ -522,7 +522,7 @@ const styles = `
     }
 
     .image-button {
-      width: min(260px, 94%);
+      width: min(320px, 96%);
     }
   }
 `;

@@ -6,13 +6,6 @@ import { supabase } from "../lib/supabaseClient";
 
 const STORAGE_KEY = "efGameTrainingSettings";
 
-const TIME_OPTIONS = [
-  { value: 5, label: "5 分鐘", hint: "短短練習" },
-  { value: 10, label: "10 分鐘", hint: "日常訓練" },
-  { value: 15, label: "15 分鐘", hint: "完整練習" },
-  { value: 20, label: "20 分鐘", hint: "加強訓練" },
-];
-
 const FONT_SIZE_OPTIONS = [
   { value: "normal", label: "標準字", hint: "一般閱讀" },
   { value: "large", label: "大字體", hint: "孩子更好看" },
@@ -40,25 +33,32 @@ const REMINDER_STATUS_LABELS = {
 const DEFAULT_SETTINGS = {
   bgmVolume: 60,
   sfxVolume: 75,
-  trainingMinutes: 10,
   brightness: 72,
   eyeCareMode: true,
-  parentLock: true,
-  parentPin: "",
   fontSize: "normal",
   buttonSize: "large",
 };
 
+function clampNumber(value, min, max, fallback) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return fallback;
+  return Math.min(max, Math.max(min, numericValue));
+}
+
 const SETTINGS_PAGE_LAYOUT_FIX = `
   .settings-page {
-    position: relative !important;
-    min-height: 100dvh !important;
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 10000 !important;
+    min-height: 0 !important;
+    height: 100dvh !important;
     width: 100% !important;
     padding: clamp(14px, 3vw, 36px) !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     box-sizing: border-box !important;
-    background: linear-gradient(180deg, #fff7d9 0%, #fff1b8 100%);
+    background: rgba(62, 42, 22, 0.34) !important;
+    backdrop-filter: blur(10px) !important;
   }
 
   .settings-background-glow {
@@ -66,9 +66,7 @@ const SETTINGS_PAGE_LAYOUT_FIX = `
     inset: 0 !important;
     pointer-events: none !important;
     z-index: 0 !important;
-    background:
-      radial-gradient(circle at 12% 8%, rgba(255, 210, 92, 0.36), transparent 28%),
-      radial-gradient(circle at 86% 18%, rgba(255, 246, 182, 0.46), transparent 30%);
+    background: rgba(42, 30, 18, 0.12) !important;
   }
 
   .settings-card {
@@ -76,12 +74,14 @@ const SETTINGS_PAGE_LAYOUT_FIX = `
     z-index: 1 !important;
     width: min(100%, 1320px) !important;
     margin: 0 auto !important;
+    max-height: calc(100dvh - clamp(28px, 6vw, 72px)) !important;
     padding: clamp(18px, 3vw, 34px) !important;
     border: 5px solid rgba(245, 203, 123, 0.78) !important;
     border-radius: clamp(24px, 3vw, 34px) !important;
     background: rgba(255, 248, 214, 0.78) !important;
     box-shadow: 0 22px 46px rgba(118, 83, 32, 0.12) !important;
-    overflow: visible !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
     box-sizing: border-box !important;
   }
 
@@ -759,37 +759,16 @@ const SETTINGS_PAGE_LAYOUT_FIX = `
 `;
 
 function sanitizeSettings(parsed) {
-  const safeTrainingMinutes = TIME_OPTIONS.some(
-    (item) => item.value === parsed?.trainingMinutes
-  )
-    ? parsed.trainingMinutes
-    : DEFAULT_SETTINGS.trainingMinutes;
-
   return {
-    ...DEFAULT_SETTINGS,
-    ...parsed,
-    bgmVolume: Number.isFinite(Number(parsed?.bgmVolume))
-      ? Number(parsed.bgmVolume)
-      : DEFAULT_SETTINGS.bgmVolume,
-    sfxVolume: Number.isFinite(Number(parsed?.sfxVolume))
-      ? Number(parsed.sfxVolume)
-      : DEFAULT_SETTINGS.sfxVolume,
-    trainingMinutes: safeTrainingMinutes,
-    brightness: Number.isFinite(Number(parsed?.brightness))
-      ? Number(parsed.brightness)
-      : DEFAULT_SETTINGS.brightness,
+    // localStorage can contain values written by older releases or browser tools.
+    // Keep visual/audio settings inside the same ranges enforced by the controls.
+    bgmVolume: clampNumber(parsed?.bgmVolume, 0, 100, DEFAULT_SETTINGS.bgmVolume),
+    sfxVolume: clampNumber(parsed?.sfxVolume, 0, 100, DEFAULT_SETTINGS.sfxVolume),
+    brightness: clampNumber(parsed?.brightness, 40, 100, DEFAULT_SETTINGS.brightness),
     eyeCareMode:
       typeof parsed?.eyeCareMode === "boolean"
         ? parsed.eyeCareMode
         : DEFAULT_SETTINGS.eyeCareMode,
-    parentLock:
-      typeof parsed?.parentLock === "boolean"
-        ? parsed.parentLock
-        : DEFAULT_SETTINGS.parentLock,
-    parentPin:
-      typeof parsed?.parentPin === "string"
-        ? parsed.parentPin
-        : DEFAULT_SETTINGS.parentPin,
     fontSize: FONT_SIZE_OPTIONS.some((item) => item.value === parsed?.fontSize)
       ? parsed.fontSize
       : DEFAULT_SETTINGS.fontSize,
@@ -869,12 +848,6 @@ function SettingsPage() {
   const navigate = useNavigate();
   const [settings, setSettings] = useState(loadSettings);
   const [savedHint, setSavedHint] = useState(false);
-  const [parentUnlocked, setParentUnlocked] = useState(false);
-  const [parentPinInput, setParentPinInput] = useState("");
-  const [parentPinConfirm, setParentPinConfirm] = useState("");
-  const [parentUnlockInput, setParentUnlockInput] = useState("");
-  const [parentLockMessage, setParentLockMessage] = useState("");
-  const lockMessageTimerRef = useRef(null);
   const savedHintTimerRef = useRef(null);
   const navigateTimerRef = useRef(null);
   const [currentChild, setCurrentChild] = useState(() => getCurrentChildFromStorage());
@@ -883,18 +856,17 @@ function SettingsPage() {
   const [reminderError, setReminderError] = useState("");
   const [readingReminderId, setReadingReminderId] = useState("");
 
-  const hasParentPin = useMemo(
-    () => Boolean(settings.parentPin?.trim()),
-    [settings.parentPin]
-  );
-  const isFirstParentPinSetup = settings.parentLock && !hasParentPin;
-  const needsExistingParentPinVerification =
-    settings.parentLock && hasParentPin && !parentUnlocked;
-  const importantSettingsLocked = needsExistingParentPinVerification;
   const unreadReminderCount = useMemo(
     () => reminders.filter((item) => item.status === "unread").length,
     [reminders]
   );
+
+  const clearScheduledActions = useCallback(() => {
+    window.clearTimeout(savedHintTimerRef.current);
+    window.clearTimeout(navigateTimerRef.current);
+    savedHintTimerRef.current = null;
+    navigateTimerRef.current = null;
+  }, []);
 
   const fetchReminders = useCallback(async () => {
     const selectedChild = getCurrentChildFromStorage();
@@ -968,11 +940,14 @@ function SettingsPage() {
 
   useEffect(() => {
     const styleElement = document.createElement("style");
+    const previousBodyOverflow = document.body.style.overflow;
     styleElement.setAttribute("data-settings-page-layout-fix", "true");
     styleElement.textContent = SETTINGS_PAGE_LAYOUT_FIX;
     document.head.appendChild(styleElement);
+    document.body.style.overflow = "hidden";
 
     return () => {
+      document.body.style.overflow = previousBodyOverflow;
       if (styleElement.parentNode) {
         styleElement.parentNode.removeChild(styleElement);
       }
@@ -980,12 +955,10 @@ function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    return () => {
-      window.clearTimeout(lockMessageTimerRef.current);
-      window.clearTimeout(savedHintTimerRef.current);
-      window.clearTimeout(navigateTimerRef.current);
-    };
-  }, []);
+    // Saving schedules a delayed navigation. Always cancel both callbacks when
+    // leaving this page so an unmounted page cannot navigate or update state.
+    return clearScheduledActions;
+  }, [clearScheduledActions]);
 
 
   useEffect(() => {
@@ -1007,92 +980,11 @@ function SettingsPage() {
     updateSetting(key, Number(value));
   };
 
-  const handleTimeSelect = (minutes) => {
-    if (importantSettingsLocked) return;
-    updateSetting("trainingMinutes", minutes);
-  };
-
-  const showParentLockMessage = (message) => {
-    window.clearTimeout(lockMessageTimerRef.current);
-    setParentLockMessage(message);
-    lockMessageTimerRef.current = window.setTimeout(
-      () => setParentLockMessage(""),
-      1800
-    );
-  };
-
-  const filterPinDigits = (value) => value.replace(/\D/g, "").slice(0, 6);
-
-  const handlePinInputChange = (setter) => (event) => {
-    setter(filterPinDigits(event.target.value));
-  };
-
-  const isValidPin = (value) => /^\d{4,6}$/.test(value.trim());
-
-  const handleParentPinSave = () => {
-    const nextPin = filterPinDigits(parentPinInput);
-    const confirmPin = filterPinDigits(parentPinConfirm);
-
-    if (!isValidPin(nextPin)) {
-      showParentLockMessage("請設定 4～6 位數字密碼");
-      return;
-    }
-
-    if (nextPin !== confirmPin) {
-      showParentLockMessage("兩次輸入的密碼不一樣");
-      return;
-    }
-
-    updateSetting("parentPin", nextPin);
-    setParentUnlocked(true);
-    setParentPinInput("");
-    setParentPinConfirm("");
-    showParentLockMessage("家長密碼已設定");
-  };
-
-  const handleParentUnlock = () => {
-    if (!hasParentPin) {
-      showParentLockMessage("請先設定家長密碼");
-      return;
-    }
-
-    if (parentUnlockInput.trim() !== settings.parentPin) {
-      showParentLockMessage("密碼不正確，請再試一次");
-      return;
-    }
-
-    setParentUnlocked(true);
-    setParentUnlockInput("");
-    setSavedHint(true);
-    window.clearTimeout(savedHintTimerRef.current);
-    savedHintTimerRef.current = window.setTimeout(() => setSavedHint(false), 800);
-  };
-
-  const handleParentLockToggle = () => {
-    if (settings.parentLock && hasParentPin && !parentUnlocked) {
-      showParentLockMessage("請先輸入家長密碼再關閉");
-      return;
-    }
-
-    updateSetting("parentLock", !settings.parentLock);
-    setParentUnlocked(false);
-    setParentPinInput("");
-    setParentPinConfirm("");
-    setParentUnlockInput("");
-    setParentLockMessage("");
-  };
-
   const handleSave = () => {
-    if (needsExistingParentPinVerification) {
-      showParentLockMessage("請先輸入家長密碼再儲存重要設定");
-      return;
-    }
-
     saveSettingsToStorage(settings);
     setSavedHint(true);
 
-    window.clearTimeout(savedHintTimerRef.current);
-    window.clearTimeout(navigateTimerRef.current);
+    clearScheduledActions();
     navigateTimerRef.current = window.setTimeout(() => {
       setSavedHint(false);
       navigate(-1);
@@ -1103,12 +995,6 @@ function SettingsPage() {
     const resetSettings = { ...DEFAULT_SETTINGS };
     saveSettingsToStorage(resetSettings);
     setSettings(resetSettings);
-    setParentUnlocked(false);
-    setParentPinInput("");
-    setParentPinConfirm("");
-    setParentUnlockInput("");
-    setParentLockMessage("");
-    window.clearTimeout(lockMessageTimerRef.current);
   };
 
   return (
@@ -1129,7 +1015,7 @@ function SettingsPage() {
           <div>
             <span className="settings-label">遊戲設定</span>
             <h1>調整聲音與畫面</h1>
-            <p>設定音量、亮度、家長鎖與操作大小，讓孩子遊玩時更舒服。</p>
+            <p>設定音量、亮度與操作大小，讓孩子遊玩時更舒服。</p>
           </div>
         </header>
 
@@ -1225,41 +1111,6 @@ function SettingsPage() {
             </div>
           </section>
 
-          <section className="settings-panel time-panel">
-            <div className="panel-title-row">
-              <span className="panel-icon">⏱</span>
-              <div>
-                <h2>預設訓練時間</h2>
-                <p>家長可設定每次訓練的預設時間。</p>
-              </div>
-            </div>
-
-            {importantSettingsLocked && (
-              <div className="lock-control">
-                家長鎖已開啟，請先輸入家長密碼後再調整訓練時間。
-              </div>
-            )}
-
-            <div className="time-options">
-              {TIME_OPTIONS.map((item) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  disabled={importantSettingsLocked}
-                  className={
-                    settings.trainingMinutes === item.value
-                      ? "time-option active"
-                      : "time-option"
-                  }
-                  onClick={() => handleTimeSelect(item.value)}
-                >
-                  <strong>{item.label}</strong>
-                  <span>{item.hint}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-
           <section className="settings-panel access-panel">
             <div className="panel-title-row">
               <span className="panel-icon">Aa</span>
@@ -1304,151 +1155,6 @@ function SettingsPage() {
                 </button>
               ))}
             </div>
-          </section>
-
-          <section className="settings-panel parent-panel">
-            <div className="panel-title-row">
-              <div>
-                <h2>家長鎖</h2>
-                <p>避免孩子誤改訓練時間等重要設定。</p>
-              </div>
-            </div>
-
-            <div className="toggle-row">
-              <div>
-                <strong>開啟家長鎖</strong>
-                <small>開啟後，重要設定需要家長密碼確認。</small>
-              </div>
-              <button
-                className={
-                  settings.parentLock
-                    ? "settings-toggle active"
-                    : "settings-toggle"
-                }
-                type="button"
-                onClick={handleParentLockToggle}
-                aria-label="切換家長鎖"
-                aria-pressed={settings.parentLock}
-              />
-            </div>
-
-            {isFirstParentPinSetup && (
-              <div className="lock-control parent-pin-box">
-                <strong>設定家長密碼</strong>
-                <small>請設定 4～6 位數字密碼，之後調整重要設定時使用。</small>
-
-                <div className="parent-pin-form">
-                  <input
-                    className="parent-unlock-input"
-                    value={parentPinInput}
-                    onChange={handlePinInputChange(setParentPinInput)}
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    autoComplete="new-password"
-                    maxLength={6}
-                    type="password"
-                    placeholder="輸入密碼"
-                    aria-label="設定家長密碼"
-                  />
-                  <input
-                    className="parent-unlock-input"
-                    value={parentPinConfirm}
-                    onChange={handlePinInputChange(setParentPinConfirm)}
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    autoComplete="new-password"
-                    maxLength={6}
-                    type="password"
-                    placeholder="再次輸入"
-                    aria-label="確認家長密碼"
-                  />
-                  <button
-                    className="settings-secondary-button parent-pin-button"
-                    type="button"
-                    onClick={handleParentPinSave}
-                  >
-                    設定密碼
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {needsExistingParentPinVerification && (
-              <div className="lock-control parent-pin-box">
-                <strong>輸入家長密碼</strong>
-                <small>解鎖後，本次可調整訓練時間或關閉家長鎖。</small>
-
-                <div className="parent-unlock-form">
-                  <input
-                    className="parent-unlock-input"
-                    value={parentUnlockInput}
-                    onChange={handlePinInputChange(setParentUnlockInput)}
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    autoComplete="current-password"
-                    maxLength={6}
-                    type="password"
-                    placeholder="家長密碼"
-                    aria-label="輸入家長密碼"
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") handleParentUnlock();
-                    }}
-                  />
-                  <button
-                    className="settings-secondary-button"
-                    type="button"
-                    onClick={handleParentUnlock}
-                  >
-                    解鎖
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {settings.parentLock && hasParentPin && parentUnlocked && (
-              <div className="lock-control parent-pin-box">
-                <strong>家長鎖已解鎖</strong>
-                <small>可以重新設定密碼，或關閉家長鎖。</small>
-
-                <div className="parent-pin-form">
-                  <input
-                    className="parent-unlock-input"
-                    value={parentPinInput}
-                    onChange={handlePinInputChange(setParentPinInput)}
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    autoComplete="new-password"
-                    maxLength={6}
-                    type="password"
-                    placeholder="新密碼"
-                    aria-label="新的家長密碼"
-                  />
-                  <input
-                    className="parent-unlock-input"
-                    value={parentPinConfirm}
-                    onChange={handlePinInputChange(setParentPinConfirm)}
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    autoComplete="new-password"
-                    maxLength={6}
-                    type="password"
-                    placeholder="再次輸入"
-                    aria-label="再次輸入新的家長密碼"
-                  />
-                  <button
-                    className="settings-secondary-button parent-pin-button"
-                    type="button"
-                    onClick={handleParentPinSave}
-                  >
-                    更新密碼
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {parentLockMessage && (
-              <div className="parent-lock-message">{parentLockMessage}</div>
-            )}
           </section>
 
           <section className="settings-panel medical-reminder-panel">
@@ -1572,13 +1278,8 @@ function SettingsPage() {
               </strong>
             </div>
 
-            <div className="summary-item">
-              <span>訓練時間</span>
-              <strong>{settings.trainingMinutes} 分鐘</strong>
-            </div>
-
             <div className="summary-note">
-              訓練能力已移到訓練流程中選擇，這裡只保留聲音、亮度、家長鎖與操作大小。
+              訓練內容與節奏會在訓練流程中依當次需求調整；這裡只保留聲音、亮度與操作大小。
             </div>
           </aside>
         </div>

@@ -1777,8 +1777,8 @@ function GameMenuPage() {
         }
 
         .avatar-room-menu-icon {
-          width: clamp(88px, 6.4vw, 122px);
-          height: clamp(88px, 6.4vw, 122px);
+          width: clamp(118px, 8.8vw, 166px);
+          height: clamp(118px, 8.8vw, 166px);
           object-fit: contain;
           display: block;
           pointer-events: none;
@@ -1803,6 +1803,11 @@ function GameMenuPage() {
         .bottom-homey-icon {
           width: clamp(104px, 7.6vw, 148px);
           height: clamp(104px, 7.6vw, 148px);
+        }
+
+        .achievement-menu-icon {
+          width: clamp(132px, 9.6vw, 184px);
+          height: clamp(132px, 9.6vw, 184px);
         }
 
         .map-treasure-card {
@@ -1962,6 +1967,12 @@ function GameMenuPage() {
             width: clamp(88px, 12vw, 116px);
             height: clamp(88px, 12vw, 116px);
           }
+
+          .achievement-menu-icon,
+          .avatar-room-menu-icon {
+            width: clamp(110px, 15vw, 144px);
+            height: clamp(110px, 15vw, 144px);
+          }
         }
 
         @media (max-width: 640px) {
@@ -1991,6 +2002,12 @@ function GameMenuPage() {
           .bottom-homey-icon {
             width: 80px;
             height: 80px;
+          }
+
+          .achievement-menu-icon,
+          .avatar-room-menu-icon {
+            width: 98px;
+            height: 98px;
           }
         }
 
@@ -2103,7 +2120,7 @@ function GameMenuPage() {
               onClick={() => navigate("/achievement")}
               aria-label="查看成就"
             >
-              <img width={1024} height={1024} loading="lazy" className="homey-menu-icon bottom-homey-icon" src={goalIcon} alt="" aria-hidden="true" />
+              <img width={1024} height={1024} loading="lazy" className="homey-menu-icon bottom-homey-icon achievement-menu-icon" src={goalIcon} alt="" aria-hidden="true" />
             </button>
             <button
               type="button"
