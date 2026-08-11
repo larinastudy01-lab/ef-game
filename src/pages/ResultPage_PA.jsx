@@ -3021,8 +3021,8 @@ const resultPageStyle = `
 .dashboard-footer-actions {
   display: flex;
   justify-content: center;
-  gap: 10px;
-  padding: 4px 0 10px;
+  gap: 16px;
+  padding: 8px 0 14px;
 }
 
 .footer-image-button {
@@ -3050,7 +3050,7 @@ const resultPageStyle = `
 .footer-image-button img {
   display: block;
   width: auto;
-  height: 58px;
+  height: clamp(78px, 8vw, 92px);
   object-fit: contain;
 }
 
@@ -3177,7 +3177,7 @@ const resultPageStyle = `
   .dashboard-next-step-heading { align-items: flex-start; flex-direction: column; }
   .dashboard-next-step-heading > strong { white-space: normal; }
   .dashboard-footer-actions { align-items: center; flex-direction: row; }
-  .footer-image-button img { max-width: 42vw; height: 50px; }
+  .footer-image-button img { max-width: 44vw; height: 72px; }
   .reset-confirm-modal { padding: 24px 18px; border-radius: 22px; }
   .reset-confirm-actions { grid-template-columns: 1fr; }
   .assist-floating-button span { display: none; }

@@ -398,6 +398,7 @@ const styles = `
 
   .image-button {
     width: min(100%, 380px);
+    overflow: hidden;
     border: 0;
     background: transparent;
     padding: 0;
@@ -410,9 +411,13 @@ const styles = `
   }
 
   .image-button img {
+    position: absolute;
+    top: 50%;
+    left: 0;
     width: 100%;
     height: auto;
     display: block;
+    transform: translateY(-50%);
     pointer-events: none;
     user-select: none;
     filter: drop-shadow(0 7px 7px rgba(117, 75, 23, 0.18));
@@ -446,11 +451,61 @@ const styles = `
   }
 
   .login-submit {
+    height: clamp(132px, 18vh, 160px);
     margin-top: 0;
   }
 
   .continue-button {
-    margin-top: clamp(-28px, -2.4vh, -18px);
+    width: min(100%, 330px);
+    height: clamp(146px, 20vh, 176px);
+    margin-top: 0;
+  }
+
+  /* The button artwork includes generous transparent space. Keep that space
+     from making the form taller than a landscape tablet viewport. */
+  @media (min-width: 700px) and (max-height: 820px) {
+    .login-page .login-stage {
+      min-height: 100vh;
+    }
+
+    .login-page .login-panel {
+      top: clamp(14px, 2.5vh, 22px);
+      padding-top: 20px;
+      padding-bottom: 18px;
+    }
+
+    .login-panel .login-header {
+      margin-bottom: 16px;
+    }
+
+    .login-panel .login-header h1 {
+      font-size: clamp(30px, 3.25vw, 40px);
+    }
+
+    .login-panel .login-header p {
+      margin-top: 8px;
+    }
+
+    .login-panel .field-group {
+      margin-bottom: 14px;
+    }
+
+    .login-panel .password-group {
+      margin-bottom: 6px;
+    }
+
+    .login-panel .field-group input {
+      height: 54px;
+      margin-top: 8px;
+    }
+
+    .login-panel .login-submit {
+      height: 112px;
+    }
+
+    .login-panel .continue-button {
+      height: 124px;
+    }
   }
 
   @media (max-width: 1100px) {
