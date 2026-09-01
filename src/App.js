@@ -19,9 +19,11 @@ import "./App.css";
 import BGM from "./asset/BGM.mp3";
 import SetIcon from "./asset/Set_icon.webp";
 import HomePage from "./pages/HomePage";
+import RegisterPage from "./pages/RegisterPage";
+import LoginPage from "./pages/LoginPage";
+import ClinicianLoginPage from "./pages/ClinicianLoginPage";
 
 const ProtectedRoute = lazy(() => import("./components/ProtectedRoute"));
-const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const GameMenuPage = lazy(() => import("./pages/GameMenuPage"));
 const ChildSelectPage = lazy(() => import("./pages/ChildSelectPage"));
 const ModeSelectPage = lazy(() => import("./pages/ModeSelectPage"));
@@ -33,8 +35,6 @@ const Furniture = lazy(() => import("./pages/Furniture"));
 const HatStickerGamePage = lazy(() => import("./pages/HatStickerGamePage"));
 
 const AddPatient = lazy(() => import("./pages/AddPatientPage"));
-const LoginPage = lazy(() => import("./pages/LoginPage"));
-const ClinicianLoginPage = lazy(() => import("./pages/ClinicianLoginPage"));
 const ClinicianDashboard = lazy(() => import("./pages/ClinicianDashboard"));
 const ResearchStatistics = lazy(() => import("./pages/ResearchStatistics"));
 const AIBehavioralAnalysis = lazy(() => import("./pages/AIBehavioralAnalysis"));
