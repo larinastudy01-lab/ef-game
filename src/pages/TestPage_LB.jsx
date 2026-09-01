@@ -17,6 +17,7 @@ import homeNextBtn from "../asset/home/next.webp";
 import homeBackBtn from "../asset/home/back.webp";
 import homeResultBtn from "../asset/home/result.webp";
 import homeSendBtn from "../asset/home/send.webp";
+import homeDeleteBtn from "../asset/home/delete.webp";
 import mouseGuideImg from "../asset/mouse.webp";
 
 const RESULT_ROUTE = "/result-lb";
@@ -268,7 +269,7 @@ function buildSimpleSummary({
 
   return {
     gameId: "LB",
-    gameName: "Linking Balloons",
+    gameName: "幫助迷路的綿羊奶奶",
     mode: "test",
     completed,
     startedAt,
@@ -795,7 +796,7 @@ function TestPageLB() {
         <LBResetStyle />
         <main className="lb-center-shell lb-start-shell">
           <section className="lb-soft-panel lb-start-panel game-start-card-artwork lb-opening-card-artwork" aria-label="LB 測驗開始">
-            <h1 className="lb-game-title">Linking Balloons</h1>
+            <h1 className="lb-game-title">幫助迷路的綿羊奶奶</h1>
             <div className="lb-start-content">
               <div className="lb-dialog-bubble">幫綿羊奶奶照順序找到門牌，一起走回家。</div>
               <div className="lb-round-icon lb-start-avatar">
@@ -879,7 +880,7 @@ function TestPageLB() {
         <main className="lb-stage-open" aria-label={`${currentStage.title}完成`}>
           <img width={1024} height={1024} loading="lazy" className="lb-stage-home" src={homeImg} alt="小屋" draggable="false" />
           <section className="lb-stage-open-content">
-            <p className="lb-kicker">Linking Balloons</p>
+            <p className="lb-kicker">幫助迷路的綿羊奶奶</p>
             <h1>{currentStage.title}完成</h1>
             <p>很好，準備走下一段小路。</p>
             <button
@@ -1015,7 +1016,14 @@ function TestPageLB() {
             disabled={completedKeys.length === 0 || isLocked}
             aria-label="退回上一個門牌"
           >
-            退回
+            <img
+              width={1024}
+              height={341}
+              loading="lazy"
+              src={homeDeleteBtn}
+              alt="退回上一個門牌"
+              draggable="false"
+            />
           </button>
           <button
             type="button"
@@ -1506,11 +1514,26 @@ function LBResetStyle() {
       }
 
       .lb-undo-button {
-        min-width: 96px;
-        min-height: 54px;
-        padding: 0 18px;
-        font-size: clamp(17px, 1.6vw, 22px);
-        white-space: nowrap;
+        min-width: 0;
+        min-height: 0;
+        width: clamp(106px, 11vw, 148px);
+        padding: 0;
+        border: 0;
+        outline: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        line-height: 0;
+        overflow: visible;
+      }
+
+      .lb-undo-button img {
+        display: block;
+        width: 100%;
+        height: auto;
+        pointer-events: none;
+        user-select: none;
+        filter: drop-shadow(0 7px 7px rgba(103, 70, 28, 0.2));
       }
 
       .lb-primary-button:hover:not(:disabled),
@@ -2645,8 +2668,9 @@ function LBResetStyle() {
       }
 
       .lb-playing-panel .lb-undo-button {
-        min-width: clamp(82px, 9vw, 112px);
-        min-height: clamp(48px, 5.4vh, 62px);
+        min-width: 0;
+        min-height: 0;
+        width: clamp(106px, 11vw, 148px);
         pointer-events: auto;
       }
 
@@ -2666,8 +2690,9 @@ function LBResetStyle() {
         }
 
         .lb-playing-panel .lb-undo-button {
-          min-width: 76px;
-          padding-inline: 12px;
+          min-width: 0;
+          width: 92px;
+          padding-inline: 0;
         }
       }
 

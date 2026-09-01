@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import gameMapBackground from "../asset/GameMap.webp";
-import srtIcon from "../asset/SRT/SRT_icon.webp";
+import srtIcon from "../asset/SRT_icon.webp";
 import pmIcon from "../asset/PM_icon.webp";
 import cbtIcon from "../asset/CBT_icon.webp";
 import ssgIcon from "../asset/SSG/cat.webp";
@@ -56,7 +56,7 @@ const TEST_GAMES = [
   {
     gameId: "LB",
     level: 5,
-    name: "綿羊奶奶迷路了",
+    name: "幫助迷路的綿羊奶奶",
     childText: "排路標",
     route: "/test-linking-balloons",
     icon: lbIcon,

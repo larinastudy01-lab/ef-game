@@ -43,7 +43,7 @@ const FALLBACK_TEST_FLOW_GAMES = [
   },
   {
     gameId: "LB",
-    name: "順序切換任務",
+    name: "幫助迷路的綿羊奶奶",
     ability: "認知彈性",
     route: "/test-linking-balloons",
     resultKeys: ["lbTestResult", "LB_RESULT"],

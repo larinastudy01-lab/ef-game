@@ -251,7 +251,24 @@ code {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: clamp(28px, 4vw, 58px);
+  gap: clamp(48px, 6vw, 84px);
+}
+
+/* Keep the secondary "next" action visually distinct from "skip" while a
+   video is playing. These selectors are scoped to video cards so regular
+   navigation buttons retain their established size. */
+:is(.srt-video-card-artwork, .dccs-video-card-artwork, .cbt-video-card-artwork, .lb-video-card-artwork)
+  button[class*="btn-next"]:has(> img) {
+  width: clamp(127px, 12.24vw, 171px) !important;
+}
+
+:is(.srt-video-card-artwork, .dccs-video-card-artwork, .cbt-video-card-artwork, .lb-video-card-artwork)
+  button[class*="btn-skip"]:has(> img) {
+  width: clamp(168px, 16.2vw, 226px) !important;
+}
+
+.srt-video-card-artwork .srt-step-actions {
+  gap: clamp(48px, 6vw, 84px);
 }
 
 .dccs-video-card-artwork .Dcss-guided-next .Dcss-mouse-on-button {
@@ -300,7 +317,11 @@ code {
 
 @media (max-width: 620px) {
   .dccs-video-card-artwork .Dcss-video-actions {
-    gap: 14px;
+    gap: 28px;
+  }
+
+  .srt-video-card-artwork .srt-step-actions {
+    gap: 28px;
   }
 
   .game-start-card-artwork.dccs-rule-card-artwork.Dcss-switch-card {
@@ -356,7 +377,7 @@ body :is(.cbt-start-shell, .cbt-video-only-card, .cbt-card, .cbt-old-guide-card,
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: clamp(28px, 4vw, 58px);
+  gap: clamp(48px, 6vw, 84px);
 }
 
 .lb-video-actions {
@@ -366,11 +387,60 @@ body :is(.cbt-start-shell, .cbt-video-only-card, .cbt-card, .cbt-old-guide-card,
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: clamp(28px, 4vw, 58px);
+  gap: clamp(48px, 6vw, 84px);
 }
 
 .lb-video-actions .lb-btn-next img {
   width: clamp(172px, 18vw, 238px);
+}
+
+/* The SSG assessment/training playfield should sit directly on the scene
+   background instead of inside the legacy translucent stage frame. */
+.ssg-container > .ssg-stage {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+/* CBT play instructions use the same soft, framed prompt treatment as the
+   other child-facing tasks instead of floating directly over the lake. */
+.cbt-instruction-pill {
+  width: min(72vw, 560px);
+  margin: 0 auto clamp(14px, 2.2vh, 24px);
+  padding: clamp(12px, 1.8vh, 18px) clamp(28px, 4vw, 52px);
+  box-sizing: border-box;
+  border: 4px solid rgba(231, 183, 84, 0.9);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 253, 244, 0.97), rgba(247, 241, 218, 0.95));
+  box-shadow: 0 7px 0 rgba(214, 164, 66, 0.24), 0 12px 24px rgba(79, 58, 28, 0.16), inset 0 2px 0 rgba(255, 255, 255, 0.9);
+  text-align: center;
+}
+
+body :is(.cbt-test-card, .cbt-play-card-minimal) .cbt-instruction-pill .cbt-subtitle {
+  margin: 0 !important;
+  color: #744018 !important;
+  font-size: clamp(27px, 3.3vw, 42px) !important;
+  line-height: 1.12 !important;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.82) !important;
+}
+
+body :is(.cbt-test-card, .cbt-play-card-minimal) .cbt-instruction-pill :is(.cbt-text, .cbt-quiet-prompt) {
+  margin: 7px 0 0 !important;
+  color: #6d4a2d !important;
+  font-size: clamp(17px, 1.8vw, 23px) !important;
+  line-height: 1.2 !important;
+  font-weight: 850 !important;
+  text-shadow: none !important;
+}
+
+@media (max-width: 620px) {
+  .cbt-instruction-pill {
+    width: min(88vw, 480px);
+    padding: 11px 22px;
+    border-width: 3px;
+  }
 }
 
 /* Match CBT video geometry to SRT instead of the legacy fixed 16:9 box. */
@@ -402,7 +472,11 @@ body .game-start-card-artwork.cbt-video-card-artwork > .cbt-video-wrapper > .cbt
   }
 
   .cbt-video-actions {
-    gap: 14px;
+    gap: 28px;
+  }
+
+  .lb-video-actions {
+    gap: 28px;
   }
 
   body .game-start-card-artwork.cbt-video-card-artwork > .cbt-video-wrapper {

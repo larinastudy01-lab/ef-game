@@ -16,7 +16,7 @@ import "../styles/ResearchDashboardTheme.css";
 
 const SECTIONS = ["總覽", "任務表現", "行為分析", "統計分析", "AI 預測", "可解釋 AI", "自適應訓練", "縱向追蹤", "研究資料", "模型與實驗資訊"];
 const TASKS = ["CBT", "PM", "SRT", "SSG", "LB", "DCCS"];
-const TASK_NAMES = { CBT: "跳石橋", PM: "圖片記憶", SRT: "松鼠接橡實", SSG: "點探測任務", LB: "連線氣球", DCCS: "卡片分類" };
+const TASK_NAMES = { CBT: "跳石橋", PM: "圖片記憶", SRT: "松鼠接橡實", SSG: "點探測任務", LB: "幫助迷路的綿羊奶奶", DCCS: "卡片分類" };
 const mean = (values) => { const valid = values.filter((value) => Number.isFinite(Number(value))).map(Number); return valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : null; };
 const fmt = (value, digits = 3) => Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : "—";
 const date = (value) => value ? new Date(value).toLocaleDateString() : "—";

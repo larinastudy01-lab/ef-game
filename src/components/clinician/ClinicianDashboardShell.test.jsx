@@ -50,10 +50,10 @@ test("dashboard header delegates actions to its controller", () => {
 test("add-patient modal preserves form and submit contracts", () => {
   const onSubmit = jest.fn((event) => event.preventDefault());
   const onClose = jest.fn();
-  const handlers = { guardianEmail: jest.fn(), nickname: jest.fn(), fullName: jest.fn(), birthDate: jest.fn(), gender: jest.fn() };
+  const handlers = { accessCode: jest.fn() };
   render(
     <AddPatientModal
-      form={{ guardianEmail: "parent@example.com", nickname: "小明", fullName: "", birthDate: "", gender: "" }}
+      form={{ accessCode: "A1B2C3-D4E5F6" }}
       error="測試錯誤"
       submitting={false}
       onFieldChange={(field) => handlers[field]}
@@ -63,9 +63,9 @@ test("add-patient modal preserves form and submit contracts", () => {
   );
 
   expect(screen.getByRole("alert")).toHaveTextContent("測試錯誤");
-  fireEvent.change(screen.getByDisplayValue("parent@example.com"), { target: { value: "next@example.com" } });
-  fireEvent.click(screen.getByRole("button", { name: "建立並連結" }));
-  expect(handlers.guardianEmail).toHaveBeenCalledTimes(1);
+  fireEvent.change(screen.getByDisplayValue("A1B2C3-D4E5F6"), { target: { value: "Z9Y8X7-W6V5U4" } });
+  fireEvent.click(screen.getByRole("button", { name: "驗證並新增兒童" }));
+  expect(handlers.accessCode).toHaveBeenCalledTimes(1);
   expect(onSubmit).toHaveBeenCalledTimes(1);
 });
 

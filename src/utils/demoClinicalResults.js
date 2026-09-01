@@ -29,7 +29,7 @@ const GAME_META = {
     difficulties: ["level1", "level2", "level3", "level4", "level5", "level6"],
   },
   LB: {
-    gameName: "綿羊回家",
+    gameName: "幫助迷路的綿羊奶奶",
     abilityLabel: "排序能力 / 規則理解",
     difficulties: ["veryEasy", "easy", "normal", "hard", "veryHard"],
   },

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import pageBg from "../asset/home/background.webp";
 import loginBtnImg from "../asset/home/login_dashboard.webp";
@@ -22,6 +22,7 @@ function LoginPage() {
   const [isResetLoading, setIsResetLoading] = useState(false);
   const [isContinueLoading, setIsContinueLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const showMessage = (text, type = "error") => {
     setMessage(text);
@@ -77,7 +78,9 @@ function LoginPage() {
       return false;
     }
 
-    navigate(targetRoute, { replace: true });
+    const requestedRoute = location.state?.from;
+    const destination = requestedRoute === "/parent-results" ? requestedRoute : targetRoute;
+    navigate(destination, { replace: true });
     return true;
   };
 
@@ -451,14 +454,15 @@ const styles = `
   }
 
   .login-submit {
-    height: clamp(132px, 18vh, 160px);
+    width: min(92%, 342px);
+    height: clamp(118px, 16vh, 144px);
     margin-top: 0;
   }
 
   .continue-button {
-    width: min(100%, 330px);
-    height: clamp(146px, 20vh, 176px);
-    margin-top: 0;
+    width: min(90%, 296px);
+    height: clamp(130px, 18vh, 158px);
+    margin-top: clamp(10px, 1.6vh, 18px);
   }
 
   /* The button artwork includes generous transparent space. Keep that space
@@ -500,11 +504,12 @@ const styles = `
     }
 
     .login-panel .login-submit {
-      height: 112px;
+      height: 100px;
     }
 
     .login-panel .continue-button {
-      height: 124px;
+      height: 110px;
+      margin-top: 10px;
     }
   }
 

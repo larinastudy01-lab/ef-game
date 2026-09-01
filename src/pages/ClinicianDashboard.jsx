@@ -27,7 +27,7 @@ const GAME_NAME_MAP = {
   CBT: "跳石橋",
   SSG: "動物聲音辨識",
   DCCS: "衣物分類",
-  LB: "綿羊回家",
+  LB: "幫助迷路的綿羊奶奶",
 };
 
 const ABILITY_BY_GAME = {
@@ -57,6 +57,17 @@ function normalizeRole(role) {
 
 function isClinicianRole(role) {
   return CLINICIAN_ROLES.includes(normalizeRole(role));
+}
+
+async function getClinicalApiHeaders() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  const accessToken = data?.session?.access_token;
+  if (!accessToken) throw new Error("登入狀態已失效，請重新登入。");
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${accessToken}`,
+  };
 }
 
 const REMINDER_TEMPLATES = [
@@ -679,11 +690,7 @@ function ClinicianDashboard() {
   const [addPatientSubmitting, setAddPatientSubmitting] = useState(false);
   const [addPatientError, setAddPatientError] = useState("");
   const [addPatientForm, setAddPatientForm] = useState({
-    guardianEmail: "",
-    nickname: "",
-    fullName: "",
-    birthDate: "",
-    gender: "",
+    accessCode: "",
   });
   const [reminderTemplate, setReminderTemplate] = useState("follow_up");
   const [reminderMessage, setReminderMessage] = useState("");
@@ -1130,11 +1137,10 @@ function ClinicianDashboard() {
     event.preventDefault();
     if (addPatientSubmitting) return;
 
-    const guardianEmail = addPatientForm.guardianEmail.trim();
-    const nickname = addPatientForm.nickname.trim();
+    const accessCode = addPatientForm.accessCode.trim();
 
-    if (!guardianEmail || !nickname || !addPatientForm.birthDate || !addPatientForm.gender) {
-      setAddPatientError("請完整填寫家長 Email、孩子暱稱、生日與性別。");
+    if (!accessCode) {
+      setAddPatientError("請輸入家長提供的醫療授權碼。");
       return;
     }
 
@@ -1142,24 +1148,22 @@ function ClinicianDashboard() {
     setAddPatientError("");
 
     try {
-      const { error } = await supabase.rpc("clinician_create_patient", {
-        p_guardian_email: guardianEmail,
-        p_nickname: nickname,
-        p_full_name: addPatientForm.fullName.trim() || null,
-        p_birth_date: addPatientForm.birthDate,
-        p_gender: addPatientForm.gender,
+      const { data, error } = await supabase.rpc("redeem_patient_access_code", {
+        provided_code: accessCode,
       });
 
       if (error) throw error;
+      const result = Array.isArray(data) ? data[0] : data;
+      if (!result?.success) throw new Error(result?.message || "授權碼無效。");
 
-      setAddPatientForm({ guardianEmail: "", nickname: "", fullName: "", birthDate: "", gender: "" });
+      setAddPatientForm({ accessCode: "" });
       setShowAddPatient(false);
       await fetchClinicianAndPatients();
     } catch (error) {
       const message = String(error?.message || "新增兒童失敗，請稍後再試。");
       setAddPatientError(
         message.includes("Could not find the function")
-          ? "尚未安裝醫療端新增兒童功能，請先執行最新 Supabase migration。"
+          ? "尚未安裝兒童醫療授權碼功能，請先執行最新 Supabase migration。"
           : message
       );
     } finally {
@@ -1629,7 +1633,7 @@ function ClinicianDashboard() {
       try {
         const response = await fetch("/api/clinical-assistant", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await getClinicalApiHeaders(),
           body: JSON.stringify(payload),
         });
         if (response.ok) {
@@ -1999,7 +2003,7 @@ function ClinicianDashboard() {
 
     const response = await fetch("/api/clinical-assistant", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await getClinicalApiHeaders(),
       body: JSON.stringify({
         question: ragQuestion,
         context: assistantContext,

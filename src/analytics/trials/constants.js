@@ -8,7 +8,7 @@ export const TASK_NAMES = Object.freeze({
   PM: "Picture Memory",
   SRT: "Simple Reaction Task",
   SSG: "Sound-Symbol Game",
-  LB: "Linking Balloons",
+  LB: "幫助迷路的綿羊奶奶",
   DCCS: "Dimensional Change Card Sort",
 });
 

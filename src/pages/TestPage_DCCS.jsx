@@ -17,11 +17,11 @@ import dccsBackgroundImg from "../asset/DCCS/DCCS_background.webp";
 import startVideo from "../asset/optimized/mp4/DCCS_start.mp4";
 import stepVideo from "../asset/mp4/DCCS_step.mp4";
 import endingVideo from "../asset/optimized/mp4/DCCS_end.mp4";
-import homeStartBtn from "../asset/SRT/start.webp";
-import homeSkipBtn from "../asset/SRT/skip.webp";
-import homeNextBtn from "../asset/SRT/next.webp";
-import homeBackBtn from "../asset/SRT/back.webp";
-import homeResultBtn from "../asset/SRT/result.webp";
+import homeStartBtn from "../asset/home/start.webp";
+import homeSkipBtn from "../asset/home/skip.webp";
+import homeNextBtn from "../asset/home/next.webp";
+import homeBackBtn from "../asset/home/back.webp";
+import homeResultBtn from "../asset/home/result.webp";
 import mouseGuideImg from "../asset/mouse.webp";
 
 import { createGameResult } from "../ai/gameResultTemplate";

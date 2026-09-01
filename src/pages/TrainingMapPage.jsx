@@ -56,7 +56,7 @@ const GAME_CONFIG = {
     storageKey: "ssgTrainingResult",
   },
   LB: {
-    name: "回家小路",
+    name: "幫助迷路的綿羊奶奶",
     character: "綿羊奶奶",
     ability: "flexibility",
     description: "照順序點路標，幫綿羊奶奶回家。",

@@ -16,12 +16,11 @@ import endingVideo from "../asset/optimized/mp4/LB_end.mp4";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
 import homeNextBtn from "../asset/home/next.webp";
-import homeBackBtn from "../asset/return.webp";
+import homeSendBtn from "../asset/home/send.webp";
+import homeBackBtn from "../asset/home/back.webp";
 import homeAgainBtn from "../asset/home/again.webp";
-import homeResultBtn from "../asset/home/result.webp";
 import mouseGuideImg from "../asset/mouse.webp";
 
-const RESULT_ROUTE = "/result-lb";
 const SESSION_KEY = "LB_TRAINING_RESULT";
 const LOCAL_KEY = "lbTrainingResult";
 const COMPLETED_LEVELS_STORAGE_KEY = "ef_game_completed_training_levels";
@@ -368,6 +367,62 @@ const getTrainingStageInfo = (location) => {
   };
 };
 
+// Keep durable progress small. The full trial payload is still available for the
+// current browser session, while localStorage only needs one copy of the logs.
+const compactTrainingResult = (result) => {
+  if (!result || typeof result !== "object") return result;
+
+  const {
+    trialLogs: _duplicateTrialLogs,
+    adaptiveAnalysis,
+    ...compactResult
+  } = result;
+
+  return {
+    ...compactResult,
+    adaptiveAnalysis:
+      adaptiveAnalysis && typeof adaptiveAnalysis === "object"
+        ? { ...adaptiveAnalysis, records: undefined }
+        : adaptiveAnalysis,
+  };
+};
+
+const compactStoredStageResults = () => {
+  try {
+    const storageKey = "ef_game_training_stage_results";
+    const stored = safeParse(localStorage.getItem(storageKey), {});
+    if (!stored || typeof stored !== "object" || Array.isArray(stored)) return;
+
+    const compacted = Object.fromEntries(
+      Object.entries(stored).map(([key, value]) => [key, compactTrainingResult(value)])
+    );
+    localStorage.setItem(storageKey, JSON.stringify(compacted));
+  } catch {
+    // Storage can remain full; callers will continue without durable caching.
+  }
+};
+
+const safeSetLocalStorage = (key, value) => {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (error) {
+    if (error?.name !== "QuotaExceededError") {
+      console.warn(`Unable to save ${key}:`, error);
+      return false;
+    }
+  }
+
+  compactStoredStageResults();
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (error) {
+    console.warn(`localStorage quota exceeded while saving ${key}:`, error);
+    return false;
+  }
+};
+
 const saveTrainingStageProgress = ({ stageId, level, stars, finalResult, completed = false }) => {
   const safeStars = clampStarCount(stars);
   const resultMap = safeParse(localStorage.getItem("ef_game_training_stage_results"), {});
@@ -375,10 +430,10 @@ const saveTrainingStageProgress = ({ stageId, level, stars, finalResult, complet
     resultMap && typeof resultMap === "object" && !Array.isArray(resultMap) ? resultMap : {};
   const nextResultMap = {
     ...normalizedResultMap,
-    [completed ? stageId : `${stageId}_latestAttempt`]: finalResult,
+    [completed ? stageId : `${stageId}_latestAttempt`]: compactTrainingResult(finalResult),
   };
 
-  localStorage.setItem("ef_game_training_stage_results", JSON.stringify(nextResultMap));
+  safeSetLocalStorage("ef_game_training_stage_results", JSON.stringify(nextResultMap));
 
   if (!completed) {
     window.dispatchEvent(new Event("storage"));
@@ -390,15 +445,15 @@ const saveTrainingStageProgress = ({ stageId, level, stars, finalResult, complet
     ? [...new Set([...completedLevels, stageId, `lb-${level}`])]
     : [stageId, `lb-${level}`];
 
-  localStorage.setItem(COMPLETED_LEVELS_STORAGE_KEY, JSON.stringify(nextCompletedLevels));
-  localStorage.setItem(`ef_game_${stageId}_completed`, "true");
-  localStorage.setItem(`ef_game_${stageId}_stars`, String(safeStars));
-  localStorage.setItem(`ef_game_lb_level_${level}_completed`, "true");
-  localStorage.setItem(`ef_game_lb_level_${level}_stars`, String(safeStars));
-  localStorage.setItem(`training_lb_level_${level}_completed`, "true");
-  localStorage.setItem(`training_lb_level_${level}_stars`, String(safeStars));
-  localStorage.setItem(`lb_training_level_${level}_completed`, "true");
-  localStorage.setItem(`lb_training_level_${level}_stars`, String(safeStars));
+  safeSetLocalStorage(COMPLETED_LEVELS_STORAGE_KEY, JSON.stringify(nextCompletedLevels));
+  safeSetLocalStorage(`ef_game_${stageId}_completed`, "true");
+  safeSetLocalStorage(`ef_game_${stageId}_stars`, String(safeStars));
+  safeSetLocalStorage(`ef_game_lb_level_${level}_completed`, "true");
+  safeSetLocalStorage(`ef_game_lb_level_${level}_stars`, String(safeStars));
+  safeSetLocalStorage(`training_lb_level_${level}_completed`, "true");
+  safeSetLocalStorage(`training_lb_level_${level}_stars`, String(safeStars));
+  safeSetLocalStorage(`lb_training_level_${level}_completed`, "true");
+  safeSetLocalStorage(`lb_training_level_${level}_stars`, String(safeStars));
 
   const starMap = safeParse(localStorage.getItem(LB_STAGE_STAR_STORAGE_KEY), {});
   const nextStarMap = {
@@ -406,7 +461,7 @@ const saveTrainingStageProgress = ({ stageId, level, stars, finalResult, complet
     [stageId]: { stars: safeStars, gameId: "lb", level, updatedAt: new Date().toISOString() },
     [`lb-${level}`]: safeStars,
   };
-  localStorage.setItem(LB_STAGE_STAR_STORAGE_KEY, JSON.stringify(nextStarMap));
+  safeSetLocalStorage(LB_STAGE_STAR_STORAGE_KEY, JSON.stringify(nextStarMap));
 
   window.dispatchEvent(new Event("storage"));
 };
@@ -920,6 +975,8 @@ function TrainingInlineStyle() {
         left: 92% !important;
         top: 78% !important;
         width: clamp(78px, 8.8vw, 136px) !important;
+        height: auto !important;
+        object-fit: contain !important;
         transform: translate(-50%, -50%) !important;
         z-index: 3 !important;
         filter: drop-shadow(0 13px 14px rgba(80, 50, 18, 0.22));
@@ -1423,8 +1480,20 @@ function TrainingInlineStyle() {
         position: absolute;
         left: 50%;
         right: auto;
-        bottom: 28px;
+        bottom: -8px;
         transform: translateX(-50%);
+      }
+      .lb-video-actions {
+        padding-inline: 0;
+        justify-content: center;
+        gap: clamp(48px, 7vw, 96px);
+      }
+      .lb-video-actions > .lb-guided-skip,
+      .lb-video-actions > .lb-guided-next {
+        position: relative;
+        inset: auto;
+        transform: none;
+        flex: 0 0 auto;
       }
 
       .lb-cute-stars {
@@ -1461,10 +1530,18 @@ function TrainingInlineStyle() {
       }
       .lb-result-content { margin: 8px 0 18px; }
       .lb-result-panel {
+        position: relative;
         min-height: 500px;
         gap: 24px;
-        padding-top: 42px;
+        padding-top: 150px;
         padding-bottom: 58px;
+      }
+      .lb-result-panel > .lb-cute-stars {
+        position: absolute;
+        top: 8px;
+        left: 50%;
+        width: 100%;
+        transform: translateX(-50%);
       }
       .lb-result-panel .lb-result-actions {
         margin-top: 8px;
@@ -1526,11 +1603,21 @@ function TrainingInlineStyle() {
       }
 
       .lb-training-simple-finish {
-        min-width: clamp(168px, 15vw, 230px) !important;
-        min-height: clamp(56px, 6.2vh, 76px) !important;
-        padding: 10px 28px !important;
-        border-radius: 24px !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
         pointer-events: auto;
+      }
+      .lb-training-simple-finish img {
+        display: block;
+        width: clamp(152px, 16vw, 220px);
+        height: auto;
+        object-fit: contain;
+        filter: drop-shadow(0 10px 12px rgba(80, 50, 18, 0.22));
       }
 
       @media (max-width: 760px) {
@@ -1555,12 +1642,14 @@ function TrainingInlineStyle() {
         .lb-center-shell { width: min(94vw, 720px); padding: 16px 0; }
         .lb-start-shell, .lb-result-shell, .lb-rule-shell { width: 94vw; }
         .lb-start-panel, .lb-result-panel, .lb-rule-panel { min-height: 0; padding: 34px 24px 54px; border-radius: 40px; }
+        .lb-result-panel { padding-top: 132px; }
+        .lb-result-panel > .lb-cute-stars { top: 4px; }
         .lb-start-content, .lb-result-content { grid-template-columns: 1fr; justify-items: center; gap: 18px; }
         .lb-dialog-bubble::after { display: none; }
         .lb-round-icon { width: 116px; height: 116px; }
         .lb-video-panel { width: 94vw; padding: 20px 18px 78px; border-radius: 38px; }
         .lb-video-frame { border-radius: 26px; }
-        .lb-guided-skip { left: 50%; right: auto; bottom: 22px; transform: translateX(-50%); }
+        .lb-guided-skip { left: 50%; right: auto; bottom: -10px; transform: translateX(-50%); }
         .lb-result-actions { gap: 10px; }
         .lb-result-metrics { grid-template-columns: 1fr !important; }
       }
@@ -2023,7 +2112,7 @@ export default function TrainingPage_LB() {
     const payload = {
       task: "LB",
       gameId: "LB",
-      taskName: "Linking Balloons Training",
+      taskName: "幫助迷路的綿羊奶奶",
       mode: TRAINING_CONFIG.mode,
       difficulty: adaptiveDifficulty,
       difficultyLevel: adaptiveDifficultyLevel,
@@ -2064,9 +2153,15 @@ export default function TrainingPage_LB() {
       finishedAt: new Date().toISOString(),
     };
 
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(payload));
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(payload));
-    localStorage.setItem("latestLBTrainingResult", JSON.stringify(payload));
+    const serializedPayload = JSON.stringify(payload);
+    const serializedCompactPayload = JSON.stringify(compactTrainingResult(payload));
+    try {
+      sessionStorage.setItem(SESSION_KEY, serializedPayload);
+    } catch (error) {
+      console.warn("Unable to save the full LB session result:", error);
+    }
+    safeSetLocalStorage(LOCAL_KEY, serializedCompactPayload);
+    safeSetLocalStorage("latestLBTrainingResult", serializedCompactPayload);
     saveTrainingStageProgress({
       stageId: trainingStage.stageId,
       level: trainingStage.level,
@@ -2088,18 +2183,13 @@ export default function TrainingPage_LB() {
     setTrainingPhase("endingVideo");
   }
 
-  function goResultPage() {
-    const payload = summary || JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null");
-    navigate(RESULT_ROUTE, { state: payload, replace: true });
-  }
-
   if (phase === "start") {
     return (
       <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
         <TrainingInlineStyle />
         <main className="lb-center-shell lb-start-shell">
           <section className="lb-soft-panel lb-start-panel game-start-card-artwork lb-opening-card-artwork" aria-label="LB 訓練開始">
-            <h1 className="lb-game-title">Linking Balloons</h1>
+            <h1 className="lb-game-title">幫助迷路的綿羊奶奶</h1>
             <div className="lb-start-content">
               <div className="lb-dialog-bubble lb-opening-bubble">
                 先跟綿羊奶奶練習這一關的小路，照順序把小路連回家。
@@ -2240,11 +2330,8 @@ export default function TrainingPage_LB() {
               <button type="button" className="lb-forest-button lb-image-button lb-btn-home" onClick={() => navigate("/game-menu")} aria-label="回到森林">
                 <img width={1024} height={341} loading="lazy" src={homeBackBtn} alt="回到森林" draggable="false" />
               </button>
-              <button type="button" className="lb-forest-button lb-image-button lb-btn-replay" onClick={() => startTraining(adaptiveStartIndex)} aria-label="再練一次">
-                <img width={1024} height={341} loading="lazy" src={homeAgainBtn} alt="再練一次" draggable="false" />
-              </button>
-              <button type="button" className="lb-forest-button lb-image-button lb-btn-detail" onClick={goResultPage} aria-label="詳細結果">
-                <img width={1024} height={341} loading="lazy" src={homeResultBtn} alt="詳細結果" draggable="false" />
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-replay" onClick={() => startTraining(adaptiveStartIndex)} aria-label="再玩一次">
+                <img width={1024} height={341} loading="lazy" src={homeAgainBtn} alt="再玩一次" draggable="false" />
               </button>
             </div>
           </section>
@@ -2280,8 +2367,8 @@ export default function TrainingPage_LB() {
         </main>
 
         <footer className="lb-training-simple-bottom">
-          <button type="button" className="lb-forest-button lb-training-simple-finish" onClick={skipToNextLevel}>
-            完成作答
+          <button type="button" className="lb-forest-button lb-training-simple-finish" onClick={skipToNextLevel} aria-label="完成作答">
+            <img src={homeSendBtn} alt="完成作答" draggable="false" />
           </button>
         </footer>
       </div>

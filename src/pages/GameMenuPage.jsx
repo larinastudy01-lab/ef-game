@@ -5,6 +5,7 @@ import "../styles/GameMenuPage.css";
 import useTemporaryTestUnlock from "../utils/useTemporaryTestUnlock";
 import { getResultsByChild } from "../utils/resultManager";
 import { createOnlineRecommendation } from "../analytics/recommendation/onlineRecommendation";
+import { SHOW_AVATAR_ROOM } from "../config/featureFlags";
 
 import gameMapBackground from "../asset/GameMap.webp";
 import mousePointer from "../asset/mouse.webp";
@@ -12,12 +13,12 @@ import completionVideo from "../asset/optimized/mp4/start.mp4";
 
 import chickenAvatar from "../asset/avatar/chicken.webp";
 import starAsset from "../asset/home/icon/一星_no_bg.webp";
-import honeycombAsset from "../asset/honeycomb_no_bg.webp";
+import honeycombAsset from "../asset/HomePage/honeycomb_no_bg.webp";
 import honeyAsset from "../asset/Honey.webp";
 import pawLockedAsset from "../asset/home/icon/關卡 灰_no_bg.webp";
 import pawActiveAsset from "../asset/home/icon/關卡 黃_no_bg.webp";
 import pawDoneAsset from "../asset/home/icon/關卡 綠_no_bg.webp";
-import srtIcon from "../asset/SRT/SRT_icon.webp";
+import srtIcon from "../asset/SRT_icon.webp";
 import pmIcon from "../asset/PM_icon.webp";
 import cbtIcon from "../asset/CBT_icon.webp";
 import ssgIcon from "../asset/SSG/cat.webp";
@@ -40,11 +41,11 @@ const DAILY_TRAINING_SECONDS_STORAGE_KEY = "ef_game_today_training_seconds";
 const CURRENT_CHILD_STORAGE_KEYS = ["currentChild", "selectedChild", "currentPatient", "selectedPatient"];
 
 const HONEY_MISSION_CONFIGS = [
-  { round: 1, requiredDays: 3, requiredStars: 50, dailyStarCap: 18, resetAfterDays: 3 },
-  { round: 2, requiredDays: 5, requiredStars: 70, dailyStarCap: 18, resetAfterDays: 3 },
-  { round: 3, requiredDays: 7, requiredStars: 90, dailyStarCap: 18, resetAfterDays: 5 },
-  { round: 4, requiredDays: 10, requiredStars: 120, dailyStarCap: 18, resetAfterDays: 5 },
-  { round: 5, requiredDays: 14, requiredStars: 150, dailyStarCap: 18, resetAfterDays: 5 },
+  { round: 1, requiredDays: 14, requiredStars: 180, dailyStarCap: 18 },
+  { round: 2, requiredDays: 21, requiredStars: 270, dailyStarCap: 18 },
+  { round: 3, requiredDays: 28, requiredStars: 360, dailyStarCap: 18 },
+  { round: 4, requiredDays: 35, requiredStars: 450, dailyStarCap: 18 },
+  { round: 5, requiredDays: 42, requiredStars: 540, dailyStarCap: 18 },
 ];
 
 const ABILITY_LABELS = {
@@ -85,12 +86,47 @@ const readJsonArray = (key) => {
   return Array.isArray(value) ? value : [];
 };
 
+const getRecommendationErrorNotice = (error, selectedChild) => {
+  const code = String(error?.code || "").toUpperCase();
+  const message = String(error?.message || "").toLowerCase();
+
+  if (selectedChild?.syncStatus === "local-only" || code === "PATIENT_NOT_IN_CLOUD") {
+    return "目前選擇的是本機小孩資料。請登入家長帳號並重新建立雲端小孩，以啟用自適應推薦。";
+  }
+  if (code === "RECOMMENDATION_AUTH_REQUIRED" || code === "PGRST301" || message.includes("jwt")) {
+    return "登入狀態已失效，請重新登入後再使用自適應推薦。";
+  }
+  if (code === "42501" || code === "PGRST302" || message.includes("row-level security")) {
+    return "目前帳號沒有建立推薦資料的權限，請確認此兒童屬於目前登入的家長帳號。";
+  }
+  if (code === "PGRST202" || code === "42883") {
+    return "推薦服務尚未完成資料庫更新，已使用原訓練計畫。";
+  }
+  return "推薦服務發生錯誤，已使用原訓練計畫。請稍後重試。";
+};
+
 const createTrainingMenuSessionId = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
 
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
+const TRAINING_ROUTE_BY_GAME_ID = Object.freeze({
+  srt: "/training-srt",
+  ssg: "/training-ssg",
+  pm: "/training-picture-memory",
+  cbt: "/training-cbt",
+  dccs: "/training-dccs",
+  lb: "/training-linking-balloons",
+});
+
+export const getTrainingRoute = (stage) => {
+  const gameId = normalizeGameIdValue(
+    stage?.gameId || stage?.id || stage?.trainingGameId || stage?.shortName
+  );
+  return gameId ? TRAINING_ROUTE_BY_GAME_ID[gameId] || null : null;
 };
 
 const readTrainingMenuSessionId = (locationState = {}) => {
@@ -164,16 +200,6 @@ const getTodayKey = () => {
   return `${year}-${month}-${date}`;
 };
 
-const getDaysBetween = (fromDateKey, toDateKey) => {
-  if (!fromDateKey || !toDateKey) return 0;
-
-  const fromTime = new Date(`${fromDateKey}T00:00:00`).getTime();
-  const toTime = new Date(`${toDateKey}T00:00:00`).getTime();
-
-  if (!Number.isFinite(fromTime) || !Number.isFinite(toTime)) return 0;
-  return Math.max(0, Math.floor((toTime - fromTime) / 86400000));
-};
-
 const getHoneyMissionConfig = (round = 1) => {
   const missionRound = Math.max(1, Number(round) || 1);
   return HONEY_MISSION_CONFIGS.find((item) => item.round === missionRound) || HONEY_MISSION_CONFIGS[HONEY_MISSION_CONFIGS.length - 1];
@@ -182,6 +208,7 @@ const getHoneyMissionConfig = (round = 1) => {
 const createHoneyMissionProgress = (round = 1) => ({
   round: Math.max(1, Number(round) || 1),
   dailyStars: {},
+  creditedStages: {},
   effectiveTrainingDays: [],
   lastEffectiveTrainingDate: null,
 });
@@ -194,26 +221,140 @@ const normalizeHoneyMissionProgress = (value) => {
     dailyStars: value.dailyStars && typeof value.dailyStars === "object" && !Array.isArray(value.dailyStars)
       ? value.dailyStars
       : {},
+    creditedStages: value.creditedStages && typeof value.creditedStages === "object" && !Array.isArray(value.creditedStages)
+      ? value.creditedStages
+      : {},
     effectiveTrainingDays: Array.isArray(value.effectiveTrainingDays) ? value.effectiveTrainingDays : [],
     lastEffectiveTrainingDate: value.lastEffectiveTrainingDate || null,
   };
 };
 
-const saveHoneyMissionProgress = (progress) => {
-  localStorage.setItem(HONEY_MISSION_STORAGE_KEY, JSON.stringify(progress));
+const getHoneyMissionStorageKey = (childId) =>
+  `${HONEY_MISSION_STORAGE_KEY}:${childId || "guest"}`;
+
+const readHoneyMissionProgress = (childId) => {
+  const scoped = safeParse(localStorage.getItem(getHoneyMissionStorageKey(childId)), null);
+  if (scoped) return normalizeHoneyMissionProgress(scoped);
+
+  // Preserve legacy progress once without copying one child's history to all
+  // children that subsequently use the same browser.
+  const legacy = safeParse(localStorage.getItem(HONEY_MISSION_STORAGE_KEY), null);
+  if (!childId) return normalizeHoneyMissionProgress(legacy);
+  const migrationOwnerKey = `${HONEY_MISSION_STORAGE_KEY}:migration-owner`;
+  const migrationOwner = localStorage.getItem(migrationOwnerKey);
+  if (legacy && (!migrationOwner || migrationOwner === String(childId))) {
+    localStorage.setItem(migrationOwnerKey, String(childId));
+    return normalizeHoneyMissionProgress(legacy);
+  }
+  return createHoneyMissionProgress(1);
 };
 
-const updateHoneyMissionProgress = ({ todayKey, earnedStarsToday, completedCountToday }) => {
-  const current = normalizeHoneyMissionProgress(safeParse(localStorage.getItem(HONEY_MISSION_STORAGE_KEY), null));
+const saveHoneyMissionProgress = (progress, childId) => {
+  localStorage.setItem(getHoneyMissionStorageKey(childId), JSON.stringify(progress));
+};
+
+const mergeHoneyMissionProgress = (localProgress, cloudProgress) => {
+  const local = normalizeHoneyMissionProgress(localProgress);
+  const cloud = normalizeHoneyMissionProgress(cloudProgress);
+  const creditedStages = { ...local.creditedStages };
+
+  Object.entries(cloud.creditedStages).forEach(([stageId, entry]) => {
+    const previous = creditedStages[stageId];
+    creditedStages[stageId] = {
+      date: entry?.date || previous?.date || null,
+      stars: Math.max(clampStarCount(previous?.stars), clampStarCount(entry?.stars)),
+    };
+  });
+
+  const dailyStars = { ...local.dailyStars };
+  Object.entries(cloud.dailyStars).forEach(([dateKey, stars]) => {
+    dailyStars[dateKey] = Math.max(Number(dailyStars[dateKey]) || 0, Number(stars) || 0);
+  });
+
+  return {
+    round: Math.max(local.round, cloud.round),
+    dailyStars,
+    creditedStages,
+    effectiveTrainingDays: [...new Set([
+      ...local.effectiveTrainingDays,
+      ...cloud.effectiveTrainingDays,
+    ])].sort(),
+    lastEffectiveTrainingDate: [local.lastEffectiveTrainingDate, cloud.lastEffectiveTrainingDate]
+      .filter(Boolean)
+      .sort()
+      .at(-1) || null,
+  };
+};
+
+const loadHoneyMissionProgressFromCloud = async (patientId) => {
+  if (!patientId) return null;
+  const { data, error } = await supabase
+    .from("honey_mission_progress")
+    .select("round,daily_stars,credited_stages,effective_training_days,last_effective_training_date")
+    .eq("patient_id", patientId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return normalizeHoneyMissionProgress({
+    round: data.round,
+    dailyStars: data.daily_stars,
+    creditedStages: data.credited_stages,
+    effectiveTrainingDays: data.effective_training_days,
+    lastEffectiveTrainingDate: data.last_effective_training_date,
+  });
+};
+
+const saveHoneyMissionProgressToCloud = async (patientId, progress, unlocked) => {
+  if (!patientId || !progress) return;
+  const { error } = await supabase.from("honey_mission_progress").upsert({
+    patient_id: patientId,
+    round: progress.round,
+    daily_stars: progress.dailyStars,
+    credited_stages: progress.creditedStages,
+    effective_training_days: progress.effectiveTrainingDays,
+    last_effective_training_date: progress.lastEffectiveTrainingDate,
+    milestone_completed_at: unlocked ? new Date().toISOString() : null,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "patient_id" });
+  if (error) throw error;
+};
+
+const updateHoneyMissionProgress = ({ todayKey, stageStars = {}, completedCountToday, childId, baseProgress = null }) => {
+  const current = baseProgress
+    ? normalizeHoneyMissionProgress(baseProgress)
+    : readHoneyMissionProgress(childId);
   const config = getHoneyMissionConfig(current.round);
-  const inactiveDays = getDaysBetween(current.lastEffectiveTrainingDate, todayKey);
-  const shouldReset = current.lastEffectiveTrainingDate && inactiveDays > config.resetAfterDays;
-  const progress = shouldReset ? createHoneyMissionProgress(current.round) : current;
+  const progress = current;
 
-  const countedStarsToday = Math.min(config.dailyStarCap, Math.max(0, Number(earnedStarsToday) || 0));
-  progress.dailyStars[todayKey] = Math.max(Number(progress.dailyStars[todayKey]) || 0, countedStarsToday);
+  Object.entries(stageStars).forEach(([stageId, value]) => {
+    const stars = clampStarCount(value);
+    if (!stageId || stars <= 0) return;
+    const previous = progress.creditedStages[stageId];
+    progress.creditedStages[stageId] = {
+      date: previous?.date || todayKey,
+      stars: Math.max(clampStarCount(previous?.stars), stars),
+    };
+  });
 
-  const isEffectiveDay = completedCountToday >= 3 || countedStarsToday >= 6;
+  const creditedByDay = Object.values(progress.creditedStages).reduce((totals, entry) => {
+    if (!entry?.date) return totals;
+    totals[entry.date] = (totals[entry.date] || 0) + clampStarCount(entry.stars);
+    return totals;
+  }, {});
+
+  Object.entries(creditedByDay).forEach(([dateKey, stars]) => {
+    progress.dailyStars[dateKey] = Math.max(
+      Number(progress.dailyStars[dateKey]) || 0,
+      Math.min(config.dailyStarCap, stars)
+    );
+  });
+
+  const countedStarsToday = Math.min(config.dailyStarCap, Number(progress.dailyStars[todayKey]) || 0);
+
+  const creditedStageCountToday = Object.values(progress.creditedStages)
+    .filter((entry) => entry?.date === todayKey && clampStarCount(entry?.stars) > 0)
+    .length;
+  const isEffectiveDay = Math.max(completedCountToday, creditedStageCountToday) >= 3 || countedStarsToday >= 6;
   if (isEffectiveDay) {
     progress.effectiveTrainingDays = [...new Set([...progress.effectiveTrainingDays, todayKey])].sort();
     progress.lastEffectiveTrainingDate = todayKey;
@@ -222,8 +363,12 @@ const updateHoneyMissionProgress = ({ todayKey, earnedStarsToday, completedCount
   const totalStars = Object.values(progress.dailyStars).reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0);
   const effectiveDays = progress.effectiveTrainingDays.length;
   const unlocked = totalStars >= config.requiredStars && effectiveDays >= config.requiredDays;
+  const progressRatio = Math.min(totalStars / config.requiredStars, effectiveDays / config.requiredDays, 1);
+  const displayStars = unlocked
+    ? config.requiredStars
+    : Math.min(config.requiredStars - 1, Math.floor(config.requiredStars * progressRatio));
 
-  saveHoneyMissionProgress(progress);
+  saveHoneyMissionProgress(progress, childId);
 
   return {
     ...config,
@@ -231,11 +376,13 @@ const updateHoneyMissionProgress = ({ todayKey, earnedStarsToday, completedCount
     totalStars,
     effectiveDays,
     unlocked,
-    progressPercent: Math.min(100, Math.round(Math.min(totalStars / config.requiredStars, effectiveDays / config.requiredDays) * 100)),
+    displayStars,
+    progressPercent: Math.round(progressRatio * 100),
     remainingStars: Math.max(0, config.requiredStars - totalStars),
     remainingDays: Math.max(0, config.requiredDays - effectiveDays),
     countedStarsToday,
-    resetNotice: shouldReset,
+    resetNotice: false,
+    storedProgress: progress,
   };
 };
 
@@ -547,6 +694,7 @@ function GameMenuPage() {
   const location = useLocation();
   const isTestUnlockEnabled = useTemporaryTestUnlock();
   const selectedChild = useMemo(() => location.state?.child || readSelectedChild(), [location.state]);
+  const selectedChildId = selectedChild?.childId || selectedChild?.id || null;
   const [showCompletionVideo, setShowCompletionVideo] = useState(false);
   const [showStoryVideo, setShowStoryVideo] = useState(false);
   const [showProfilePanel, setShowProfilePanel] = useState(false);
@@ -559,11 +707,52 @@ function GameMenuPage() {
   const lockedHintTimeoutRef = useRef(null);
   const [honeyProgress, setHoneyProgress] = useState(() => updateHoneyMissionProgress({
     todayKey: getTodayKey(),
-    earnedStarsToday: 0,
+    stageStars: {},
     completedCountToday: 0,
+    childId: selectedChildId,
   }));
+  const [honeyCloudReady, setHoneyCloudReady] = useState(false);
   const [adaptiveRecommendation, setAdaptiveRecommendation] = useState(null);
   const [adaptiveRecommendationNotice, setAdaptiveRecommendationNotice] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    setHoneyCloudReady(false);
+
+    const restoreHoneyProgress = async () => {
+      const localProgress = readHoneyMissionProgress(selectedChildId);
+      try {
+        const cloudProgress = await loadHoneyMissionProgressFromCloud(selectedChildId);
+        if (!active) return;
+        const merged = mergeHoneyMissionProgress(localProgress, cloudProgress);
+        setHoneyProgress(updateHoneyMissionProgress({
+          todayKey: getTodayKey(),
+          stageStars: {},
+          completedCountToday: 0,
+          childId: selectedChildId,
+          baseProgress: merged,
+        }));
+      } catch (error) {
+        console.warn("Honey progress cloud restore failed; local progress remains active:", error);
+      } finally {
+        if (active) setHoneyCloudReady(true);
+      }
+    };
+
+    restoreHoneyProgress();
+    return () => { active = false; };
+  }, [selectedChildId]);
+
+  useEffect(() => {
+    if (!honeyCloudReady || !selectedChildId || !honeyProgress?.storedProgress) return;
+    saveHoneyMissionProgressToCloud(
+      selectedChildId,
+      honeyProgress.storedProgress,
+      honeyProgress.unlocked
+    ).catch((error) => {
+      console.warn("Honey progress cloud sync failed; progress remains stored locally:", error);
+    });
+  }, [honeyCloudReady, honeyProgress, selectedChildId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -656,7 +845,7 @@ function GameMenuPage() {
       id: "lb",
       ability: "flexibility",
       shortName: "LB",
-      title: "路標",
+      title: "幫助迷路的綿羊奶奶",
       icon: lbIcon,
       trainPath: "/training-linking-balloons",
       testPath: "/test-linking-balloons",
@@ -693,6 +882,8 @@ function GameMenuPage() {
 
   useEffect(() => {
     let active = true;
+    setAdaptiveRecommendation(null);
+    setAdaptiveRecommendationNotice("");
     const patientId = selectedChild?.childId || selectedChild?.id || null;
     const allowedTasks = selectedTrainingGames.map((game) => game.shortName);
     if (!patientId || allowedTasks.length === 0) return undefined;
@@ -706,11 +897,7 @@ function GameMenuPage() {
     }).catch((error) => {
       console.warn("Online recommendation unavailable; using the configured training plan:", error);
       if (!active) return;
-      if (error?.code === "PATIENT_NOT_IN_CLOUD" || selectedChild?.syncStatus === "local-only") {
-        setAdaptiveRecommendationNotice("目前選擇的是本機小孩資料。請登入家長帳號並重新建立雲端小孩，以啟用自適應推薦。");
-        return;
-      }
-      setAdaptiveRecommendationNotice("推薦服務暫時無法連線，已使用原訓練計畫。");
+      setAdaptiveRecommendationNotice(getRecommendationErrorNotice(error, selectedChild));
     });
     return () => { active = false; };
   }, [recommendedTrainingPlan, selectedChild, selectedTrainingGames]);
@@ -782,7 +969,7 @@ function GameMenuPage() {
   const dailyTrainingStages = useMemo(() => {
     const selected = adaptiveRecommendation?.selected_action;
     if (!selected || baseDailyTrainingStages.length === 0) return baseDailyTrainingStages;
-    const game = trainingGames.find((item) => item.shortName === selected.task_code);
+    const game = selectedTrainingGames.find((item) => item.shortName === selected.task_code);
     if (!game) return baseDailyTrainingStages;
     const first = baseDailyTrainingStages[0];
     return [{ ...first, ...game, gameId: game.id, level: selected.difficulty_level,
@@ -790,7 +977,7 @@ function GameMenuPage() {
       difficultyLabel: LEVEL_COPY[selected.difficulty_level], source: "adaptive-ucb-v1",
       recommendationId: adaptiveRecommendation.recommendation_id,
       recommendationScore: adaptiveRecommendation.predicted_reward }, ...baseDailyTrainingStages.slice(1)];
-  }, [adaptiveRecommendation, baseDailyTrainingStages, todayKey, trainingGames, trainingMenuSessionId]);
+  }, [adaptiveRecommendation, baseDailyTrainingStages, selectedTrainingGames, todayKey, trainingMenuSessionId]);
 
   useEffect(() => {
     const refreshLocalStorageBackedState = () => {
@@ -849,11 +1036,11 @@ function GameMenuPage() {
       setCompletedStageIds(completedIds);
       setStageStarMap(nextStageStarMap);
 
-      const earnedStarsToday = dailyTrainingStages.reduce((sum, stage) => sum + clampStarCount(nextStageStarMap[stage.stageId]), 0);
       setHoneyProgress(updateHoneyMissionProgress({
         todayKey,
-        earnedStarsToday,
+        stageStars: nextStageStarMap,
         completedCountToday: completedIds.length,
+        childId: selectedChildId,
       }));
 
       const allPlannedStagesCompleted =
@@ -881,7 +1068,7 @@ function GameMenuPage() {
       window.removeEventListener("pageshow", refreshCompletedStages);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
-  }, [dailyTrainingStages, todayKey]);
+  }, [dailyTrainingStages, selectedChildId, todayKey]);
 
   const stageStateMap = useMemo(() => {
     return dailyTrainingStages.reduce((stateMap, stage, index) => {
@@ -939,8 +1126,6 @@ function GameMenuPage() {
     }, 0);
   }, [dailyTrainingStages, stageStateMap]);
 
-  const maxStarsTotal = Math.max(30, dailyTrainingStages.length * 3);
-
   const closeCompletionVideo = () => {
     localStorage.setItem(`${COMPLETION_VIDEO_SEEN_KEY}_${todayKey}`, "true");
     setShowCompletionVideo(false);
@@ -991,7 +1176,13 @@ function GameMenuPage() {
       return;
     }
 
-    navigate(`${stage.trainPath}?level=${stage.level}&stage=${stage.stageId}`, {
+    const trainingRoute = getTrainingRoute(stage);
+    if (!trainingRoute) {
+      console.warn("Unable to resolve the selected training game's route:", stage);
+      return;
+    }
+
+    navigate(`${trainingRoute}?level=${stage.level}&stage=${stage.stageId}`, {
       state: {
         child: selectedChild,
         currentChild: selectedChild,
@@ -1018,7 +1209,7 @@ function GameMenuPage() {
           gameId: item.id,
           title: item.title,
           level: item.level,
-          trainPath: item.trainPath,
+          trainPath: getTrainingRoute(item),
           ability: item.ability,
           recommendationScore: item.recommendationScore ?? null,
           resultCount: item.resultCount ?? 0,
@@ -2041,11 +2232,15 @@ function GameMenuPage() {
             <img src={returnIcon} alt="" aria-hidden="true" />
           </button>
 
-          <section className="map-top-progress" aria-label="蜂巢收集進度">
+          <section
+            className="map-top-progress"
+            aria-label={`蜂蜜長期累積進度，第 ${honeyProgress.round} 階段，${honeyProgress.displayStars} / ${honeyProgress.requiredStars}，有效訓練 ${honeyProgress.effectiveDays} / ${honeyProgress.requiredDays} 天`}
+            title={`有效訓練日：${honeyProgress.effectiveDays} / ${honeyProgress.requiredDays}`}
+          >
             <img width={512} height={512} className="map-progress-star" src={honeycombAsset} alt="蜂巢" />
-            <div className="map-progress-track" role="progressbar" aria-valuenow={earnedStarsTotal} aria-valuemin="0" aria-valuemax={maxStarsTotal}>
-              <div className="map-progress-fill" style={{ "--star-progress": `${Math.min(100, Math.round((earnedStarsTotal / maxStarsTotal) * 100))}%` }} />
-              <span className="map-progress-text">{earnedStarsTotal} / {maxStarsTotal}</span>
+            <div className="map-progress-track" role="progressbar" aria-valuenow={honeyProgress.displayStars} aria-valuemin="0" aria-valuemax={honeyProgress.requiredStars}>
+              <div className="map-progress-fill" style={{ "--star-progress": `${honeyProgress.progressPercent}%` }} />
+              <span className="map-progress-text">{honeyProgress.displayStars} / {honeyProgress.requiredStars}</span>
             </div>
             <img width={476} height={472} loading="lazy" className="map-progress-gift" src={honeyAsset} alt="蜂蜜" />
           </section>
@@ -2120,16 +2315,18 @@ function GameMenuPage() {
               onClick={() => navigate("/achievement")}
               aria-label="查看成就"
             >
-              <img width={1024} height={1024} loading="lazy" className="homey-menu-icon bottom-homey-icon achievement-menu-icon" src={goalIcon} alt="" aria-hidden="true" />
+              <img width={1024} height={1024} loading="lazy" className="homey-menu-icon bottom-homey-icon" src={goalIcon} alt="" aria-hidden="true" />
             </button>
-            <button
-              type="button"
-              className="map-bottom-button avatar-room-menu-button"
-              onClick={() => navigate("/avatar-room", { state: { from: "/game-menu" } })}
-              aria-label="進入角色小屋"
-            >
-              <img width={500} height={500} loading="lazy" className="avatar-room-menu-icon" src={avatarHomeImg} alt="" aria-hidden="true" draggable={false} />
-            </button>
+            {SHOW_AVATAR_ROOM && (
+              <button
+                type="button"
+                className="map-bottom-button avatar-room-menu-button"
+                onClick={() => navigate("/avatar-room", { state: { from: "/game-menu" } })}
+                aria-label="進入角色小屋"
+              >
+                <img width={500} height={500} loading="lazy" className="avatar-room-menu-icon" src={avatarHomeImg} alt="" aria-hidden="true" draggable={false} />
+              </button>
+            )}
             <button type="button" className="map-bottom-button" onClick={() => setShowStoryVideo(true)} aria-label="播放故事影片">
               <img width={1024} height={1024} loading="lazy" className="homey-menu-icon bottom-homey-icon" src={storyIcon} alt="" aria-hidden="true" />
             </button>
@@ -2246,8 +2443,8 @@ function GameMenuPage() {
                 <span>練習時間</span>
               </div>
               <div className="profile-stat-card">
-                <strong>{honeyProgress.round}</strong>
-                <span>蜂蜜任務</span>
+                <strong>{honeyProgress.effectiveDays} / {honeyProgress.requiredDays}</strong>
+                <span>累積訓練日</span>
               </div>
             </div>
           </section>

@@ -17,11 +17,14 @@ import {
 import "./App.css";
 
 import BGM from "./asset/BGM.mp3";
+import DatabaseIcon from "./asset/database.webp";
 import SetIcon from "./asset/Set_icon.webp";
 import HomePage from "./pages/HomePage";
 import RegisterPage from "./pages/RegisterPage";
 import LoginPage from "./pages/LoginPage";
 import ClinicianLoginPage from "./pages/ClinicianLoginPage";
+import ClinicianApplicationPage from "./pages/ClinicianApplicationPage";
+import { SHOW_AVATAR_ROOM } from "./config/featureFlags";
 
 const ProtectedRoute = lazy(() => import("./components/ProtectedRoute"));
 const GameMenuPage = lazy(() => import("./pages/GameMenuPage"));
@@ -36,12 +39,14 @@ const HatStickerGamePage = lazy(() => import("./pages/HatStickerGamePage"));
 
 const AddPatient = lazy(() => import("./pages/AddPatientPage"));
 const ClinicianDashboard = lazy(() => import("./pages/ClinicianDashboard"));
+const AdminClinicianApplicationsPage = lazy(() => import("./pages/AdminClinicianApplicationsPage"));
 const ResearchStatistics = lazy(() => import("./pages/ResearchStatistics"));
 const AIBehavioralAnalysis = lazy(() => import("./pages/AIBehavioralAnalysis"));
 const AdaptiveRecommendationResearch = lazy(() => import("./pages/AdaptiveRecommendationResearch"));
 const LongitudinalDashboard = lazy(() => import("./pages/LongitudinalDashboard"));
 const ResearchProfessionalDashboard = lazy(() => import("./pages/ResearchProfessionalDashboard"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const ParentResultsPage = lazy(() => import("./pages/ParentResultsPage"));
 
 const TrainingPageSRT = lazy(() => import("./pages/TrainingPage_SRT"));
 const TestPageSRT = lazy(() => import("./pages/TestPage_SRT"));
@@ -145,6 +150,10 @@ function RouteFallback() {
 function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.title = "蒐秘密";
+  }, []);
 
   const audioRef = useRef(null);
 
@@ -303,6 +312,18 @@ function AppContent() {
 
       {!isSettingsPage && !isClinicianPage && (
         <div className="app-settings-menu">
+          <div className="app-header-actions">
+            {isHomePage && (
+              <button
+                type="button"
+                className="app-database-trigger"
+                aria-label="開啟資料庫"
+                onClick={() => navigate("/parent-results")}
+              >
+                <img src={DatabaseIcon} alt="" />
+              </button>
+            )}
+
           <button
             type="button"
             className="app-settings-trigger"
@@ -312,6 +333,7 @@ function AppContent() {
           >
             <img src={SetIcon} alt="" />
           </button>
+          </div>
 
           {isSettingsMenuOpen && (
             <div className="app-settings-popover" role="dialog" aria-label="快速設定">
@@ -354,9 +376,14 @@ function AppContent() {
           path="/clinician-login"
           element={<ClinicianLoginPage />}
         />
+        <Route path="/clinician-apply" element={<ClinicianApplicationPage />} />
+        <Route
+          path="/admin/clinician-applications"
+          element={<ProtectedRoute allowedRoles={["admin"]} redirectTo="/clinician-login"><AdminClinicianApplicationsPage /></ProtectedRoute>}
+        />
         <Route path="/achievement" element={<Achievement />} />
-        <Route path="/avatar-room" element={<AvatarRoom />} />
-        <Route path="/furniture" element={<Furniture />} />
+        <Route path="/avatar-room" element={SHOW_AVATAR_ROOM ? <AvatarRoom /> : <Navigate to="/game-menu" replace />} />
+        <Route path="/furniture" element={SHOW_AVATAR_ROOM ? <Furniture /> : <Navigate to="/game-menu" replace />} />
         <Route
           path="/hat-sticker-game"
           element={<HatStickerGamePage />}
@@ -468,6 +495,10 @@ function AppContent() {
         <Route path="/longitudinal-dashboard" element={<ClinicianRoute><LongitudinalDashboard /></ClinicianRoute>} />
         <Route path="/research-professional-dashboard" element={<ClinicianRoute><ResearchProfessionalDashboard /></ClinicianRoute>} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route
+          path="/parent-results"
+          element={<ProtectedRoute allowedRoles={["guardian", "parent"]} redirectTo="/login"><ParentResultsPage /></ProtectedRoute>}
+        />
 
         {/* 找不到頁面時回首頁 */}
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -2,8 +2,8 @@ import React, { useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import bgImg from "../asset/SRT/SRT_background.webp";
-import homeBackBtn from "../asset/SRT/back.webp";
-import homeAgainBtn from "../asset/SRT/again.webp";
+import homeBackBtn from "../asset/home/back.webp";
+import homeAgainBtn from "../asset/home/again.webp";
 import {
   calculateSrtScore,
   getStoredSrtResult,

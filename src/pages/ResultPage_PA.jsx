@@ -6,6 +6,7 @@ import assistIcon from "../asset/assist.webp";
 import backIcon from "../asset/home/back.webp";
 import resetIcon from "../asset/home/remove.webp";
 import { getResultsByPatientFromCloud } from "../lib/database";
+import { supabase } from "../lib/supabaseClient";
 import { resetTestRecords } from "../utils/resetTestRecords";
 import "../styles/ResultPage_PA.css";
 
@@ -24,7 +25,7 @@ const GAME_LABELS = {
   CBT: { name: "石頭小橋記憶", ability: "工作記憶", story: "幫鹿先生通過石頭橋" },
   SSG: { name: "蒼蠅派對任務", ability: "抑制控制", story: "幫狐狸夫婦趕走蒼蠅" },
   DCCS: { name: "孔雀服飾分類", ability: "認知彈性", story: "幫孔雀小姐整理服飾店" },
-  LB: { name: "綿羊奶奶回家路", ability: "認知彈性", story: "幫綿羊奶奶照順序找到路" },
+  LB: { name: "幫助迷路的綿羊奶奶", ability: "認知彈性", story: "幫綿羊奶奶照順序找到路" },
   DEFAULT: { name: "森林訓練任務", ability: "綜合能力", story: "波波與皮皮完成森林任務" },
 };
 
@@ -36,6 +37,7 @@ const DEFAULT_ERROR_TYPES = {
   timeout: 0,
   sequenceError: 0,
   ruleSwitchError: 0,
+  otherError: 0,
 };
 
 const TERM_DICTIONARY = {
@@ -116,6 +118,23 @@ const errorLabelMap = {
   timeout: "未及時反應",
   sequenceError: "順序錯誤",
   ruleSwitchError: "換規則卡住",
+  otherError: "其他錯誤",
+  anticipation: "過早反應",
+  prematureClick: "過早點擊",
+  sameAnimalError: "選到相同動物",
+  distractorError: "干擾物錯誤",
+  incongruentError: "不一致題目錯誤",
+  blankClick: "點到空白處",
+  distractorClick: "點到干擾門牌",
+  colorError: "顏色判斷錯誤",
+  numberError: "數字判斷錯誤",
+  location_error: "位置錯誤",
+  order_error: "順序錯誤",
+  omission_error: "漏點",
+  extra_tap_error: "多點了一次",
+  timeout_error: "作答逾時",
+  sequence_error: "順序錯誤",
+  unknown: "未分類錯誤",
 };
 
 const safeParse = (value) => {
@@ -216,7 +235,7 @@ const getWarningLevel = ({ accuracy, totalErrors, fatigueLevel }) => {
 };
 
 const normalizeResult = (rawResult = {}) => {
-  const errorTypes = {
+  const reportedErrorTypes = {
     ...DEFAULT_ERROR_TYPES,
     ...(rawResult.errorTypes || {}),
   };
@@ -231,9 +250,21 @@ const normalizeResult = (rawResult = {}) => {
     rawResult.recommendedDifficultyLevel || rawResult.recommendedDifficulty || rawResult.aiRecommendation?.recommendedDifficulty,
     difficultyLevelMap[recommendedDifficultyCode] || 2,
   );
-  const totalErrors =
-    Number(rawResult.totalErrors) ||
-    Object.values(errorTypes).reduce((sum, value) => sum + (Number(value) || 0), 0);
+  const categorizedErrorTotal = Object.entries(reportedErrorTypes).reduce(
+    (sum, [key, value]) => key === "otherError" ? sum : sum + (Number(value) || 0),
+    0,
+  );
+  const explicitTotalErrors = Number(rawResult.totalErrors ?? rawResult.errorCount);
+  const totalErrors = Number.isFinite(explicitTotalErrors)
+    ? Math.max(0, explicitTotalErrors, categorizedErrorTotal)
+    : categorizedErrorTotal;
+  const errorTypes = {
+    ...reportedErrorTypes,
+    otherError: Math.max(
+      Number(reportedErrorTypes.otherError) || 0,
+      totalErrors - categorizedErrorTotal,
+    ),
+  };
   const fatigueLevel = rawResult.fatigueLevel || "low";
   const warningLevel = rawResult.warningLevel || getWarningLevel({ accuracy, totalErrors, fatigueLevel });
 
@@ -364,7 +395,7 @@ const normalizeRecordPayloadToRawResult = (record = {}) => {
     totalTrials: record.total_trials ?? summary.totalTrials ?? rawResult.totalTrials,
     correctCount: record.correct_count ?? summary.correctCount ?? rawResult.correctCount,
     errorCount: record.error_count ?? summary.errorCount ?? rawResult.errorCount,
-    errorTypes: metrics.errorTypes || rawResult.errorTypes || {},
+    errorTypes: metrics.errorTypes || summary.errorTypes || rawResult.errorTypes || {},
     fatigueLevel: metrics.fatigueLevel || rawResult.fatigueLevel,
     recommendedDifficulty: metrics.recommendedDifficulty || rawResult.recommendedDifficulty || ai.aiSummary?.recommendedDifficulty,
     parentSummary: ai.parentSummary || rawResult.parentSummary,
@@ -431,12 +462,33 @@ const mergeHistoryRecords = (records = []) => {
     .filter(Boolean)
     .sort((a, b) => b.time - a.time)
     .filter((record) => {
-      const key = [record.id, record.gameId, record.mode, record.date, record.result?.accuracy].join("|");
+      // Local unified records and cloud game_results can represent the same session
+      // with different ids. Use the session contents so it is displayed and counted once.
+      const resultTime = getResultTime(record.date);
+      const key = [
+        record.gameId,
+        record.mode,
+        resultTime ? Math.floor(resultTime / 1000) : record.date,
+        record.result?.accuracy,
+        record.result?.totalTrials,
+        record.result?.totalErrors,
+      ].join("|");
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
 };
+
+const aggregateErrorTypes = (records = []) =>
+  records.reduce(
+    (totals, record) => {
+      Object.entries(record?.result?.errorTypes || {}).forEach(([key, value]) => {
+        totals[key] = (Number(totals[key]) || 0) + (Number(value) || 0);
+      });
+      return totals;
+    },
+    { ...DEFAULT_ERROR_TYPES },
+  );
 
 const getDominantErrorKey = (errorTypes = {}) => {
   const entries = Object.entries(errorTypes).sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0));
@@ -606,7 +658,12 @@ const ResultPage_PA = () => {
   const [cloudLoading, setCloudLoading] = useState(false);
   const [cloudError, setCloudError] = useState("");
   const [historyFilter, setHistoryFilter] = useState("all");
+  const [errorModeFilter, setErrorModeFilter] = useState("all");
   const [activeSection, setActiveSection] = useState("overview");
+  const [medicalAccessCode, setMedicalAccessCode] = useState("");
+  const [medicalAccessExpiresAt, setMedicalAccessExpiresAt] = useState("");
+  const [medicalAccessMessage, setMedicalAccessMessage] = useState("");
+  const [medicalAccessLoading, setMedicalAccessLoading] = useState(false);
 
   useEffect(() => {
     const refreshStorageSnapshot = () => setStorageVersion((version) => version + 1);
@@ -635,6 +692,36 @@ const ResultPage_PA = () => {
     },
     [state.childId, state.patientId, state.resultData, storageVersion],
   );
+
+  const createMedicalAccessCode = async () => {
+    if (!currentChildId || medicalAccessLoading) return;
+    setMedicalAccessLoading(true);
+    setMedicalAccessMessage("");
+    const { data, error } = await supabase.rpc("create_patient_access_code", {
+      target_patient_id: currentChildId,
+    });
+    if (error) {
+      setMedicalAccessMessage(error.message.includes("Could not find the function")
+        ? "尚未安裝兒童醫療授權碼功能，請先執行最新 Supabase migration。"
+        : `無法產生授權碼：${error.message}`);
+    } else {
+      const result = Array.isArray(data) ? data[0] : data;
+      setMedicalAccessCode(result?.access_code || "");
+      setMedicalAccessExpiresAt(result?.expires_at || "");
+      setMedicalAccessMessage("新的授權碼已產生；先前尚未使用的授權碼已失效。");
+    }
+    setMedicalAccessLoading(false);
+  };
+
+  const copyMedicalAccessCode = async () => {
+    if (!medicalAccessCode) return;
+    try {
+      await navigator.clipboard.writeText(medicalAccessCode);
+      setMedicalAccessMessage("授權碼已複製，可交給負責照護的醫師。");
+    } catch (_error) {
+      setMedicalAccessMessage("無法自動複製，請手動抄寫畫面上的授權碼。");
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -721,15 +808,6 @@ const ResultPage_PA = () => {
   const selectedAssistantAnswer =
     assistantQuestions.find((item) => item.id === selectedQuestion) || assistantQuestions[0];
   const recommendedConfig = getRecommendedConfig(gameId, gameInfo, result, childName);
-  const topErrorEntries = useMemo(
-    () =>
-      Object.entries(result.errorTypes || {})
-        .filter(([, value]) => Number(value) > 0)
-        .sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0))
-        .slice(0, 3),
-    [result.errorTypes],
-  );
-
   // 歷史紀錄只顯示最新有資料的單一天，避免長期累積後頁面過長。
   // 使用最新紀錄日期，而不是系統今天，這樣舊資料或示範資料仍能正常顯示。
   const latestHistoryDayKey = useMemo(() => {
@@ -755,6 +833,27 @@ const ResultPage_PA = () => {
     () => dailyHistoryRecords.filter((record) => historyFilter === "all" || record.mode === historyFilter),
     [dailyHistoryRecords, historyFilter],
   );
+  const errorAnalysisRecords = useMemo(
+    () => {
+      const sourceRecords = dailyHistoryRecords.length
+        ? dailyHistoryRecords
+        : [{ id: "current-result", mode: normalizeMode(result.mode), result }];
+      return sourceRecords.filter((record) => errorModeFilter === "all" || record.mode === errorModeFilter);
+    },
+    [dailyHistoryRecords, errorModeFilter, result],
+  );
+  const errorAnalysisTypes = useMemo(
+    () => aggregateErrorTypes(errorAnalysisRecords),
+    [errorAnalysisRecords],
+  );
+  const topErrorEntries = useMemo(
+    () =>
+      Object.entries(errorAnalysisTypes)
+        .filter(([, value]) => Number(value) > 0)
+        .sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0))
+        .slice(0, 3),
+    [errorAnalysisTypes],
+  );
   const displayedHistoryDate = latestHistoryDayKey
     ? latestHistoryDayKey.replace(/-/g, "/")
     : "尚無紀錄";
@@ -762,12 +861,9 @@ const ResultPage_PA = () => {
   const trainingRecordCount = dailyHistoryRecords.filter((record) => record.mode === "training").length;
   const activeMenuItems = useMemo(
     () => [
-      { id: "overview", label: "今日總覽", helper: "先看結論" },
-      { id: "metrics", label: "表現數據", helper: "詳細數值" },
+      { id: "overview", label: "結果總覽", helper: "結論與下一步" },
       { id: "errors", label: "錯誤分析", helper: "卡住原因" },
-      { id: "recommend", label: "訓練建議", helper: "下次怎麼練" },
       { id: "history", label: "歷史紀錄", helper: `${dailyHistoryRecords.length || 0} 筆紀錄` },
-      { id: "assistant", label: "AI 小助手", helper: "直接詢問" },
     ],
     [dailyHistoryRecords.length],
   );
@@ -950,6 +1046,18 @@ const ResultPage_PA = () => {
             </div>
           </div>
 
+          <div className="history-filter-row" role="group" aria-label="錯誤分析紀錄篩選">
+            <button type="button" className={errorModeFilter === "all" ? "active" : ""} onClick={() => setErrorModeFilter("all")}>
+              全部（{dailyHistoryRecords.length || 1}）
+            </button>
+            <button type="button" className={errorModeFilter === "test" ? "active" : ""} onClick={() => setErrorModeFilter("test")}>
+              測驗（{testRecordCount}）
+            </button>
+            <button type="button" className={errorModeFilter === "training" ? "active" : ""} onClick={() => setErrorModeFilter("training")}>
+              訓練（{trainingRecordCount}）
+            </button>
+          </div>
+
           <div className="top-error-summary">
             {topErrorEntries.length > 0 ? (
               topErrorEntries.map(([key, value]) => (
@@ -973,7 +1081,7 @@ const ResultPage_PA = () => {
           </div>
 
           <div className="error-chip-grid detail-error-grid">
-            {Object.entries(result.errorTypes).map(([key, value]) => (
+            {Object.entries(errorAnalysisTypes).map(([key, value]) => (
               <button
                 type="button"
                 key={key}
@@ -1129,8 +1237,8 @@ const ResultPage_PA = () => {
           </article>
           <article>
             <span>下次建議</span>
-            <strong>{difficultyTextMap[result.recommendedDifficulty] || result.recommendedDifficulty}難度</strong>
-            <button type="button" onClick={() => setActiveSection("recommend")}>查看訓練建議</button>
+            <strong>{difficultyTextMap[result.recommendedDifficulty] || result.recommendedDifficulty}難度 · {recommendedConfig.recommendedMinutes} 分鐘</strong>
+            <small>完整建議與套用按鈕位於下方</small>
           </article>
           <article>
             <span>今日紀錄</span>
@@ -1138,6 +1246,25 @@ const ResultPage_PA = () => {
             <button type="button" onClick={() => setActiveSection("history")}>查看歷史紀錄</button>
           </article>
         </div>
+
+        <section className="dashboard-next-step overview-next-step" aria-label="下一步訓練建議">
+          <div className="dashboard-next-step-heading">
+            <div><p className="eyebrow">下一步</p><h2>建議這樣練</h2></div>
+            <strong>{difficultyTextMap[result.recommendedDifficulty] || result.recommendedDifficulty}難度 · {recommendedConfig.recommendedMinutes} 分鐘</strong>
+          </div>
+          <div className="recommend-grid">
+            <article><span>提示方式</span><strong>{recommendedConfig.supportSuggestion}</strong></article>
+            <article><span>觀察重點</span><strong>{recommendedConfig.observationFocus}</strong></article>
+            <article><span>主要問題</span><strong>{topErrorEntries.length > 0 ? `${errorLabelMap[topErrorEntries[0][0]] || topErrorEntries[0][0]} ${Number(topErrorEntries[0][1]) || 0} 次` : "沒有明顯集中錯誤"}</strong></article>
+          </div>
+          <p>{getMainAdvice(result)}</p>
+          <div className="apply-row">
+            <button type="button" className="forest-primary-button small" onClick={applyAiRecommendation}>
+              套用這個訓練建議
+            </button>
+            {applyMessage && <span>{applyMessage}</span>}
+          </div>
+        </section>
       </section>
     );
   };
@@ -1200,37 +1327,43 @@ const ResultPage_PA = () => {
             {renderActiveSection()}
           </section>
 
-          {activeSection === "overview" && (
-            <section className="forest-card dashboard-next-step" aria-label="下一步訓練建議">
-              <div className="dashboard-next-step-heading">
-                <div><p className="eyebrow">下一步</p><h2>建議這樣練</h2></div>
-                <strong>{difficultyTextMap[result.recommendedDifficulty] || result.recommendedDifficulty}難度 · {recommendedConfig.recommendedMinutes} 分鐘</strong>
-              </div>
-              <div className="recommend-grid">
-                <article><span>提示方式</span><strong>{recommendedConfig.supportSuggestion}</strong></article>
-                <article><span>觀察重點</span><strong>{recommendedConfig.observationFocus}</strong></article>
-                <article><span>主要問題</span><strong>{topErrorEntries.length > 0 ? `${errorLabelMap[topErrorEntries[0][0]] || topErrorEntries[0][0]} ${Number(topErrorEntries[0][1]) || 0} 次` : "沒有明顯集中錯誤"}</strong></article>
-              </div>
-              <p>{getMainAdvice(result)}</p>
-              <div className="apply-row">
-                <button type="button" className="forest-primary-button small" onClick={applyAiRecommendation}>
-                  套用：{difficultyTextMap[result.recommendedDifficulty] || result.recommendedDifficulty}難度 · {recommendedConfig.recommendedMinutes} 分鐘
+          <details className="forest-card medical-access-disclosure">
+            <summary>
+              <span><strong>更多功能</strong><small>醫療端連結與兒童授權碼</small></span>
+              <span className="disclosure-hint">展開</span>
+            </summary>
+            <div className="medical-access-content">
+              <p className="eyebrow">醫療端連結</p>
+              <h2>讓醫師新增 {childName}</h2>
+              <p>產生一組一次性授權碼，再由醫師於醫療端輸入。授權碼有效 7 天，使用一次後立即失效。</p>
+              {medicalAccessCode && (
+                <div className="medical-access-code-row">
+                  <strong className="medical-access-code">{medicalAccessCode}</strong>
+                  <button type="button" className="forest-primary-button small" onClick={copyMedicalAccessCode}>複製授權碼</button>
+                </div>
+              )}
+              {medicalAccessExpiresAt && <small>有效期限：{new Date(medicalAccessExpiresAt).toLocaleString("zh-TW")}</small>}
+              <div className="medical-access-action">
+                <button type="button" className="forest-primary-button small" onClick={createMedicalAccessCode} disabled={!currentChildId || medicalAccessLoading}>
+                  {medicalAccessLoading ? "產生中…" : medicalAccessCode ? "重新產生授權碼" : "產生醫療授權碼"}
                 </button>
-                {applyMessage && <span>{applyMessage}</span>}
               </div>
-            </section>
-          )}
+              {medicalAccessMessage && <p role="status">{medicalAccessMessage}</p>}
+            </div>
+          </details>
 
           <p className="safe-note">
             本頁結果僅作為家長觀察與訓練調整參考，不代表正式診斷。若長期出現明顯困難，建議與專業人員討論。
           </p>
 
           <footer className="dashboard-footer-actions">
-            <button type="button" className="footer-image-button" onClick={goForest} aria-label="回到主頁" title="回到主頁">
+            <button type="button" className="footer-action-button primary" onClick={goForest}>
               <img src={backIcon} alt="回到主頁" draggable="false" />
+              <span>回到首頁</span>
             </button>
-            <button type="button" className="footer-image-button" onClick={() => setIsResetConfirmOpen(true)} aria-label="重新測驗" title="重新測驗">
+            <button type="button" className="footer-action-button danger" onClick={() => setIsResetConfirmOpen(true)}>
               <img src={resetIcon} alt="重新測驗" draggable="false" />
+              <span>重新測驗</span>
             </button>
           </footer>
         </section>
@@ -1771,6 +1904,14 @@ const resultPageStyle = `
   color: var(--brown);
   font-size: 1.08rem;
   line-height: 1.35;
+}
+
+.overview-mini-grid small {
+  display: block;
+  margin-top: 8px;
+  color: #7d6139;
+  font-weight: 750;
+  line-height: 1.45;
 }
 
 .overview-mini-grid button {
@@ -2951,7 +3092,7 @@ const resultPageStyle = `
   top: 10px;
   z-index: 20;
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   padding: 7px;
   border-radius: 20px;
@@ -2992,6 +3133,55 @@ const resultPageStyle = `
   background: linear-gradient(135deg, rgba(238, 250, 220, .97), rgba(255, 251, 226, .97)) !important;
 }
 
+.overview-next-step {
+  margin-top: 8px;
+  border: 2px solid rgba(118, 180, 83, .22);
+  box-shadow: none;
+}
+
+.medical-access-disclosure {
+  margin-top: 4px;
+  border-radius: 22px !important;
+  overflow: hidden;
+}
+
+.medical-access-disclosure summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.medical-access-disclosure summary::-webkit-details-marker { display: none; }
+.medical-access-disclosure summary > span:first-child { display: grid; gap: 3px; }
+.medical-access-disclosure summary strong { font-size: 1.05rem; }
+.medical-access-disclosure summary small { color: #7d6139; font-weight: 750; }
+.medical-access-disclosure .disclosure-hint {
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: #eef8e5;
+  color: #52723b;
+  font-size: .86rem;
+  font-weight: 900;
+}
+.medical-access-disclosure[open] .disclosure-hint { font-size: 0; }
+.medical-access-disclosure[open] .disclosure-hint::after { content: "收合"; font-size: .86rem; }
+.medical-access-content { padding: 4px 22px 22px; border-top: 1px solid rgba(125, 97, 57, .14); }
+.medical-access-content h2 { margin: 5px 0 8px; }
+.medical-access-code-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 16px 0; }
+.medical-access-code {
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: #eef7ff;
+  color: #1f5f8b;
+  font-size: 1.5rem;
+  letter-spacing: 3px;
+}
+.medical-access-action { margin-top: 14px; }
+
 .dashboard-next-step-heading {
   display: flex;
   align-items: center;
@@ -3024,6 +3214,25 @@ const resultPageStyle = `
   gap: 16px;
   padding: 8px 0 14px;
 }
+
+.footer-action-button {
+  min-height: 54px;
+  padding: 8px 20px 8px 12px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 950;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.footer-action-button img { width: 48px; height: 38px; object-fit: contain; }
+.footer-action-button.primary { background: #3f8ce5; color: white; box-shadow: 0 6px 14px rgba(37, 89, 151, .2); }
+.footer-action-button.danger { background: rgba(255, 252, 238, .92); color: #b94e42; border-color: rgba(185, 78, 66, .3); }
+.footer-action-button:hover { transform: translateY(-1px); }
 
 .footer-image-button {
   display: block;
@@ -3159,7 +3368,7 @@ const resultPageStyle = `
 
 @media (max-width: 900px) {
   .result-pa-dashboard .menu-hero-summary-card { grid-template-columns: 1fr; }
-  .dashboard-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); position: relative; top: auto; }
+  .dashboard-tabs { position: relative; top: auto; }
 }
 
 @media (max-width: 620px) {
@@ -3170,14 +3379,13 @@ const resultPageStyle = `
   .result-pa-dashboard .summary-bubble { min-height: 76px; padding: 7px 3px; border-radius: 14px; }
   .result-pa-dashboard .summary-bubble span { font-size: .78rem; }
   .result-pa-dashboard .summary-bubble strong { font-size: 1.08rem; }
-  .dashboard-tabs { display: flex; overflow-x: auto; scrollbar-width: none; padding: 6px; }
-  .dashboard-tabs::-webkit-scrollbar { display: none; }
-  .dashboard-tabs button { flex: 0 0 92px; min-height: 52px; }
+  .dashboard-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 6px; }
+  .dashboard-tabs button { min-width: 0; min-height: 52px; }
   .dashboard-tabs button span { display: none; }
   .dashboard-next-step-heading { align-items: flex-start; flex-direction: column; }
   .dashboard-next-step-heading > strong { white-space: normal; }
-  .dashboard-footer-actions { align-items: center; flex-direction: row; }
-  .footer-image-button img { max-width: 44vw; height: 72px; }
+  .dashboard-footer-actions { align-items: stretch; flex-direction: column; }
+  .footer-action-button { width: 100%; }
   .reset-confirm-modal { padding: 24px 18px; border-radius: 22px; }
   .reset-confirm-actions { grid-template-columns: 1fr; }
   .assist-floating-button span { display: none; }

@@ -47,7 +47,7 @@ export const GAME_META = {
   },
   LB: {
     gameId: "LB",
-    gameName: "順序切換任務",
+    gameName: "幫助迷路的綿羊奶奶",
     abilityType: "cognitiveFlexibility",
     abilityLabel: "認知彈性",
   },

@@ -38,42 +38,29 @@ export function AddPatientModal({ form, error, submitting, onFieldChange, onClos
       >
         <div style={modalHeaderStyle}>
           <div>
-            <h2 id="clinician-add-patient-title" style={modalTitleStyle}>新增兒童資料</h2>
-            <p style={modalDescStyle}>孩子會綁定既有家長帳號，並自動授權給目前醫療人員。</p>
+            <h2 id="clinician-add-patient-title" style={modalTitleStyle}>新增已授權兒童</h2>
+            <p style={modalDescStyle}>請輸入家長從兒童結果頁產生的一次性醫療授權碼。</p>
           </div>
           <button type="button" aria-label="關閉新增兒童視窗" onClick={onClose} disabled={submitting} style={closeButtonStyle}>×</button>
         </div>
 
         <label style={labelStyle}>
-          家長帳號 Email（必填）
-          <input type="email" value={form.guardianEmail} onChange={onFieldChange("guardianEmail")} style={inputStyle} disabled={submitting} />
+          醫療授權碼
+          <input
+            value={form.accessCode}
+            onChange={onFieldChange("accessCode")}
+            placeholder="例如 A1B2C3-D4E5F6"
+            maxLength={13}
+            autoComplete="one-time-code"
+            style={{ ...inputStyle, textTransform: "uppercase", letterSpacing: "2px", fontWeight: "800" }}
+            disabled={submitting}
+          />
         </label>
-        <div style={twoColumnStyle}>
-          <label style={labelStyle}>
-            孩子暱稱（必填）
-            <input value={form.nickname} onChange={onFieldChange("nickname")} maxLength={12} style={inputStyle} disabled={submitting} />
-          </label>
-          <label style={labelStyle}>
-            孩子姓名（選填）
-            <input value={form.fullName} onChange={onFieldChange("fullName")} style={inputStyle} disabled={submitting} />
-          </label>
-          <label style={labelStyle}>
-            出生日期（必填）
-            <input type="date" value={form.birthDate} onChange={onFieldChange("birthDate")} max={new Date().toISOString().slice(0, 10)} style={inputStyle} disabled={submitting} />
-          </label>
-          <label style={labelStyle}>
-            性別（必填）
-            <select value={form.gender} onChange={onFieldChange("gender")} style={inputStyle} disabled={submitting}>
-              <option value="">請選擇</option><option value="male">男</option>
-              <option value="female">女</option><option value="undisclosed">暫不透露</option>
-            </select>
-          </label>
-        </div>
 
         {error && <div role="alert" style={formErrorStyle}>{error}</div>}
         <div style={modalActionsStyle}>
           <button type="button" onClick={onClose} disabled={submitting} style={cancelButtonStyle}>取消</button>
-          <button type="submit" disabled={submitting} style={primaryButtonStyle}>{submitting ? "建立中..." : "建立並連結"}</button>
+          <button type="submit" disabled={submitting} style={primaryButtonStyle}>{submitting ? "驗證中..." : "驗證並新增兒童"}</button>
         </div>
       </form>
     </div>
@@ -128,7 +115,6 @@ const modalHeaderStyle = { display: "flex", justifyContent: "space-between", gap
 const modalTitleStyle = { margin: 0, color: "#245b70", fontSize: "24px" };
 const modalDescStyle = { margin: "7px 0 0", color: "#64748b", lineHeight: 1.5 };
 const closeButtonStyle = { width: "38px", height: "38px", border: 0, borderRadius: "50%", background: "#eef2f7", color: "#475569", fontSize: "24px", cursor: "pointer" };
-const twoColumnStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px" };
 const labelStyle = { display: "grid", gap: "7px", marginBottom: "14px", color: "#475569", fontSize: "14px", fontWeight: "850" };
 const inputStyle = { width: "100%", minHeight: "44px", boxSizing: "border-box", padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: "12px", background: "#fff", color: "#1e293b", fontSize: "15px" };
 const formErrorStyle = { marginTop: "4px", padding: "10px 12px", borderRadius: "12px", background: "#fff1f2", color: "#a12b3a", fontWeight: "800" };

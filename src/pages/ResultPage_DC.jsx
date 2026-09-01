@@ -31,7 +31,7 @@ const GAME_LABELS = {
   CBT: { name: "CBT 石頭路徑記憶", ability: "工作記憶" },
   SSG: { name: "SSG 蒼蠅干擾任務", ability: "抑制控制" },
   DCCS: { name: "DCCS 規則分類任務", ability: "認知彈性" },
-  LB: { name: "LB 順序切換任務", ability: "認知彈性" },
+  LB: { name: "幫助迷路的綿羊奶奶", ability: "認知彈性" },
   DEFAULT: { name: "森林認知任務", ability: "綜合能力" },
 };
 

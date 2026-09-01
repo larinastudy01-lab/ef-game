@@ -36,6 +36,7 @@ import homeBackBtn from "../asset/return.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
 import homeStartBtn from "../asset/home/start.webp";
 import homeNextBtn from "../asset/home/next.webp";
+import homeSendBtn from "../asset/home/send.webp";
 
 const ALL_ITEMS = [
   { id: "PM01", image: PM01, alt: "生日蛋糕" },
@@ -1448,8 +1449,10 @@ export default function TrainingPage_PM() {
 
               <button
                 type="button"
+                aria-label="放進小籃子"
                 style={{
-                  ...styles.mainButton,
+                  ...styles.imageButton,
+                  ...styles.sendImageButton,
                   opacity: selectedIds.length === currentConfig.memoryCount ? 1 : 0.5,
                   cursor: selectedIds.length === currentConfig.memoryCount ? "pointer" : "not-allowed",
                 }}
@@ -1459,7 +1462,13 @@ export default function TrainingPage_PM() {
                 }}
                 disabled={selectedIds.length !== currentConfig.memoryCount}
               >
-                放進小籃子
+                <img
+                  width={1024}
+                  height={341}
+                  src={homeSendBtn}
+                  alt="放進小籃子"
+                  style={styles.imageButtonImg}
+                />
               </button>
             </div>
           )}
@@ -2240,6 +2249,10 @@ const styles = {
     userSelect: "none",
     WebkitUserDrag: "none",
     filter: "drop-shadow(0 8px 8px rgba(74, 48, 16, 0.22))",
+  },
+
+  sendImageButton: {
+    marginTop: "6px",
   },
 
   mouseGuide: {

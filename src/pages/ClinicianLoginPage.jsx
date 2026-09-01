@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 
 const CLINICIAN_ROLES = ["clinician", "medical", "doctor", "醫療人員"];
-const PARENT_FALLBACK_ROUTE = "/game-menu";
 
 function normalizeRole(role) {
   return String(role || "").trim().toLowerCase();
@@ -36,13 +35,20 @@ function ClinicianLoginPage() {
     return { role: profile?.role ?? null, error };
   }, []);
 
-  const redirectByRole = useCallback((role) => {
+  const redirectByRole = useCallback(async (role) => {
+    if (normalizeRole(role) === "admin") {
+      navigate("/admin/clinician-applications", { replace: true });
+      return;
+    }
     if (isClinicianRole(role)) {
       navigate("/clinician-dashboard", { replace: true });
       return;
     }
 
-    navigate(PARENT_FALLBACK_ROUTE, { replace: true });
+    // The clinician portal is an independent entry point. If a parent/child
+    // session is still active, clear it and keep showing the clinician login
+    // form instead of sending the user back to the game menu.
+    await supabase.auth.signOut();
   }, [navigate]);
 
   useEffect(() => {
@@ -66,7 +72,7 @@ function ClinicianLoginPage() {
           return;
         }
 
-        redirectByRole(role);
+        await redirectByRole(role);
       } catch (error) {
         console.error("Failed to validate existing clinician session:", error);
       }
@@ -131,7 +137,7 @@ function ClinicianLoginPage() {
         return;
       }
 
-      if (!isClinicianRole(role)) {
+      if (!isClinicianRole(role) && normalizeRole(role) !== "admin") {
         await supabase.auth.signOut();
         setPassword("");
         setMessage("此頁面僅供醫療人員使用。家長帳號請返回首頁，改由家長入口登入。");
@@ -534,6 +540,9 @@ function ClinicianLoginPage() {
 
           <button type="button" onClick={() => navigate("/")} className="secondary-button">
             返回首頁 / 家長入口
+          </button>
+          <button type="button" onClick={() => navigate("/clinician-apply")} className="secondary-button">
+            申請醫療帳號
           </button>
         </section>
       </main>

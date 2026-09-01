@@ -1618,10 +1618,6 @@ export default function TestPage_CBT() {
 
     setMessage("下一題。");
     setPhase("next");
-
-    setManagedTimeout(() => {
-      startQuestion(questionIndex + 1);
-    }, 900);
   }
 
   function prepareFinish(finalHistory = historyRef.current) {
@@ -2025,8 +2021,8 @@ export default function TestPage_CBT() {
       <style>{cbtSrtLikeCss}</style>
 
       {phase === "story" && (
-        <main className="cbt-start-shell game-start-card-artwork cbt-opening-card-artwork" aria-label="石頭路線記憶測驗開始畫面">
-          <h1 className="cbt-start-title">石頭路線記憶</h1>
+        <main className="cbt-start-shell game-start-card-artwork cbt-opening-card-artwork" aria-label="記住跳石橋的密碼幫助鹿先生測驗開始畫面">
+          <h1 className="cbt-start-title">記住跳石橋的密碼幫助鹿先生</h1>
 
           <div className="cbt-start-content">
             <div className="cbt-dialog-bubble">幫小鹿記住石頭亮起的路線。</div>
@@ -2064,17 +2060,14 @@ export default function TestPage_CBT() {
         <div className="cbt-card cbt-card--wide">
           <div className="cbt-info">練習</div>
 
-          <h2 className="cbt-subtitle">
-            {phase === "warmupShow"
-              ? "看亮燈"
-              : "換你點"}
-          </h2>
-
-          <p className="cbt-text" style={{ fontSize: 20, marginBottom: 4 }}>
-            {phase === "warmupShow"
-              ? "先看，不用點。"
-              : "照順序點。"}
-          </p>
+          <div className="cbt-instruction-pill">
+            <h2 className="cbt-subtitle">
+              {phase === "warmupShow" ? "看亮燈" : "換你點"}
+            </h2>
+            <p className="cbt-text">
+              {phase === "warmupShow" ? "先看，不用點。" : "照順序點。"}
+            </p>
+          </div>
 
           <CBTBoard
             blocks={blocks}
@@ -2133,17 +2126,14 @@ export default function TestPage_CBT() {
       {(phase === "show" || phase === "answer") && (
         <div className="cbt-card cbt-card--wide cbt-test-card">
 
-          <h2 className="cbt-subtitle">
-            {phase === "show"
-              ? "看亮燈"
-              : "換你點"}
-          </h2>
-
-          <p className="cbt-text" style={{ fontSize: 20, marginBottom: 4 }}>
-            {phase === "show"
-              ? "先看，不用點。"
-              : "照順序點。"}
-          </p>
+          <div className="cbt-instruction-pill">
+            <h2 className="cbt-subtitle">
+              {phase === "show" ? "看亮燈" : "換你點"}
+            </h2>
+            <p className="cbt-text">
+              {phase === "show" ? "先看，不用點。" : "照順序點。"}
+            </p>
+          </div>
 
           <CBTBoard
             blocks={blocks}
@@ -2168,6 +2158,14 @@ export default function TestPage_CBT() {
         <div className="cbt-card cbt-card--small game-start-card-artwork cbt-feedback-card-artwork">
           <h1 className="cbt-title">對了！</h1>
           <div className="cbt-result-message">{message}</div>
+          <GuidedImageButton
+            imgSrc={homeNextBtn}
+            imgAlt="下一題"
+            ariaLabel="進入下一題"
+            onClick={() => startQuestion(questionIndex + 1)}
+            showMouse
+            variant="next"
+          />
         </div>
       )}
 
@@ -2470,25 +2468,25 @@ function InteractiveGuide({ guideStep, setGuideStep, onReady, stoneImg, personIm
       <div className="cbt-old-guide-action-row">
         {mode === "demo" && (
           <GuidedImageButton
-            imgSrc={homeStartBtn}
-            imgAlt="開始遊戲"
+            imgSrc={homeNextBtn}
+            imgAlt="下一步"
             ariaLabel="繼續練習"
             disabled={!demoDone}
             onClick={() => setGuideStep(1)}
             showMouse={demoDone}
-            variant="start"
+            variant="next"
           />
         )}
 
         {mode === "practice" && (
           <GuidedImageButton
-            imgSrc={homeStartBtn}
-            imgAlt="開始遊戲"
+            imgSrc={homeNextBtn}
+            imgAlt="下一步"
             ariaLabel="繼續"
             disabled={!practiceDone}
             onClick={() => setGuideStep(2)}
             showMouse={practiceDone}
-            variant="start"
+            variant="next"
           />
         )}
 

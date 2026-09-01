@@ -11,7 +11,7 @@ import startAvatar from "../asset/avatar/deer.webp";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
 import homeNextBtn from "../asset/home/next.webp";
-import homeBackBtn from "../asset/return.webp";
+import homeBackBtn from "../asset/home/back.webp";
 import homeAgainBtn from "../asset/home/again.webp";
 import homeResultBtn from "../asset/home/result.webp";
 import mouseGuideImg from "../asset/mouse.webp";
@@ -2899,8 +2899,8 @@ export default function TrainingPage_CBT() {
       <style>{cbtTrainingTouchCss}</style>
 
       {phase === "ready" && (
-        <main className="cbt-start-shell game-start-card-artwork cbt-opening-card-artwork" aria-label="石頭練習開始畫面">
-          <h1 className="cbt-start-title">石頭練習</h1>
+        <main className="cbt-start-shell game-start-card-artwork cbt-opening-card-artwork" aria-label="記住跳石橋的密碼幫助鹿先生開始畫面">
+          <h1 className="cbt-start-title">記住跳石橋的密碼幫助鹿先生</h1>
 
           <div className="cbt-start-content">
             <div className="cbt-dialog-bubble">
@@ -2931,13 +2931,14 @@ export default function TrainingPage_CBT() {
 
       {(phase === "warmupShow" || phase === "warmupAnswer") && (
         <div className="cbt-card cbt-card--wide cbt-test-card cbt-play-card-minimal">
-          <h2 className="cbt-subtitle">
-            {phase === "warmupShow" ? "看亮燈" : "換你點"}
-          </h2>
-
-          <p className="cbt-quiet-prompt">
-            {phase === "warmupShow" ? "先看。" : "照順序點。"}
-          </p>
+          <div className="cbt-instruction-pill">
+            <h2 className="cbt-subtitle">
+              {phase === "warmupShow" ? "看亮燈" : "換你點"}
+            </h2>
+            <p className="cbt-quiet-prompt">
+              {phase === "warmupShow" ? "先看。" : "照順序點。"}
+            </p>
+          </div>
 
           <CBTBoard
             blocks={blocks}
@@ -2974,13 +2975,14 @@ export default function TrainingPage_CBT() {
 
       {(phase === "show" || phase === "answer") && (
         <div className="cbt-card cbt-card--wide cbt-test-card cbt-play-card-minimal">
-          <h2 className="cbt-subtitle">
-            {phase === "show" ? "看亮燈" : "換你點"}
-          </h2>
-
-          <p className="cbt-quiet-prompt">
-            {phase === "show" ? "先看，不用點。" : "照順序點。"}
-          </p>
+          <div className="cbt-instruction-pill">
+            <h2 className="cbt-subtitle">
+              {phase === "show" ? "看亮燈" : "換你點"}
+            </h2>
+            <p className="cbt-quiet-prompt">
+              {phase === "show" ? "先看，不用點。" : "照順序點。"}
+            </p>
+          </div>
 
           <CBTBoard
             blocks={blocks}
@@ -3029,13 +3031,14 @@ export default function TrainingPage_CBT() {
             )}
 
             {!shouldOfferRescueRetry && (
-              <button
-                type="button"
-                className="cbt-main-button"
+              <GuidedImageButton
+                imgSrc={homeNextBtn}
+                imgAlt="下一題"
+                ariaLabel="進入下一題"
                 onClick={goNextRound}
-              >
-                下一題
-              </button>
+                showMouse
+                variant="next"
+              />
             )}
           </div>
         </div>

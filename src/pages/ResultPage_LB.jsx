@@ -951,7 +951,7 @@ export default function ResultPage_LB() {
         <main style={styles.mainCard}>
           <header style={styles.header}>
             <p style={styles.modeTag}>{mode === "training" ? "練習結果" : "測驗結果"}</p>
-            <h1 style={styles.title}>氣球小路結果</h1>
+            <h1 style={styles.title}>幫助迷路的綿羊奶奶結果</h1>
             <p style={styles.subtitle}>
               這一頁用白話方式幫家長了解：孩子有沒有看懂規則、切換規則，以及作答時是否穩定。
             </p>

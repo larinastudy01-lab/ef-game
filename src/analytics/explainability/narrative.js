@@ -7,7 +7,7 @@ const LABELS = {
 export function humanizeFeature(feature = "") {
   const direct = LABELS[feature]; if (direct) return direct;
   return feature.replace(/^corsi_/, "Corsi ").replace(/^picture_memory_/, "Picture Memory ")
-    .replace(/^srt_/, "SRT ").replace(/^ssg_/, "SSG ").replace(/^linking_balloons_/, "Linking Balloons ")
+    .replace(/^srt_/, "SRT ").replace(/^ssg_/, "SSG ").replace(/^linking_balloons_/, "幫助迷路的綿羊奶奶 ")
     .replace(/^dccs_/, "DCCS ").replaceAll("_", " ");
 }
 
@@ -26,4 +26,3 @@ export function assertNonDiagnosticText(text = "") {
   if (forbidden.some((pattern) => pattern.test(text))) throw new Error("Diagnostic language is not permitted in behavioral model explanations.");
   return text;
 }
-

@@ -10,7 +10,7 @@ import "../styles/LongitudinalDashboard.css";
 import "../styles/ResearchDashboardTheme.css";
 
 const TASKS = ["CBT", "PM", "SRT", "SSG", "LB", "DCCS"];
-const TASK_LABELS = { CBT: "跳石橋", PM: "圖片記憶", SRT: "松鼠接橡實", SSG: "點探測任務", LB: "連線氣球", DCCS: "卡片分類" };
+const TASK_LABELS = { CBT: "跳石橋", PM: "圖片記憶", SRT: "松鼠接橡實", SSG: "點探測任務", LB: "幫助迷路的綿羊奶奶", DCCS: "卡片分類" };
 const format = (value, digits = 3) => Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : "—";
 const date = (value) => value ? new Date(value).toLocaleDateString() : "—";
 

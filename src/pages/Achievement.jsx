@@ -57,7 +57,7 @@ const CATEGORY_OPTIONS = [
   { id: "CBT", label: "CBT" },
   { id: "SSG", label: "SSG" },
   { id: "DCCS", label: "DCCS" },
-  { id: "LB", label: "LB" },
+  { id: "LB", label: "幫助迷路的綿羊奶奶" },
 ];
 
 const ACHIEVEMENTS = [
@@ -245,7 +245,7 @@ const ACHIEVEMENTS = [
     id: "lb_doorplate_navigator",
     name: "門牌導航員",
     category: "LB",
-    categoryLabel: "LB 數字門牌",
+    categoryLabel: "幫助迷路的綿羊奶奶",
     description: "累積依正確順序點擊門牌",
     thresholds: [20, 60, 150, 300, 600],
     unit: "次",
@@ -255,7 +255,7 @@ const ACHIEVEMENTS = [
     id: "lb_forest_mission",
     name: "森林任務王",
     category: "LB",
-    categoryLabel: "LB 數字門牌",
+    categoryLabel: "幫助迷路的綿羊奶奶",
     description: "以至少二星完成指定最高關卡",
     thresholds: [1, 3, 6, 10, 12],
     unit: "關",
@@ -1326,7 +1326,7 @@ const FLOATING_NAV_ITEMS = [
   { id: "CBT", label: "CBT 石頭路記憶", shortLabel: "CBT", iconSrc: cbtGameIcon },
   { id: "SSG", label: "SSG 貓狗聲音", shortLabel: "SSG", iconSrc: ssgGameIcon },
   { id: "DCCS", label: "DCCS 衣物分類", shortLabel: "DCCS", iconSrc: dccsGameIcon },
-  { id: "LB", label: "LB 數字門牌", shortLabel: "LB", iconSrc: lbGameIcon },
+  { id: "LB", label: "幫助迷路的綿羊奶奶", shortLabel: "LB", iconSrc: lbGameIcon },
   { id: "stickers", label: "一般貼紙", shortLabel: "貼紙", icon: "🎀" },
 ];
 
@@ -2212,11 +2212,13 @@ function AchievementStyles() {
         border: 0;
         border-radius: 0;
         color: var(--achievement-panel-text);
+        background-color: transparent;
         background-image: var(--achievement-game-card);
         background-position: center;
         background-repeat: no-repeat;
         background-size: 100% 100%;
-        box-shadow: var(--achievement-panel-shadow);
+        box-shadow: none;
+        isolation: auto;
       }
 
       .achievement-floating-window::before {

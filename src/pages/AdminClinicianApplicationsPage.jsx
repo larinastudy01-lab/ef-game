@@ -1,0 +1,13 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabaseClient";
+
+export default function AdminClinicianApplicationsPage(){
+ const navigate=useNavigate(),[items,setItems]=useState([]),[message,setMessage]=useState(""),[busy,setBusy]=useState(null);
+ async function load(){const{data,error}=await supabase.from("clinician_applications").select("*").in("status",["pending","needs_more_info"]).order("submitted_at");if(error)setMessage(error.message);else setItems(data||[]);}
+ useEffect(()=>{load();},[]);
+ async function review(item,decision){const note=window.prompt(decision==="approved"?"審核備註（可留空）":"請輸入給申請人的說明");if(note===null)return;setBusy(item.id);setMessage("");const{error}=await supabase.rpc("review_clinician_application",{target_application_id:item.id,decision,reviewer_note:note||null,checked_source:"管理員人工核驗"});if(error)setMessage(error.message);else{setMessage(decision==="approved"?"已核准，帳號已自動開通醫療端。":"審核結果已儲存。");await load();}setBusy(null);}
+ return <main style={s.page}><section style={s.shell}><button style={s.back} onClick={()=>navigate("/clinician-login")}>← 返回登入頁</button><h1>醫療帳號申請審核</h1><p>第一階段依醫師提供的醫院與科別等基本資訊審核；核准後角色會自動改為 clinician。</p>{message&&<div style={s.message}>{message}</div>}{!items.length?<div style={s.empty}>目前沒有待審申請。</div>:items.map(item=><article key={item.id} style={s.card}><h2 style={{marginTop:0}}>{item.legal_name}</h2><p>醫師 · {item.institution_name} · {item.practice_city}</p><p>科別／部門：{item.department}</p><div style={s.actions}><button disabled={busy===item.id} style={s.approve} onClick={()=>review(item,"approved")}>核准並開通</button><button disabled={busy===item.id} style={s.more} onClick={()=>review(item,"needs_more_info")}>要求補件</button><button disabled={busy===item.id} style={s.reject} onClick={()=>review(item,"rejected")}>拒絕</button></div></article>)}</section></main>;
+}
+const button={padding:"10px 16px",border:0,borderRadius:9,color:"white",fontWeight:700,cursor:"pointer"};
+const s={page:{minHeight:"100vh",padding:28,boxSizing:"border-box",background:"#eef5f8",fontFamily:'"Noto Sans TC",sans-serif',color:"#173f5f"},shell:{width:"min(1050px,100%)",margin:"auto"},back:{border:0,background:"transparent",color:"#2775a5",cursor:"pointer"},card:{margin:"18px 0",padding:24,borderRadius:18,background:"white",boxShadow:"0 8px 28px rgba(30,75,100,.1)"},actions:{display:"flex",gap:10,flexWrap:"wrap"},approve:{...button,background:"#267c57"},more:{...button,background:"#d89123"},reject:{...button,background:"#b84747"},message:{padding:14,borderRadius:10,background:"#dfeef6"},empty:{marginTop:24,padding:30,textAlign:"center",background:"white",borderRadius:16}};

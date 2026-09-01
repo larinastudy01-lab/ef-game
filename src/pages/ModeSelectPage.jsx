@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getResultsByPatientFromCloud } from "../lib/database";
+import { createOnlineRecommendation } from "../analytics/recommendation/onlineRecommendation";
 
 import modelBackground from "../asset/home/model_background.webp";
 import cardBg from "../asset/home/card.webp";
 import testMapButton from "../asset/home/testmap.webp";
 import trainingMapButton from "../asset/home/trainingmap.webp";
-import testIcon from "../asset/test.webp";
+import testIcon from "../asset/home/test.webp";
 import trainingIcon from "../asset/training.webp";
 import parentsIcon from "../asset/parents.webp";
 import returnButton from "../asset/return.webp";
@@ -54,6 +55,11 @@ const saveTrainingSettings = (settings) => {
 const ALL_RESULTS_KEY = "efGameResults";
 
 const TRAINING_GAME_IDS = ["srt", "pm", "cbt", "ssg", "dccs", "lb"];
+
+export const getRecommendedGameIdFromDecision = (decision) => {
+  const gameId = String(decision?.selected_action?.task_code || "").toLowerCase();
+  return TRAINING_GAME_IDS.includes(gameId) ? gameId : null;
+};
 
 const TRAINING_GAME_TITLES = [
   "幫小飛鼠弟弟接住掉落的橡實",
@@ -481,6 +487,9 @@ const ModeSelectPage = () => {
   const [selectedTrainingGameIds, setSelectedTrainingGameIds] = useState([]);
   const [isRecommendationApplied, setIsRecommendationApplied] = useState(false);
   const [cloudResults, setCloudResults] = useState([]);
+  const [isRecommendationLoading, setIsRecommendationLoading] = useState(false);
+  const [recommendationNotice, setRecommendationNotice] = useState("");
+  const [onlineRecommendation, setOnlineRecommendation] = useState(null);
 
   const childId = child?.childId || child?.id || child?.patientId || getCurrentChildId();
 
@@ -527,11 +536,6 @@ const ModeSelectPage = () => {
     [selectedTrainingGameIds]
   );
 
-  const recommendedTrainingGameTitles = useMemo(
-    () => getTrainingGameTitles(recommendedTrainingGameIds),
-    [recommendedTrainingGameIds]
-  );
-
   const toggleTrainingGame = (gameId) => {
     setIsRecommendationApplied(false);
     setSelectedTrainingGameIds((currentIds) =>
@@ -551,9 +555,34 @@ const ModeSelectPage = () => {
     setSelectedTrainingGameIds([]);
   };
 
-  const applyRecommendedTraining = () => {
-    setIsRecommendationApplied(true);
-    setSelectedTrainingGameIds(recommendedTrainingGameIds);
+  const applyRecommendedTraining = async () => {
+    if (isRecommendationLoading) return;
+    setIsRecommendationLoading(true);
+    setRecommendationNotice("");
+
+    try {
+      const decision = await createOnlineRecommendation({
+        patientId: childId,
+        allowedTasks: TRAINING_GAME_IDS.map((gameId) => gameId.toUpperCase()),
+        currentDifficulty: 1,
+        results: cloudResults,
+      });
+      const recommendedGameId = getRecommendedGameIdFromDecision(decision);
+      if (!recommendedGameId) throw new Error("Recommendation returned an unsupported training task.");
+
+      setOnlineRecommendation(decision);
+      setIsRecommendationApplied(true);
+      setSelectedTrainingGameIds([recommendedGameId]);
+      setRecommendationNotice("已依推薦系統選出最適合目前狀況的訓練項目。");
+    } catch (error) {
+      console.warn("[ModeSelectPage] Online recommendation unavailable; using result-based fallback:", error);
+      setOnlineRecommendation(null);
+      setIsRecommendationApplied(true);
+      setSelectedTrainingGameIds(recommendedTrainingGameIds);
+      setRecommendationNotice("推薦系統目前無法連線，已暫時依近期訓練結果安排項目。");
+    } finally {
+      setIsRecommendationLoading(false);
+    }
   };
 
   const closeTrainingSetting = () => {
@@ -577,16 +606,41 @@ const ModeSelectPage = () => {
   const confirmTrainingSettings = () => {
     const isUsingRecommendation =
       selectedTrainingGameIds.length === 0 || isRecommendationApplied;
+    const adaptiveRecommendedGameId = getRecommendedGameIdFromDecision(onlineRecommendation);
+    const effectiveRecommendedGameIds = adaptiveRecommendedGameId
+      ? [adaptiveRecommendedGameId]
+      : recommendedTrainingGameIds;
     const finalTrainingGameIds = isUsingRecommendation
-      ? recommendedTrainingGameIds
+      ? effectiveRecommendedGameIds
       : selectedTrainingGameIds;
     const finalTrainingGameTitles = isUsingRecommendation
-      ? recommendedTrainingGameTitles
+      ? getTrainingGameTitles(effectiveRecommendedGameIds)
       : selectedTrainingGameTitles;
-    const trainingLevelPlan = buildTrainingLevelPlan(
+    let trainingLevelPlan = buildTrainingLevelPlan(
       finalTrainingGameIds,
       isUsingRecommendation ? trainingRecommendations : []
     );
+
+    const recommendedDifficulty = Number(
+      onlineRecommendation?.selected_action?.difficulty_level
+    );
+    if (
+      isUsingRecommendation &&
+      onlineRecommendation &&
+      Number.isFinite(recommendedDifficulty) &&
+      trainingLevelPlan.length > 0
+    ) {
+      trainingLevelPlan = trainingLevelPlan.map((item, index) =>
+        index === 0
+          ? {
+              ...item,
+              level: Math.max(1, Math.min(5, Math.round(recommendedDifficulty))),
+              source: "adaptive-recommendation",
+              recommendationId: onlineRecommendation.recommendation_id,
+            }
+          : item
+      );
+    }
 
     if (finalTrainingGameIds.length === 0) return;
 
@@ -605,9 +659,10 @@ const ModeSelectPage = () => {
       selectedTrainingGameIds: finalTrainingGameIds,
       abilityTitles: finalTrainingGameTitles,
       trainingGameTitles: finalTrainingGameTitles,
-      recommendedTrainingGameIds,
+      recommendedTrainingGameIds: effectiveRecommendedGameIds,
       recommendationDetails: trainingRecommendations,
-      recommendationSource: "level-results",
+      recommendationSource: onlineRecommendation ? "adaptive-recommendation" : "level-results",
+      adaptiveRecommendation: onlineRecommendation,
       isAutoRecommended: isUsingRecommendation,
       recommendationReason: isUsingRecommendation
         ? "系統依每一關的近期作答結果，優先安排需要加強的訓練。"
@@ -773,8 +828,14 @@ const ModeSelectPage = () => {
                 <p>每個項目下方會說明主要訓練能力。</p>
               </div>
               <div className="training-item-actions">
-                <button type="button" className="recommend-training-button" onClick={applyRecommendedTraining}>
-                  推薦訓練
+                <button
+                  type="button"
+                  className="recommend-training-button"
+                  onClick={applyRecommendedTraining}
+                  disabled={isRecommendationLoading}
+                  aria-busy={isRecommendationLoading}
+                >
+                  {isRecommendationLoading ? "推薦中…" : "推薦訓練"}
                 </button>
                 <button type="button" className="select-all-button" onClick={selectAllTrainingGames}>
                   全選
@@ -788,6 +849,12 @@ const ModeSelectPage = () => {
             {selectedTrainingGameIds.length === 0 && (
               <div className="recommendation-notice">
                 目前沒有選擇項目，按下進入後會依每關結果優先安排弱項，並自動安排最多 12 關。
+              </div>
+            )}
+
+            {recommendationNotice && (
+              <div className="recommendation-notice" role="status">
+                {recommendationNotice}
               </div>
             )}
 
@@ -1072,7 +1139,7 @@ const ModeSelectPage = () => {
         .image-action-button {
           display: grid;
           place-items: center;
-          width: min(100%, 346px);
+          width: min(76.5%, 264px);
           margin: auto auto 0;
           padding: 0;
           border: 0;
@@ -1417,7 +1484,7 @@ const ModeSelectPage = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: min(100%, 460px);
+          width: min(78%, 352px);
           margin: clamp(24px, 3vh, 32px) auto 0;
           padding: 0;
           border: 0;
@@ -1546,7 +1613,7 @@ const ModeSelectPage = () => {
           }
 
           .confirm-training-button {
-            width: min(100%, 360px);
+            width: min(78%, 275px);
           }
 
           .record-button {
