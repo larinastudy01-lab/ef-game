@@ -39,17 +39,51 @@ const getCurrentChildId = () => {
   );
 };
 
-const saveSelectedMode = (mode) => {
-  localStorage.setItem("selectedMode", mode);
-  sessionStorage.setItem("selectedMode", mode);
+const trySetStorageItem = (storage, key, value) => {
+  try {
+    storage.setItem(key, value);
+    return true;
+  } catch (error) {
+    // Storage can be unavailable or full. Navigation state still carries the
+    // settings for the current session, so persistence must never block play.
+    console.warn(`[ModeSelectPage] Unable to persist ${key}:`, error);
+    return false;
+  }
 };
 
-const saveTrainingSettings = (settings) => {
-  const serializedSettings = JSON.stringify(settings);
-  localStorage.setItem("trainingSettings", serializedSettings);
-  sessionStorage.setItem("trainingSettings", serializedSettings);
-  localStorage.setItem("ef_game_training_settings", serializedSettings);
-  sessionStorage.setItem("ef_game_training_settings", serializedSettings);
+const saveSelectedMode = (mode) => {
+  trySetStorageItem(localStorage, "selectedMode", mode);
+  trySetStorageItem(sessionStorage, "selectedMode", mode);
+};
+
+export const saveTrainingSettings = (settings) => {
+  // The adaptive service response may contain the complete result history.
+  // GameMenu only needs the compact plan; keeping the response in route state
+  // avoids duplicating megabytes of data in Web Storage.
+  const { adaptiveRecommendation: _adaptiveRecommendation, ...persistedSettings } = settings;
+  const serializedSettings = JSON.stringify(persistedSettings);
+
+  // Remove the old duplicate introduced by earlier versions before writing the
+  // canonical key. This also recovers quota already consumed by that duplicate.
+  try {
+    localStorage.removeItem("trainingSettings");
+  } catch {}
+  try {
+    sessionStorage.removeItem("trainingSettings");
+  } catch {}
+
+  const savedLocally = trySetStorageItem(
+    localStorage,
+    "ef_game_training_settings",
+    serializedSettings
+  );
+  const savedForSession = trySetStorageItem(
+    sessionStorage,
+    "ef_game_training_settings",
+    serializedSettings
+  );
+
+  return savedLocally || savedForSession;
 };
 
 const ALL_RESULTS_KEY = "efGameResults";
@@ -458,7 +492,7 @@ const buildTrainingLevelPlan = (gameIds, recommendations = []) => {
     guard += 1;
 
     const nextLevel = (gameUseCount[gameId] || 0) + 1;
-    if (nextLevel > MAX_LEVELS_PER_GAME_IN_PLAN) continue;
+    if (nextLevel > (gameId === "lb" ? 4 : MAX_LEVELS_PER_GAME_IN_PLAN)) continue;
 
     const item = recommendationMap.get(gameId) || {};
     gameUseCount[gameId] = nextLevel;

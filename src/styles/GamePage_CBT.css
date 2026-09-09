@@ -340,6 +340,29 @@ video.cbt-video {
   transform: translate(-50%, -50%);
 }
 
+/* Correct-answer feedback stays on the lake and shows only the next-step icon. */
+body .game-start-card-artwork.cbt-feedback-card-artwork.cbt-icon-only-feedback {
+  width: 100% !important;
+  min-height: 455px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+.cbt-icon-only-feedback > :not(.cbt-feedback-actions):not(.cbt-guided-action),
+.cbt-icon-only-feedback .cbt-feedback-actions > :not(.cbt-guided-action) {
+  display: none !important;
+}
+
+.cbt-icon-only-feedback .cbt-feedback-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
 .cbt-block:disabled,
 .cbt-block.is-disabled {
   cursor: default;

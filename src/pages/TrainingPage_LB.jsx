@@ -19,6 +19,7 @@ import homeNextBtn from "../asset/home/next.webp";
 import homeSendBtn from "../asset/home/send.webp";
 import homeBackBtn from "../asset/home/back.webp";
 import homeAgainBtn from "../asset/home/again.webp";
+import changeImg from "../asset/home/change.webp";
 import mouseGuideImg from "../asset/mouse.webp";
 
 const SESSION_KEY = "LB_TRAINING_RESULT";
@@ -139,7 +140,7 @@ const HOME_PATH_POINT = {
   position: { x: 92, y: 78, r: 0 },
 };
 
-const TRAINING_LEVELS = [
+const TRAINING_LEVEL_PRESETS = [
   {
     id: "1-1",
     chapter: "數字小路",
@@ -296,6 +297,85 @@ const TRAINING_LEVELS = [
     ability: "綜合執行功能",
   },
 ];
+
+const TRAINING_LEVELS = [
+  {
+    id: "1",
+    chapter: "Level 1",
+    title: "單一規則",
+    ruleType: RULE_TYPES.FORWARD,
+    taskType: TASK_TYPES.GUIDE_PATH,
+    maxNumber: 5,
+    sequenceLength: 5,
+    hintMode: "always",
+    iconHint: "1 → 2 → 3 → 4 → 5",
+    ability: "依照數字順序完成路徑",
+  },
+  {
+    id: "2",
+    chapter: "Level 2",
+    title: "顏色交替",
+    ruleType: RULE_TYPES.RED_BLUE,
+    taskType: TASK_TYPES.RULE_SWITCH,
+    maxNumber: 4,
+    explicitSequence: [
+      { color: "red", number: 1 },
+      { color: "blue", number: 2 },
+      { color: "red", number: 3 },
+      { color: "blue", number: 4 },
+    ],
+    hintMode: "delay",
+    iconHint: "紅1 → 藍2 → 紅3 → 藍4",
+    ability: "維持紅藍交替規則",
+  },
+  {
+    id: "3",
+    chapter: "Level 3",
+    title: "雙規則",
+    ruleType: RULE_TYPES.RED_BLUE,
+    taskType: TASK_TYPES.RULE_SWITCH,
+    maxNumber: 8,
+    explicitSequence: [
+      { color: "red", number: 1 },
+      { color: "red", number: 3 },
+      { color: "red", number: 5 },
+      { color: "red", number: 7 },
+      { color: "blue", number: 2 },
+      { color: "blue", number: 4 },
+      { color: "blue", number: 6 },
+      { color: "blue", number: 8 },
+    ],
+    hintMode: "afterWrong",
+    hintAfterWrong: 2,
+    iconHint: "紅奇數 → 藍偶數",
+    ability: "同時維持顏色與奇偶規則",
+  },
+  {
+    id: "4",
+    chapter: "Level 4",
+    title: "規則突然改變",
+    ruleType: RULE_TYPES.RED_BLUE,
+    taskType: TASK_TYPES.MIXED_MISSION,
+    maxNumber: 8,
+    explicitSequence: [
+      { color: "red", number: 1 },
+      { color: "blue", number: 2 },
+      { color: "red", number: 3 },
+      { color: "blue", number: 4 },
+      { color: "blue", number: 5 },
+      { color: "red", number: 6 },
+      { color: "blue", number: 7 },
+      { color: "red", number: 8 },
+    ],
+    ruleChangeAfterStep: 4,
+    hintMode: "afterWrong",
+    hintAfterWrong: 2,
+    iconHint: "紅1 → 藍2 → 紅3 → 藍4｜藍5 → 紅6 → 藍7 → 紅8",
+    ability: "規則改變後快速切換反應",
+  },
+];
+
+void TRAINING_LEVEL_PRESETS;
 
 const MAX_LEVEL_PER_GAME = TRAINING_LEVELS.length;
 
@@ -536,6 +616,16 @@ function buildColorSequence({ maxNumber, ruleType, reverseNumbers = false, lengt
 }
 
 function buildSequence(level) {
+  if (Array.isArray(level.explicitSequence)) {
+    return level.explicitSequence.map(({ color, number }) => ({
+      key: `${color}-${number}`,
+      number,
+      color,
+      label: `${number}`,
+      expectedColor: color,
+    }));
+  }
+
   if (level.ruleType === RULE_TYPES.FORWARD) {
     return buildForwardSequence(level.maxNumber, level.sequenceLength);
   }
@@ -1476,6 +1566,74 @@ function TrainingInlineStyle() {
         display: block;
         object-fit: cover;
       }
+      .lb-image-guide-panel {
+        width: min(88vw, 1040px);
+        min-height: min(72vh, 650px);
+        padding: clamp(28px, 4vw, 54px) clamp(24px, 5vw, 70px) clamp(76px, 9vh, 104px);
+        gap: clamp(20px, 3vh, 34px);
+      }
+      .lb-image-guide-title {
+        position: relative;
+        z-index: 3;
+        margin: 0;
+        color: #5b351d;
+        font-size: clamp(30px, 4vw, 52px);
+        line-height: 1.15;
+        font-weight: 950;
+        text-align: center;
+      }
+      .lb-image-guide-text {
+        position: relative;
+        z-index: 3;
+        margin: 0;
+        color: #694125;
+        font-size: clamp(20px, 2.2vw, 30px);
+        line-height: 1.45;
+        font-weight: 850;
+        text-align: center;
+      }
+      .lb-image-guide-sequence {
+        position: relative;
+        z-index: 3;
+        width: min(100%, 760px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(10px, 2.5vw, 34px);
+      }
+      .lb-image-guide-step {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: clamp(112px, 15vw, 178px);
+        aspect-ratio: 1;
+      }
+      .lb-image-guide-step:first-child {
+        animation: lbGuidePulse 1.35s ease-in-out infinite;
+      }
+      .lb-image-guide-step img {
+        width: 76%;
+        height: auto;
+        filter: drop-shadow(0 8px 7px rgba(89,58,22,.18));
+      }
+      .lb-image-guide-arrow {
+        color: #d87932;
+        font-size: clamp(38px, 5vw, 66px);
+        line-height: 1;
+        font-weight: 950;
+        filter: drop-shadow(0 4px 0 rgba(255,255,255,.65));
+      }
+      .lb-image-guide-action {
+        position: absolute;
+        left: 50%;
+        bottom: -8px;
+        z-index: 5;
+        transform: translateX(-50%);
+      }
+      @keyframes lbGuidePulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+      }
       .lb-guided-skip {
         position: absolute;
         left: 50%;
@@ -1649,6 +1807,10 @@ function TrainingInlineStyle() {
         .lb-round-icon { width: 116px; height: 116px; }
         .lb-video-panel { width: 94vw; padding: 20px 18px 78px; border-radius: 38px; }
         .lb-video-frame { border-radius: 26px; }
+        .lb-image-guide-panel { width: 94vw; min-height: 0; padding: 28px 16px 74px; }
+        .lb-image-guide-sequence { gap: 8px; }
+        .lb-image-guide-step { width: clamp(86px, 25vw, 132px); border-width: 3px; }
+        .lb-image-guide-arrow { font-size: clamp(28px, 8vw, 44px); }
         .lb-guided-skip { left: 50%; right: auto; bottom: -10px; transform: translateX(-50%); }
         .lb-result-actions { gap: 10px; }
         .lb-result-metrics { grid-template-columns: 1fr !important; }
@@ -1688,6 +1850,7 @@ export default function TrainingPage_LB() {
   const [isLocked, setIsLocked] = useState(false);
   const [, setFooterMessage] = useState("先選一條小路開始練習");
   const [memoryHidden, setMemoryHidden] = useState(false);
+  const [showRuleChange, setShowRuleChange] = useState(false);
   const [walkingIndex, setWalkingIndex] = useState(0);
   const [summary, setSummary] = useState(null);
 
@@ -1821,6 +1984,7 @@ export default function TrainingPage_LB() {
     setIsLocked(false);
     setWalkingIndex(0);
     setMemoryHidden(false);
+    setShowRuleChange(false);
     wrongStepCountRef.current = 0;
   }
 
@@ -1840,7 +2004,9 @@ export default function TrainingPage_LB() {
   }
 
   function handleStepVideoEnd() {
-    startCurrentLevel();
+    resetLevel(levelIndex);
+    setTrainingPhase("imageGuide");
+    setFooterMessage("請依照門牌上的順序，從 1 開始點擊。");
   }
 
   function handleEndingVideoEnd() {
@@ -1988,6 +2154,19 @@ export default function TrainingPage_LB() {
         }
 
         const nextStep = nextCompleted.length;
+        if (nextStep === Number(currentLevel.ruleChangeAfterStep)) {
+          setHintKey(null);
+          setShowRuleChange(true);
+          setFooterMessage("規則改變！接下來改成藍色、紅色交替");
+          delayTimerRef.current = setTimeout(() => {
+            setShowRuleChange(false);
+            setStepIndex(nextStep);
+            setFooterMessage(`下一個：${getExpectedText(currentSequence[nextStep])}`);
+            setIsLocked(false);
+          }, 1600);
+          return;
+        }
+
         if (currentLevel.shuffleAfterSteps?.includes(nextStep)) {
           setDisplayItems((prev) =>
             withDoorplateMeta(prev, getPositionsForCount(prev.length), currentSequence)
@@ -2274,6 +2453,38 @@ export default function TrainingPage_LB() {
     );
   }
 
+  if (phase === "imageGuide") {
+    const guideItems = currentSequence.slice(0, 3);
+
+    return (
+      <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
+        <TrainingInlineStyle />
+        <main className="lb-center-shell">
+          <section className="lb-soft-panel lb-start-panel lb-image-guide-panel game-start-card-artwork" aria-label={`第 ${levelIndex + 1} 關圖像操作說明`}>
+            <h1 className="lb-image-guide-title">{levelIndex === 0 ? "按照數字順序點門牌" : currentLevel.title}</h1>
+            {levelIndex > 0 && <p className="lb-image-guide-text">{currentLevel.iconHint}</p>}
+            <div className="lb-image-guide-sequence" aria-label={currentLevel.iconHint}>
+              {guideItems.map((item, index) => (
+                <React.Fragment key={item.key}>
+                  {index > 0 && <span className="lb-image-guide-arrow" aria-hidden="true">→</span>}
+                  <div className="lb-image-guide-step">
+                    <img src={getDoorplateImage(item.color, item.number)} alt={`門牌 ${getExpectedText(item)}`} draggable="false" />
+                  </div>
+                </React.Fragment>
+              ))}
+            </div>
+            <div className="lb-guided-action lb-image-guide-action">
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-next" onClick={startCurrentLevel} aria-label={`看完說明，開始第 ${levelIndex + 1} 關`}>
+                <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" draggable="false" />
+              </button>
+              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="" aria-hidden="true" draggable="false" />
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
 
   if (phase === "endingVideo") {
     return (
@@ -2346,6 +2557,28 @@ export default function TrainingPage_LB() {
       <TrainingInlineStyle />
       <div className="lb-training-simple-frame">
         <main className="lb-training-simple-play" onClick={handleBlankClick}>
+          {showRuleChange && (
+            <div
+              role="status"
+              aria-label="規則改變"
+              style={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 50,
+                display: "grid",
+                placeItems: "center",
+                background: "rgba(255, 255, 255, 0.5)",
+                pointerEvents: "none",
+              }}
+            >
+              <img
+                src={changeImg}
+                alt="規則改變"
+                draggable="false"
+                style={{ width: "min(46vw, 420px)", height: "auto", objectFit: "contain" }}
+              />
+            </div>
+          )}
           <div className="lb-floating-doorplate-layer" aria-label="訓練門牌遊戲區">
             <LBPathOverlay points={clickedPath} active={phase === "reviewing"} />
             <img width={1024} height={1024} loading="lazy" src={homeImg} alt="小屋" className="lb-map-home-img" draggable="false" />

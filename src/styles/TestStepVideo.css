@@ -1,0 +1,32 @@
+.test-step-video-frame {
+  width: min(86vw, 960px) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  aspect-ratio: 16 / 9;
+  padding: 0 !important;
+  margin-inline: auto;
+  border-radius: 28px !important;
+  overflow: hidden;
+  background: #000 !important;
+  box-sizing: border-box;
+}
+
+video.test-step-video {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  aspect-ratio: 16 / 9 !important;
+  object-fit: contain !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #000;
+}
+
+@media (max-width: 680px) {
+  .test-step-video-frame {
+    width: 100% !important;
+    border-radius: 20px !important;
+  }
+}

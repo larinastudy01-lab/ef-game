@@ -8,7 +8,7 @@ import rottenImg from "../asset/SRT/rotten_acorn.webp";
 import levelIcon from "../asset/SRT_icon.webp";
 import startAvatar from "../asset/SRT/bear.webp";
 import tutorialAvatar from "../asset/SRT/chicken.webp";
-import introVideo from "../asset/optimized/mp4/start.mp4";
+import introVideo from "../asset/optimized/mp4/SRT_start.mp4";
 import tutorialVideo from "../asset/optimized/mp4/SRT_step.mp4";
 import endingVideo from "../asset/optimized/mp4/SRT_end.mp4";
 import clickSoundFile from "../asset/Click.mp3";

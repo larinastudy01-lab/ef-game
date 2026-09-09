@@ -22,7 +22,6 @@ import { calculateDccsScore } from "../utils/dccsScoring";
 import { analyzeDccsTraining } from "../ai/dccsTrainingAnalyzer";
 import { clampNumber, getTodayKey, safeParse } from "../utils/trainingDataUtils";
 import { averageFiniteRounded } from "../utils/numericUtils";
-import DccsShadowCloth from "../components/DccsShadowCloth";
 import {
   arrangeDccsTargets as arrangeTargets,
   getDccsBagImageSource as getBagImageSource,
@@ -46,8 +45,6 @@ import {
 } from "../config/dccsClothingData";
 
 import redHatImg from "../asset/DCCS/red hat.webp";
-import blueHatImg from "../asset/DCCS/blue hat.webp";
-import redShirtImg from "../asset/DCCS/red shirt.webp";
 import blueShirtImg from "../asset/DCCS/blue shirt.webp";
 
 const MENU_ROUTE = "/game-menu";
@@ -300,6 +297,7 @@ const PHASE = {
   START: "start",
   VIDEO_INTRO: "video_intro",
   VIDEO_STEP: "video_step",
+  INITIAL_RULE: "initial_rule",
   PLAYING: "playing",
   SWITCH_RULE: "switch_rule",
   BAG_RULE: "bag_rule",
@@ -1536,7 +1534,8 @@ function TrainingPage_DCCS() {
   };
 
   const handleStepVideoDone = () => {
-    startPlaying();
+    clearPendingTiming();
+    setPhase(PHASE.INITIAL_RULE);
   };
 
   const handleEndingVideoDone = () => {
@@ -2013,8 +2012,7 @@ function TrainingPage_DCCS() {
   const renderSwitchRulePage = () => {
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
-        <div className="Dcss-switch-card Dcss-picture-rule-card game-start-card-artwork dccs-rule-card-artwork">
-          <img src={peacockImg} alt="孔雀小姐" className="Dcss-peacock-rule" width="360" height="360" loading="lazy" />
+        <div className="Dcss-switch-card Dcss-picture-rule-card Dcss-rule-guide-centered game-start-card-artwork dccs-rule-card-artwork">
 
           <div className="Dcss-rule-content Dcss-picture-rule-content">
             <div className="Dcss-tag danger">換規則</div>
@@ -2023,18 +2021,16 @@ function TrainingPage_DCCS() {
             <div className="Dcss-picture-rule-row">
               <div className="Dcss-mini-example">
                 <img src={blueShirtImg} alt="藍色上衣" width="326" height="324" loading="lazy" />
-                <span className="Dcss-big-arrow">→</span>
+                <span className="Dcss-big-arrow" aria-hidden="true">↓</span>
                 <div className="Dcss-demo-target Dcss-demo-target-type">
-                  <DccsShadowCloth src={redShirtImg} label="上衣剪影" />
                   <img src={basketTopImg} alt="上衣分類箱" width="319" height="131" loading="lazy" />
                 </div>
               </div>
 
               <div className="Dcss-mini-example">
                 <img src={redHatImg} alt="紅色帽子" width="244" height="202" loading="lazy" />
-                <span className="Dcss-big-arrow">→</span>
+                <span className="Dcss-big-arrow" aria-hidden="true">↓</span>
                 <div className="Dcss-demo-target Dcss-demo-target-type">
-                  <DccsShadowCloth src={blueHatImg} label="帽子剪影" />
                   <img src={basketBottomImg} alt="帽子分類箱" width="319" height="131" loading="lazy" />
                 </div>
               </div>
@@ -2057,6 +2053,49 @@ function TrainingPage_DCCS() {
     );
   };
 
+  const renderInitialRulePage = () => {
+    const firstRule = currentLevel.trials[0]?.rule === "type" ? "type" : "color";
+    const examples = currentLevel.trials
+      .filter((trial) => trial.rule === firstRule)
+      .slice(0, 2);
+    const isTypeRule = firstRule === "type";
+
+    return (
+      <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
+        <div className="Dcss-switch-card Dcss-picture-rule-card Dcss-rule-guide-centered game-start-card-artwork dccs-rule-card-artwork">
+          <div className="Dcss-rule-content Dcss-picture-rule-content">
+            <div className="Dcss-tag">本關規則</div>
+            {isTypeRule && <h1 className="Dcss-switch-title">看衣服種類</h1>}
+            <p className={`Dcss-switch-description${isTypeRule ? "" : " Dcss-rule-primary-instruction"}`}>
+              {isTypeRule ? "不看顏色，把衣服放進相同種類的籃子。" : "把衣服放進相同顏色的籃子。"}
+            </p>
+            <div className="Dcss-picture-rule-row">
+              {examples.map((example) => {
+                const correctPosition = getCorrectPosition(example);
+                const correctTarget = correctPosition === "top" ? example.topTarget : example.bottomTarget;
+                return (
+                  <div className="Dcss-mini-example" key={example.id}>
+                    <img src={getCardImage(example.card, "normal")} alt={`${example.card.colorText}${example.card.typeText}`} width="330" height="330" loading="lazy" />
+                    <span className="Dcss-big-arrow" aria-hidden="true">↓</span>
+                    <div className="Dcss-demo-target Dcss-demo-target-type">
+                      <img src={correctPosition === "top" ? basketTopImg : basketBottomImg} alt={`${correctTarget?.label || "服飾"}籃子`} width="319" height="131" loading="lazy" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="Dcss-guided-action Dcss-guided-rule">
+              <button type="button" className="Dcss-forest-button Dcss-image-button Dcss-btn-next" onClick={startPlaying} aria-label="開始本關">
+                <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" />
+              </button>
+              <img width={1024} height={1024} loading="lazy" className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊下一步" aria-hidden="true" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderBagRulePage = () => {
     const examples = currentLevel.trials
       .filter(
@@ -2066,8 +2105,7 @@ function TrainingPage_DCCS() {
 
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
-        <div className="Dcss-switch-card Dcss-picture-rule-card game-start-card-artwork dccs-rule-card-artwork">
-          <img src={peacockImg} alt="孔雀小姐" className="Dcss-peacock-rule" width="360" height="360" loading="lazy" />
+        <div className="Dcss-switch-card Dcss-picture-rule-card Dcss-rule-guide-centered game-start-card-artwork dccs-rule-card-artwork">
 
           <div className="Dcss-rule-content Dcss-picture-rule-content">
             <div className="Dcss-tag danger">再換一次規則</div>
@@ -2094,12 +2132,8 @@ function TrainingPage_DCCS() {
                       height="330"
                       loading="lazy"
                     />
-                    <span className="Dcss-big-arrow">→</span>
+                    <span className="Dcss-big-arrow" aria-hidden="true">↓</span>
                     <div className="Dcss-demo-target Dcss-demo-target-type">
-                      <DccsShadowCloth
-                        src={correctTarget?.image}
-                        label={`${correctTarget?.label || "正確顏色"}範例`}
-                      />
                       <img
                         src={index % 2 === 0 ? basketTopImg : basketBottomImg}
                         alt={`${correctTarget?.label || "正確顏色"}籃子`}
@@ -2250,6 +2284,8 @@ function TrainingPage_DCCS() {
       onDone: handleStepVideoDone,
     });
   }
+
+  if (phase === PHASE.INITIAL_RULE) return renderInitialRulePage();
 
   if (phase === PHASE.SWITCH_RULE) return renderSwitchRulePage();
   if (phase === PHASE.BAG_RULE) return renderBagRulePage();

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/GamePage_SSG.css";
+import "../styles/TestStepVideo.css";
 
 import { analyzePerformance } from "../ai/performanceAnalyzer";
 import { analyzeErrors } from "../ai/errorAnalyzer";
@@ -10,9 +11,7 @@ import { saveUnifiedResult } from "../utils/resultManager";
 import { calculateSsgScore } from "../utils/ssgScoring";
 
 import backgroundImg from "../asset/SSG/SSG_background.webp";
-import introVideo from "../asset/optimized/mp4/SSG_start.mp4";
 import stepVideo from "../asset/optimized/mp4/SSG_step.mp4";
-import endingVideo from "../asset/optimized/mp4/SSG_end.mp4";
 import startAvatar from "../asset/avatar/fox.webp";
 import homeStartBtn from "../asset/home/start.webp";
 import homeNextBtn from "../asset/home/next.webp";
@@ -39,9 +38,7 @@ const SCORING_VERSION = "2.0.0";
 
 const asset = {
   background: backgroundImg,
-  introVideo,
   stepVideo,
-  endingVideo,
   startAvatar,
   homeStartBtn,
   homeNextBtn,
@@ -250,11 +247,6 @@ export default function TestPage_SSG() {
 
   function handleStart() {
     resetTestState();
-    setPhase("introVideo");
-  }
-
-  function handleIntroEnd() {
-    clearCurrentTimer();
     setPhase("teaching");
   }
 
@@ -596,15 +588,13 @@ export default function TestPage_SSG() {
     }
 
     setPendingResult(result);
-    setPhase("endingVideo");
+    setPhase("result");
   }
 
   function goResultPage() {
     if (!pendingResult) return;
     navigate(RESULT_ROUTE, { state: pendingResult, replace: true });
   }
-
-  function handleEndingVideoEnd() { setPhase("result"); }
 
   const resultStars = Math.max(
     1,
@@ -639,35 +629,26 @@ export default function TestPage_SSG() {
     );
   }
 
-  if (phase === "introVideo" || phase === "teaching" || phase === "endingVideo") {
-    const isIntro = phase === "introVideo";
-    const isTeaching = phase === "teaching";
-    const isEnding = phase === "endingVideo";
-    const videoSrc = isIntro ? asset.introVideo : isTeaching ? asset.stepVideo : asset.endingVideo;
-    const onEnded = isIntro ? handleIntroEnd : isTeaching ? startTest : handleEndingVideoEnd;
-    const continueAction = isIntro ? handleIntroEnd : isTeaching ? startTest : handleEndingVideoEnd;
-
+  if (phase === "teaching") {
     return (
       <div className="ssg-page ssg-page--soft" style={{ "--ssg-bg": `url(${asset.background})` }}>
         <style>{ssgInlineCss}</style>
         <main className="ssg-center-shell">
-          <section className="ssg-soft-panel ssg-video-panel game-start-card-artwork ssg-video-card-artwork" aria-label={isIntro ? "前導動畫" : isTeaching ? "步驟教學影片" : "結束動畫"}>
-            <div className="ssg-video-frame">
-              <video className="ssg-video" src={videoSrc} autoPlay muted playsInline controls preload="metadata" onEnded={onEnded}>
+          <section className="ssg-soft-panel ssg-video-panel game-start-card-artwork ssg-video-card-artwork" aria-label="步驟教學影片">
+            <div className="ssg-video-frame test-step-video-frame">
+              <video className="ssg-video test-step-video" src={asset.stepVideo} autoPlay muted playsInline controls preload="metadata" onEnded={startTest}>
                 你的瀏覽器不支援影片播放。
               </video>
             </div>
             <div className="ssg-step-actions">
-              {!isEnding && (
-                <div className="ssg-guided-action ssg-guided-skip">
-                  <button type="button" className="ssg-forest-button ssg-image-button ssg-btn-skip" onClick={continueAction} aria-label="跳過動畫">
-                    <img loading="lazy" src={asset.homeSkipBtn} alt="跳過動畫" draggable="false" />
-                  </button>
-                </div>
-              )}
+              <div className="ssg-guided-action ssg-guided-skip">
+                <button type="button" className="ssg-forest-button ssg-image-button ssg-btn-skip" onClick={startTest} aria-label="跳過動畫">
+                  <img loading="lazy" src={asset.homeSkipBtn} alt="跳過動畫" draggable="false" />
+                </button>
+              </div>
               <div className="ssg-guided-action ssg-guided-next">
-                <button type="button" className="ssg-forest-button ssg-image-button ssg-btn-next" onClick={continueAction} aria-label={isEnding ? "查看結果" : "下一步"}>
-                  <img loading="lazy" src={isEnding ? asset.homeResultBtn : asset.homeNextBtn} alt={isEnding ? "查看結果" : "下一步"} draggable="false" />
+                <button type="button" className="ssg-forest-button ssg-image-button ssg-btn-next" onClick={startTest} aria-label="下一步">
+                  <img loading="lazy" src={asset.homeNextBtn} alt="下一步" draggable="false" />
                 </button>
                 <img loading="lazy" className="ssg-mouse-guide ssg-mouse-on-button" src={asset.mouseGuideImg} alt="" aria-hidden="true" draggable="false" />
               </div>

@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import DccsShadowCloth from "../components/DccsShadowCloth";
 import { averageFiniteRounded } from "../utils/numericUtils";
 import {
   arrangeDccsTargets as arrangeTargets,
@@ -12,11 +11,10 @@ import {
 } from "../utils/dccsCardUtils";
 import { useNavigate } from "react-router-dom";
 import "../styles/GamePage_DCCS.css";
+import "../styles/TestStepVideo.css";
 
 import dccsBackgroundImg from "../asset/DCCS/DCCS_background.webp";
-import startVideo from "../asset/optimized/mp4/DCCS_start.mp4";
 import stepVideo from "../asset/mp4/DCCS_step.mp4";
-import endingVideo from "../asset/optimized/mp4/DCCS_end.mp4";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
 import homeNextBtn from "../asset/home/next.webp";
@@ -53,15 +51,13 @@ const TEST_SESSION_KEY = "DCCS_TEST_RESULT";
 const TEST_STORAGE_KEY = "dccsTestResult";
 const LATEST_TEST_STORAGE_KEY = "latestDccsTestResult";
 
-// 開始動畫使用 DCCS_start.mp4；前導教學使用 DCCS_step.mp4；結束動畫使用 DCCS_end.mp4。
-const START_VIDEO_SRC = startVideo;
+// 測驗只保留 DCCS_step.mp4 前導教學影片。
 const STEP_VIDEO_SRC = stepVideo;
-const END_VIDEO_SRC = endingVideo;
 
 const PHASE = {
   START: "start",
-  VIDEO_INTRO: "video_intro",
   VIDEO_STEP: "video_step",
+  COLOR_RULE: "color_rule",
   PRACTICE: "practice",
   COLOR_TEST: "color_test",
   SWITCH_RULE: "switch_rule",
@@ -69,7 +65,6 @@ const PHASE = {
   BAG_RULE: "bag_rule",
   BAG_COLOR_TEST: "bag_color_test",
   DUAL_RULE_TEST: "dual_rule_test",
-  END_VIDEO: "end_video",
   RESULT: "result",
 };
 
@@ -368,6 +363,16 @@ function makeTarget(card, matchBy) {
   };
 }
 
+function assignFixedBoxTargets(firstTarget, secondTarget, leftKey) {
+  const targets = [firstTarget, secondTarget].filter(Boolean);
+  return {
+    // 程式沿用 top/bottom 欄位名稱；畫面上分別是 box_left / box_right。
+    topTarget: targets.find((target) => target.key === leftKey) || targets[0] || null,
+    bottomTarget:
+      targets.find((target) => target.key !== leftKey) || targets[1] || null,
+  };
+}
+
 function buildDccsTrialSets() {
   const availableColors = getAvailableValues("color", COLOR_PRIORITY);
   const availableTypes = getAvailableValues("type", TYPE_PRIORITY);
@@ -385,7 +390,7 @@ function buildDccsTrialSets() {
     .map((color) => findCard({ color }))
     .filter(Boolean);
 
-  const practiceTrials = practiceCards.map((card, index) => {
+  const practiceTrials = practiceCards.map((card) => {
     const otherColor =
       colorPair.find((color) => color !== card.color) ||
       availableColors.find((color) => color !== card.color);
@@ -396,10 +401,10 @@ function buildDccsTrialSets() {
         preferDifferentType: card.type,
       }) || card;
     const wrongSample = findCard({ color: otherColor }) || normalCards[0];
-    const targets = arrangeTargets(
+    const targets = assignFixedBoxTargets(
       makeTarget(correctSample, "color"),
       makeTarget(wrongSample, "color"),
-      index % 2 === 0
+      "blue"
     );
 
     return {
@@ -428,11 +433,7 @@ function buildDccsTrialSets() {
   );
 
   const colorTestTrials = orderedColorCards.map((card, index) => {
-    const otherColor =
-      availableColors[
-        (availableColors.indexOf(card.color) + 1 + index) %
-          Math.max(availableColors.length, 1)
-      ] || availableColors.find((color) => color !== card.color);
+    const otherColor = availableColors.find((color) => color !== card.color);
     const correctSample =
       findCard({
         color: card.color,
@@ -444,10 +445,10 @@ function buildDccsTrialSets() {
         color: otherColor,
         preferDifferentType: correctSample.type,
       }) || normalCards.find((item) => item.color !== card.color);
-    const targets = arrangeTargets(
+    const targets = assignFixedBoxTargets(
       makeTarget(correctSample, "color"),
       makeTarget(wrongSample, "color"),
-      index % 2 === 0
+      "blue"
     );
 
     return {
@@ -479,11 +480,7 @@ function buildDccsTrialSets() {
   );
 
   const typeTestTrials = orderedTypeCards.map((card, index) => {
-    const wrongType =
-      availableTypes[
-        (availableTypes.indexOf(card.type) + 1 + index) %
-          Math.max(availableTypes.length, 1)
-      ] || availableTypes.find((type) => type !== card.type);
+    const wrongType = availableTypes.find((type) => type !== card.type);
 
     const correctSample =
       findCard({
@@ -500,10 +497,10 @@ function buildDccsTrialSets() {
       }) ||
       normalCards.find((item) => item.type !== card.type);
 
-    const targets = arrangeTargets(
+    const targets = assignFixedBoxTargets(
       makeTarget(correctSample, "type"),
       makeTarget(wrongSample, "type"),
-      index % 2 === 0
+      "shirt"
     );
 
     return {
@@ -559,10 +556,10 @@ function buildDccsTrialSets() {
       }) ||
       normalCards.find((item) => item.color !== card.color);
 
-    const targets = arrangeTargets(
+    const targets = assignFixedBoxTargets(
       makeTarget(correctSample, "color"),
       makeTarget(wrongSample, "color"),
-      index % 2 !== 0
+      "blue"
     );
 
     return {
@@ -817,11 +814,6 @@ function TestPage_DCCS() {
   ]);
 
   const currentTrial = currentTrials[trialIndex];
-  const formalTotalTrials =
-    colorTestTrials.length +
-    typeTestTrials.length +
-    dualRuleTestTrials.length;
-
   const pageBackgroundStyle = useMemo(() => ({
     backgroundImage: `
       linear-gradient(rgba(255, 244, 206, 0.30), rgba(255, 244, 206, 0.30)),
@@ -877,7 +869,7 @@ function TestPage_DCCS() {
 
   const handleStart = () => {
     resetDccsTest();
-    setPhase(PHASE.VIDEO_INTRO);
+    setPhase(PHASE.VIDEO_STEP);
   };
 
 
@@ -892,13 +884,13 @@ function TestPage_DCCS() {
   };
 
   const goNextStaticPage = () => {
-    if (phase === PHASE.VIDEO_INTRO) {
-      setPhase(PHASE.VIDEO_STEP);
+    if (phase === PHASE.VIDEO_STEP) {
+      setPhase(PHASE.COLOR_RULE);
       return;
     }
 
-    if (phase === PHASE.VIDEO_STEP) {
-      startTrialPhase(PHASE.PRACTICE);
+    if (phase === PHASE.COLOR_RULE) {
+      startTrialPhase(PHASE.COLOR_TEST);
       return;
     }
 
@@ -908,7 +900,7 @@ function TestPage_DCCS() {
     }
 
     if (phase === PHASE.BAG_RULE) {
-      startTrialPhase(PHASE.DUAL_RULE_TEST);
+      startTrialPhase(PHASE.BAG_COLOR_TEST);
     }
   };
 
@@ -1264,10 +1256,6 @@ function TestPage_DCCS() {
     const resultData = buildResultData(finalLogs);
     saveSessionResult(resultData);
     setPendingResult(resultData);
-    setPhase(PHASE.END_VIDEO);
-  };
-
-  const handleEndingVideoDone = () => {
     setPhase(PHASE.RESULT);
   };
 
@@ -1513,9 +1501,9 @@ function TestPage_DCCS() {
         {dccsStyleElement}
         <main className="Dcss-center-shell Dcss-video-shell">
           <section className="Dcss-soft-panel Dcss-video-card game-start-card-artwork dccs-video-card-artwork" aria-label={title}>
-            <div className="Dcss-video-frame">
+            <div className="Dcss-video-frame test-step-video-frame">
               <video
-                className="Dcss-guide-video"
+                className="Dcss-guide-video test-step-video"
                 src={src}
                 autoPlay
                 muted
@@ -1562,19 +1550,17 @@ function TestPage_DCCS() {
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
         {dccsStyleElement}
-        <div className="Dcss-switch-card Dcss-picture-rule-card game-start-card-artwork dccs-rule-card-artwork">
-          <img src={peacockImg} alt="孔雀小姐" className="Dcss-peacock-rule" width="360" height="360" loading="lazy" />
+        <div className="Dcss-switch-card Dcss-picture-rule-card Dcss-rule-guide-centered game-start-card-artwork dccs-rule-card-artwork">
 
           <div className="Dcss-rule-content Dcss-picture-rule-content">
             <div className="Dcss-tag danger">換規則</div>
             <h1 className="Dcss-switch-title">接下來改看衣服種類</h1>
             <div className="Dcss-picture-rule-row">
               {examples.map((example, index) => {
-                const correctPosition = getCorrectPosition(example);
-                const correctTarget =
-                  correctPosition === "top"
-                    ? example.topTarget
-                    : example.bottomTarget;
+                const isLeftExample = index === 0;
+                const correctTarget = isLeftExample
+                  ? example.topTarget
+                  : example.bottomTarget;
 
                 return (
                   <div className="Dcss-mini-example" key={example.id}>
@@ -1585,14 +1571,10 @@ function TestPage_DCCS() {
                       height="330"
                       loading="lazy"
                     />
-                    <span className="Dcss-big-arrow">→</span>
+                    <span className="Dcss-big-arrow" aria-hidden="true">↓</span>
                     <div className="Dcss-demo-target Dcss-demo-target-type">
-                      <DccsShadowCloth
-                        src={correctTarget?.image}
-                        label={`${correctTarget?.label || "服飾"}剪影`}
-                      />
                       <img
-                        src={index % 2 === 0 ? basketTopImg : basketBottomImg}
+                        src={isLeftExample ? basketTopImg : basketBottomImg}
                         alt={`${correctTarget?.label || "服飾"}籃子`}
                         width="319"
                         height="131"
@@ -1626,22 +1608,56 @@ function TestPage_DCCS() {
     );
   };
 
-  const renderBagRule = () => {
-    const examples = dualRuleTestTrials.slice(0, 2);
+  const renderColorRule = () => {
+    const examples = practiceTrials.slice(0, 2);
 
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
         {dccsStyleElement}
-        <div className="Dcss-switch-card Dcss-picture-rule-card game-start-card-artwork dccs-rule-card-artwork">
-          <img src={peacockImg} alt="孔雀小姐" className="Dcss-peacock-rule" width="360" height="360" loading="lazy" />
+        <div className="Dcss-switch-card Dcss-picture-rule-card Dcss-rule-guide-centered game-start-card-artwork dccs-rule-card-artwork">
+          <div className="Dcss-rule-content Dcss-picture-rule-content">
+            <div className="Dcss-tag">第一個規則</div>
+            <p className="Dcss-switch-description Dcss-rule-primary-instruction">把衣服放進相同顏色的籃子。</p>
+            <div className="Dcss-picture-rule-row">
+              {examples.map((example) => {
+                const correctPosition = getCorrectPosition(example);
+                const correctTarget = correctPosition === "top" ? example.topTarget : example.bottomTarget;
+                return (
+                  <div className="Dcss-mini-example" key={example.id}>
+                    <img src={getCardImage(example.card, "normal")} alt={`${example.card.colorText}${example.card.typeText}`} width="330" height="330" loading="lazy" />
+                    <span className="Dcss-big-arrow" aria-hidden="true">↓</span>
+                    <div className="Dcss-demo-target Dcss-demo-target-type">
+                      <img src={correctPosition === "top" ? basketTopImg : basketBottomImg} alt={`${correctTarget?.label || "顏色"}籃子`} width="319" height="131" loading="lazy" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="Dcss-guided-action Dcss-guided-rule">
+              <button type="button" className="Dcss-forest-button Dcss-image-button Dcss-btn-next" onClick={goNextStaticPage} aria-label="開始顏色規則練習">
+                <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" />
+              </button>
+              <img width={1024} height={1024} loading="lazy" className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊下一步" aria-hidden="true" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderBagRule = () => {
+    const examples = bagColorTestTrials.slice(0, 2);
+
+    return (
+      <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
+        {dccsStyleElement}
+        <div className="Dcss-switch-card Dcss-picture-rule-card Dcss-rule-guide-centered game-start-card-artwork dccs-rule-card-artwork">
 
           <div className="Dcss-rule-content Dcss-picture-rule-content">
             <div className="Dcss-tag danger">再換一次規則</div>
-            <h1 className="Dcss-switch-title">
-              有袋看顏色，沒袋看衣服種類
-            </h1>
+            <h1 className="Dcss-switch-title">裝袋後，依衣服顏色分類</h1>
             <div className="Dcss-picture-rule-row">
-              {examples.map((example, index) => {
+              {examples.map((example) => {
                 const correctPosition = getCorrectPosition(example);
                 const correctTarget =
                   correctPosition === "top"
@@ -1660,14 +1676,10 @@ function TestPage_DCCS() {
                       height="330"
                       loading="lazy"
                     />
-                    <span className="Dcss-big-arrow">→</span>
+                    <span className="Dcss-big-arrow" aria-hidden="true">↓</span>
                     <div className="Dcss-demo-target Dcss-demo-target-type">
-                      <DccsShadowCloth
-                        src={correctTarget?.image}
-                        label={`${correctTarget?.label || "相同顏色"}服飾`}
-                      />
                       <img
-                        src={index % 2 === 0 ? basketTopImg : basketBottomImg}
+                        src={correctPosition === "top" ? basketTopImg : basketBottomImg}
                         alt={`${correctTarget?.label || "相同顏色"}籃子`}
                         width="319"
                         height="131"
@@ -1719,76 +1731,6 @@ function TestPage_DCCS() {
     return "";
   };
 
-  const getProgressText = () => {
-    if (phase === PHASE.PRACTICE) {
-      return `練習 ${trialIndex + 1} / ${practiceTrials.length}`;
-    }
-
-    if (phase === PHASE.COLOR_TEST) {
-      return `${trialIndex + 1} / ${formalTotalTrials}`;
-    }
-
-    if (phase === PHASE.TYPE_TEST) {
-      return `${colorTestTrials.length + trialIndex + 1} / ${formalTotalTrials}`;
-    }
-
-    if (phase === PHASE.BAG_COLOR_TEST || phase === PHASE.DUAL_RULE_TEST) {
-      return `${
-        colorTestTrials.length + typeTestTrials.length + trialIndex + 1
-      } / ${formalTotalTrials}`;
-    }
-
-    return "";
-  };
-
-  const getRuleMode = () => {
-    return currentTrial?.matchBy || (phase === PHASE.TYPE_TEST ? "type" : "color");
-  };
-
-  const getTargetVisual = (target) => {
-    const mode = getRuleMode();
-
-    if (mode === "color") {
-      return {
-        mode,
-        label: colorLabels[target.key] || target.label,
-        colorKey: target.key,
-        image: target.image,
-      };
-    }
-
-    return {
-      mode,
-      label: typeLabels[target.key] || target.label,
-      image: target.image,
-    };
-  };
-
-  const renderTargetVisual = (target) => {
-    const visual = getTargetVisual(target);
-
-    if (!visual.image) return null;
-
-    return (
-      <div
-        className={`Dcss-visual-target Dcss-target-clothing ${
-          visual.mode === "color"
-            ? "Dcss-color-target-clothing"
-            : "Dcss-type-target-clothing"
-        }`}
-      >
-        <img loading="lazy"
-          src={visual.image}
-          alt={
-            visual.mode === "color"
-              ? `${visual.label}衣服`
-              : `${visual.label}圖示`
-          }
-        />
-      </div>
-    );
-  };
-
   const handleTrialAreaClick = (event) => {
     if (!currentTrial || isLocked) return;
 
@@ -1807,12 +1749,6 @@ function TestPage_DCCS() {
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
         {dccsStyleElement}
         <div className="Dcss-test-shell Dcss-test-shell-visual Dcss-training-shell-visual">
-          <div className="Dcss-top-bar Dcss-top-bar-compact">
-            <div className="Dcss-top-spacer" aria-hidden="true" />
-
-            <div className="Dcss-progress-pill">{getProgressText()}</div>
-          </div>
-
           <div
             className="Dcss-main-area Dcss-main-area-bottom-baskets Dcss-main-area-visual Dcss-training-main-area-visual"
             onClick={handleTrialAreaClick}
@@ -1852,9 +1788,6 @@ function TestPage_DCCS() {
                 disabled={isLocked}
                 aria-label={currentTrial.topTarget.label}
               >
-                <div className="Dcss-basket-choice-label">
-                  {renderTargetVisual(currentTrial.topTarget)}
-                </div>
                 <div className="Dcss-basket-choice-image">
                   <img loading="lazy" src={basketTopImg} alt="左側分類箱" width="319" height="131" />
                 </div>
@@ -1869,9 +1802,6 @@ function TestPage_DCCS() {
                 disabled={isLocked}
                 aria-label={currentTrial.bottomTarget.label}
               >
-                <div className="Dcss-basket-choice-label">
-                  {renderTargetVisual(currentTrial.bottomTarget)}
-                </div>
                 <div className="Dcss-basket-choice-image">
                   <img loading="lazy" src={basketBottomImg} alt="右側分類箱" width="319" height="131" />
                 </div>
@@ -1952,15 +1882,6 @@ function TestPage_DCCS() {
 
   if (phase === PHASE.START) return renderStartPage();
 
-  if (phase === PHASE.VIDEO_INTRO) {
-    return renderVideoPage({
-      src: START_VIDEO_SRC,
-      title: "開始影片",
-      buttonText: "跳過",
-      onDone: goNextStaticPage,
-    });
-  }
-
   if (phase === PHASE.VIDEO_STEP) {
     return renderVideoPage({
       src: STEP_VIDEO_SRC,
@@ -1970,19 +1891,11 @@ function TestPage_DCCS() {
     });
   }
 
+  if (phase === PHASE.COLOR_RULE) return renderColorRule();
+
   if (phase === PHASE.SWITCH_RULE) return renderSwitchRule();
 
   if (phase === PHASE.BAG_RULE) return renderBagRule();
-
-  if (phase === PHASE.END_VIDEO) {
-    return renderVideoPage({
-      src: END_VIDEO_SRC,
-      title: "完成影片",
-      buttonText: "跳過動畫",
-      onDone: handleEndingVideoDone,
-      showNext: false,
-    });
-  }
 
   if (phase === PHASE.RESULT) return renderResultPage();
 
@@ -3305,6 +3218,40 @@ const dccsTestPageCss = `
 .Dcss-test-shell-visual .Dcss-cloth-card,
 .Dcss-test-shell-visual .Dcss-visual-basket-btn {
   overflow: visible !important;
+}
+
+/* 測驗選項只保留並放大籃子本體，不顯示外圍選項框。 */
+.Dcss-test-shell-visual .Dcss-baskets-bottom .Dcss-visual-basket-btn {
+  min-height: clamp(190px, 26vh, 280px) !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.Dcss-test-shell-visual .Dcss-basket-choice-image {
+  width: 100% !important;
+  height: clamp(160px, 23vh, 250px) !important;
+  align-items: center !important;
+  overflow: visible !important;
+}
+
+.Dcss-test-shell-visual .Dcss-basket-choice-image > img {
+  width: min(100%, 430px) !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 12px 10px rgba(60, 35, 16, 0.2));
+}
+
+.Dcss-test-shell-visual .Dcss-visual-basket-btn:hover .Dcss-basket-choice-image > img,
+.Dcss-test-shell-visual .Dcss-visual-basket-btn:focus-visible .Dcss-basket-choice-image > img,
+.Dcss-test-shell-visual .Dcss-visual-basket-btn.selected .Dcss-basket-choice-image > img {
+  filter: drop-shadow(0 0 10px rgba(255, 206, 79, 0.9)) drop-shadow(0 12px 10px rgba(60, 35, 16, 0.22));
 }
 
 

@@ -1205,10 +1205,6 @@ function getThresholdText(achievement, thresholdIndex, fallbackValue) {
 }
 
 function AchievementRow({ achievement }) {
-  const currentLevelMeta =
-    achievement.level > 0 ? LEVEL_META[achievement.level - 1] : null;
-  const nextLevelMeta =
-    achievement.level < 5 ? LEVEL_META[achievement.level] : LEVEL_META[4];
   const nextThresholdIndex = achievement.level >= 5 ? 4 : achievement.level;
   const goalText = getThresholdText(
     achievement,
@@ -1243,23 +1239,13 @@ function AchievementRow({ achievement }) {
       <div className="floating-achievement-info">
         <div className="floating-achievement-heading">
           <div>
-            <span className="floating-achievement-category">
-              {achievement.categoryLabel}
-            </span>
             <h3>{achievement.name}</h3>
           </div>
 
           <div className="floating-achievement-status">
             <strong>{achievement.level >= 5 ? "完成" : `${currentText} / ${goalText}`}</strong>
-            <span>
-              {currentLevelMeta
-                ? currentLevelMeta.name
-                : `目標：${nextLevelMeta.name}`}
-            </span>
           </div>
         </div>
-
-        <p>{achievement.description}</p>
 
         <div className="floating-achievement-progress-line">
           <div className="floating-achievement-progress-track">
@@ -1272,17 +1258,6 @@ function AchievementRow({ achievement }) {
           </span>
         </div>
 
-        <div className="floating-achievement-ranks" aria-label="五階段成就進度">
-          {LEVEL_META.map((levelMeta) => (
-            <span
-              key={levelMeta.level}
-              className={levelMeta.level <= achievement.level ? "is-on" : ""}
-              title={levelMeta.name}
-            >
-              {levelMeta.shortName}
-            </span>
-          ))}
-        </div>
       </div>
     </article>
   );
@@ -2663,6 +2638,145 @@ function AchievementStyles() {
           padding: 7px 9px;
         }
         .achievement-floating-footer small { display: none; }
+      }
+
+      /* 成就使用正方形卡片；一般貼紙維持原本的橫向列表。 */
+      .achievement-floating-list:not(.sticker-list) {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        align-items: start;
+        gap: 14px;
+      }
+
+      .achievement-floating-list:not(.sticker-list) .floating-achievement-row {
+        aspect-ratio: 1 / 1;
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        position: relative;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 10px 12px 34px;
+        overflow: hidden;
+        border-radius: 18px;
+      }
+
+      .achievement-floating-list:not(.sticker-list) .floating-achievement-icon-shell {
+        width: min(72%, 150px);
+        min-height: 0;
+        aspect-ratio: 1 / 1;
+        flex: 0 0 auto;
+        border: 0;
+        border-radius: 0;
+        outline: 0;
+        background: transparent;
+        box-shadow: none;
+      }
+
+      .achievement-floating-list:not(.sticker-list) .floating-achievement-icon {
+        width: 100%;
+        height: 100%;
+      }
+
+      .achievement-floating-list:not(.sticker-list) .floating-achievement-info {
+        width: 100%;
+        min-height: 0;
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        justify-content: flex-start;
+        text-align: center;
+      }
+
+      .achievement-floating-list:not(.sticker-list) .floating-achievement-heading {
+        display: block;
+        transform: translateY(-5px);
+      }
+
+      .achievement-floating-list:not(.sticker-list) .floating-achievement-heading h3 {
+        margin-top: 3px;
+        font-size: clamp(15px, 1.35vw, 18px);
+      }
+
+      .achievement-floating-list:not(.sticker-list) .floating-achievement-status {
+        margin-top: 1px;
+        text-align: center;
+      }
+
+      .achievement-floating-list:not(.sticker-list) .floating-achievement-progress-line {
+        position: absolute;
+        right: 12px;
+        bottom: 10px;
+        left: 12px;
+      }
+
+      .achievement-floating-list:not(.sticker-list) .floating-achievement-info > p {
+        display: -webkit-box;
+        margin: 5px 0 7px;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+      }
+
+      .achievement-floating-list:not(.sticker-list) .floating-achievement-ranks {
+        justify-content: center;
+      }
+
+      @media (max-width: 900px) {
+        .achievement-floating-list:not(.sticker-list) {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .achievement-floating-list:not(.sticker-list) .floating-achievement-row {
+          padding: 10px;
+        }
+
+        .achievement-floating-list:not(.sticker-list) .floating-achievement-icon-shell {
+          width: min(68%, 130px);
+        }
+      }
+
+      @media (max-width: 620px) {
+        .achievement-floating-list:not(.sticker-list) {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .achievement-floating-list:not(.sticker-list) .floating-achievement-row {
+          gap: 4px;
+          padding: 8px;
+          border-radius: 13px;
+        }
+
+        .achievement-floating-list:not(.sticker-list) .floating-achievement-icon-shell {
+          width: min(58%, 88px);
+        }
+
+        .achievement-floating-list:not(.sticker-list) .floating-achievement-heading h3 {
+          font-size: 13px;
+        }
+
+        .achievement-floating-list:not(.sticker-list) .floating-achievement-info > p,
+        .achievement-floating-list:not(.sticker-list) .floating-achievement-ranks,
+        .achievement-floating-list:not(.sticker-list) .floating-achievement-category,
+        .achievement-floating-list:not(.sticker-list) .floating-achievement-status span {
+          display: none;
+        }
+
+        .achievement-floating-list:not(.sticker-list) .floating-achievement-status strong {
+          font-size: 10px;
+        }
+
+        .achievement-floating-list:not(.sticker-list) .floating-achievement-progress-line {
+          grid-template-columns: minmax(0, 1fr) 30px;
+          gap: 4px;
+          right: 8px;
+          bottom: 8px;
+          left: 8px;
+        }
       }
     `}</style>
   );

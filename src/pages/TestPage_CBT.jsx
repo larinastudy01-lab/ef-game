@@ -5,9 +5,7 @@ import stoneImg from "../asset/CBT/stone.webp";
 import stoneShinyImg from "../asset/CBT/stone_shiny.webp";
 import personImg from "../asset/CBT/CBT_person.webp";
 import bgImg from "../asset/CBT/CBT_background.webp";
-import storyVideo from "../asset/optimized/mp4/CBT_start.mp4";
 import tutorialVideo from "../asset/optimized/mp4/CBT_step.mp4";
-import endingVideo from "../asset/optimized/mp4/CBT_end.mp4";
 import clickSoundFile from "../asset/Click.mp3";
 import startAvatar from "../asset/avatar/deer.webp";
 import homeStartBtn from "../asset/home/start.webp";
@@ -18,6 +16,7 @@ import homeResultBtn from "../asset/home/result.webp";
 import mouseGuideImg from "../asset/mouse.webp";
 
 import "../styles/GamePage_CBT.css";
+import "../styles/TestStepVideo.css";
 
 import { saveUnifiedResult } from "../utils/resultManager";
 import { calculateCBTScore } from "../utils/cbtScoring";
@@ -44,62 +43,48 @@ const TEST_PAGE_ROUTE = "/test-map";
 // 所以每一題都會真的「換位置」，不再固定成同一種排列。
 const BOARD_WIDTH = 760;
 const BOARD_HEIGHT = 455;
-const STONE_SIZE = 190;
+const STONE_SIZE = 230;
+const STONE_ASPECT_RATIO = 360 / 203;
+const STONE_GAP = 12;
 const PERSON_OFFSET_Y = 76;
 const WALK_ANIMATION_MS = 260;
 
-const RANDOM_LAYOUT_CONFIG = {
-  5: { minDistance: 185, marginX: 115, marginY: 95 },
-  6: { minDistance: 165, marginX: 105, marginY: 88 },
-  8: { minDistance: 150, marginX: 105, marginY: 88 },
-};
-
-function getDistance(a, b) {
-  return Math.hypot(a.left - b.left, a.top - b.top);
-}
-
 function createRandomLayout(blockCount) {
-  const config = RANDOM_LAYOUT_CONFIG[blockCount] || RANDOM_LAYOUT_CONFIG[5];
   const positions = [];
   let attempts = 0;
+  const visualHeight = STONE_SIZE / STONE_ASPECT_RATIO;
+  const marginX = STONE_SIZE / 2 + STONE_GAP;
+  const marginY = visualHeight / 2 + STONE_GAP;
 
-  while (positions.length < blockCount && attempts < 1200) {
+  const doesNotOverlap = (candidate) => positions.every((position) => {
+    const horizontalGap = Math.abs(position.left - candidate.left);
+    const verticalGap = Math.abs(position.top - candidate.top);
+    return horizontalGap >= STONE_SIZE + STONE_GAP ||
+      verticalGap >= visualHeight + STONE_GAP;
+  });
+
+  while (positions.length < blockCount && attempts < 1800) {
     attempts += 1;
 
     const candidate = {
       left:
-        config.marginX +
-        Math.random() * (BOARD_WIDTH - config.marginX * 2),
+        marginX + Math.random() * (BOARD_WIDTH - marginX * 2),
       top:
-        config.marginY +
-        Math.random() * (BOARD_HEIGHT - config.marginY * 2),
+        marginY + Math.random() * (BOARD_HEIGHT - marginY * 2),
     };
 
-    const isTooClose = positions.some(
-      (position) => getDistance(position, candidate) < config.minDistance
-    );
-
-    if (!isTooClose) {
+    if (doesNotOverlap(candidate)) {
       positions.push(candidate);
     }
   }
 
   // 保底：如果隨機嘗試因為距離限制沒有排滿，就用大範圍備用點補齊。
   if (positions.length < blockCount) {
-    const fallback = shuffleArray([
-      { top: 92, left: 140 },
-      { top: 92, left: 380 },
-      { top: 92, left: 620 },
-      { top: 240, left: 230 },
-      { top: 240, left: 530 },
-      { top: 365, left: 145 },
-      { top: 365, left: 380 },
-      { top: 365, left: 615 },
-    ]);
-
-    fallback.forEach((position) => {
-      if (positions.length < blockCount) positions.push(position);
-    });
+    return shuffleArray([
+      { top: 82, left: 130 }, { top: 82, left: 380 }, { top: 82, left: 630 },
+      { top: 227, left: 130 }, { top: 227, left: 380 }, { top: 227, left: 630 },
+      { top: 372, left: 130 }, { top: 372, left: 380 }, { top: 372, left: 630 },
+    ]).slice(0, blockCount);
   }
 
   return positions;
@@ -1626,7 +1611,7 @@ export default function TestPage_CBT() {
     clearAllManagedTimers();
     pendingFinalHistoryRef.current = finalHistory;
     endedRef.current = true;
-    setPhase("endingVideo");
+    finishTest(finalHistory);
   }
 
   function finishTest(finalHistory = pendingFinalHistoryRef.current || historyRef.current) {
@@ -2035,18 +2020,11 @@ export default function TestPage_CBT() {
             imgSrc={homeStartBtn}
             imgAlt="開始遊戲"
             ariaLabel="開始遊戲"
-            onClick={() => setPhase("introVideo")}
+            onClick={() => setPhase("tutorialVideo")}
             showMouse
             variant="start"
           />
         </main>
-      )}
-
-      {phase === "introVideo" && (
-        <VideoOnlyPage
-          videoSrc={storyVideo}
-          onDone={() => setPhase("tutorialVideo")}
-        />
       )}
 
       {phase === "tutorialVideo" && (
@@ -2155,7 +2133,7 @@ export default function TestPage_CBT() {
       )}
 
       {phase === "next" && (
-        <div className="cbt-card cbt-card--small game-start-card-artwork cbt-feedback-card-artwork">
+        <div className="cbt-card cbt-card--small game-start-card-artwork cbt-feedback-card-artwork cbt-icon-only-feedback">
           <h1 className="cbt-title">對了！</h1>
           <div className="cbt-result-message">{message}</div>
           <GuidedImageButton
@@ -2167,14 +2145,6 @@ export default function TestPage_CBT() {
             variant="next"
           />
         </div>
-      )}
-
-      {phase === "endingVideo" && (
-        <VideoOnlyPage
-          videoSrc={endingVideo}
-          onDone={() => finishTest()}
-          showNext={false}
-        />
       )}
 
       {phase === "result" && (
@@ -2242,14 +2212,14 @@ export default function TestPage_CBT() {
 function VideoOnlyPage({ videoSrc, onDone, showNext = true }) {
   return (
     <main className="cbt-video-only-card game-start-card-artwork cbt-video-card-artwork" aria-label="影片">
-      <div className="cbt-video-wrapper">
+      <div className="cbt-video-wrapper test-step-video-frame">
         <video
           src={videoSrc}
           autoPlay
           muted
           playsInline
           controls
-          className="cbt-video"
+          className="cbt-video test-step-video"
           onEnded={onDone}
         />
       </div>

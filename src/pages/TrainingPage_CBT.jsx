@@ -6,6 +6,7 @@ import stoneShinyImg from "../asset/CBT/stone_shiny.webp";
 import personImg from "../asset/CBT/CBT_person.webp";
 import bgImg from "../asset/CBT/CBT_background.webp";
 import introVideo from "../asset/optimized/mp4/CBT_start.mp4";
+import stepVideo from "../asset/optimized/mp4/CBT_step.mp4";
 import clickSoundFile from "../asset/Click.mp3";
 import startAvatar from "../asset/avatar/deer.webp";
 import homeStartBtn from "../asset/home/start.webp";
@@ -34,9 +35,10 @@ const CBT_TRAINING_RESULT_KEY = "ef_game_cbt_training_result";
 
 const BOARD_WIDTH = 760;
 const BOARD_HEIGHT = 455;
-const STONE_SIZE = 190;
-const WARMUP_STONE_SIZE = 190;
-const MIN_STONE_DISTANCE = 190;
+const STONE_SIZE = 230;
+const WARMUP_STONE_SIZE = 230;
+const STONE_ASPECT_RATIO = 360 / 203;
+const STONE_GAP = 12;
 
 const WARMUP_SEQUENCE = [0, 1];
 const PERSON_WALK_MS = 260;
@@ -209,7 +211,8 @@ const MICRO_DIFFICULTY_CONFIG = {
     spatialSimilarity: "medium",
     pathComplexity: "simple",
     reverseMode: false,
-    distractor: { enabled: true, startRound: 4, count: 1, interval: 4200, duration: 420, avoidNextTarget: true },
+    backwardRecall: true,
+    distractor: { enabled: false, count: 0, interval: 0, duration: 0, avoidNextTarget: true },
   },
   normal3: {
     label: "穩定 3",
@@ -228,7 +231,8 @@ const MICRO_DIFFICULTY_CONFIG = {
     spatialSimilarity: "medium",
     pathComplexity: "crossing",
     reverseMode: false,
-    distractor: { enabled: true, startRound: 3, count: 1, interval: 4000, duration: 450, avoidNextTarget: true },
+    backwardRecall: true,
+    distractor: { enabled: false, count: 0, interval: 0, duration: 0, avoidNextTarget: true },
   },
   advanced1: {
     label: "進階 1",
@@ -247,7 +251,8 @@ const MICRO_DIFFICULTY_CONFIG = {
     spatialSimilarity: "medium",
     pathComplexity: "crossing",
     reverseMode: false,
-    distractor: { enabled: true, startRound: 0, count: 1, interval: 3000, duration: 620, avoidNextTarget: true },
+    backwardRecall: true,
+    distractor: { enabled: false, count: 0, interval: 0, duration: 0, avoidNextTarget: true },
   },
   advanced2: {
     label: "進階 2",
@@ -266,7 +271,8 @@ const MICRO_DIFFICULTY_CONFIG = {
     spatialSimilarity: "medium",
     pathComplexity: "crossing",
     reverseMode: false,
-    distractor: { enabled: true, startRound: 1, count: 1, interval: 3300, duration: 560, avoidNextTarget: true },
+    backwardRecall: true,
+    distractor: { enabled: false, count: 0, interval: 0, duration: 0, avoidNextTarget: true },
   },
   advanced3: {
     label: "進階 3",
@@ -285,7 +291,8 @@ const MICRO_DIFFICULTY_CONFIG = {
     spatialSimilarity: "high",
     pathComplexity: "crossing",
     reverseMode: "rare",
-    distractor: { enabled: true, startRound: 1, count: 1, interval: 3100, duration: 580, avoidNextTarget: true },
+    backwardRecall: true,
+    distractor: { enabled: false, count: 0, interval: 0, duration: 0, avoidNextTarget: true },
   },
   hard1: {
     label: "挑戰 1",
@@ -304,7 +311,8 @@ const MICRO_DIFFICULTY_CONFIG = {
     spatialSimilarity: "high",
     pathComplexity: "zigzag",
     reverseMode: "rare",
-    distractor: { enabled: true, startRound: 0, count: 1, interval: 2500, duration: 680, avoidNextTarget: true },
+    backwardRecall: true,
+    distractor: { enabled: false, count: 0, interval: 0, duration: 0, avoidNextTarget: true },
   },
   hard2: {
     label: "挑戰 2",
@@ -323,7 +331,8 @@ const MICRO_DIFFICULTY_CONFIG = {
     spatialSimilarity: "high",
     pathComplexity: "zigzag",
     reverseMode: "rare",
-    distractor: { enabled: true, startRound: 0, count: 2, interval: 2400, duration: 680, avoidNextTarget: true },
+    backwardRecall: true,
+    distractor: { enabled: false, count: 0, interval: 0, duration: 0, avoidNextTarget: true },
   },
   hard3: {
     label: "挑戰 3",
@@ -342,7 +351,8 @@ const MICRO_DIFFICULTY_CONFIG = {
     spatialSimilarity: "high",
     pathComplexity: "zigzag",
     reverseMode: "rare",
-    distractor: { enabled: true, startRound: 0, count: 2, interval: 2300, duration: 700, avoidNextTarget: true },
+    backwardRecall: true,
+    distractor: { enabled: false, count: 0, interval: 0, duration: 0, avoidNextTarget: true },
   },
   expert1: {
     label: "高挑戰 1",
@@ -361,7 +371,8 @@ const MICRO_DIFFICULTY_CONFIG = {
     spatialSimilarity: "high",
     pathComplexity: "zigzag",
     reverseMode: "rare",
-    distractor: { enabled: true, startRound: 0, count: 2, interval: 2200, duration: 720, avoidNextTarget: true },
+    backwardRecall: true,
+    distractor: { enabled: false, count: 0, interval: 0, duration: 0, avoidNextTarget: true },
   },
   expert2: {
     label: "高挑戰 2",
@@ -380,7 +391,8 @@ const MICRO_DIFFICULTY_CONFIG = {
     spatialSimilarity: "high",
     pathComplexity: "zigzag",
     reverseMode: "rare",
-    distractor: { enabled: true, startRound: 0, count: 2, interval: 2100, duration: 740, avoidNextTarget: true },
+    backwardRecall: true,
+    distractor: { enabled: false, count: 0, interval: 0, duration: 0, avoidNextTarget: true },
   },
   expert3: {
     label: "高挑戰 3",
@@ -399,7 +411,8 @@ const MICRO_DIFFICULTY_CONFIG = {
     spatialSimilarity: "high",
     pathComplexity: "zigzag",
     reverseMode: "rare",
-    distractor: { enabled: true, startRound: 0, count: 2, interval: 2000, duration: 760, avoidNextTarget: true },
+    backwardRecall: true,
+    distractor: { enabled: false, count: 0, interval: 0, duration: 0, avoidNextTarget: true },
   },
 };
 
@@ -418,18 +431,19 @@ function shuffleArray(array) {
   return next;
 }
 
-function getMinStoneDistance(spatialSimilarity = "low") {
-  if (spatialSimilarity === "high") return 150;
-  if (spatialSimilarity === "medium") return 165;
-  return MIN_STONE_DISTANCE;
-}
-
-function createRandomBlocks(count, spatialSimilarity = "low") {
+function createRandomBlocks(count) {
   const blocks = [];
-  const paddingX = 115;
-  const paddingY = 95;
-  const maxTry = 900;
-  const minDistance = getMinStoneDistance(spatialSimilarity);
+  const visualHeight = STONE_SIZE / STONE_ASPECT_RATIO;
+  const paddingX = STONE_SIZE / 2 + STONE_GAP;
+  const paddingY = visualHeight / 2 + STONE_GAP;
+  const maxTry = 1800;
+
+  const doesNotOverlap = (candidate) => blocks.every((block) => {
+    const horizontalGap = Math.abs(block.left - candidate.left);
+    const verticalGap = Math.abs(block.top - candidate.top);
+    return horizontalGap >= STONE_SIZE + STONE_GAP ||
+      verticalGap >= visualHeight + STONE_GAP;
+  });
 
   for (let i = 0; i < count; i += 1) {
     let candidate = null;
@@ -445,18 +459,16 @@ function createRandomBlocks(count, spatialSimilarity = "low") {
       const nextCandidate = { top, left };
       candidate = nextCandidate;
 
-      const safe = blocks.every(
-        (block) => distance(block, nextCandidate) >= minDistance
-      );
-
-      if (safe) break;
+      if (doesNotOverlap(nextCandidate)) break;
+      candidate = null;
     }
 
     if (!candidate) {
-      candidate = {
-        top: paddingY + Math.round(Math.random() * 200),
-        left: paddingX + Math.round(Math.random() * 520),
-      };
+      return shuffleArray([
+        { top: 82, left: 130 }, { top: 82, left: 380 }, { top: 82, left: 630 },
+        { top: 227, left: 130 }, { top: 227, left: 380 }, { top: 227, left: 630 },
+        { top: 372, left: 130 }, { top: 372, left: 380 }, { top: 372, left: 630 },
+      ]).slice(0, count);
     }
 
     blocks.push(candidate);
@@ -531,6 +543,10 @@ function getConfigByMicroDifficulty(microDifficulty) {
   return MICRO_DIFFICULTY_CONFIG[microDifficulty] || MICRO_DIFFICULTY_CONFIG.easy1;
 }
 
+function getExpectedAnswerSequence(sequence = [], config = {}) {
+  return config.backwardRecall ? [...sequence].reverse() : sequence;
+}
+
 function getMacroDifficultyFromMicro(microDifficulty) {
   return getConfigByMicroDifficulty(microDifficulty).macro || "easy";
 }
@@ -591,10 +607,20 @@ function readJsonArray(key) {
   return Array.isArray(value) ? value : [];
 }
 
+function safeLocalStorageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (error) {
+    console.warn(`無法寫入 localStorage（${key}）：`, error);
+    return false;
+  }
+}
+
 function writeJsonArrayUnique(key, values) {
   const current = readJsonArray(key);
   const merged = [...new Set([...current, ...values].filter(Boolean))];
-  localStorage.setItem(key, JSON.stringify(merged));
+  safeLocalStorageSet(key, JSON.stringify(merged));
 }
 
 function getStoredObjectCandidates(keys) {
@@ -648,7 +674,6 @@ function summarizeCbtTestResult(result) {
     bestSpan: Number.isFinite(bestSpan) ? bestSpan : 0,
   };
 }
-
 function readLatestCbtTestSummary() {
   const objectCandidates = getStoredObjectCandidates([
     "ef_game_cbt_test_result",
@@ -884,7 +909,6 @@ function calculateCbtTrainingAiAnalysis(history) {
     },
   };
 }
-
 function getTrainingScoreSummary(history) {
   const total = history.length;
 
@@ -933,15 +957,15 @@ function saveTrainingStageResult({ stageId, gameId, level, todayKey, stars, hist
 
   writeJsonArrayUnique(COMPLETED_LEVELS_STORAGE_KEY, [stageId, levelKey, todayLevelKey]);
 
-  localStorage.setItem(`ef_game_${stageId}_completed`, "true");
-  localStorage.setItem(`ef_game_${gameId}_level_${safeLevel}_completed`, "true");
-  localStorage.setItem(`training_${gameId}_level_${safeLevel}_completed`, "true");
-  localStorage.setItem(`${gameId}_training_level_${safeLevel}_completed`, "true");
+  safeLocalStorageSet(`ef_game_${stageId}_completed`, "true");
+  safeLocalStorageSet(`ef_game_${gameId}_level_${safeLevel}_completed`, "true");
+  safeLocalStorageSet(`training_${gameId}_level_${safeLevel}_completed`, "true");
+  safeLocalStorageSet(`${gameId}_training_level_${safeLevel}_completed`, "true");
 
-  localStorage.setItem(`ef_game_${stageId}_stars`, String(stars));
-  localStorage.setItem(`ef_game_${gameId}_level_${safeLevel}_stars`, String(stars));
-  localStorage.setItem(`training_${gameId}_level_${safeLevel}_stars`, String(stars));
-  localStorage.setItem(`${gameId}_training_level_${safeLevel}_stars`, String(stars));
+  safeLocalStorageSet(`ef_game_${stageId}_stars`, String(stars));
+  safeLocalStorageSet(`ef_game_${gameId}_level_${safeLevel}_stars`, String(stars));
+  safeLocalStorageSet(`training_${gameId}_level_${safeLevel}_stars`, String(stars));
+  safeLocalStorageSet(`${gameId}_training_level_${safeLevel}_stars`, String(stars));
 
   const stageStarMap = safeParse(localStorage.getItem(STAGE_STARS_STORAGE_KEY), {}) || {};
   stageStarMap[stageId] = {
@@ -952,12 +976,13 @@ function saveTrainingStageResult({ stageId, gameId, level, todayKey, stars, hist
   };
   stageStarMap[levelKey] = stars;
   stageStarMap[todayLevelKey] = stars;
-  localStorage.setItem(STAGE_STARS_STORAGE_KEY, JSON.stringify(stageStarMap));
+  safeLocalStorageSet(STAGE_STARS_STORAGE_KEY, JSON.stringify(stageStarMap));
 
   const savedHistory = safeParse(localStorage.getItem(CBT_TRAINING_HISTORY_KEY), []);
   const nextHistory = Array.isArray(savedHistory) ? [...savedHistory, ...history] : history;
-  localStorage.setItem(CBT_TRAINING_HISTORY_KEY, JSON.stringify(nextHistory));
-  localStorage.setItem(CBT_TRAINING_RESULT_KEY, JSON.stringify(summary));
+  const cappedHistory = nextHistory.slice(-240);
+  safeLocalStorageSet(CBT_TRAINING_HISTORY_KEY, JSON.stringify(cappedHistory));
+  safeLocalStorageSet(CBT_TRAINING_RESULT_KEY, JSON.stringify(summary));
 }
 
 
@@ -1820,6 +1845,20 @@ const cbtTrainingTouchCss = `
   letter-spacing: 0.04em;
 }
 
+.cbt-backward-rule {
+  display: inline-block;
+  margin: 0 0 10px;
+  padding: 8px 18px;
+  border: 3px solid rgba(255, 244, 199, 0.92);
+  border-radius: 999px;
+  background: rgba(21, 91, 105, 0.9);
+  color: #fff8d8;
+  font-size: clamp(20px, 1.8vw, 26px);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 0 rgba(18, 76, 91, 0.95);
+}
+
 .cbt-feedback-actions {
   display: flex;
   justify-content: center;
@@ -1968,12 +2007,11 @@ export default function TrainingPage_CBT() {
   const [isWalking, setIsWalking] = useState(false);
 
   const [timeLeft, setTimeLeft] = useState(12);
-  const [message, setMessage] = useState("");
-  const [feedbackType, setFeedbackType] = useState("neutral");
-
+  const [, setMessage] = useState("");
+  const [, setFeedbackType] = useState("neutral");
   const [correctStreak, setCorrectStreak] = useState(0);
   const [wrongStreak, setWrongStreak] = useState(0);
-  const [roundReplayCount, setRoundReplayCount] = useState(0);
+  const [, setRoundReplayCount] = useState(0);
   const [idleHintActive, setIdleHintActive] = useState(false);
   const [, setTrainingHistory] = useState([]);
 
@@ -2006,11 +2044,6 @@ export default function TrainingPage_CBT() {
 
   const config = getConfigByMicroDifficulty(currentMicroDifficulty);
   const difficulty = getMacroDifficultyFromMicro(currentMicroDifficulty);
-  // 訓練規則改為「每個記憶跨度固定兩題」：答錯或逾時後直接進下一題，
-  // 不在同一題提供補救重播，避免把重試誤算成同一跨度的第三題。
-  const canUseFeedbackReplay = false;
-  const shouldOfferRescueRetry = false;
-
   const isWarmup =
     phase === "warmupShow" ||
     phase === "warmupAnswer" ||
@@ -2196,37 +2229,6 @@ export default function TrainingPage_CBT() {
     setPhase("show");
   }
 
-  function replaySequence() {
-    clearSequenceTimers();
-    if (phase !== "answer" && phase !== "feedback") return;
-    if (roundReplayCountRef.current >= Number(config.replayLimit || 0)) return;
-
-    const nextReplayCount = roundReplayCountRef.current + 1;
-    roundReplayCountRef.current = nextReplayCount;
-    totalReplayCountRef.current += 1;
-    setRoundReplayCount(nextReplayCount);
-
-    resetBoardState();
-    setTimeLeft(config.answerTime);
-    setMessage("再看一次。");
-    setPhase("show");
-  }
-
-  function replayCurrentRoundAfterMistake() {
-    clearSequenceTimers();
-    const nextReplayCount = roundReplayCountRef.current + 1;
-    roundReplayCountRef.current = nextReplayCount;
-    totalReplayCountRef.current += 1;
-    setRoundReplayCount(nextReplayCount);
-
-    rescueUsedRef.current = true;
-    setRoundRescueUsed(true);
-    resetBoardState();
-    setTimeLeft(config.answerTime);
-    setMessage("再看一次，等等再試一次。");
-    setPhase("show");
-  }
-
   function replayWarmup() {
     clearSequenceTimers();
     setSequence(WARMUP_SEQUENCE);
@@ -2249,7 +2251,8 @@ export default function TrainingPage_CBT() {
 
   function recordTrainingTrial({ correct, input, errorType }) {
     const reactionTime = getReactionTimeMs();
-    const firstMismatchIndex = input.findIndex((value, index) => value !== sequence[index]);
+    const expectedSequence = getExpectedAnswerSequence(sequence, config);
+    const firstMismatchIndex = input.findIndex((value, index) => value !== expectedSequence[index]);
     const firstErrorPosition = correct
       ? null
       : firstMismatchIndex >= 0
@@ -2258,7 +2261,7 @@ export default function TrainingPage_CBT() {
     const errorPattern = classifyCbtErrorPattern({
       correct,
       input,
-      target: sequence,
+      target: expectedSequence,
       errorType,
     });
     const averageTapInterval = average(stepReactionTimesRef.current);
@@ -2298,8 +2301,11 @@ export default function TrainingPage_CBT() {
       blockCount: config.blockCount,
 
       sequence,
-      targetSequence: sequence,
-      correctSequence: sequence,
+      presentedSequence: sequence,
+      targetSequence: expectedSequence,
+      correctSequence: expectedSequence,
+      recallDirection: config.backwardRecall ? "backward" : "forward",
+      backwardRecall: Boolean(config.backwardRecall),
 
       answer: input,
       userSequence: input,
@@ -2333,7 +2339,7 @@ export default function TrainingPage_CBT() {
       distractorCount: config.distractor?.count || 0,
       spatialSimilarity: config.spatialSimilarity || "low",
       pathComplexity: config.pathComplexity || "simple",
-      reverseMode: config.reverseMode || false,
+      reverseMode: Boolean(config.backwardRecall),
 
       createdAt: new Date().toISOString(),
     };
@@ -2392,10 +2398,7 @@ export default function TrainingPage_CBT() {
       avgReactionTime,
       averageReactionTime: avgReactionTime,
 
-      cbtHistory: safeHistory,
-      trials: safeHistory,
       history: safeHistory,
-      records: safeHistory,
 
       stopReason: stopReasonRef.current,
       trialsPerMemorySpan: TRIALS_PER_MEMORY_SPAN,
@@ -2413,13 +2416,11 @@ export default function TrainingPage_CBT() {
 
     unifiedResultSavedRef.current = true;
 
-    try {
-      localStorage.setItem(CBT_TRAINING_RESULT_KEY, JSON.stringify(resultPayload));
-      localStorage.setItem("cbtTrainingResult", JSON.stringify(resultPayload));
-      localStorage.setItem("latestCBTTrainingResult", JSON.stringify(resultPayload));
-    } catch (error) {
-      console.warn("CBT 訓練結果儲存失敗：", error);
-    }
+    // 舊版會把同一份大型結果存三次，容易迅速耗盡瀏覽器配額。
+    // 保留目前各結果頁優先讀取的主鍵，並清掉兩份重複快取。
+    localStorage.removeItem(CBT_TRAINING_RESULT_KEY);
+    localStorage.removeItem("latestCBTTrainingResult");
+    safeLocalStorageSet("cbtTrainingResult", JSON.stringify(resultPayload));
 
     saveUnifiedResult({
       rawResult: resultPayload,
@@ -2552,7 +2553,6 @@ export default function TrainingPage_CBT() {
     setCorrectStreak(nextCorrectStreak);
     setWrongStreak(0);
     setFeedbackType("correct");
-    setMessage(getCorrectMessage(nextCorrectStreak));
     setPhase("feedback");
 
     return finalHistory;
@@ -2571,8 +2571,6 @@ export default function TrainingPage_CBT() {
     setCorrectStreak(0);
     setWrongStreak(nextWrongStreak);
     setFeedbackType("wrong");
-    setMessage(errorType === "timeout" ? "下一題再試試。" : "下一題再加油。");
-
     setPhase("feedback");
 
     return finalHistory;
@@ -2665,8 +2663,6 @@ export default function TrainingPage_CBT() {
 
     if (index !== correctIndex) {
       setWrongIndex(index);
-      setMessage("再看一次。");
-
       finishPersonWalk({
         onComplete: () => {
           setSequenceTimer(() => {
@@ -2684,7 +2680,6 @@ export default function TrainingPage_CBT() {
         setUserInput(nextUserSeq);
 
         if (nextUserSeq.length === sequence.length) {
-          setMessage("做得好！");
           setPhase("warmupFeedback");
         }
       },
@@ -2700,7 +2695,8 @@ export default function TrainingPage_CBT() {
     const currentUserSeq = userSequenceRef.current;
     const nextUserSeq = [...currentUserSeq, index];
     const nextUserSeqLength = nextUserSeq.length;
-    const correctIndex = sequence[nextUserSeqLength - 1];
+    const expectedSequence = getExpectedAnswerSequence(sequence, config);
+    const correctIndex = expectedSequence[nextUserSeqLength - 1];
 
     const now = Date.now();
     if (!firstTapTimeRef.current) {
@@ -2854,9 +2850,9 @@ export default function TrainingPage_CBT() {
     }, 1000);
 
     return () => clearSequenceTimer(timer);
-    // handleWrongRound reads refs and must not restart this one-second timer each render.
+    // Resume the countdown when the walking animation releases its lock.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, timeLeft]);
+  }, [phase, timeLeft, isWalking]);
 
   useEffect(() => {
     if (phase !== "answer") {
@@ -2925,6 +2921,13 @@ export default function TrainingPage_CBT() {
       {phase === "intro" && (
         <VideoOnlyPage
           videoSrc={introVideo}
+          onDone={() => setPhase("stepVideo")}
+        />
+      )}
+
+      {phase === "stepVideo" && (
+        <VideoOnlyPage
+          videoSrc={stepVideo}
           onDone={startWarmup}
         />
       )}
@@ -2957,18 +2960,14 @@ export default function TrainingPage_CBT() {
       )}
 
       {phase === "warmupFeedback" && (
-        <div className="cbt-card cbt-card--small game-start-card-artwork cbt-feedback-card-artwork">
-          <h1 className="cbt-title">做得好！</h1>
-
-          <div className="cbt-result-message">{message}</div>
-
+        <div className="cbt-card cbt-card--small game-start-card-artwork cbt-feedback-card-artwork cbt-icon-only-feedback">
           <GuidedImageButton
-            imgSrc={homeStartBtn}
-            imgAlt="開始練習"
-            ariaLabel="開始練習"
+            imgSrc={homeNextBtn}
+            imgAlt="下一步"
+            ariaLabel="進入正式訓練"
             onClick={startTraining}
             showMouse
-            variant="start"
+            variant="next"
           />
         </div>
       )}
@@ -2976,6 +2975,13 @@ export default function TrainingPage_CBT() {
       {(phase === "show" || phase === "answer") && (
         <div className="cbt-card cbt-card--wide cbt-test-card cbt-play-card-minimal">
           <div className="cbt-instruction-pill">
+            {config.backwardRecall && (
+              <p className="cbt-backward-rule" aria-live="polite">
+                {phase === "show"
+                  ? "記住石頭亮起的順序"
+                  : "倒著走：請從最後亮起的石頭點回第一顆"}
+              </p>
+            )}
             <h2 className="cbt-subtitle">
               {phase === "show" ? "看亮燈" : "換你點"}
             </h2>
@@ -3002,45 +3008,15 @@ export default function TrainingPage_CBT() {
       )}
 
       {phase === "feedback" && (
-        <div className="cbt-card cbt-card--small game-start-card-artwork cbt-feedback-card-artwork">
-          <h1 className="cbt-title">
-            {feedbackType === "correct" ? "答對了" : "再試一次"}
-          </h1>
-
-          <div className="cbt-result-message">{message}</div>
-
-          <div className="cbt-feedback-actions">
-            {shouldOfferRescueRetry && (
-              <button
-                type="button"
-                className="cbt-main-button"
-                onClick={replayCurrentRoundAfterMistake}
-              >
-                再看一次
-              </button>
-            )}
-
-            {!shouldOfferRescueRetry && canUseFeedbackReplay && (
-              <button
-                type="button"
-                className="cbt-secondary-button"
-                onClick={replaySequence}
-              >
-                重看（{Number(config.replayLimit || 0) - roundReplayCount}）
-              </button>
-            )}
-
-            {!shouldOfferRescueRetry && (
-              <GuidedImageButton
-                imgSrc={homeNextBtn}
-                imgAlt="下一題"
-                ariaLabel="進入下一題"
-                onClick={goNextRound}
-                showMouse
-                variant="next"
-              />
-            )}
-          </div>
+        <div className="cbt-card cbt-card--small game-start-card-artwork cbt-feedback-card-artwork cbt-icon-only-feedback">
+          <GuidedImageButton
+            imgSrc={homeNextBtn}
+            imgAlt="下一題"
+            ariaLabel="進入下一題"
+            onClick={goNextRound}
+            showMouse
+            variant="next"
+          />
         </div>
       )}
 
@@ -3328,14 +3304,3 @@ function getStoneStyle({
   };
 }
 
-function getCorrectMessage(correctStreak) {
-  if (correctStreak >= 3) {
-    return "很棒！";
-  }
-
-  if (correctStreak >= 2) {
-    return "越來越會了！";
-  }
-
-  return "做得好！";
-}

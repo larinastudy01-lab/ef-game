@@ -61,6 +61,131 @@
   --Dcss-card-max: 960px;
 }
 
+/* 規則前導頁：示範置中放大，操作按鈕位於下方中央。 */
+.Dcss-picture-rule-card.Dcss-rule-guide-centered {
+  grid-template-columns: minmax(0, 1fr) !important;
+  justify-items: center;
+  padding-inline: clamp(28px, 6vw, 82px) !important;
+  padding-block: clamp(58px, 7vh, 78px) !important;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.Dcss-rule-guide-centered .Dcss-picture-rule-content {
+  width: 100%;
+  max-width: 980px;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  box-sizing: border-box;
+  justify-content: center;
+  gap: clamp(6px, 1.2vh, 14px) !important;
+}
+
+.Dcss-rule-guide-centered .Dcss-picture-rule-row {
+  width: min(100%, 940px) !important;
+  margin-inline: auto;
+  gap: clamp(18px, 3vw, 44px) !important;
+  min-height: 0;
+}
+
+.Dcss-rule-guide-centered .Dcss-rule-primary-instruction {
+  margin: 0;
+  font-size: clamp(30px, 3.6vw, 50px);
+  line-height: 1.2;
+  font-weight: 900;
+  color: #5f3f30;
+  text-align: center;
+}
+
+.Dcss-rule-guide-centered .Dcss-mini-example {
+  width: 100%;
+  padding: clamp(12px, 2vh, 22px);
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: auto auto auto;
+  gap: clamp(6px, 1vh, 12px);
+}
+
+.Dcss-rule-guide-centered .Dcss-mini-example .Dcss-big-arrow {
+  --dccs-guide-arrow-color: #e85d3f;
+  position: relative;
+  display: block;
+  justify-self: center;
+  width: clamp(28px, 3vw, 40px);
+  height: clamp(42px, 5vh, 58px);
+  margin: clamp(6px, 0.8vh, 10px) 0 clamp(16px, 2vh, 24px);
+  overflow: visible;
+  color: transparent;
+  font-size: 0;
+  line-height: 1;
+}
+
+.Dcss-rule-guide-centered .Dcss-mini-example .Dcss-big-arrow::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: clamp(4px, 0.45vw, 6px);
+  height: calc(100% - 14px);
+  border-radius: 999px;
+  background: var(--dccs-guide-arrow-color);
+  transform: translateX(-50%);
+  box-shadow: 0 0 0 2px rgba(255, 249, 225, 0.92), 0 3px 5px rgba(94, 50, 31, 0.28);
+}
+
+.Dcss-rule-guide-centered .Dcss-mini-example .Dcss-big-arrow::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: clamp(16px, 2vw, 24px);
+  height: clamp(16px, 2vw, 24px);
+  border-right: clamp(4px, 0.45vw, 6px) solid var(--dccs-guide-arrow-color);
+  border-bottom: clamp(4px, 0.45vw, 6px) solid var(--dccs-guide-arrow-color);
+  border-radius: 2px;
+  transform: translateX(-50%) rotate(45deg);
+  filter: drop-shadow(2px 2px 0 rgba(255, 249, 225, 0.92)) drop-shadow(0 3px 3px rgba(94, 50, 31, 0.3));
+}
+
+.Dcss-rule-guide-centered .Dcss-mini-example .Dcss-demo-target {
+  justify-self: center;
+  margin-top: clamp(22px, 2.8vh, 34px) !important;
+}
+
+.Dcss-rule-guide-centered .Dcss-mini-example > img {
+  width: clamp(120px, 15vw, 190px) !important;
+  height: clamp(120px, 15vw, 190px) !important;
+}
+
+.Dcss-rule-guide-centered .Dcss-demo-target img {
+  width: clamp(135px, 16vw, 205px) !important;
+  height: auto !important;
+  max-width: 205px !important;
+  max-height: 136px !important;
+}
+
+.Dcss-rule-guide-centered .Dcss-guided-rule {
+  align-self: center;
+  flex: 0 0 auto;
+  margin: clamp(4px, 0.8vh, 10px) auto 0 !important;
+}
+
+.Dcss-rule-guide-centered .Dcss-guided-rule .Dcss-mouse-on-button {
+  right: -24px;
+  bottom: -18px;
+}
+
+@media (max-width: 760px) {
+  .Dcss-rule-guide-centered .Dcss-picture-rule-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .Dcss-rule-guide-centered .Dcss-mini-example > img {
+    width: clamp(100px, 27vw, 160px) !important;
+    height: clamp(100px, 27vw, 160px) !important;
+  }
+}
+
 /* =========================================================
    1. 全頁背景
    ========================================================= */

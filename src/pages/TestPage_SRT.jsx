@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import "../styles/TestStepVideo.css";
 
 import bgImg from "../asset/SRT/SRT_background.webp";
 import normalImg from "../asset/SRT/acorn.webp";
@@ -7,9 +8,7 @@ import goldenImg from "../asset/SRT/golden_acorn.webp";
 import rottenImg from "../asset/SRT/rotten_acorn.webp";
 import levelIcon from "../asset/SRT_icon.webp";
 import startAvatar from "../asset/SRT/bear.webp";
-import introVideo from "../asset/optimized/mp4/SRT_start.mp4";
 import tutorialVideo from "../asset/optimized/mp4/SRT_step.mp4";
-import endingVideo from "../asset/optimized/mp4/SRT_end.mp4";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
 import homeNextBtn from "../asset/home/next.webp";
@@ -118,9 +117,7 @@ const TestPage_SRT = () => {
   const idleCheckRef = useRef(null);
   const idleFlashTimeoutRef = useRef(null);
   const spawnAnimationFrameRef = useRef(null);
-  const introVideoRef = useRef(null);
   const tutorialVideoRef = useRef(null);
-  const endingVideoRef = useRef(null);
 
   const pauseVideo = (videoRef) => {
     const video = videoRef.current;
@@ -130,9 +127,7 @@ const TestPage_SRT = () => {
   };
 
   const pauseAllVideos = () => {
-    pauseVideo(introVideoRef);
     pauseVideo(tutorialVideoRef);
-    pauseVideo(endingVideoRef);
   };
 
   const setGamePhase = (nextPhase) => {
@@ -284,10 +279,6 @@ const TestPage_SRT = () => {
   const handleStart = () => {
     resetTest();
     setShowDetailedResult(false);
-    setGamePhase("intro");
-  };
-
-  const handleIntroEnd = () => {
     setGamePhase("step");
   };
 
@@ -585,10 +576,6 @@ const TestPage_SRT = () => {
       console.error("SRT 雲端同步失敗，結果已保留在本機：", error);
     }
 
-    setGamePhase("ending");
-  };
-
-  const handleEndingVideoEnd = () => {
     clearAllTimers();
     setItem(null);
     setEffect(null);
@@ -941,42 +928,10 @@ const TestPage_SRT = () => {
         </main>
       )}
 
-      {phase === "intro" && (
-        <main className="srt-center-shell">
-          <section className="srt-soft-panel srt-video-panel game-start-card-artwork srt-video-card-artwork" aria-label="前導動畫">
-            <div className="srt-video-frame">
-              <video
-                ref={introVideoRef}
-                src={introVideo}
-                autoPlay
-                muted
-                playsInline
-                controls
-                onEnded={handleIntroEnd}
-                className="srt-video"
-              />
-            </div>
-            <div className="srt-step-actions">
-              <div className="srt-guided-action srt-guided-skip">
-                <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={handleIntroEnd} aria-label="跳過動畫">
-                  <img src={homeSkipBtn} width="532" height="177" loading="lazy" alt="跳過動畫" />
-                </button>
-              </div>
-              <div className="srt-guided-action srt-guided-next">
-                <button type="button" className="srt-forest-button srt-image-button srt-btn-next" onClick={handleIntroEnd} aria-label="下一步">
-                  <img src={homeNextBtn} width="532" height="177" loading="lazy" alt="下一步" />
-                </button>
-                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseImg} width="156" height="156" loading="lazy" alt="" aria-hidden="true" />
-              </div>
-            </div>
-          </section>
-        </main>
-      )}
-
       {phase === "step" && (
         <main className="srt-center-shell">
           <section className="srt-soft-panel srt-video-panel game-start-card-artwork srt-video-card-artwork" aria-label="步驟教學影片">
-            <div className="srt-video-frame">
+            <div className="srt-video-frame test-step-video-frame">
               <video
                 ref={tutorialVideoRef}
                 src={tutorialVideo}
@@ -985,7 +940,7 @@ const TestPage_SRT = () => {
                 playsInline
                 controls
                 onEnded={handleTutorialVideoEnd}
-                className="srt-video"
+                className="srt-video test-step-video"
               />
             </div>
             <div className="srt-step-actions">
@@ -1023,30 +978,6 @@ const TestPage_SRT = () => {
 
             {effect && <div className={`srt-test-effect ${effect.type === "penalty" ? "is-penalty" : ""}`} style={{ left: `${effect.x}%`, top: `${effect.y}%` }} />}
           </div>
-        </main>
-      )}
-
-      {phase === "ending" && (
-        <main className="srt-center-shell">
-          <section className="srt-soft-panel srt-video-panel game-start-card-artwork srt-video-card-artwork" aria-label="結束動畫">
-            <div className="srt-video-frame">
-              <video
-                ref={endingVideoRef}
-                src={endingVideo}
-                autoPlay
-                muted
-                playsInline
-                controls
-                onEnded={handleEndingVideoEnd}
-                className="srt-video"
-              />
-            </div>
-            <div className="srt-guided-action srt-guided-skip">
-              <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={handleEndingVideoEnd} aria-label="跳過動畫">
-                <img src={homeSkipBtn} width="532" height="177" loading="lazy" alt="跳過動畫" />
-              </button>
-            </div>
-          </section>
         </main>
       )}
 

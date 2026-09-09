@@ -1373,12 +1373,7 @@ export default function TrainingPage_PM() {
 
           {phase === "memorize" && (
             <div style={styles.card}>
-              <p style={styles.kicker}>第 {round} / {trainingTotalRounds} 題｜{currentConfig.memorySpan} 張第 {currentConfig.spanTrialIndex} / {currentConfig.spanTrialTotal} 題</p>
               <h1 style={styles.title}>看清楚湖裡的小物品</h1>
-
-              <div style={styles.iconHint}>
-                <span>請記住這些圖片</span>
-              </div>
 
               <div style={styles.memoryGrid}>
                 {currentMemorizeItems.map((item, index) => {
@@ -1412,12 +1407,7 @@ export default function TrainingPage_PM() {
               }}
               onClick={handleGameAreaClick}
             >
-              <p style={styles.kicker}>第 {round} / {trainingTotalRounds} 題｜{currentConfig.memorySpan} 張第 {currentConfig.spanTrialIndex} / {currentConfig.spanTrialTotal} 題</p>
               <h1 style={styles.title}>找回剛剛看過的物品</h1>
-
-              <div style={styles.iconHint}>
-                <span>已找到 {selectedIds.length} / {currentConfig.memoryCount}</span>
-              </div>
 
               {backgroundWarning && (
                 <div style={styles.backgroundWarning}>先看清楚圖片，再點選物品喔！</div>
@@ -1789,13 +1779,25 @@ const styles = {
   },
 
   title: {
-    fontSize: "clamp(28px, 3.7vw, 46px)",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: "min(82vw, 440px)",
+    maxWidth: "calc(100% - 24px)",
+    padding: "clamp(10px, 1.5vw, 15px) clamp(26px, 4vw, 48px)",
+    boxSizing: "border-box",
+    background: "linear-gradient(180deg, #ffffff 0%, #fff9e9 100%)",
+    border: "4px solid #f0c77b",
+    borderRadius: "999px",
+    fontSize: "clamp(22px, 2.6vw, 34px)",
     fontWeight: 900,
-    color: "#744018",
-    textShadow: "0 3px 0 rgba(255,255,255,0.78)",
-    margin: "0 0 12px",
-    lineHeight: 1.15,
+    color: "#6d3717",
+    textShadow: "none",
+    boxShadow: "0 8px 0 rgba(225,169,84,0.12), inset 0 0 0 5px rgba(255,235,174,0.35)",
+    margin: "0 auto 14px",
+    lineHeight: 1.2,
     letterSpacing: "0.02em",
+    transform: "translateY(-18px)",
   },
 
   text: {

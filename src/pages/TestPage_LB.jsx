@@ -2,15 +2,14 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import "../styles/TestStepVideo.css";
 import calculateLBScore from "../utils/lbScoring";
 import { saveUnifiedResult } from "../utils/resultManager";
 
 import backgroundImg from "../asset/LB/LB_background.webp";
 import homeImg from "../asset/LB/grandma_sheep_house.webp";
 import blowingBubblesImg from "../asset/LB/walk/blowing_bubbles.webp";
-import storyVideo from "../asset/optimized/mp4/LB_start.mp4";
 import tutorialVideo from "../asset/optimized/mp4/LB_step.mp4";
-import endingVideo from "../asset/optimized/mp4/LB_end.mp4";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
 import homeNextBtn from "../asset/home/next.webp";
@@ -408,9 +407,7 @@ function TestPageLB() {
   const finishedRef = useRef(false);
   const timeoutRef = useRef(null);
   const walkerTimersRef = useRef([]);
-  const storyVideoRef = useRef(null);
   const tutorialVideoRef = useRef(null);
-  const endingVideoRef = useRef(null);
 
   const currentStage = STAGES[stageIndex];
   const displayItems = useMemo(() => buildStageItems(currentStage), [currentStage]);
@@ -422,9 +419,7 @@ function TestPageLB() {
   }, []);
 
   const pauseAllVideos = useCallback(() => {
-    pauseVideo(storyVideoRef);
     pauseVideo(tutorialVideoRef);
-    pauseVideo(endingVideoRef);
   }, [pauseVideo]);
 
   const setGamePhase = useCallback((nextPhase) => {
@@ -488,19 +483,11 @@ function TestPageLB() {
 
   const handleStart = () => {
     resetWholeTest();
-    setGamePhase("storyVideo");
-  };
-
-  const handleStoryVideoEnd = () => {
     setGamePhase("tutorialVideo");
   };
 
   const handleTutorialVideoEnd = () => {
-    startGame();
-  };
-
-  const handleEndingVideoEnd = () => {
-    setGamePhase("result");
+    setGamePhase("imageGuide");
   };
 
   const resetStageState = (nextStageIndex) => {
@@ -773,7 +760,7 @@ function TestPageLB() {
     }
 
     setResultPayload(resultPayload);
-    setGamePhase("endingVideo");
+    setGamePhase("result");
   };
 
   const goDetailedResult = () => {
@@ -815,42 +802,14 @@ function TestPageLB() {
     );
   }
 
-  if (phase === "storyVideo") {
-    return (
-      <div className="lb-simple-page lb-srt-skin">
-        <LBResetStyle />
-        <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-video-panel game-start-card-artwork lb-video-card-artwork" aria-label="故事動畫">
-            <div className="lb-video-frame">
-              <video ref={storyVideoRef} src={storyVideo} autoPlay muted playsInline controls onEnded={handleStoryVideoEnd} className="lb-video" />
-            </div>
-            <div className="lb-video-actions">
-              <div className="lb-guided-action lb-guided-skip">
-                <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleStoryVideoEnd} aria-label="跳過故事動畫">
-                  <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過故事動畫" />
-                </button>
-              </div>
-              <div className="lb-guided-action lb-guided-next">
-                <button type="button" className="lb-forest-button lb-image-button lb-btn-next" onClick={handleStoryVideoEnd} aria-label="下一步">
-                  <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" />
-                </button>
-                <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="" aria-hidden="true" />
-              </div>
-            </div>
-          </section>
-        </main>
-      </div>
-    );
-  }
-
   if (phase === "tutorialVideo") {
     return (
       <div className="lb-simple-page lb-srt-skin">
         <LBResetStyle />
         <main className="lb-center-shell">
           <section className="lb-soft-panel lb-video-panel game-start-card-artwork lb-video-card-artwork" aria-label="前導教學影片">
-            <div className="lb-video-frame">
-              <video ref={tutorialVideoRef} src={tutorialVideo} autoPlay muted playsInline controls onEnded={handleTutorialVideoEnd} className="lb-video" />
+            <div className="lb-video-frame test-step-video-frame">
+              <video ref={tutorialVideoRef} src={tutorialVideo} autoPlay muted playsInline controls onEnded={handleTutorialVideoEnd} className="lb-video test-step-video" />
             </div>
             <div className="lb-video-actions">
               <div className="lb-guided-action lb-guided-skip">
@@ -871,7 +830,74 @@ function TestPageLB() {
     );
   }
 
+  if (phase === "imageGuide") {
+    const guideNumbers = [1, 2, 3];
+
+    return (
+      <div className="lb-simple-page lb-srt-skin">
+        <LBResetStyle />
+        <main className="lb-center-shell">
+          <section className="lb-soft-panel lb-start-panel lb-image-guide-panel game-start-card-artwork" aria-label="第一關圖像操作說明">
+            <h1 className="lb-image-guide-title">按照數字順序點門牌</h1>
+            <div className="lb-image-guide-sequence" aria-label="依序點擊門牌一、二、三">
+              {guideNumbers.map((number, index) => (
+                <React.Fragment key={number}>
+                  {index > 0 && <span className="lb-image-guide-arrow" aria-hidden="true">→</span>}
+                  <div className="lb-image-guide-step">
+                    <img src={getDoorplateImage({ color: "cream", number })} alt={`門牌 ${number}`} draggable="false" />
+                  </div>
+                </React.Fragment>
+              ))}
+            </div>
+            <div className="lb-guided-action lb-image-guide-action">
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-next" onClick={startGame} aria-label="看完說明，開始第一關">
+                <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" draggable="false" />
+              </button>
+              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="" aria-hidden="true" draggable="false" />
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   if (phase === "stageComplete") {
+    const nextStage = STAGES[stageIndex + 1];
+    const secondStageGuide = [
+      { number: 1, color: "red" },
+      { number: 2, color: "blue" },
+      { number: 3, color: "red" },
+    ];
+
+    return (
+      <div className="lb-simple-page lb-srt-skin">
+        <LBResetStyle />
+        <main className="lb-center-shell">
+          <section className="lb-soft-panel lb-start-panel lb-image-guide-panel game-start-card-artwork" aria-label="第二關圖像操作說明">
+            <h1 className="lb-image-guide-title">黃色 1、藍色 2，依序交替點門牌</h1>
+            <div className="lb-image-guide-sequence" aria-label="黃色一、藍色二、黃色三">
+              {secondStageGuide.map((item, index) => (
+                <React.Fragment key={`${item.color}-${item.number}`}>
+                  {index > 0 && <span className="lb-image-guide-arrow" aria-hidden="true">→</span>}
+                  <div className="lb-image-guide-step">
+                    <img src={getDoorplateImage(item)} alt={`${item.color === "blue" ? "藍色" : "黃色"}門牌 ${item.number}`} draggable="false" />
+                  </div>
+                </React.Fragment>
+              ))}
+            </div>
+            <div className="lb-guided-action lb-image-guide-action">
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-next" onClick={goNextStage} aria-label={`開始${nextStage?.title || "第二關"}`}>
+                <img width={1024} height={341} src={homeNextBtn} alt="下一步" draggable="false" />
+              </button>
+              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="" aria-hidden="true" draggable="false" />
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  if (phase === "stageCompleteLegacy") {
     const nextStage = STAGES[stageIndex + 1];
 
     return (
@@ -891,36 +917,6 @@ function TestPageLB() {
             >
               <img width={1024} height={341} src={homeNextBtn} alt="下一關" draggable="false" />
             </button>
-          </section>
-        </main>
-      </div>
-    );
-  }
-
-  if (phase === "endingVideo") {
-    return (
-      <div className="lb-simple-page lb-srt-skin">
-        <LBResetStyle />
-        <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-video-panel game-start-card-artwork lb-video-card-artwork" aria-label="結束動畫">
-            <div className="lb-video-frame">
-              <video
-                ref={endingVideoRef}
-                src={endingVideo}
-                autoPlay
-                muted
-                playsInline
-                controls
-                onEnded={handleEndingVideoEnd}
-                className="lb-video"
-              />
-            </div>
-            <div className="lb-guided-action lb-guided-skip">
-              <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleEndingVideoEnd} aria-label="跳過動畫">
-                <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過動畫" />
-              </button>
-              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
-            </div>
           </section>
         </main>
       </div>
@@ -2478,6 +2474,31 @@ function LBResetStyle() {
         object-fit: cover;
       }
 
+      .lb-image-guide-panel {
+        position: relative;
+        width: min(88vw, 1040px);
+        min-height: min(72vh, 650px);
+        padding: clamp(28px, 4vw, 54px) clamp(24px, 5vw, 70px) clamp(76px, 9vh, 104px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(20px, 3vh, 34px);
+      }
+      .lb-image-guide-title, .lb-image-guide-text { position: relative; z-index: 3; margin: 0; text-align: center; }
+      .lb-image-guide-title { color: #5b351d; font-size: clamp(30px, 4vw, 52px); line-height: 1.15; font-weight: 950; }
+      .lb-image-guide-text { color: #694125; font-size: clamp(20px, 2.2vw, 30px); line-height: 1.45; font-weight: 850; }
+      .lb-image-guide-sequence { position: relative; z-index: 3; width: min(100%, 760px); display: flex; align-items: center; justify-content: center; gap: clamp(10px, 2.5vw, 34px); }
+      .lb-image-guide-step { position: relative; display: grid; place-items: center; width: clamp(112px, 15vw, 178px); aspect-ratio: 1; }
+      .lb-image-guide-step:first-child { animation: lbGuidePulse 1.35s ease-in-out infinite; }
+      .lb-image-guide-step img { width: 76%; height: auto; filter: drop-shadow(0 8px 7px rgba(89,58,22,.18)); }
+      .lb-image-guide-arrow { color: #d87932; font-size: clamp(38px, 5vw, 66px); line-height: 1; font-weight: 950; filter: drop-shadow(0 4px 0 rgba(255,255,255,.65)); }
+      .lb-image-guide-action { position: absolute; left: 50%; bottom: -8px; z-index: 5; transform: translateX(-50%); }
+      @keyframes lbGuidePulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+      }
+
       .lb-guided-skip {
         position: relative;
         right: auto;
@@ -2721,6 +2742,10 @@ function LBResetStyle() {
         .lb-round-icon { width: 116px; height: 116px; }
         .lb-video-panel { width: 94vw; padding: 20px 18px 20px; border-radius: 38px; }
         .lb-video-frame { border-radius: 26px; }
+        .lb-image-guide-panel { width: 94vw; min-height: 0; padding: 28px 16px 74px; }
+        .lb-image-guide-sequence { gap: 8px; }
+        .lb-image-guide-step { width: clamp(86px, 25vw, 132px); border-width: 3px; }
+        .lb-image-guide-arrow { font-size: clamp(28px, 8vw, 44px); }
         .lb-cute-stars { top: -52px; gap: 12px; }
         .lb-cute-star { font-size: 78px; -webkit-text-stroke-width: 4px; }
         .lb-cute-star:nth-child(2) { transform: translateY(-24px) scale(1.05); }

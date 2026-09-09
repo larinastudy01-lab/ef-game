@@ -569,6 +569,7 @@ const getRecommendedTrainingPlan = (settings, trainingGames) => {
           ? item.level || item.trainingLevel || item.difficultyLevel
           : null;
       const nextLevel = explicitLevel || (gameUseCount[game.id] || 0) + 1;
+      if (game.id === "lb" && Number(nextLevel) > 4) return null;
       const safeLevel = Math.min(MAX_LEVEL_PER_GAME, Math.max(1, Number(nextLevel) || 1));
 
       gameUseCount[game.id] = Math.max(gameUseCount[game.id] || 0, safeLevel);
@@ -927,7 +928,9 @@ function GameMenuPage() {
     }
 
     const availableGames = selectedTrainingGames.length > 0 ? selectedTrainingGames : trainingGames;
-    const maxPossibleStages = availableGames.length * MAX_LEVEL_PER_GAME;
+    const maxPossibleStages = availableGames.reduce(
+      (total, game) => total + (game.id === "lb" ? 4 : MAX_LEVEL_PER_GAME), 0
+    );
     const targetCount = getPlannedStageCount(trainingMinutes, availableGames.length, maxPossibleStages);
     const plannedPoints = pickRoutePoints(targetCount);
     const gameUseCount = {};
@@ -936,7 +939,7 @@ function GameMenuPage() {
     let guard = 0;
 
     while (stages.length < targetCount && guard < 300) {
-      const selectableGames = availableGames.filter((game) => (gameUseCount[game.id] || 0) < MAX_LEVEL_PER_GAME);
+      const selectableGames = availableGames.filter((game) => (gameUseCount[game.id] || 0) < (game.id === "lb" ? 4 : MAX_LEVEL_PER_GAME));
 
       if (selectableGames.length === 0) break;
 
@@ -970,7 +973,7 @@ function GameMenuPage() {
     const selected = adaptiveRecommendation?.selected_action;
     if (!selected || baseDailyTrainingStages.length === 0) return baseDailyTrainingStages;
     const game = selectedTrainingGames.find((item) => item.shortName === selected.task_code);
-    if (!game) return baseDailyTrainingStages;
+    if (!game || (game.id === "lb" && Number(selected.difficulty_level) > 4)) return baseDailyTrainingStages;
     const first = baseDailyTrainingStages[0];
     return [{ ...first, ...game, gameId: game.id, level: selected.difficulty_level,
       stageId: `${todayKey}-${trainingMenuSessionId}-1-${game.id}-L${selected.difficulty_level}`,

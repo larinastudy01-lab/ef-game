@@ -52,6 +52,7 @@ function ParentResultsPage() {
   const navigate = useNavigate();
   const [children, setChildren] = useState([]);
   const [selectedChildId, setSelectedChildId] = useState("");
+  const [selectedMode, setSelectedMode] = useState("");
   const [results, setResults] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -93,14 +94,21 @@ function ParentResultsPage() {
     return () => { active = false; };
   }, [selectedChildId]);
 
+  const filteredResults = useMemo(
+    () => results.filter((result) => result.mode === selectedMode),
+    [results, selectedMode]
+  );
+
   const summary = useMemo(() => {
-    if (!results.length) return { average: 0, latest: null, count: 0 };
+    if (!filteredResults.length) return { averageAccuracy: 0, averageStars: 0, count: 0 };
     return {
-      average: Math.round(results.reduce((total, item) => total + item.accuracy, 0) / results.length),
-      latest: results[0],
-      count: results.length,
+      averageAccuracy: Math.round(
+        filteredResults.reduce((total, item) => total + item.accuracy, 0) / filteredResults.length
+      ),
+      averageStars: filteredResults.reduce((total, item) => total + item.stars, 0) / filteredResults.length,
+      count: filteredResults.length,
     };
-  }, [results]);
+  }, [filteredResults]);
 
   const selectedChild = children.find((child) => child.id === selectedChildId);
 
@@ -113,19 +121,25 @@ function ParentResultsPage() {
         <div>
           <p className="parent-results-eyebrow">家長專區</p>
           <h1>孩子的成績</h1>
-          <p>快速查看最近的遊戲表現與完成紀錄</p>
         </div>
       </header>
 
       {children.length > 0 && (
-        <label className="parent-results-child-select">
-          <span>選擇孩子</span>
-          <select value={selectedChildId} onChange={(event) => setSelectedChildId(event.target.value)}>
-            {children.map((child) => (
-              <option key={child.id} value={child.id}>{child.nickname || child.full_name || "未命名孩子"}</option>
-            ))}
-          </select>
-        </label>
+        <section className="parent-results-controls" aria-label="成績篩選">
+          <label className="parent-results-child-select">
+            <span>孩子</span>
+            <select value={selectedChildId} onChange={(event) => setSelectedChildId(event.target.value)}>
+              {children.map((child) => (
+                <option key={child.id} value={child.id}>{child.nickname || child.full_name || "未命名孩子"}</option>
+              ))}
+            </select>
+          </label>
+          <div className="parent-results-mode-select" role="group" aria-label="選擇紀錄類型">
+            <span>查看</span>
+            <button type="button" className={selectedMode === "test" ? "is-active" : ""} onClick={() => setSelectedMode("test")}>測驗</button>
+            <button type="button" className={selectedMode === "training" ? "is-active" : ""} onClick={() => setSelectedMode("training")}>訓練</button>
+          </div>
+        </section>
       )}
 
       {error && <p className="parent-results-notice">{error}</p>}
@@ -136,23 +150,28 @@ function ParentResultsPage() {
           <p>請先新增孩子，完成遊戲後就能在這裡查看成績。</p>
           <button type="button" onClick={() => navigate("/child-select")}>新增孩子</button>
         </section>
+      ) : !selectedMode ? (
+        <section className="parent-results-empty parent-results-mode-prompt">
+          <h2>想看哪一種紀錄？</h2>
+          <p>請先選擇「測驗」或「訓練」。</p>
+        </section>
       ) : (
         <>
           <section className="parent-results-summary" aria-label={`${selectedChild?.nickname || "孩子"}的成績摘要`}>
             <article><strong>{summary.count}</strong><span>完成次數</span></article>
-            <article><strong>{summary.average}%</strong><span>平均正確率</span></article>
-            <article><strong>{summary.latest ? `${summary.latest.stars} ★` : "—"}</strong><span>最近星星</span></article>
+            <article><strong>{summary.averageAccuracy}%</strong><span>平均正確率</span></article>
+            <article><strong>{filteredResults.length ? `${summary.averageStars.toFixed(1)} ★` : "—"}</strong><span>平均星星</span></article>
           </section>
 
           <section className="parent-results-list-section">
-            <h2>最近紀錄</h2>
+            <h2>{selectedMode === "training" ? "訓練紀錄" : "測驗紀錄"}</h2>
             {isLoading ? (
               <p className="parent-results-loading">正在讀取成績…</p>
-            ) : results.length === 0 ? (
-              <div className="parent-results-empty"><h3>目前還沒有成績</h3><p>孩子完成一次測驗或訓練後，紀錄會顯示在這裡。</p></div>
+            ) : filteredResults.length === 0 ? (
+              <div className="parent-results-empty"><h3>目前還沒有{selectedMode === "training" ? "訓練" : "測驗"}成績</h3><p>完成後，紀錄會顯示在這裡。</p></div>
             ) : (
               <div className="parent-results-list">
-                {results.map((result) => (
+                {filteredResults.map((result) => (
                   <article className="parent-result-card" key={result.id}>
                     <div className="parent-result-main">
                       <span className={`parent-result-mode is-${result.mode}`}>{result.mode === "training" ? "訓練" : "測驗"}</span>

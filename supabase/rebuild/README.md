@@ -1,7 +1,11 @@
 # Core database rebuild
 
-This rebuild intentionally contains only the current core application flows:
-registration/login profiles, patients, clinician assignment and game results.
+This rebuild includes core flows, research, recommendation, RAG, clinician
+review, access consent and account lifecycle schema.
+
+For a new empty project, skip `00_RESET_PUBLIC_APP.sql` and start with 01.
+For an existing database that must retain data, do not use the reset workflow;
+follow [the setup entrypoint](../README.md).
 
 Run in Supabase SQL Editor as `postgres`, in this exact order:
 
@@ -28,7 +32,10 @@ The reset preserves Supabase Authentication users. The create script rebuilds a
 guardian profile for every preserved auth user. It intentionally does not trust
 the `role` value supplied during public sign-up.
 
-After rebuilding, assign each professional account manually in SQL Editor:
+Normal professional onboarding uses clinician applications and administrator
+review. The following legacy administrator role assignment example is not a
+replacement for review, account lifecycle checks or patient consent, and does
+not grant access to every patient:
 
 ```sql
 update public.profiles
@@ -38,3 +45,9 @@ where email = 'clinician@example.com';
 
 To remove login accounts too, delete them from Authentication > Users before
 running step 1. Do not delete rows from the `auth` schema with an ad-hoc query.
+
+After the numbered rebuild, apply
+`../migrations/20260902_create_honey_mission_progress.sql` for honey progress.
+Review later migrations against the actual schema; do not blindly replay older
+migrations or rollback scripts. Re-run read-only verification and test guardian
+creation, professional approval, patient access and result persistence.

@@ -1,5 +1,7 @@
 # Supabase 網路資料庫連接設定
 
+> 此檔為歷史紀錄，不是目前安裝流程。請改從 [統一設定入口](supabase/README.md) 開始；下方執行 `supabase_schema.sql`、手動新增授權及「未來才做家長授權」的說明已過時，不應照做。新建、升級與破壞性重建須分開處理。
+
 ## 1. 建立 Supabase 專案
 到 Supabase 建立新專案後，進入 Project Settings → API，複製：
 

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import "../styles/TestStepVideo.css";
 
 import { analyzePerformance } from "../ai/performanceAnalyzer";
 import { analyzeErrors } from "../ai/errorAnalyzer";
@@ -27,9 +28,7 @@ import rabbitAvatar from "../asset/avatar/rabbit.webp";
 // ===== 背景 / 前導影片 / 結束影片 =====
 import bgImage from "../asset/PM/PM_background.webp";
 import gameCardImage from "../asset/home/gamecard.webp";
-import introVideo from "../asset/optimized/mp4/PM_start.mp4";
 import stepVideo from "../asset/optimized/mp4/PM_step.mp4";
-import endingVideo from "../asset/optimized/mp4/PM_end.mp4";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
 import homeBackBtn from "../asset/home/back.webp";
@@ -354,14 +353,13 @@ export default function TestPage_PM() {
   const finishingRef = useRef(false);
 
   const [phase, setPhase] = useState("rules");
-  // rules -> introVideo -> stepVideo -> memorize -> answer -> feedback -> endingVideo -> result
+  // rules -> stepVideo -> memorize -> answer -> feedback -> result
 
   const [currentLevelIndex, setCurrentLevelIndex] = useState(0);
   const [currentMemorizeItems, setCurrentMemorizeItems] = useState([]);
   const [currentOptions, setCurrentOptions] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
 
-  const [feedbackText, setFeedbackText] = useState("");
 
 
   const currentLevel = TEST_TRIALS[currentLevelIndex];
@@ -474,7 +472,6 @@ export default function TestPage_PM() {
     setCurrentMemorizeItems(memorizeItems);
     setCurrentOptions(options);
     setSelectedIds([]);
-    setFeedbackText("");
     setPhase("memorize");
   };
 
@@ -493,17 +490,7 @@ export default function TestPage_PM() {
     setCurrentMemorizeItems([]);
     setCurrentOptions([]);
     setSelectedIds([]);
-    setFeedbackText("");
-    setPhase("introVideo");
-  };
-
-  const handleIntroVideoEnd = () => {
-    if (videoTransitioningRef.current) return;
-    videoTransitioningRef.current = true;
     setPhase("stepVideo");
-    requestAnimationFrame(() => {
-      videoTransitioningRef.current = false;
-    });
   };
 
   const handleStepVideoEnd = () => {
@@ -638,7 +625,6 @@ export default function TestPage_PM() {
     hasSubmittedRef.current = true;
     pushRecord(record);
 
-    setFeedbackText("這一題完成了。");
     setPhase("feedback");
   };
   finalizeAnswerRef.current = finalizeAnswer;
@@ -910,7 +896,7 @@ export default function TestPage_PM() {
     stopReasonRef.current = stopReason;
     const finalResult = persistPmTestResult(buildFinalResult(stopReason));
     pendingResultRef.current = finalResult;
-    setPhase("endingVideo");
+    setPhase("result");
   };
 
   const navigateToResult = () => {
@@ -1012,37 +998,12 @@ export default function TestPage_PM() {
           )}
 
 
-          {phase === "introVideo" && (
-            <div className="game-start-card-artwork pm-video-card-artwork" style={styles.videoPanel}>
-              <div style={styles.videoFrame}>
-                <video
-                  src={introVideo}
-                  style={styles.video}
-                  autoPlay
-                  muted
-                  playsInline
-                  controls
-                  onEnded={handleIntroVideoEnd}
-                />
-              </div>
-
-              <div style={styles.guidedAction}>
-                <button type="button" style={{ ...styles.imageButton, ...styles.skipImageButton }} onClick={handleIntroVideoEnd} aria-label="跳過動畫">
-                  <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過動畫" style={styles.imageButtonImg} />
-                </button>
-                <button type="button" style={styles.imageButton} onClick={handleIntroVideoEnd} aria-label="下一步">
-                  <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" style={styles.imageButtonImg} />
-                </button>
-                <img width={1024} height={1024} loading="lazy" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
-              </div>
-            </div>
-          )}
-
           {phase === "stepVideo" && (
             <div className="game-start-card-artwork pm-video-card-artwork" style={styles.videoPanel}>
-              <div style={styles.videoFrame}>
+              <div className="test-step-video-frame" style={styles.videoFrame}>
                 <video
                   src={stepVideo}
+                  className="test-step-video"
                   style={styles.video}
                   autoPlay
                   muted
@@ -1066,12 +1027,7 @@ export default function TestPage_PM() {
 
           {phase === "memorize" && currentLevel && (
             <div style={styles.card}>
-              <p style={styles.kicker}>第 {currentLevelIndex + 1} / {TEST_TRIALS.length} 題</p>
               <h1 style={styles.title}>看清楚湖裡的小物品</h1>
-
-              <div style={styles.iconHint}>
-                <span>請記住 {currentLevel.memoryCount} 個圖片</span>
-              </div>
 
               <div style={styles.memoryGrid}>
                 {currentMemorizeItems.map((item) => (
@@ -1085,15 +1041,7 @@ export default function TestPage_PM() {
 
           {phase === "answer" && currentLevel && (
             <div style={styles.card} onClick={trackRandomClick}>
-              <p style={styles.kicker}>第 {currentLevelIndex + 1} / {TEST_TRIALS.length} 題</p>
               <h1 style={styles.title}>找回剛剛看過的物品</h1>
-
-              <div style={styles.iconHint}>
-                <span>🧺</span>
-                <span>
-                  已找到 {selectedIds.length} / {currentLevel.memoryCount}
-                </span>
-              </div>
 
               <div style={styles.optionGrid}>
                 {currentOptions.map((item) => {
@@ -1142,58 +1090,10 @@ export default function TestPage_PM() {
           )}
 
           {phase === "feedback" && (
-            <div style={styles.smallCard}>
-              <p style={styles.kicker}>任務完成</p>
-              <h1
-                style={{
-                  ...styles.title,
-                  color: "#5c4033",
-                }}
-              >
-                {feedbackText}
-              </h1>
-
-              <p style={styles.textCompact}>
-                請按下一步，準備下一題或查看結果。
-              </p>
-
-              <div style={styles.guidedAction}>
-                <button type="button" style={styles.imageButton} onClick={handleNext} aria-label="下一步">
-                  <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" style={styles.imageButtonImg} />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {phase === "endingVideo" && (
-            <div className="game-start-card-artwork pm-video-card-artwork" style={{ ...styles.videoPanel, outline: "none" }}>
-              <div style={styles.videoFrame}>
-                <video
-                  src={endingVideo}
-                  style={styles.video}
-                  autoPlay
-                  muted
-                  playsInline
-                  controls
-                  onEnded={() => {
-                    if (!videoTransitioningRef.current) {
-                      videoTransitioningRef.current = true;
-                      setPhase("result");
-                    }
-                  }}
-                />
-              </div>
-
-              <div style={styles.guidedAction}>
-                <button type="button" style={{ ...styles.imageButton, ...styles.skipImageButton }} onClick={() => {
-                  if (!videoTransitioningRef.current) {
-                    videoTransitioningRef.current = true;
-                    setPhase("result");
-                  }
-                }} aria-label="跳過動畫">
-                  <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過動畫" style={styles.imageButtonImg} />
-                </button>
-              </div>
+            <div style={styles.guidedAction}>
+              <button type="button" style={styles.imageButton} onClick={handleNext} aria-label="下一步">
+                <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" style={styles.imageButtonImg} />
+              </button>
             </div>
           )}
 
@@ -1406,31 +1306,11 @@ const styles = {
     width: "min(92vw, 1080px)",
     maxHeight: "calc(100dvh - 26px)",
     overflow: "hidden",
-    backgroundImage: `url(${gameCardImage})`,
-    backgroundPosition: "center",
-    backgroundSize: "107% 107%",
-    backgroundRepeat: "no-repeat",
+    background: "transparent",
     border: 0,
     outline: "none",
     borderRadius: "54px",
     padding: "clamp(16px, 2.1vw, 28px) clamp(18px, 2.4vw, 34px)",
-    boxShadow: "none",
-    textAlign: "center",
-    boxSizing: "border-box",
-  },
-
-  smallCard: {
-    width: "min(88vw, 760px)",
-    maxHeight: "calc(100dvh - 28px)",
-    overflow: "hidden",
-    backgroundImage: `url(${gameCardImage})`,
-    backgroundPosition: "center",
-    backgroundSize: "107% 107%",
-    backgroundRepeat: "no-repeat",
-    border: 0,
-    outline: "none",
-    borderRadius: "54px",
-    padding: "clamp(28px, 4vw, 44px)",
     boxShadow: "none",
     textAlign: "center",
     boxSizing: "border-box",
@@ -1467,13 +1347,25 @@ const styles = {
   },
 
   title: {
-    fontSize: "clamp(28px, 3.7vw, 46px)",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: "min(82vw, 440px)",
+    maxWidth: "calc(100% - 24px)",
+    padding: "clamp(10px, 1.5vw, 15px) clamp(26px, 4vw, 48px)",
+    boxSizing: "border-box",
+    background: "linear-gradient(180deg, #ffffff 0%, #fff9e9 100%)",
+    border: "4px solid #f0c77b",
+    borderRadius: "999px",
+    fontSize: "clamp(22px, 2.6vw, 34px)",
     fontWeight: 900,
-    color: "#744018",
-    textShadow: "0 3px 0 rgba(255,255,255,0.78)",
-    margin: "0 0 12px",
-    lineHeight: 1.15,
+    color: "#6d3717",
+    textShadow: "none",
+    boxShadow: "0 8px 0 rgba(225,169,84,0.12), inset 0 0 0 5px rgba(255,235,174,0.35)",
+    margin: "0 auto 14px",
+    lineHeight: 1.2,
     letterSpacing: "0.02em",
+    transform: "translateY(-18px)",
   },
 
   textCompact: {
