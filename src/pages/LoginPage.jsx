@@ -37,7 +37,7 @@ function LoginPage() {
     }
 
     if (text.includes("email not confirmed")) {
-      return "此帳號尚未完成 Email 驗證，請先到信箱確認驗證信。";
+      return "此帳號目前尚未啟用，請聯絡管理者完成帳號啟用。";
     }
 
     if (text.includes("too many requests") || text.includes("rate limit")) {

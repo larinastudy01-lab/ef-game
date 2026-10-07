@@ -150,8 +150,9 @@ export const deleteMyPatient = async (patientId) => {
   return true;
 };
 
-export const saveGameResultToCloud = async (normalizedResult) => {
+export const saveGameResultToCloud = async (normalizedResult, { expectedOwnerId = null } = {}) => {
   const user = await getCurrentUser();
+  if (expectedOwnerId && user?.id !== expectedOwnerId) return null;
   const childId =
     normalizedResult?.child?.childId ||
     normalizedResult?.child?.id ||
@@ -178,7 +179,7 @@ export const saveGameResultToCloud = async (normalizedResult) => {
     started_at: normalizedResult.session?.startedAt || null,
     finished_at:
       normalizedResult.session?.finishedAt || new Date().toISOString(),
-    payload: normalizedResult,
+    payload: { ...normalizedResult, syncStatus: "synced", rawResult: { ...normalizedResult.rawResult, syncStatus: "synced" } },
   };
 
   if (!payload.id) {

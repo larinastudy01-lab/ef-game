@@ -25,7 +25,6 @@ import rabbitAvatar from "../asset/avatar/rabbit.webp";
 
 import clickSfx from "../asset/Click.mp3";
 import bgImage from "../asset/PM/PM_background.webp";
-import gameCardImage from "../asset/home/gamecard.webp";
 import introVideo from "../asset/optimized/mp4/PM_start.mp4";
 import stepVideo from "../asset/optimized/mp4/PM_step.mp4";
 import endingVideo from "../asset/optimized/mp4/PM_end.mp4";
@@ -1364,16 +1363,12 @@ export default function TrainingPage_PM() {
 
           {phase === "readyCountdown" && (
             <div style={styles.smallCard}>
-              <p style={styles.kicker}>第 {round} / {trainingTotalRounds} 題｜{currentConfig.memorySpan} 張第 {currentConfig.spanTrialIndex} / {currentConfig.spanTrialTotal} 題</p>
-              <h1 style={styles.title}>看清楚湖裡的小物品</h1>
               <div style={styles.bigCountdown}>{readyCountdown}</div>
-              <p style={styles.textCompact}>皮皮會陪你一起看，等湖面亮起來就開始。</p>
             </div>
           )}
 
           {phase === "memorize" && (
             <div style={styles.card}>
-              <h1 style={styles.title}>看清楚湖裡的小物品</h1>
 
               <div style={styles.memoryGrid}>
                 {currentMemorizeItems.map((item, index) => {
@@ -1407,11 +1402,6 @@ export default function TrainingPage_PM() {
               }}
               onClick={handleGameAreaClick}
             >
-              <h1 style={styles.title}>找回剛剛看過的物品</h1>
-
-              {backgroundWarning && (
-                <div style={styles.backgroundWarning}>先看清楚圖片，再點選物品喔！</div>
-              )}
 
               <div style={styles.optionGrid}>
                 {currentOptions.map((item) => {
@@ -1698,10 +1688,7 @@ const styles = {
     width: "min(92vw, 1080px)",
     maxHeight: "calc(100dvh - 26px)",
     overflow: "hidden",
-    backgroundImage: `url(${gameCardImage})`,
-    backgroundPosition: "center",
-    backgroundSize: "107% 107%",
-    backgroundRepeat: "no-repeat",
+    background: "transparent",
     border: 0,
     outline: "none",
     borderRadius: "54px",
@@ -1735,10 +1722,7 @@ const styles = {
     width: "min(88vw, 760px)",
     maxHeight: "calc(100dvh - 28px)",
     overflow: "hidden",
-    backgroundImage: `url(${gameCardImage})`,
-    backgroundPosition: "center",
-    backgroundSize: "107% 107%",
-    backgroundRepeat: "no-repeat",
+    background: "transparent",
     border: 0,
     outline: "none",
     borderRadius: "54px",
@@ -1752,10 +1736,7 @@ const styles = {
     width: "min(92vw, 900px)",
     maxHeight: "calc(100dvh - 28px)",
     overflow: "hidden",
-    backgroundImage: `url(${gameCardImage})`,
-    backgroundPosition: "center",
-    backgroundSize: "107% 107%",
-    backgroundRepeat: "no-repeat",
+    background: "transparent",
     border: 0,
     outline: "none",
     borderRadius: "54px",

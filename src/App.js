@@ -27,6 +27,7 @@ import ClinicianApplicationPage from "./pages/ClinicianApplicationPage";
 import { SHOW_AVATAR_ROOM } from "./config/featureFlags";
 
 const ProtectedRoute = lazy(() => import("./components/ProtectedRoute"));
+const ResultSyncStatus = lazy(() => import("./components/ResultSyncStatus"));
 const GameMenuPage = lazy(() => import("./pages/GameMenuPage"));
 const ChildSelectPage = lazy(() => import("./pages/ChildSelectPage"));
 const ModeSelectPage = lazy(() => import("./pages/ModeSelectPage"));
@@ -515,6 +516,7 @@ function App() {
       future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
       <AppContent />
+      <Suspense fallback={null}><ResultSyncStatus /></Suspense>
     </Router>
   );
 }

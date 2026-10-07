@@ -93,7 +93,7 @@ function ClinicianLoginPage() {
     }
 
     if (rawMessage.includes("email not confirmed")) {
-      return "此帳號尚未完成 Email 驗證，請先至信箱完成確認。";
+      return "此帳號目前尚未啟用，請聯絡管理者完成帳號啟用。";
     }
 
     if (rawMessage.includes("too many requests")) {

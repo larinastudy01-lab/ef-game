@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import { screen } from "@testing-library/dom";
 import App from "./App";
 
+jest.mock("./components/ResultSyncStatus", () => () => null);
+
 jest.mock("./pages/HomePage", () => function MockHomePage() {
   return <main>首頁</main>;
 });

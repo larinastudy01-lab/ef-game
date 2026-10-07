@@ -3,6 +3,8 @@ import assistIcon from "../asset/assist.webp";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import { dedupeClinicalRecords } from "../utils/resultIdentity";
+import { getResultCompletionStatus, isCompletedResult } from "../utils/resultCompletion";
 import {
   AddPatientModal,
   ClinicianDashboardHeader,
@@ -100,6 +102,7 @@ const REMINDER_TEMPLATES = [
 
 
 const LOCAL_RESULT_KEYS = [
+  { key: "efGameResults", gameKey: "", fallbackType: "session" },
   { key: "SRT_RESULT", gameKey: "SRT", fallbackType: "test" },
   { key: "srtTestResult", gameKey: "SRT", fallbackType: "test" },
   { key: "latestSRTTestResult", gameKey: "SRT", fallbackType: "test" },
@@ -439,6 +442,7 @@ function getMetricsObjects(item = {}) {
 
 function inferLocalResultMeta(storageKey = "") {
   const key = String(storageKey || "");
+  if (key.startsWith("efGameResultOutbox:")) return null;
   const lower = key.toLowerCase();
 
   let gameKey = "";
@@ -527,6 +531,7 @@ function readLocalResultPayloads(patientIds = []) {
             entry.patientId,
             entry.child_id,
             entry.childId,
+            entry.child?.childId,
             entry.child?.id,
             entry.currentChild?.id,
             entry.profile?.patient_id,
@@ -549,9 +554,10 @@ function readLocalResultPayloads(patientIds = []) {
             ...entry,
             id: firstDefined(entry.id, item.id, entry.resultId, item.resultId, `${meta.key}-${index}`),
             patient_id: patientId || storedPatientId || patientIds[0] || "",
-            game_key: firstDefined(entry.game_key, entry.gameKey, item.game_key, item.gameKey, meta.gameKey),
+            game_key: firstDefined(entry.game_key, entry.gameKey, entry.game?.gameId, item.game_key, item.gameKey, item.gameId, meta.gameKey),
             record_type: firstDefined(
               entry.record_type,
+              entry.session?.mode,
               entry.mode,
               entry.mode_type,
               entry.sourceMode,
@@ -560,6 +566,9 @@ function readLocalResultPayloads(patientIds = []) {
               meta.fallbackType
             ),
             created_at: firstDefined(
+              entry.session?.finishedAt,
+              entry.finishedAt,
+              entry.createdAt,
               entry.created_at,
               entry.completedAt,
               entry.finished_at,
@@ -569,6 +578,8 @@ function readLocalResultPayloads(patientIds = []) {
               entry.savedAt,
               entry.generatedAt,
               item.created_at,
+              item.finishedAt,
+              item.createdAt,
               item.completedAt,
               item.finished_at,
               item.date
@@ -877,25 +888,9 @@ function ClinicianDashboard() {
       );
     });
 
-    return dedupeRecords(allRecords).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return dedupeClinicalRecords(allRecords).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
 
-
-  const dedupeRecords = (items) => {
-    const seen = new Set();
-    return items.filter((record) => {
-      const parsedTime = new Date(record.date).getTime();
-      const normalizedTime = Number.isFinite(parsedTime) ? Math.floor(parsedTime / 1000) : "no-time";
-      const sessionIdentity = record.sessionKey
-        ? `session:${record.sessionKey}`
-        : [normalizedTime, record.score, record.accuracy, record.total, record.correct, record.avgRt].join(":");
-      const key = [record.patientId, record.gameKey, record.type, sessionIdentity].join("|");
-
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  };
 
   const fetchClinicalNotes = async (patientIds = []) => {
     if (!patientIds.length) return [];
@@ -1000,6 +995,7 @@ function ClinicianDashboard() {
     const avgRt = Math.round(
       firstNumber(
         item.avg_rt,
+        item.avg_reaction_time,
         item.avgRT,
         item.average_rt,
         item.averageRT,
@@ -1076,6 +1072,7 @@ function ClinicianDashboard() {
         item.sessionId,
         item.result_id,
         item.resultId,
+        item.payload?.resultId,
         item.payload?.session?.id,
         item.payload?.session?.sessionId,
         result.session_id,
@@ -1086,7 +1083,9 @@ function ClinicianDashboard() {
       patientId: firstDefined(item.patient_id, item.patientId, item.child_id, item.childId, item.payload?.child?.childId, item.payload?.child?.id, item.config?.patientId, item.config?.patient_id, ""),
       type,
       gameKey,
-      gameName: item.game_name || item.gameName || item.payload?.game?.gameName || GAME_NAME_MAP[gameKey] || gameKey || "未分類",
+      gameName: (item.game_name || item.gameName || item.payload?.game?.gameName || GAME_NAME_MAP[gameKey] || gameKey || "未分類")
+        + (isCompletedResult(item) ? "" : "（未完成）"),
+      completionStatus: getResultCompletionStatus(item),
       ability: item.ability || item.training_ability || item.trainingAbility || ABILITY_BY_GAME[gameKey] || "未分類能力",
       date,
       score,
@@ -1098,7 +1097,7 @@ function ClinicianDashboard() {
       avgRt,
       duration: firstNumber(item.duration, item.duration_seconds, item.durationSeconds, item.total_time, item.totalTime, summary.duration, clinician.duration),
       difficulty: level,
-      status: item.status || item.finishReason || item.reason || "已完成",
+      status: isCompletedResult(item) ? item.status || item.finishReason || item.reason || "已完成" : "測驗中斷",
       completedLevel: firstDefined(item.completed_level, item.level_completed, item.completedLevel, item.stage, summary.completedLevel, "-"),
       raw: item,
       trials,
@@ -1270,12 +1269,12 @@ function ClinicianDashboard() {
   }, [filteredRecords, recordPage, recordPageSize, recordTotalPages]);
 
   const testRecords = useMemo(
-    () => selectedPatientRecords.filter((record) => record.type === "test"),
+    () => selectedPatientRecords.filter((record) => record.type === "test" && isCompletedResult(record)),
     [selectedPatientRecords]
   );
 
   const trainingRecords = useMemo(
-    () => selectedPatientRecords.filter((record) => record.type === "training"),
+    () => selectedPatientRecords.filter((record) => record.type === "training" && isCompletedResult(record)),
     [selectedPatientRecords]
   );
 
@@ -1285,8 +1284,8 @@ function ClinicianDashboard() {
 
     return {
       patientCount: patients.length,
-      totalTests: records.filter((record) => record.type === "test").length,
-      totalTraining: records.filter((record) => record.type === "training").length,
+      totalTests: records.filter((record) => record.type === "test" && isCompletedResult(record)).length,
+      totalTraining: records.filter((record) => record.type === "training" && isCompletedResult(record)).length,
       needFollowUp,
       newRecords,
     };
@@ -1297,8 +1296,9 @@ function ClinicianDashboard() {
 
     const risk = getRiskLevel(selectedPatientRecords);
     const lastRecord = selectedPatientRecords[0] || null;
-    const averageAccuracy = average(selectedPatientRecords.map((record) => record.accuracy));
-    const averageRt = average(selectedPatientRecords.map((record) => record.avgRt).filter((value) => value > 0));
+    const completedRecords = selectedPatientRecords.filter(isCompletedResult);
+    const averageAccuracy = average(completedRecords.map((record) => record.accuracy));
+    const averageRt = average(completedRecords.map((record) => record.avgRt).filter((value) => value > 0));
     const latestGameMap = buildLatestGameMap(selectedPatientRecords);
     const gameSummaryMap = buildGameSummaryMap(selectedPatientRecords);
     const trendByGame = Object.keys(GAME_NAME_MAP).reduce((result, gameKey) => {
@@ -1413,6 +1413,7 @@ function ClinicianDashboard() {
   }
 
   function getRiskLevel(patientRecords) {
+    patientRecords = (patientRecords || []).filter(isCompletedResult);
     if (!patientRecords || patientRecords.length === 0) {
       return { key: "empty", label: "資料不足", tone: "empty", text: "尚無紀錄，建議安排初次測驗。" };
     }
@@ -1446,7 +1447,7 @@ function ClinicianDashboard() {
 
   function buildLatestGameMap(patientRecords) {
     const map = {};
-    patientRecords.forEach((record) => {
+    patientRecords.filter(isCompletedResult).forEach((record) => {
       if (!map[record.gameKey]) map[record.gameKey] = record;
     });
     return map;
@@ -1454,7 +1455,7 @@ function ClinicianDashboard() {
 
   function buildGameTrendData(patientRecords, gameKey) {
     return [...patientRecords]
-      .filter((record) => record.gameKey === gameKey)
+      .filter((record) => record.gameKey === gameKey && isCompletedResult(record))
       .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0))
       .map((record, index) => ({
         recordId: record.id,
@@ -1477,7 +1478,7 @@ function ClinicianDashboard() {
   function buildGameSummaryMap(patientRecords) {
     return Object.keys(GAME_NAME_MAP).reduce((result, gameKey) => {
       const gameRecords = patientRecords
-        .filter((record) => record.gameKey === gameKey)
+        .filter((record) => record.gameKey === gameKey && isCompletedResult(record))
         .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
       const latest = gameRecords[0] || null;
       const previous = gameRecords[1] || null;
@@ -2170,179 +2171,18 @@ function ClinicianDashboard() {
     return lines.join("\n");
   };
 
-  const exportRecordToDocx = async (record) => {
-    if (!record || !selectedPatient) return;
-
+  const exportRecordsToExcel = async (records, combined = false) => {
+    if (!selectedPatient || records.length === 0) return;
     try {
-      setExportingRecordId(record.id);
-      const {
-        Document,
-        Packer,
-        Paragraph,
-        TextRun,
-        Table,
-        TableRow,
-        TableCell,
-        HeadingLevel,
-        AlignmentType,
-        WidthType,
-        BorderStyle,
-      } = await import("docx");
-
+      if (combined) setExportingCombinedReport(true);
+      else setExportingRecordId(records[0].id);
+      const { createRecordWorkbook } = await import("../utils/clinicianExcelExport");
+      const selectedRecords = [...records].sort((a, b) => new Date(a.date) - new Date(b.date));
       const patientName = selectedPatient.nickname || selectedPatient.full_name || "未命名兒童";
-      const recordTypeLabel = record.type === "test" ? "測驗" : record.type === "training" ? "訓練" : "紀錄";
-      const trials = Array.isArray(record.trials) ? record.trials : [];
-      const borders = {
-        top: { style: BorderStyle.SINGLE, size: 1, color: "D7E0EA" },
-        bottom: { style: BorderStyle.SINGLE, size: 1, color: "D7E0EA" },
-        left: { style: BorderStyle.SINGLE, size: 1, color: "D7E0EA" },
-        right: { style: BorderStyle.SINGLE, size: 1, color: "D7E0EA" },
-        insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "E2E8F0" },
-        insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "E2E8F0" },
-      };
-
-      const cell = (text, bold = false) => new TableCell({
-        children: [new Paragraph({ children: [new TextRun({ text: String(text ?? "-"), bold, size: 20 })] })],
-      });
-
-      const summaryRows = [
-        ["個案", patientName],
-        ["年齡 / 性別", `${calculateAge(selectedPatient.birth_date)} / ${formatGender(selectedPatient.gender)}`],
-        ["遊戲", `${record.gameName}（${record.gameKey || "-"}）`],
-        ["能力", record.ability || "-"],
-        ["類型", recordTypeLabel],
-        ["完成時間", formatDate(record.date)],
-        ["難度", record.difficulty || "-"],
-        ["分數", record.score || "-"],
-        ["星級", record.stars > 0 ? `${record.stars} 星` : "-"],
-        ["正確率", `${record.accuracy || 0}%`],
-        ["平均反應時間", record.avgRt ? `${record.avgRt} ms` : "-"],
-        ["正確 / 總題數", `${record.correct || 0} / ${record.total || "-"}`],
-        ["錯誤次數", record.errors ?? "-"],
-        ["資料來源", record.sourceTable || record.source || "-"],
-      ];
-
-      const summaryTable = new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        borders,
-        rows: summaryRows.map(([label, value]) => new TableRow({ children: [cell(label, true), cell(value)] })),
-      });
-
-      const trialHeader = new TableRow({
-        tableHeader: true,
-        children: ["題次", "結果", "反應時間", "難度", "作答 / 內容"].map((text) => cell(text, true)),
-      });
-
-      const trialRows = trials.map((trial, index) => {
-        const isCorrect = trial?.isCorrect ?? trial?.correct ?? trial?.success;
-        const resultLabel = isCorrect === true ? "正確" : isCorrect === false ? "錯誤" : (trial?.result || trial?.status || trial?.outcome || "-");
-        const reactionTime = trial?.reactionTime ?? trial?.responseTime ?? trial?.rt ?? trial?.reaction_time;
-        const difficulty = trial?.difficultyLabel ?? trial?.difficultyLevel ?? trial?.difficulty ?? record.difficulty;
-        const response = trial?.selectedAnswer ?? trial?.answer ?? trial?.response ?? trial?.target ?? trial?.choice ?? trial?.clickedItem;
-        return new TableRow({
-          children: [
-            cell(trial?.trialNumber ?? trial?.round ?? index + 1),
-            cell(resultLabel),
-            cell(reactionTime !== undefined && reactionTime !== null ? `${reactionTime} ms` : "-"),
-            cell(difficulty || "-"),
-            cell(typeof response === "object" ? JSON.stringify(response) : (response ?? "-")),
-          ],
-        });
-      });
-
-      const children = [
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          heading: HeadingLevel.TITLE,
-          children: [new TextRun({ text: "執行功能測驗 / 訓練結果報告", bold: true, size: 34 })],
-        }),
-        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `匯出時間：${formatDate(new Date().toISOString())}`, size: 20, color: "64748B" })] }),
-        new Paragraph({ text: "基本資料與結果摘要", heading: HeadingLevel.HEADING_1 }),
-        summaryTable,
-        new Paragraph({ text: "逐題紀錄", heading: HeadingLevel.HEADING_1, spacing: { before: 320 } }),
-      ];
-
-      if (trialRows.length > 0) {
-        children.push(new Table({
-          width: { size: 100, type: WidthType.PERCENTAGE },
-          borders,
-          rows: [trialHeader, ...trialRows],
-        }));
-      } else {
-        children.push(new Paragraph({ text: "此筆資料沒有可用的逐題紀錄。" }));
-      }
-
-
-      const document = new Document({
-        creator: clinicianName || "EF 幼兒認知訓練平台",
-        title: `${patientName}-${record.gameName}-${recordTypeLabel}`,
-        description: "單次測驗或訓練結果報告",
-        sections: [{
-          properties: {
-            page: {
-              margin: { top: 720, right: 720, bottom: 720, left: 720 },
-            },
-          },
-          children,
-        }],
-      });
-
-      const blob = await Packer.toBlob(document);
-      const url = URL.createObjectURL(blob);
-      const anchor = documentRefCreateAnchor(url, `${patientName}_${record.gameKey || "GAME"}_${recordTypeLabel}_${formatFileDate(record.date)}.docx`);
-      anchor.click();
-      anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (error) {
-      console.error("DOCX 匯出失敗：", error);
-      window.alert("DOCX 匯出失敗。請確認專案已安裝 docx 套件（npm install docx）。");
-    } finally {
-      setExportingRecordId("");
-    }
-  };
-
-  const exportSelectedRecordsToDocx = async () => {
-    if (!selectedPatient || selectedRecordIds.length === 0) return;
-
-    const selectedRecords = selectedPatientRecords
-      .filter((record) => selectedRecordIds.includes(record.id))
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    if (selectedRecords.length === 0) return;
-
-    try {
-      setExportingCombinedReport(true);
-      const {
-        Document,
-        Packer,
-        Paragraph,
-        TextRun,
-        Table,
-        TableRow,
-        TableCell,
-        HeadingLevel,
-        AlignmentType,
-        WidthType,
-        BorderStyle,
-      } = await import("docx");
-
-      const patientName = selectedPatient.nickname || selectedPatient.full_name || "未命名兒童";
-      const borders = {
-        top: { style: BorderStyle.SINGLE, size: 1, color: "D7E0EA" },
-        bottom: { style: BorderStyle.SINGLE, size: 1, color: "D7E0EA" },
-        left: { style: BorderStyle.SINGLE, size: 1, color: "D7E0EA" },
-        right: { style: BorderStyle.SINGLE, size: 1, color: "D7E0EA" },
-        insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "E2E8F0" },
-        insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "E2E8F0" },
-      };
-      const cell = (text, bold = false) => new TableCell({
-        children: [new Paragraph({ children: [new TextRun({ text: String(text ?? "-"), bold, size: 19 })] })],
-      });
       const mean = (values) => {
         const valid = values.map(Number).filter(Number.isFinite);
         return valid.length ? Math.round(valid.reduce((sum, value) => sum + value, 0) / valid.length) : 0;
       };
-      const typeLabel = (type) => type === "test" ? "測驗" : type === "training" ? "訓練" : "紀錄";
       const testCount = selectedRecords.filter((record) => record.type === "test").length;
       const trainingCount = selectedRecords.filter((record) => record.type === "training").length;
       const avgAccuracy = mean(selectedRecords.map((record) => record.accuracy));
@@ -2371,73 +2211,40 @@ function ClinicianDashboard() {
       if (avgRt > 0) recommendationLines.push("反應時間應與正確率共同解讀；速度變快但錯誤增加，不宜直接視為能力提升。");
       if (testCount > 0 && trainingCount > 0) recommendationLines.push("本報告同時納入測驗與訓練資料；測驗較適合階段性比較，訓練資料則用於觀察練習歷程，兩者不宜直接視為完全相同的評量條件。");
 
-      const summaryTable = new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        borders,
-        rows: [
-          ["個案", patientName],
-          ["年齡 / 性別", `${calculateAge(selectedPatient.birth_date)} / ${formatGender(selectedPatient.gender)}`],
-          ["選取紀錄", `${selectedRecords.length} 筆（測驗 ${testCount}、訓練 ${trainingCount}）`],
-          ["涵蓋遊戲", [...new Set(selectedRecords.map((record) => record.gameName))].join("、")],
-          ["期間", `${formatDate(selectedRecords[0].date)} ～ ${formatDate(selectedRecords[selectedRecords.length - 1].date)}`],
-          ["平均正確率", `${avgAccuracy}%`],
-          ["平均反應時間", avgRt > 0 ? `${avgRt} ms` : "-"],
-        ].map(([label, value]) => new TableRow({ children: [cell(label, true), cell(value)] })),
+
+      const workbook = createRecordWorkbook({
+        patientName,
+        age: calculateAge(selectedPatient.birth_date),
+        gender: formatGender(selectedPatient.gender),
+        records: selectedRecords,
+        formatDate: (value) => formatDate(value, true),
+        notes: combined ? [...interpretationLines, ...recommendationLines,
+          "本報告僅供追蹤與討論參考，不等同正式診斷。不同遊戲、模式、難度、疲勞與資料筆數皆可能影響結果，需結合其他相關資料綜合判讀。"] : [],
       });
-
-      const recordTable = new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        borders,
-        rows: [
-          new TableRow({ tableHeader: true, children: ["日期", "類型", "遊戲", "能力", "難度", "分數", "正確率", "平均反應"].map((text) => cell(text, true)) }),
-          ...selectedRecords.map((record) => new TableRow({ children: [
-            cell(formatDate(record.date)),
-            cell(typeLabel(record.type)),
-            cell(record.gameName),
-            cell(record.ability),
-            cell(record.difficulty || "-"),
-            cell(record.score || "-"),
-            cell(`${record.accuracy || 0}%`),
-            cell(record.avgRt ? `${record.avgRt} ms` : "-"),
-          ] })),
-        ],
-      });
-
-      const children = [
-        new Paragraph({ alignment: AlignmentType.CENTER, heading: HeadingLevel.TITLE, children: [new TextRun({ text: "執行功能整合與比較報告", bold: true, size: 34 })] }),
-        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `匯出時間：${formatDate(new Date().toISOString())}`, size: 20, color: "64748B" })] }),
-        new Paragraph({ text: "一、個案與選取資料摘要", heading: HeadingLevel.HEADING_1 }),
-        summaryTable,
-        new Paragraph({ text: "二、納入比較的紀錄", heading: HeadingLevel.HEADING_1, spacing: { before: 320 } }),
-        recordTable,
-        new Paragraph({ text: "三、分項趨勢與比較", heading: HeadingLevel.HEADING_1, spacing: { before: 320 } }),
-        ...interpretationLines.map((text) => new Paragraph({ text, bullet: { level: 0 } })),
-        new Paragraph({ text: "四、臨床參考重點", heading: HeadingLevel.HEADING_1, spacing: { before: 320 } }),
-        ...recommendationLines.map((text) => new Paragraph({ text, bullet: { level: 0 } })),
-        new Paragraph({ text: "五、判讀限制", heading: HeadingLevel.HEADING_1, spacing: { before: 320 } }),
-        new Paragraph({ text: "本報告依平台內所選測驗與訓練結果進行描述性整合，適合用於追蹤與溝通參考，不等同正式診斷。不同遊戲、模式、難度、作答環境與資料筆數可能影響結果，應結合臨床觀察、標準化評估及其他相關資料綜合判讀。" }),
-      ];
-
-      const document = new Document({
-        creator: clinicianName || "EF 幼兒認知訓練平台",
-        title: `${patientName}-整合比較報告`,
-        description: "多筆測驗與訓練結果整合比較報告",
-        sections: [{ properties: { page: { margin: { top: 720, right: 720, bottom: 720, left: 720 } } }, children }],
-      });
-
-      const blob = await Packer.toBlob(document);
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = URL.createObjectURL(blob);
-      const anchor = documentRefCreateAnchor(url, `${patientName}_整合比較報告_${formatFileDate(new Date().toISOString())}.docx`);
+      const suffix = combined ? "整合比較報告" : (records[0].gameKey || "GAME") + "_" + (records[0].type === "test" ? "測驗" : records[0].type === "training" ? "訓練" : "紀錄");
+      const anchor = documentRefCreateAnchor(url, patientName + "_" + suffix + "_" + formatFileDate(combined ? new Date().toISOString() : records[0].date) + ".xlsx");
       anchor.click();
       anchor.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) {
-      console.error("整合 DOCX 匯出失敗：", error);
-      window.alert("整合 DOCX 匯出失敗。請確認專案已安裝 docx 套件（npm install docx）。");
+      console.error("Excel 匯出失敗：", error);
+      window.alert("Excel 匯出失敗，請稍後再試。");
     } finally {
-      setExportingCombinedReport(false);
+      if (combined) setExportingCombinedReport(false);
+      else setExportingRecordId("");
     }
   };
+
+  const exportRecordToExcel = (record) => {
+    if (record) return exportRecordsToExcel([record]);
+  };
+
+  const exportSelectedRecordsToExcel = () => exportRecordsToExcel(
+    selectedPatientRecords.filter((record) => selectedRecordIds.includes(record.id)), true
+  );
 
   const renderTypeBadge = (type) => {
     const label = type === "test" ? "測驗" : type === "training" ? "訓練" : "紀錄";
@@ -2546,7 +2353,7 @@ function ClinicianDashboard() {
                 <nav className="clinician-dashboard-patient-tabs" style={patientTabsStyle} aria-label="個案資料選單">
                   {[
                     { key: "trend", label: "能力趨勢", desc: "六項摘要與折線圖" },
-                    { key: "records", label: "紀錄與比較", desc: "篩選、比較與 DOCX" },
+                    { key: "records", label: "紀錄與比較", desc: "篩選、比較與 Excel" },
                     { key: "tools", label: "個案工具", desc: "提醒、備註與摘要" },
                   ].map((tab) => (
                     <button
@@ -2743,8 +2550,8 @@ function ClinicianDashboard() {
 
                   <div style={combinedExportBarStyle}>
                     <div>
-                      <strong style={recordActionTitleStyle}>整合／比較 DOCX</strong>
-                      <span style={recordActionHintStyle}>勾選需要的測驗或訓練，可跨遊戲整合；相同遊戲會自動比較前後變化。報告不包含原始備查 JSON。</span>
+                      <strong style={recordActionTitleStyle}>整合／比較 Excel</strong>
+                      <span style={recordActionHintStyle}>勾選需要的測驗或訓練，可跨遊戲整合；相同遊戲會自動比較前後變化。Excel 包含摘要、逐題紀錄與展開的原始資料。</span>
                     </div>
                     <div style={combinedExportActionsStyle}>
                       <span style={selectedCountBadgeStyle}>已選 {selectedRecordIds.length} 筆</span>
@@ -2761,11 +2568,11 @@ function ClinicianDashboard() {
                       </button>
                       <button
                         type="button"
-                        onClick={exportSelectedRecordsToDocx}
+                        onClick={exportSelectedRecordsToExcel}
                         disabled={selectedRecordIds.length === 0 || exportingCombinedReport}
-                        style={{ ...docxButtonStyle, opacity: selectedRecordIds.length === 0 || exportingCombinedReport ? 0.55 : 1 }}
+                        style={{ ...excelButtonStyle, opacity: selectedRecordIds.length === 0 || exportingCombinedReport ? 0.55 : 1 }}
                       >
-                        {exportingCombinedReport ? "整合中…" : "輸出整合 DOCX"}
+                        {exportingCombinedReport ? "整合中…" : "輸出整合 Excel"}
                       </button>
                     </div>
                   </div>
@@ -2799,11 +2606,11 @@ function ClinicianDashboard() {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => exportRecordToDocx(selectedRecord)}
+                                onClick={() => exportRecordToExcel(selectedRecord)}
                                 disabled={exportingRecordId === selectedRecord.id}
-                                style={{ ...docxButtonStyle, opacity: exportingRecordId === selectedRecord.id ? 0.65 : 1 }}
+                                style={{ ...excelButtonStyle, opacity: exportingRecordId === selectedRecord.id ? 0.65 : 1 }}
                               >
-                                {exportingRecordId === selectedRecord.id ? "產生中…" : "輸出 DOCX"}
+                                {exportingRecordId === selectedRecord.id ? "產生中…" : "輸出 Excel"}
                               </button>
                             </div>
                           </div>
@@ -2813,7 +2620,7 @@ function ClinicianDashboard() {
                             <InfoItem label="遊戲" value={selectedRecord.gameName} />
                             <InfoItem label="能力" value={selectedRecord.ability} />
                             <InfoItem label="類型" value={selectedRecord.type === "test" ? "測驗" : selectedRecord.type === "training" ? "訓練" : "紀錄"} />
-                            <InfoItem label="建立時間" value={formatDate(selectedRecord.date)} />
+                            <InfoItem label="建立時間" value={formatDate(selectedRecord.date, true)} />
                             <InfoItem label="難度" value={selectedRecord.difficulty ?? "-"} />
                             <InfoItem label="分數" value={selectedRecord.score ?? "-"} />
                             <InfoItem label="星級" value={selectedRecord.stars > 0 ? `${selectedRecord.stars} 星` : "-"} />
@@ -2937,7 +2744,7 @@ function ClinicianDashboard() {
                                 style={checkboxInputStyle}
                               />
                             </td>
-                            <td style={tdStyle}>{formatDate(record.date)}</td>
+                            <td style={tdStyle}>{formatDate(record.date, true)}</td>
                             <td style={tdStyle}>{renderTypeBadge(record.type)}</td>
                             <td style={tdStyle}>{record.gameName}</td>
                             <td style={tdStyle}>{record.ability}</td>
@@ -2964,11 +2771,11 @@ function ClinicianDashboard() {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => exportRecordToDocx(record)}
+                                  onClick={() => exportRecordToExcel(record)}
                                   disabled={exportingRecordId === record.id}
                                   style={{ ...tableExportButtonStyle, opacity: exportingRecordId === record.id ? 0.6 : 1 }}
                                 >
-                                  {exportingRecordId === record.id ? "產生中" : "DOCX"}
+                                  {exportingRecordId === record.id ? "產生中" : "Excel"}
                                 </button>
                               </div>
                             </td>
@@ -3918,7 +3725,7 @@ const activeTableButtonStyle = { background: "linear-gradient(180deg, #2b6cb0, #
 const recordActionBarStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "14px", padding: "12px 14px", marginBottom: "14px", borderRadius: "14px", background: "linear-gradient(135deg,#f8fafc,#eef7ff)", border: "1px solid rgba(43,108,176,.20)", flexWrap: "wrap" };
 const recordActionTitleStyle = { display: "block", color: "#1f5f8b", fontSize: "14px", fontWeight: 900 };
 const recordActionHintStyle = { display: "block", marginTop: "3px", color: "#64748b", fontSize: "12px", fontWeight: 700 };
-const docxButtonStyle = { border: "none", borderRadius: "11px", background: "linear-gradient(180deg,#2b6cb0,#1f5f8b)", color: "#fff", padding: "10px 14px", fontSize: "13px", fontWeight: 900, cursor: "pointer" };
+const excelButtonStyle = { border: "none", borderRadius: "11px", background: "linear-gradient(180deg,#2b6cb0,#1f5f8b)", color: "#fff", padding: "10px 14px", fontSize: "13px", fontWeight: 900, cursor: "pointer" };
 const tableActionGroupStyle = { display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" };
 const tableExportButtonStyle = { border: "1px solid rgba(22,163,74,.30)", borderRadius: "9px", background: "#f0fdf4", color: "#15803d", padding: "7px 9px", fontSize: "12px", fontWeight: 900, cursor: "pointer" };
 

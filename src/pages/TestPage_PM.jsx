@@ -8,6 +8,7 @@ import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
 import { createGameResult } from "../ai/gameResultTemplate";
 import { saveUnifiedResult } from "../utils/resultManager";
+import { useTestAttempt } from "../utils/useTestAttempt";
 import { calculatePMScore } from "../utils/pmScoring";
 
 // ===== 圖片 =====
@@ -27,7 +28,6 @@ import rabbitAvatar from "../asset/avatar/rabbit.webp";
 
 // ===== 背景 / 前導影片 / 結束影片 =====
 import bgImage from "../asset/PM/PM_background.webp";
-import gameCardImage from "../asset/home/gamecard.webp";
 import stepVideo from "../asset/optimized/mp4/PM_step.mp4";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
@@ -332,6 +332,7 @@ const SESSION_PM_TEST_RESULT_KEYS = ["pmTestResult", "latestPMTestResult"];
 
 export default function TestPage_PM() {
   const navigate = useNavigate();
+  const testAttempt = useTestAttempt({ gameId: "PM", difficulty: "adaptive_span_test", route: "/test-picture-memory" });
 
   const answerStartRef = useRef(null);
   const recordsRef = useRef([]);
@@ -449,6 +450,7 @@ export default function TestPage_PM() {
   const pushRecord = (record) => {
     lastResultRef.current = record;
     recordsRef.current = [...recordsRef.current, record];
+    testAttempt.checkpoint({ trials: recordsRef.current });
   };
 
   const setupLevel = (levelConfig) => {
@@ -485,6 +487,7 @@ export default function TestPage_PM() {
     videoTransitioningRef.current = false;
     testStartedAtRef.current = new Date().toISOString();
     resultIdRef.current = null;
+    resultIdRef.current = testAttempt.begin().resultId;
     resetRuntimeRefs();
     setCurrentLevelIndex(0);
     setCurrentMemorizeItems([]);
@@ -552,6 +555,7 @@ export default function TestPage_PM() {
 
     tapLogsRef.current = [...tapLogsRef.current, newLog];
     selectedIdsRef.current = nextSelected;
+    testAttempt.checkpoint({ currentTrial: { levelIndex: currentLevelIndex, correctIds, selectedIds: nextSelected, tapLogs: tapLogsRef.current } });
     setSelectedIds(nextSelected);
   };
 
@@ -858,8 +862,7 @@ export default function TestPage_PM() {
     }
 
     if (!hasSavedUnifiedResultRef.current) {
-      hasSavedUnifiedResultRef.current = true;
-      Promise.resolve(
+      try {
         saveUnifiedResult({
           rawResult: persistableResult,
           gameId: "PM",
@@ -867,24 +870,11 @@ export default function TestPage_PM() {
           difficulty: "adaptive_span_test",
           route: "/test-picture-memory",
           visibleRoles: ["child", "parent", "clinician"],
-        })
-      )
-        .then(() => {
-          persistableResult.syncStatus = "synced";
-          if (pendingResultRef.current?.resultId === persistableResult.resultId) {
-            pendingResultRef.current = persistableResult;
-          }
-          try {
-            writePmTestResult(persistableResult);
-          } catch (error) {
-            console.warn("[TestPage_PM] syncStatus 回寫失敗：", error);
-          }
-        })
-        .catch((error) => {
-          hasSavedUnifiedResultRef.current = false;
-          persistableResult.syncStatus = "pending";
-          console.warn("[TestPage_PM] 統一結果儲存失敗，已保留本機結果：", error);
         });
+        hasSavedUnifiedResultRef.current = true;
+      } catch (error) {
+        console.warn("[TestPage_PM] 統一結果儲存失敗，已保留本機結果：", error);
+      }
     }
 
     return persistableResult;
@@ -894,7 +884,7 @@ export default function TestPage_PM() {
     if (finishingRef.current) return;
     finishingRef.current = true;
     stopReasonRef.current = stopReason;
-    const finalResult = persistPmTestResult(buildFinalResult(stopReason));
+    const finalResult = persistPmTestResult(testAttempt.complete(buildFinalResult(stopReason)));
     pendingResultRef.current = finalResult;
     setPhase("result");
   };
@@ -902,7 +892,7 @@ export default function TestPage_PM() {
   const navigateToResult = () => {
     const finalResult =
       pendingResultRef.current ||
-      persistPmTestResult(buildFinalResult(stopReasonRef.current || "completed_all_trials"));
+      persistPmTestResult(testAttempt.complete(buildFinalResult(stopReasonRef.current || "completed_all_trials")));
 
     pendingResultRef.current = finalResult;
     navigate("/result-picture-memory", {
@@ -1027,7 +1017,6 @@ export default function TestPage_PM() {
 
           {phase === "memorize" && currentLevel && (
             <div style={styles.card}>
-              <h1 style={styles.title}>看清楚湖裡的小物品</h1>
 
               <div style={styles.memoryGrid}>
                 {currentMemorizeItems.map((item) => (
@@ -1041,7 +1030,6 @@ export default function TestPage_PM() {
 
           {phase === "answer" && currentLevel && (
             <div style={styles.card} onClick={trackRandomClick}>
-              <h1 style={styles.title}>找回剛剛看過的物品</h1>
 
               <div style={styles.optionGrid}>
                 {currentOptions.map((item) => {
@@ -1320,10 +1308,7 @@ const styles = {
     width: "min(92vw, 900px)",
     maxHeight: "calc(100dvh - 28px)",
     overflow: "hidden",
-    backgroundImage: `url(${gameCardImage})`,
-    backgroundPosition: "center",
-    backgroundSize: "107% 107%",
-    backgroundRepeat: "no-repeat",
+    background: "transparent",
     border: 0,
     outline: "none",
     borderRadius: "54px",

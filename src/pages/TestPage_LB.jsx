@@ -5,10 +5,12 @@ import { useNavigate } from "react-router-dom";
 import "../styles/TestStepVideo.css";
 import calculateLBScore from "../utils/lbScoring";
 import { saveUnifiedResult } from "../utils/resultManager";
+import { useTestAttempt } from "../utils/useTestAttempt";
 
 import backgroundImg from "../asset/LB/LB_background.webp";
 import homeImg from "../asset/LB/grandma_sheep_house.webp";
 import blowingBubblesImg from "../asset/LB/walk/blowing_bubbles.webp";
+import walkImg from "../asset/LB/walk/walk.webp";
 import tutorialVideo from "../asset/optimized/mp4/LB_step.mp4";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
@@ -24,8 +26,6 @@ const SESSION_KEY = "LB_RESULT";
 const LOCAL_KEY = "lbTestResult";
 
 const doorplateAssets = require.context("../asset/LB", false, /(?:blue|yellow)_\d{2}\.webp$/);
-const walkAssets = require.context("../asset/LB/walk", false, /\.webp$/);
-const WALK_IMAGES = walkAssets.keys().sort().map(walkAssets);
 const WALK_JUMP_DURATION_MS = 700;
 const WALK_HOME_DURATION_MS = 1000;
 
@@ -383,6 +383,7 @@ function DoorplateButton({ item, disabled, completed, visited, isWrong, isCorrec
 
 function TestPageLB() {
   const navigate = useNavigate();
+  const testAttempt = useTestAttempt({ gameId: "LB", route: "/test-linking-balloons" });
 
   const [phase, setPhase] = useState("start");
   const [stageIndex, setStageIndex] = useState(0);
@@ -395,7 +396,6 @@ function TestPageLB() {
   const [message, setMessage] = useState("請依照前導教學中的規則完成測驗。");
   const [wrongKey, setWrongKey] = useState("");
   const [correctKey, setCorrectKey] = useState("");
-  const [walkImageIndex, setWalkImageIndex] = useState(0);
   const [walkerStepIndex, setWalkerStepIndex] = useState(-1);
   const [walkerEnteringHome, setWalkerEnteringHome] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
@@ -412,6 +412,12 @@ function TestPageLB() {
   const currentStage = STAGES[stageIndex];
   const displayItems = useMemo(() => buildStageItems(currentStage), [currentStage]);
   const stageDone = completedKeys.length === currentStage.sequence.length;
+
+  useEffect(() => {
+    if (phase === "playing") {
+      testAttempt.checkpoint({ currentStage: { stageIndex, selectedKeys: completedKeys, selectionLogs: selectionLogsRef.current } });
+    }
+  }, [phase, stageIndex, completedKeys, testAttempt]);
 
   const pauseVideo = useCallback((videoRef) => {
     const video = videoRef.current;
@@ -510,6 +516,7 @@ function TestPageLB() {
 
   const startGame = () => {
     startedAtRef.current = nowISO();
+    testAttempt.begin();
     resetStageState(0);
     setTrials([]);
     setStageRecords([]);
@@ -672,10 +679,10 @@ function TestPageLB() {
     const currentRecord = saveStageRecord({ selectedKeys, correctSteps });
     const nextStageIndex = stageIndex + 1;
     const mergedTrials = [...trials, ...submittedTrials];
+    testAttempt.checkpoint({ trials: mergedTrials, stageRecords: [...stageRecords, currentRecord], stageIndex });
 
     setTrials(mergedTrials);
     setRouteKeys(selectedKeys);
-    setWalkImageIndex(Math.floor(Math.random() * Math.max(1, WALK_IMAGES.length)));
     setRouteVisible(true);
     setWalkerStepIndex(0);
     setWalkerEnteringHome(false);
@@ -720,12 +727,12 @@ function TestPageLB() {
       ? [...stageRecords, extraStageRecord]
       : [...stageRecords];
 
-    const resultPayload = createResultPayload({
+    const resultPayload = testAttempt.complete(createResultPayload({
       trials: finalTrials,
       stageRecords: finalStageRecords,
       startedAt: startedAtRef.current,
       completed,
-    });
+    }));
 
     try {
       const serializedResult = JSON.stringify(resultPayload);
@@ -963,20 +970,17 @@ function TestPageLB() {
       <main className="lb-game-card lb-playing-panel">
         <section className="lb-play-board" onClick={handleBlankClick}>
           <img width={1024} height={1024} loading="lazy" className="lb-map-home" src={homeImg} alt="綿羊奶奶的房子" draggable="false" />
-          {routeVisible && walkerStepIndex >= 0 && routeKeys.length > 0 && WALK_IMAGES.length > 0 && (() => {
+          {routeVisible && walkerStepIndex >= 0 && routeKeys.length > 0 && (() => {
             const activeKey = routeKeys[Math.min(walkerStepIndex, routeKeys.length - 1)];
             const activeItem = displayItems.find((item) => item.key === activeKey);
             if (!activeItem) return null;
-            const walkImg = WALK_IMAGES[
-              (walkImageIndex + Math.min(walkerStepIndex, routeKeys.length - 1)) % WALK_IMAGES.length
-            ];
             return (
               <img
                 key={`${walkerStepIndex}-${walkerEnteringHome}`}
                 loading="lazy"
                 className={`lb-route-walker${walkerEnteringHome ? " is-entering-home" : " is-jumping"}`}
                 src={walkImg}
-                alt="沿著答案路線前進的朋友"
+                alt="沿著答案路線前進的綿羊奶奶"
                 draggable="false"
                 style={walkerEnteringHome
                   ? { left: "91%", top: "82%" }

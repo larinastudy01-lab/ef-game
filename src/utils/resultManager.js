@@ -1,7 +1,10 @@
-import { saveGameResultToCloud } from "../lib/database";
+import { queueGameResult } from "./resultSync";
 import { createBehavioralId } from "../analytics/trials/buildBehavioralHierarchy";
 import { awardTrainingCoins } from "./economyManager";
 import { completeActiveRecommendation } from "../analytics/recommendation/onlineRecommendation";
+import { getAttemptKeys } from "./resultIdentity";
+
+const savedResultObjects = new WeakMap();
 
 /**
  * src/utils/resultManager.js
@@ -179,7 +182,7 @@ export const getCurrentChild = () => {
 
 export const createResultId = ({ gameId, mode, childId } = {}) => {
   const prefix = [childId || "guest", gameId || "GAME", mode || "test"].join("_");
-  return `${prefix}_${Date.now()}`;
+  return `${prefix}_${Date.now()}_${createBehavioralId()}`;
 };
 
 export const getLegacyResultKey = (gameId, mode = "test") => {
@@ -325,9 +328,11 @@ export const normalizeGameResult = ({
 
     session: {
       mode: raw?.mode || mode,
+      status: raw?.status === "aborted" ? "interrupted"
+        : ["in_progress", "interrupted", "abandoned"].includes(raw?.status) ? raw.status : "completed",
       difficulty: raw?.difficulty || difficulty || "default",
       startedAt,
-      finishedAt,
+      finishedAt: raw?.status === "in_progress" ? null : finishedAt,
       totalPlayTime: safeNumber(
         raw?.totalPlayTime ?? raw?.duration ?? raw?.playTime,
         0
@@ -436,8 +441,32 @@ export const saveUnifiedResult = ({
     normalized?.session?.mode || mode
   }`;
 
+  let queued = false;
   try {
-    const safeRawResult = sanitizeForStorage(rawResult);
+    const allResults = safeArray(
+      safeParse(window.localStorage?.getItem(ALL_RESULTS_KEY), [])
+    );
+    const attemptKeys = new Set(getAttemptKeys(rawResult));
+    const sameScope = (item) => item?.game?.gameId === normalized.game.gameId
+      && item?.session?.mode === normalized.session.mode
+      && String(item?.child?.childId) === String(normalized.child.childId);
+    const cached = isPlainObject(rawResult) ? savedResultObjects.get(rawResult) : null;
+    const previous = cached && sameScope(cached) ? cached : allResults.find((item) =>
+      sameScope(item) && getAttemptKeys(item).some((key) => attemptKeys.has(key))
+    );
+    if (previous) {
+      normalized.resultId = previous.resultId;
+      normalized.behavioral = {
+        ...normalized.behavioral,
+        ...previous.behavioral,
+        trialIds: normalized.trials.map((_, index) => previous.behavioral?.trialIds?.[index] || normalized.behavioral.trialIds[index]),
+      };
+    }
+    if (isPlainObject(rawResult)) savedResultObjects.set(rawResult, normalized);
+    const safeRawResult = sanitizeForStorage({
+      ...rawResult, resultId: normalized.resultId, behavioral: normalized.behavioral,
+    });
+    normalized.rawResult = safeRawResult;
 
     if (normalized?.session?.mode === "training") {
       const reward = awardTrainingCoins({
@@ -453,6 +482,11 @@ export const saveUnifiedResult = ({
       };
     }
 
+    normalized.syncStatus = "pending";
+    normalized.rawResult.syncStatus = "pending";
+    queueGameResult(normalized);
+    queued = true;
+
     window.localStorage?.setItem(unifiedLatestKey, JSON.stringify(normalized));
     window.sessionStorage?.setItem(unifiedLatestKey, JSON.stringify(normalized));
     window.localStorage?.setItem(childScopedLatestKey, JSON.stringify(normalized));
@@ -461,10 +495,6 @@ export const saveUnifiedResult = ({
     if (saveLegacy) {
       window.localStorage?.setItem(legacyKey, JSON.stringify(safeRawResult));
     }
-
-    const allResults = safeArray(
-      safeParse(window.localStorage?.getItem(ALL_RESULTS_KEY), [])
-    );
 
     const nextResults = [normalized, ...allResults]
       .map((item) => sanitizeForStorage(item))
@@ -481,10 +511,6 @@ export const saveUnifiedResult = ({
 
     window.localStorage?.setItem(ALL_RESULTS_KEY, JSON.stringify(nextResults));
 
-    // 雲端同步：不阻塞遊戲流程。若 Supabase 尚未設定或離線，仍保留 localStorage 結果。
-    saveGameResultToCloud(normalized).catch((cloudError) => {
-      console.warn("Supabase 結果同步失敗，已保留本機紀錄：", cloudError);
-    });
     if (normalized?.session?.mode === "training") {
       completeActiveRecommendation(normalized).catch((recommendationError) => {
         console.warn("Adaptive recommendation outcome sync failed:", recommendationError);
@@ -492,6 +518,7 @@ export const saveUnifiedResult = ({
     }
   } catch (error) {
     console.warn("統一結果資料儲存失敗：", error);
+    if (!queued) throw error;
   }
 
   return normalized;

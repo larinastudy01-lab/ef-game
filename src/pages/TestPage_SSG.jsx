@@ -8,6 +8,7 @@ import { analyzeErrors } from "../ai/errorAnalyzer";
 import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
 import { saveUnifiedResult } from "../utils/resultManager";
+import { useTestAttempt } from "../utils/useTestAttempt";
 import { calculateSsgScore } from "../utils/ssgScoring";
 
 import backgroundImg from "../asset/SSG/SSG_background.webp";
@@ -174,6 +175,7 @@ function buildTrials() {
 
 export default function TestPage_SSG() {
   const navigate = useNavigate();
+  const testAttempt = useTestAttempt({ gameId: "SSG", route: "/test-ssg" });
   const trials = useMemo(() => buildTrials(), []);
   const [phase, setPhase] = useState("start");
   const [trialIndex, setTrialIndex] = useState(0);
@@ -252,6 +254,7 @@ export default function TestPage_SSG() {
 
   function startTest() {
     resetTestState();
+    testAttempt.begin();
     setPhase("playing");
     addTimeout(() => startTrial(0), 0);
   }
@@ -362,6 +365,7 @@ export default function TestPage_SSG() {
     const record = buildRecord({ trial, selectedTarget, selectedPosition, reactionTime, timeout: false });
     const updated = [...trialRecordsRef.current, record];
     trialRecordsRef.current = updated;
+    testAttempt.checkpoint({ trials: updated });
     setTrialRecords(updated);
     setCanAnswer(false);
     addTimeout(() => goNextTrial(updated, index), FEEDBACK_TIME);
@@ -376,6 +380,7 @@ export default function TestPage_SSG() {
     const record = buildRecord({ trial, selectedTarget: null, selectedPosition: null, reactionTime: null, timeout: true });
     const updated = [...trialRecordsRef.current, record];
     trialRecordsRef.current = updated;
+    testAttempt.checkpoint({ trials: updated });
     setTrialRecords(updated);
     setCanAnswer(false);
     addTimeout(() => goNextTrial(updated, index), FEEDBACK_TIME);
@@ -494,7 +499,7 @@ export default function TestPage_SSG() {
       : accuracy;
     const finishedAt = new Date().toISOString();
 
-    const result = {
+    const result = testAttempt.complete({
       taskName: "貓狗合唱團",
       taskCode: "SSG",
       taskVersion: TASK_VERSION,
@@ -563,7 +568,7 @@ export default function TestPage_SSG() {
       startedFrom: "TestPage_SSG",
       finishedAt,
       generatedAt: ssgScoring.generatedAt || finishedAt,
-    };
+    });
 
     try {
       saveUnifiedResult({

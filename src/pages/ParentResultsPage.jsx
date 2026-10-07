@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getMyPatients, getResultsByPatientFromCloud } from "../lib/database";
 import { getResultsByChild } from "../utils/resultManager";
+import { getResultCompletionStatus, isCompletedResult } from "../utils/resultCompletion";
 import returnIcon from "../asset/return.webp";
 import "../styles/ParentResultsPage.css";
 
@@ -28,6 +29,8 @@ const normalizeResult = (row) => {
     gameId,
     gameName: row?.game_name || payload?.game?.gameName || GAME_NAMES[gameId] || gameId,
     mode: row?.mode || payload?.session?.mode || "test",
+    completionStatus: getResultCompletionStatus(row),
+    totalTrials: toNumber(row?.total_trials ?? payload?.summary?.totalTrials),
     score: toNumber(row?.score ?? payload?.summary?.score),
     accuracy: toNumber(row?.accuracy ?? payload?.summary?.accuracy),
     stars: toNumber(row?.stars ?? payload?.summary?.stars),
@@ -100,13 +103,14 @@ function ParentResultsPage() {
   );
 
   const summary = useMemo(() => {
-    if (!filteredResults.length) return { averageAccuracy: 0, averageStars: 0, count: 0 };
+    const completed = filteredResults.filter(isCompletedResult);
+    if (!completed.length) return { averageAccuracy: 0, averageStars: 0, count: 0 };
     return {
       averageAccuracy: Math.round(
-        filteredResults.reduce((total, item) => total + item.accuracy, 0) / filteredResults.length
+        completed.reduce((total, item) => total + item.accuracy, 0) / completed.length
       ),
-      averageStars: filteredResults.reduce((total, item) => total + item.stars, 0) / filteredResults.length,
-      count: filteredResults.length,
+      averageStars: completed.reduce((total, item) => total + item.stars, 0) / completed.length,
+      count: completed.length,
     };
   }, [filteredResults]);
 
@@ -160,7 +164,7 @@ function ParentResultsPage() {
           <section className="parent-results-summary" aria-label={`${selectedChild?.nickname || "孩子"}的成績摘要`}>
             <article><strong>{summary.count}</strong><span>完成次數</span></article>
             <article><strong>{summary.averageAccuracy}%</strong><span>平均正確率</span></article>
-            <article><strong>{filteredResults.length ? `${summary.averageStars.toFixed(1)} ★` : "—"}</strong><span>平均星星</span></article>
+            <article><strong>{summary.count ? `${summary.averageStars.toFixed(1)} ★` : "—"}</strong><span>平均星星</span></article>
           </section>
 
           <section className="parent-results-list-section">
@@ -178,11 +182,11 @@ function ParentResultsPage() {
                       <h3>{result.gameName}</h3>
                       <time>{formatDate(result.finishedAt)}</time>
                     </div>
-                    <div className="parent-result-metrics">
+                    {!isCompletedResult(result) ? <p>測驗未完成，已保留 {result.totalTrials} 題作答紀錄。</p> : <div className="parent-result-metrics">
                       <span><strong>{Math.round(result.accuracy)}%</strong>正確率</span>
                       <span><strong>{Math.round(result.score)}</strong>分數</span>
                       <span><strong>{result.stars} ★</strong>星星</span>
-                    </div>
+                    </div>}
                   </article>
                 ))}
               </div>

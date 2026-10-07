@@ -51,7 +51,7 @@ test("builds Participant to Session to Task to Trial hierarchy without names", (
     game: { gameId: "SRT" },
     session: { mode: "test", difficulty: "normal", finishedAt: "2026-07-30T00:01:00.000Z" },
     trials: [{ trialIndex: 1, targetType: "normal", trainingAction: "hit", isCorrect: true, reactionTime: 300 }],
-    rawResult: { childName: "Do not export", difficulty: "normal", records: [] },
+    rawResult: { childName: "Do not export", syncOwnerId: "guardian-uuid", difficulty: "normal", records: [] },
   }, { deviceInformation: {} });
 
   expect(hierarchy.participant.patientReference).toBe("patient-uuid");
@@ -59,6 +59,7 @@ test("builds Participant to Session to Task to Trial hierarchy without names", (
   expect(hierarchy.session.assessmentOrTraining).toBe("assessment");
   expect(hierarchy.taskSession.taskCode).toBe("SRT");
   expect(hierarchy.taskSession.rawData).not.toHaveProperty("childName");
+  expect(hierarchy.taskSession.rawData).not.toHaveProperty("syncOwnerId");
   expect(hierarchy.trials).toHaveLength(1);
   expect(hierarchy.trials[0].validTrial).toBe(true);
 });

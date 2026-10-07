@@ -28,6 +28,7 @@ import { analyzeErrors } from "../ai/errorAnalyzer";
 import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
 import { saveUnifiedResult } from "../utils/resultManager";
+import { useTestAttempt } from "../utils/useTestAttempt";
 import { calculateDccsScore } from "../utils/dccsScoring";
 
 import peacockImg from "../asset/DCCS/dccs_peacock.webp";
@@ -764,6 +765,7 @@ function positionToLegacySide(position) {
 
 function TestPage_DCCS() {
   const navigate = useNavigate();
+  const testAttempt = useTestAttempt({ gameId: "DCCS", route: "/test-dccs" });
 
   const [phase, setPhase] = useState(PHASE.START);
   const [trialIndex, setTrialIndex] = useState(0);
@@ -774,6 +776,7 @@ function TestPage_DCCS() {
   const [pendingResult, setPendingResult] = useState(null);
 
   const trialStartTimeRef = useRef(null);
+  const attemptIdRef = useRef(null);
   const clickBehaviorRef = useRef({
     randomClick: 0,
     repeatedClick: 0,
@@ -869,12 +872,14 @@ function TestPage_DCCS() {
 
   const handleStart = () => {
     resetDccsTest();
+    attemptIdRef.current = testAttempt.begin(getStoredCurrentChild()).resultId;
     setPhase(PHASE.VIDEO_STEP);
   };
 
 
   const startTrialPhase = (nextPhase) => {
     clearPendingTiming();
+    testAttempt.checkpoint({ phase: nextPhase });
     setPhase(nextPhase);
     setTrialIndex(0);
     setFeedback(null);
@@ -1140,6 +1145,7 @@ function TestPage_DCCS() {
       ...baseResult,
       ...performanceResult,
       ...errorResult,
+      resultId: attemptIdRef.current,
 
       task: "DCCS",
       gameId: "DCCS",
@@ -1253,7 +1259,7 @@ function TestPage_DCCS() {
   };
 
   const finishTest = (finalLogs) => {
-    const resultData = buildResultData(finalLogs);
+    const resultData = testAttempt.complete(buildResultData(finalLogs));
     saveSessionResult(resultData);
     setPendingResult(resultData);
     setPhase(PHASE.RESULT);
@@ -1437,6 +1443,7 @@ function TestPage_DCCS() {
 
     if (phase !== PHASE.PRACTICE) {
       nextLogs = [...trialLogs, log];
+      testAttempt.checkpoint({ trials: nextLogs, phase });
       setTrialLogs(nextLogs);
     }
 

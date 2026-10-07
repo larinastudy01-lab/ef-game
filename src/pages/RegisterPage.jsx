@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import { registerWithImmediateSession } from "../lib/authRegistration";
 
 import pageBg from "../asset/home/background.webp";
 import registerBtnImg from "../asset/home/register.webp";
 
 function RegisterPage() {
+  const navigate = useNavigate();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,6 +22,7 @@ function RegisterPage() {
   };
 
   const getChineseRegisterError = (error) => {
+    if (error?.code === "SIGNUP_SESSION_REQUIRED") return error.message;
     const text = `${error?.message || ""}`.toLowerCase();
 
     if (text.includes("already registered") || text.includes("already been registered")) {
@@ -48,7 +52,7 @@ function RegisterPage() {
     event?.preventDefault();
 
     const cleanName = fullName.trim();
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
 
     if (!cleanName || !cleanEmail || !password || !confirmPassword) {
       showMessage("請完整填寫家長姓名、Email、密碼與確認密碼。", "error");
@@ -68,48 +72,36 @@ function RegisterPage() {
     setIsLoading(true);
     setMessage("");
 
-    const { data, error } = await supabase.auth.signUp({
-      email: cleanEmail,
-      password,
-      options: {
-        data: {
+    try {
+      const { user } = await registerWithImmediateSession({
+        email: cleanEmail,
+        password,
+        metadata: {
           full_name: cleanName,
           role: "guardian",
         },
-      },
-    });
+      });
 
-    if (error) {
+      const { error: profileError } = await supabase.from("profiles").upsert([
+        {
+          id: user.id,
+          email: cleanEmail,
+          full_name: cleanName,
+          role: "guardian",
+        },
+      ]);
+
+      if (profileError) {
+        showMessage("帳號已建立，但家長資料建立失敗，請稍後登入或聯絡管理者。", "error");
+        return;
+      }
+
+      navigate("/child-select", { replace: true });
+    } catch (error) {
       showMessage(getChineseRegisterError(error), "error");
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    const user = data?.user;
-
-    if (!user) {
-      showMessage("註冊已送出，請到信箱確認驗證信後再登入。", "success");
-      setIsLoading(false);
-      return;
-    }
-
-    const { error: profileError } = await supabase.from("profiles").upsert([
-      {
-        id: user.id,
-        email: cleanEmail,
-        full_name: cleanName,
-        role: "guardian",
-      },
-    ]);
-
-    if (profileError) {
-      showMessage("帳號已建立，但家長資料建立失敗，請稍後登入或聯絡管理者。", "error");
-      setIsLoading(false);
-      return;
-    }
-
-    showMessage("註冊成功！請到信箱確認驗證信，完成後即可登入。", "success");
-    setIsLoading(false);
   };
 
 

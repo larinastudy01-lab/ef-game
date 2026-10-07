@@ -19,6 +19,7 @@ import mouseImg from "../asset/mouse.webp";
 import SrtResultPage from "./ResultPage_SRT";
 import { calculateSrtScore } from "../utils/srtScoring";
 import { saveUnifiedResult } from "../utils/resultManager";
+import { useTestAttempt } from "../utils/useTestAttempt";
 
 import { createGameResult } from "../ai/gameResultTemplate";
 import { analyzePerformance } from "../ai/performanceAnalyzer";
@@ -79,6 +80,7 @@ const targetTypes = {
 
 const TestPage_SRT = () => {
   const navigate = useNavigate();
+  const testAttempt = useTestAttempt({ gameId: "SRT", route: "/test-srt" });
 
   const [phase, setPhase] = useState("start");
   const [item, setItem] = useState(null);
@@ -201,6 +203,7 @@ const TestPage_SRT = () => {
   const addTrialRecord = (record) => {
     const nextRecords = [...trialRecordsRef.current, record];
     trialRecordsRef.current = nextRecords;
+    testAttempt.checkpoint({ trials: nextRecords, promptEvents: promptEventsRef.current });
     setTrialRecords(nextRecords);
   };
 
@@ -502,7 +505,7 @@ const TestPage_SRT = () => {
     const dataQuality = buildDataQuality(records, completionReason);
 
     const resultId = `SRT-${childProfile.childId}-${finishedAtMs}`;
-    const resultPayload = {
+    const resultPayload = testAttempt.complete({
       resultId,
       schemaVersion: "1.0.0",
       taskName: "Simple Reaction Time",
@@ -554,7 +557,7 @@ const TestPage_SRT = () => {
       dataQuality,
       syncStatus: "pending",
       generatedAt: finishedAt,
-    };
+    });
 
     saveResultToLocalStorage(resultPayload, childProfile.childId);
     setFinalResult(resultPayload);
@@ -569,9 +572,6 @@ const TestPage_SRT = () => {
         route: "/test-srt",
         visibleRoles: ["child", "parent", "clinician"],
       });
-      resultPayload.syncStatus = "synced";
-      saveResultToLocalStorage(resultPayload, childProfile.childId);
-      setFinalResult({ ...resultPayload });
     } catch (error) {
       console.error("SRT 雲端同步失敗，結果已保留在本機：", error);
     }
@@ -618,6 +618,7 @@ const TestPage_SRT = () => {
     resetRuntimeState();
     setFinalResult(null);
     testStartedAtRef.current = Date.now();
+    testAttempt.begin(childProfile);
     setShowDetailedResult(false);
 
     setGamePhase("playing");

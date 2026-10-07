@@ -10,6 +10,7 @@ import {
 import backgroundImg from "../asset/LB/LB_background.webp";
 import homeImg from "../asset/LB/grandma_sheep_house.webp";
 import blowingBubblesImg from "../asset/LB/walk/blowing_bubbles.webp";
+import walkImg from "../asset/LB/walk/walk.webp";
 import introVideo from "../asset/optimized/mp4/LB_start.mp4";
 import stepVideo from "../asset/optimized/mp4/LB_step.mp4";
 import endingVideo from "../asset/optimized/mp4/LB_end.mp4";
@@ -54,8 +55,6 @@ const getQueryValue = (search, key) => {
 };
 
 const doorplateAssets = require.context("../asset/LB", false, /(?:blue|yellow)_\d{2}\.webp$/);
-const walkAssets = require.context("../asset/LB/walk", false, /\.webp$/);
-const WALK_IMAGES = walkAssets.keys().sort().map(walkAssets);
 
 function getDoorplateImage(color, number) {
   const imageColor = color === "blue" ? "blue" : "yellow";
@@ -823,7 +822,7 @@ function WalkingPerson({ point }) {
 
   return (
     <img loading="lazy"
-      src={WALK_IMAGES[Math.abs(String(point.key || point.number || "walk").split("").reduce((sum, char) => sum + char.charCodeAt(0), 0)) % WALK_IMAGES.length]}
+      src={walkImg}
       alt="綿羊奶奶走路"
       className="lb-walking-person"
       draggable="false"

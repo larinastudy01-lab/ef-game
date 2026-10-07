@@ -19,6 +19,7 @@ import "../styles/GamePage_CBT.css";
 import "../styles/TestStepVideo.css";
 
 import { saveUnifiedResult } from "../utils/resultManager";
+import { useTestAttempt } from "../utils/useTestAttempt";
 import { calculateCBTScore } from "../utils/cbtScoring";
 import { createGameResult } from "../ai/gameResultTemplate";
 import { analyzePerformance } from "../ai/performanceAnalyzer";
@@ -43,7 +44,7 @@ const TEST_PAGE_ROUTE = "/test-map";
 // 所以每一題都會真的「換位置」，不再固定成同一種排列。
 const BOARD_WIDTH = 760;
 const BOARD_HEIGHT = 455;
-const STONE_SIZE = 230;
+const STONE_SIZE = 250;
 const STONE_ASPECT_RATIO = 360 / 203;
 const STONE_GAP = 12;
 const PERSON_OFFSET_Y = 76;
@@ -1078,6 +1079,7 @@ function getCurrentChildId() {
 
 export default function TestPage_CBT() {
   const navigate = useNavigate();
+  const testAttempt = useTestAttempt({ gameId: "CBT", route: "/test-cbt" });
 
   const [phase, setPhase] = useState("story");
   const [countdownLeft, setCountdownLeft] = useState(COUNTDOWN_SECONDS);
@@ -1284,6 +1286,7 @@ export default function TestPage_CBT() {
 
   function startFormalTest() {
     resetTestData();
+    testAttempt.begin();
     setCountdownLeft(COUNTDOWN_SECONDS);
     setPhase("countdown");
   }
@@ -1420,6 +1423,7 @@ export default function TestPage_CBT() {
     };
 
     historyRef.current = [...historyRef.current, trial];
+    testAttempt.checkpoint({ trials: historyRef.current });
 
     return historyRef.current;
   }
@@ -1649,7 +1653,7 @@ export default function TestPage_CBT() {
     const childId = getCurrentChildId();
     const generatedAt = new Date().toISOString();
 
-    const resultPayload = {
+    const resultPayload = testAttempt.complete({
       ...legacyAiResult,
 
       source: "test",
@@ -1693,7 +1697,7 @@ export default function TestPage_CBT() {
       stopReason: stopReasonRef.current || "manual_finish",
       visibleResultRoles: ["child", "parent", "clinician"],
       hideMedicalResult: false,
-    };
+    });
 
     saveResultPayload({ resultPayload, scoring, childId });
 
@@ -1812,6 +1816,7 @@ export default function TestPage_CBT() {
 
     const nextInput = [...currentInput, index];
     const nextInputLength = nextInput.length;
+    testAttempt.checkpoint({ currentTrial: { questionIndex, sequence, input: nextInput, tapTimestamps: tapTimestampsRef.current } });
     const correctIndex = sequence[nextInputLength - 1];
 
     if (index !== correctIndex) {
@@ -2036,17 +2041,6 @@ export default function TestPage_CBT() {
 
       {(phase === "warmupShow" || phase === "warmupAnswer") && (
         <div className="cbt-card cbt-card--wide">
-          <div className="cbt-info">練習</div>
-
-          <div className="cbt-instruction-pill">
-            <h2 className="cbt-subtitle">
-              {phase === "warmupShow" ? "看亮燈" : "換你點"}
-            </h2>
-            <p className="cbt-text">
-              {phase === "warmupShow" ? "先看，不用點。" : "照順序點。"}
-            </p>
-          </div>
-
           <CBTBoard
             blocks={blocks}
             phase={phase}
@@ -2060,11 +2054,6 @@ export default function TestPage_CBT() {
             disabled={phase !== "warmupAnswer"}
           />
 
-          {phase === "warmupAnswer" && (
-            <div className="cbt-hint-bubble">
-              先亮，先點。
-            </div>
-          )}
         </div>
       )}
 
@@ -2103,15 +2092,6 @@ export default function TestPage_CBT() {
 
       {(phase === "show" || phase === "answer") && (
         <div className="cbt-card cbt-card--wide cbt-test-card">
-
-          <div className="cbt-instruction-pill">
-            <h2 className="cbt-subtitle">
-              {phase === "show" ? "看亮燈" : "換你點"}
-            </h2>
-            <p className="cbt-text">
-              {phase === "show" ? "先看，不用點。" : "照順序點。"}
-            </p>
-          </div>
 
           <CBTBoard
             blocks={blocks}

@@ -17,7 +17,7 @@ import mouseGuideImg from "../asset/mouse.webp";
 import { analyzePerformance } from "../ai/performanceAnalyzer";
 import { analyzeErrors } from "../ai/errorAnalyzer";
 import { analyzeFatigue } from "../ai/fatigueAnalyzer";
-import { saveUnifiedResult } from "../utils/resultManager";
+import { createResultId, saveUnifiedResult } from "../utils/resultManager";
 import { calculateDccsScore } from "../utils/dccsScoring";
 import { analyzeDccsTraining } from "../ai/dccsTrainingAnalyzer";
 import { clampNumber, getTodayKey, safeParse } from "../utils/trainingDataUtils";
@@ -1463,6 +1463,7 @@ function TrainingPage_DCCS() {
   const [finalResult, setFinalResult] = useState(null);
 
   const trialStartTimeRef = useRef(null);
+  const attemptIdRef = useRef(null);
   const nextTrialTimerRef = useRef(null);
   const trialStartRafRef = useRef(null);
 
@@ -1525,6 +1526,7 @@ function TrainingPage_DCCS() {
 
   const handleStart = () => {
     clearPendingTiming();
+    attemptIdRef.current = createResultId({ gameId: "DCCS", mode: "training", childId: getStoredCurrentChild()?.childId });
     setPhase(PHASE.VIDEO_INTRO);
   };
 
@@ -1840,6 +1842,7 @@ function TrainingPage_DCCS() {
 
       const resultWithStage = {
         ...finalResult,
+        resultId: attemptIdRef.current,
         stars,
         trainingLevel: trainingContext.trainingLevel,
         trainingStageId: trainingContext.trainingStageId,

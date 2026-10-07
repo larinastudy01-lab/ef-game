@@ -35,8 +35,8 @@ const CBT_TRAINING_RESULT_KEY = "ef_game_cbt_training_result";
 
 const BOARD_WIDTH = 760;
 const BOARD_HEIGHT = 455;
-const STONE_SIZE = 230;
-const WARMUP_STONE_SIZE = 230;
+const STONE_SIZE = 250;
+const WARMUP_STONE_SIZE = 250;
 const STONE_ASPECT_RATIO = 360 / 203;
 const STONE_GAP = 12;
 
@@ -2934,15 +2934,6 @@ export default function TrainingPage_CBT() {
 
       {(phase === "warmupShow" || phase === "warmupAnswer") && (
         <div className="cbt-card cbt-card--wide cbt-test-card cbt-play-card-minimal">
-          <div className="cbt-instruction-pill">
-            <h2 className="cbt-subtitle">
-              {phase === "warmupShow" ? "看亮燈" : "換你點"}
-            </h2>
-            <p className="cbt-quiet-prompt">
-              {phase === "warmupShow" ? "先看。" : "照順序點。"}
-            </p>
-          </div>
-
           <CBTBoard
             blocks={blocks}
             phase={phase}
@@ -2974,22 +2965,6 @@ export default function TrainingPage_CBT() {
 
       {(phase === "show" || phase === "answer") && (
         <div className="cbt-card cbt-card--wide cbt-test-card cbt-play-card-minimal">
-          <div className="cbt-instruction-pill">
-            {config.backwardRecall && (
-              <p className="cbt-backward-rule" aria-live="polite">
-                {phase === "show"
-                  ? "記住石頭亮起的順序"
-                  : "倒著走：請從最後亮起的石頭點回第一顆"}
-              </p>
-            )}
-            <h2 className="cbt-subtitle">
-              {phase === "show" ? "看亮燈" : "換你點"}
-            </h2>
-            <p className="cbt-quiet-prompt">
-              {phase === "show" ? "先看，不用點。" : "照順序點。"}
-            </p>
-          </div>
-
           <CBTBoard
             blocks={blocks}
             phase={phase}

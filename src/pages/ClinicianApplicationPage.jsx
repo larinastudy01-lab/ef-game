@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import { registerWithImmediateSession } from "../lib/authRegistration";
 
 const STATUS = { pending:"申請已送出，等待管理員審核。", approved:"申請已核准，正在前往醫療端。", rejected:"申請未通過，請聯絡系統管理員。", suspended:"醫療帳號目前已停權。", expired:"專業資格驗證已到期，請聯絡管理員重新驗證。" };
 const blank = { legalName:"", practiceCity:"", institutionName:"", department:"", declaration:false };
@@ -27,8 +28,18 @@ export default function ClinicianApplicationPage() {
     setLoading(false);
   }
   // The auth subscription intentionally owns the refresh lifecycle for this page.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { let alive=true; supabase.auth.getUser().then(({data})=>alive&&load(data?.user||null)); const {data:l}=supabase.auth.onAuthStateChange((_e,s)=>alive&&load(s?.user||null)); return()=>{alive=false;l?.subscription?.unsubscribe();}; },[]);
+  useEffect(() => {
+    let alive=true;
+    let refreshTimer;
+    supabase.auth.getUser().then(({data})=>alive&&load(data?.user||null));
+    const {data:l}=supabase.auth.onAuthStateChange((_e,session)=>{
+      // Fetch profiles after the auth callback releases Supabase's session lock.
+      clearTimeout(refreshTimer);
+      refreshTimer=setTimeout(()=>{if(alive)load(session?.user||null);},0);
+    });
+    return()=>{alive=false;clearTimeout(refreshTimer);l?.subscription?.unsubscribe();};
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
 
   async function submitAuth(e) {
     e.preventDefault(); setMessage("");
@@ -36,9 +47,8 @@ export default function ClinicianApplicationPage() {
     setBusy(true);
     try {
       if (mode==="register") {
-        const {data,error}=await supabase.auth.signUp({email:auth.email.trim().toLowerCase(),password:auth.password,options:{data:{full_name:auth.name.trim(),account_type:"clinician_applicant"}}});
-        if(error) throw error;
-        if(!data.session){setMode("login");setMessage("帳號已建立。請先到信箱完成 Email 驗證，再回到此頁登入並填寫專業資料。");} else await load(data.user);
+        const {user:registeredUser}=await registerWithImmediateSession({email:auth.email.trim().toLowerCase(),password:auth.password,metadata:{full_name:auth.name.trim(),account_type:"clinician_applicant"}});
+        await load(registeredUser);
       } else {
         const {data,error}=await supabase.auth.signInWithPassword({email:auth.email.trim().toLowerCase(),password:auth.password}); if(error)throw error; await load(data.user);
       }
@@ -60,7 +70,7 @@ export default function ClinicianApplicationPage() {
   if(loading)return <main style={s.page}><section style={s.card}>正在讀取帳號狀態…</section></main>;
   return <main style={s.page}><section style={s.card}>
     <button style={s.link} onClick={()=>navigate("/clinician-login")}>← 返回醫療端登入</button><p style={s.eyebrow}>PROFESSIONAL ACCESS</p><h1 style={s.title}>申請醫療帳號</h1><p style={s.lead}>第一階段只需提供姓名、所在醫院與科別等基本資訊，送出後由管理員確認並開通。</p>
-    {!user?<form style={s.form} onSubmit={submitAuth}><h2>{mode==="register"?"建立申請帳號":"驗證後登入"}</h2>{mode==="register"&&<Field label="真實姓名" value={auth.name} change={v=>setAuth({...auth,name:v})}/>}<Field label="Email" type="email" value={auth.email} change={v=>setAuth({...auth,email:v})}/><Field label="密碼（至少 6 個字元）" type="password" value={auth.password} change={v=>setAuth({...auth,password:v})}/>{mode==="register"&&<Field label="確認密碼" type="password" value={auth.confirm} change={v=>setAuth({...auth,confirm:v})}/>}<button style={s.primary} disabled={busy}>{busy?"處理中…":mode==="register"?"建立帳號並驗證 Email":"登入並繼續申請"}</button><button type="button" style={s.link} onClick={()=>setMode(mode==="register"?"login":"register")}>{mode==="register"?"已建立帳號或完成驗證？登入繼續":"尚未建立申請帳號？立即建立"}</button></form>
+    {!user?<form style={s.form} onSubmit={submitAuth}><h2>{mode==="register"?"建立申請帳號":"登入申請帳號"}</h2>{mode==="register"&&<Field label="真實姓名" value={auth.name} change={v=>setAuth({...auth,name:v})}/>}<Field label="Email" type="email" value={auth.email} change={v=>setAuth({...auth,email:v})}/><Field label="密碼（至少 6 個字元）" type="password" value={auth.password} change={v=>setAuth({...auth,password:v})}/>{mode==="register"&&<Field label="確認密碼" type="password" value={auth.confirm} change={v=>setAuth({...auth,confirm:v})}/>}<button style={s.primary} disabled={busy}>{busy?"處理中…":mode==="register"?"建立帳號並繼續申請":"登入並繼續申請"}</button><button type="button" style={s.link} onClick={()=>setMode(mode==="register"?"login":"register")}>{mode==="register"?"已建立帳號？登入繼續":"尚未建立申請帳號？立即建立"}</button></form>
     :["guardian","parent"].includes(profileRole)?<div style={s.status}><h2>目前登入的是家長帳號</h2><p>為避免家長權限與專業權限混用，請登出後使用另一個 Email 建立醫療申請帳號。</p><button style={s.secondary} onClick={()=>supabase.auth.signOut()}>登出並建立申請帳號</button></div>
     :application&&application.status!=="needs_more_info"?<div style={s.status}><h2>{STATUS[application.status]||"申請狀態處理中"}</h2>{application.review_note&&<p>管理員說明：{application.review_note}</p>}<p>申請編號：{application.id}</p><button style={s.secondary} onClick={()=>supabase.auth.signOut()}>登出</button></div>
     :<form style={s.form} onSubmit={submitApplication}><h2>{application?"補充申請資料":"填寫醫師基本資料"}</h2>{application?.review_note&&<p style={s.note}>管理員說明：{application.review_note}</p>}<div style={s.grid}><Field label="醫師姓名" value={form.legalName} change={v=>setForm({...form,legalName:v})}/><Field label="所在縣市" value={form.practiceCity} change={v=>setForm({...form,practiceCity:v})}/><Field label="醫院／醫療機構名稱" value={form.institutionName} change={v=>setForm({...form,institutionName:v})}/><Field label="科別／部門" value={form.department} change={v=>setForm({...form,department:v})}/></div><label style={s.check}><input type="checkbox" checked={form.declaration} onChange={e=>setForm({...form,declaration:e.target.checked})}/>我確認以上基本資料正確，並同意系統為帳號審核使用。</label><button style={s.primary} disabled={busy}>{busy?"送出中…":"送出審核"}</button></form>}

@@ -36,7 +36,7 @@ function deviceInformation() {
 
 function taskProtocolSnapshot(rawResult) {
   const excluded = new Set([
-    "childId", "childName", "name", "nickname", "fullName", "patientId",
+    "childId", "childName", "name", "nickname", "fullName", "patientId", "syncOwnerId",
     "trials", "trialLogs", "records", "logs", "history", "rounds",
   ]);
   return Object.fromEntries(
@@ -62,7 +62,8 @@ export function buildBehavioralHierarchy(normalizedResult, options = {}) {
     trialId: normalizedResult?.behavioral?.trialIds?.[index] || createBehavioralId(),
   }));
   const startedAt = iso(normalizedResult?.session?.startedAt, normalizedResult?.createdAt || now);
-  const completedAt = iso(normalizedResult?.session?.finishedAt, now);
+  const status = normalizedResult?.session?.status || "completed";
+  const completedAt = status === "in_progress" ? null : iso(normalizedResult?.session?.finishedAt, now);
   const validReactionTimes = trials.filter((trial) => trial.validTrial && Number.isFinite(trial.reactionTimeMs)).map((trial) => trial.reactionTimeMs);
 
   return {
@@ -81,7 +82,7 @@ export function buildBehavioralHierarchy(normalizedResult, options = {}) {
       completedAt,
       deviceInformation: options.deviceInformation || deviceInformation(),
       taskOrder: options.taskOrder || [taskCode],
-      sessionStatus: options.sessionStatus || "completed",
+      sessionStatus: options.sessionStatus || status,
       sourceResultId: normalizedResult?.resultId || null,
     },
     taskSession: {
@@ -98,7 +99,7 @@ export function buildBehavioralHierarchy(normalizedResult, options = {}) {
       meanReactionTime: validReactionTimes.length
         ? validReactionTimes.reduce((sum, value) => sum + value, 0) / validReactionTimes.length
         : null,
-      completionStatus: options.completionStatus || "completed",
+      completionStatus: options.completionStatus || status,
       // Trial raw data remains exact below. This task snapshot deliberately omits
       // identity fields and duplicated trial arrays from the research hierarchy.
       rawData: taskProtocolSnapshot(normalizedResult?.rawResult),

@@ -21,7 +21,7 @@ export function formatGender(gender) {
   return gender;
 }
 
-export function formatDate(value) {
+export function formatDate(value, includeSeconds = false) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
@@ -31,6 +31,7 @@ export function formatDate(value) {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    ...(includeSeconds ? { second: "2-digit" } : {}),
   });
 }
 

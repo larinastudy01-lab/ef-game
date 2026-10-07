@@ -197,8 +197,31 @@ const clearGameplayCacheForChildSwitch = () => {
 
 const getChildGameCacheKey = (childId) => `${CHILD_GAME_CACHE_PREFIX}_${childId}`;
 
+const isChildGameCacheKey = (key) =>
+  typeof key === "string" && key.startsWith(`${CHILD_GAME_CACHE_PREFIX}_`);
+
+const isStorageQuotaError = (error) =>
+  error?.name === "QuotaExceededError" ||
+  error?.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+  error?.code === 22 ||
+  error?.code === 1014;
+
+const removeOtherChildGameCaches = (childId) => {
+  const currentCacheKey = getChildGameCacheKey(childId);
+  const keysToRemove = [];
+
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    if (isChildGameCacheKey(key) && key !== currentCacheKey) {
+      keysToRemove.push(key);
+    }
+  }
+
+  keysToRemove.forEach((key) => localStorage.removeItem(key));
+};
+
 const snapshotGameplayCacheForChild = (childId) => {
-  if (!childId) return;
+  if (!childId) return false;
 
   const cache = {};
 
@@ -209,16 +232,46 @@ const snapshotGameplayCacheForChild = (childId) => {
     }
   }
 
-  localStorage.setItem(
-    getChildGameCacheKey(childId),
-    JSON.stringify({ version: CHILD_GAME_CACHE_VERSION, childId, values: cache })
-  );
+  const cacheKey = getChildGameCacheKey(childId);
+  const serializedCache = JSON.stringify({
+    version: CHILD_GAME_CACHE_VERSION,
+    childId,
+    savedAt: new Date().toISOString(),
+    values: cache,
+  });
+
+  // Avoid temporarily storing both the live data and an equally large snapshot.
+  // The values remain in memory while their localStorage entries are released.
+  clearStorageKeys(localStorage, "local");
+  localStorage.removeItem(cacheKey);
+
+  try {
+    localStorage.setItem(cacheKey, serializedCache);
+    return true;
+  } catch (error) {
+    if (!isStorageQuotaError(error)) {
+      console.warn("Unable to save the child game cache.", error);
+      return false;
+    }
+
+    // Old per-child snapshots are disposable fallbacks. If storage is full,
+    // remove them and retry so switching children can still continue.
+    removeOtherChildGameCaches(childId);
+    try {
+      localStorage.setItem(cacheKey, serializedCache);
+      return true;
+    } catch (retryError) {
+      console.warn("Browser storage is full; the child game cache was skipped.", retryError);
+      return false;
+    }
+  }
 };
 
 const restoreGameplayCacheForChild = (childId) => {
   if (!childId) return;
 
-  const stored = safeParse(localStorage.getItem(getChildGameCacheKey(childId)), {});
+  const cacheKey = getChildGameCacheKey(childId);
+  const stored = safeParse(localStorage.getItem(cacheKey), {});
   if (!stored || typeof stored !== "object" || Array.isArray(stored)) return;
 
   // Versioned snapshots carry their owner id to prevent a corrupted/misnamed
@@ -227,9 +280,18 @@ const restoreGameplayCacheForChild = (childId) => {
   const cache = stored.version ? stored.values : stored;
   if (!cache || typeof cache !== "object" || Array.isArray(cache)) return;
 
+  // Release the snapshot before restoring its entries, otherwise restoration
+  // can also require twice the available storage. It will be recreated when
+  // the user switches away from this child.
+  localStorage.removeItem(cacheKey);
+
   Object.entries(cache).forEach(([key, value]) => {
     if (value !== null && value !== undefined) {
-      localStorage.setItem(key, value);
+      try {
+        localStorage.setItem(key, value);
+      } catch (error) {
+        console.warn(`Unable to restore game cache entry: ${key}`, error);
+      }
     }
   });
 };
