@@ -12,7 +12,7 @@ test("rolling values are withheld until enough ordered sessions exist", () => {
 test("all six task series exist even when some tasks have no observations", () => {
   const result = analyzeParticipantLongitudinal("P1", [{ participant_id: "P1", session_id: "S", task_code: "SRT",
     session_started_at: "2026-01-01", accuracy: .8 }]);
-  expect(Object.keys(result.task_series)).toEqual(["CBT", "PM", "SRT", "SSG", "LB", "DCCS"]);
+  expect(Object.keys(result.task_series)).toEqual(["CBT", "PM", "SRT", "ARI", "LB", "DCCS"]);
   expect(result.task_series.CBT).toEqual([]); expect(result.comparison_reference).toContain("Personal baseline");
 });
 

@@ -63,9 +63,9 @@ code {
   display: none !important;
 }
 
-/* SRT uses the same card proportions and content layering as SSG. */
+/* SRT uses the same card proportions and content layering as ARI. */
 .srt-opening-card-artwork,
-.ssg-opening-card-artwork,
+.ari-opening-card-artwork,
 .pm-opening-card-artwork,
 .cbt-opening-card-artwork,
 .dccs-opening-card-artwork,
@@ -77,7 +77,7 @@ code {
 
 .game-start-card-artwork:is(
   .srt-video-card-artwork,
-  .ssg-video-card-artwork,
+  .ari-video-card-artwork,
   .pm-video-card-artwork,
   .cbt-video-card-artwork,
   .dccs-video-card-artwork,
@@ -91,7 +91,7 @@ code {
 /* Keep every test/training video stage aligned with the SRT presentation. */
 .game-start-card-artwork:is(
   .srt-video-card-artwork,
-  .ssg-video-card-artwork,
+  .ari-video-card-artwork,
   .pm-video-card-artwork,
   .cbt-video-card-artwork,
   .dccs-video-card-artwork,
@@ -106,7 +106,7 @@ code {
 
 .game-start-card-artwork :is(
   .srt-video-frame,
-  .ssg-video-frame,
+  .ari-video-frame,
   .pm-video-card-artwork > div:has(> video),
   .cbt-video-wrapper,
   .Dcss-video-frame,
@@ -394,9 +394,9 @@ body :is(.cbt-start-shell, .cbt-video-only-card, .cbt-card, .cbt-old-guide-card,
   width: clamp(172px, 18vw, 238px);
 }
 
-/* The SSG assessment/training playfield should sit directly on the scene
+/* The ARI assessment/training playfield should sit directly on the scene
    background instead of inside the legacy translucent stage frame. */
-.ssg-container > .ssg-stage {
+.ari-container > .ari-stage {
   border: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
@@ -488,8 +488,8 @@ body .game-start-card-artwork.cbt-video-card-artwork > .cbt-video-wrapper > .cbt
 .srt-opening-card-artwork > *,
 .srt-video-card-artwork > *,
 .srt-summary-card-artwork > *,
-.ssg-opening-card-artwork > *,
-.ssg-video-card-artwork > *,
+.ari-opening-card-artwork > *,
+.ari-video-card-artwork > *,
 .pm-opening-card-artwork > *,
 .pm-video-card-artwork > *,
 .pm-summary-card-artwork > *,
@@ -517,7 +517,7 @@ body .game-start-card-artwork.cbt-video-card-artwork > .cbt-video-wrapper > .cbt
 }
 
 .srt-cute-star,
-.ssg-cute-star,
+.ari-cute-star,
 .lb-cute-star,
 .Dcss-cute-star,
 .cbt-result-stars > span,
@@ -534,7 +534,7 @@ body .game-start-card-artwork.cbt-video-card-artwork > .cbt-video-wrapper > .cbt
 }
 
 .srt-cute-star.is-on,
-.ssg-cute-star.is-on,
+.ari-cute-star.is-on,
 .lb-cute-star.is-on,
 .Dcss-cute-star.is-on,
 .cbt-result-stars > span.is-earned,
@@ -556,7 +556,7 @@ body .game-start-card-artwork.cbt-video-card-artwork > .cbt-video-wrapper > .cbt
   }
 
   .srt-opening-card-artwork,
-  .ssg-opening-card-artwork,
+  .ari-opening-card-artwork,
   .pm-opening-card-artwork,
   .cbt-opening-card-artwork,
   .dccs-opening-card-artwork,
@@ -568,7 +568,7 @@ body .game-start-card-artwork.cbt-video-card-artwork > .cbt-video-wrapper > .cbt
 
   .game-start-card-artwork:is(
     .srt-video-card-artwork,
-    .ssg-video-card-artwork,
+    .ari-video-card-artwork,
     .pm-video-card-artwork,
     .cbt-video-card-artwork,
     .dccs-video-card-artwork,
@@ -581,7 +581,7 @@ body .game-start-card-artwork.cbt-video-card-artwork > .cbt-video-wrapper > .cbt
 
   .game-start-card-artwork :is(
     .srt-video-frame,
-    .ssg-video-frame,
+    .ari-video-frame,
     .pm-video-card-artwork > div:has(> video),
     .cbt-video-wrapper,
     .Dcss-video-frame,
@@ -607,7 +607,7 @@ body .game-start-card-artwork.cbt-video-card-artwork > .cbt-video-wrapper > .cbt
   }
 
   .srt-cute-star,
-  .ssg-cute-star,
+  .ari-cute-star,
   .lb-cute-star,
   .Dcss-cute-star,
   .cbt-result-stars > span,

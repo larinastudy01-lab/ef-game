@@ -75,7 +75,7 @@ React routes
 - Excel 只能在使用者按下匯出後 `import("../utils/clinicianExcelExport")`。
 - BGM 使用 `preload="none"`。
 - GitHub Actions 直接部署 `build/`，不依賴 tracked `site/`。
-- `scripts/check-deployment.mjs` 預設限制 build 190 MiB、單檔 24 MiB，並拒絕 source map、LFS pointer 和禁止目錄；可用 `MAX_DEPLOYMENT_MIB`、`MAX_ASSET_MIB` 明確調整。
+- `scripts/check-deployment.mjs` 預設限制 build 230 MiB、單檔 24 MiB，並拒絕 source map、LFS pointer 和禁止目錄；可用 `MAX_DEPLOYMENT_MIB`、`MAX_ASSET_MIB` 明確調整。2026-10 因新增 ARI、研究工具與完整教學素材，將總容量預算由 190 MiB 調整為 230 MiB；單檔與內容安全檢查維持不變。
 
 目前 `site/` 與未引用的 `src/asset/fonts/Regular.ttf` 尚未刪除，因 material deletion 仍需明確批准。兩者都不是 production build 的來源。
 

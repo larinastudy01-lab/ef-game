@@ -5,6 +5,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { dedupeClinicalRecords } from "../utils/resultIdentity";
 import { getResultCompletionStatus, isCompletedResult } from "../utils/resultCompletion";
+import { getSrtClinicalMetrics } from "../utils/srtClinicalMetrics";
+import { getCbtClinicalMetrics } from "../utils/cbtClinicalMetrics";
+import { getPmClinicalMetrics } from "../utils/pmClinicalMetrics";
+import { getLbClinicalMetrics } from "../utils/lbClinicalMetrics";
+import { getAriClinicalMetrics } from "../utils/ariClinicalMetrics";
 import {
   AddPatientModal,
   ClinicianDashboardHeader,
@@ -27,7 +32,7 @@ const GAME_NAME_MAP = {
   SRT: "松鼠接橡實",
   PM: "圖片記憶",
   CBT: "跳石橋",
-  SSG: "動物聲音辨識",
+  ARI: "動物聲音辨識",
   DCCS: "衣物分類",
   LB: "幫助迷路的綿羊奶奶",
 };
@@ -36,7 +41,7 @@ const ABILITY_BY_GAME = {
   SRT: "反應速度 / 抑制控制",
   PM: "工作記憶",
   CBT: "序列記憶 / 注意維持",
-  SSG: "選擇性注意 / 抑制控制",
+  ARI: "選擇性注意 / 抑制控制",
   DCCS: "認知彈性",
   LB: "排序能力 / 規則理解",
 };
@@ -45,7 +50,7 @@ const GAME_THEME_MAP = {
   SRT: { primary: "#f97316", dark: "#c2410c", soft: "#fff7ed", border: "#fdba74" },
   PM: { primary: "#7c3aed", dark: "#5b21b6", soft: "#f5f3ff", border: "#c4b5fd" },
   CBT: { primary: "#0891b2", dark: "#0e7490", soft: "#ecfeff", border: "#67e8f9" },
-  SSG: { primary: "#e11d48", dark: "#be123c", soft: "#fff1f2", border: "#fda4af" },
+  ARI: { primary: "#e11d48", dark: "#be123c", soft: "#fff1f2", border: "#fda4af" },
   DCCS: { primary: "#16a34a", dark: "#15803d", soft: "#f0fdf4", border: "#86efac" },
   LB: { primary: "#ca8a04", dark: "#a16207", soft: "#fefce8", border: "#fde047" },
 };
@@ -123,11 +128,11 @@ const LOCAL_RESULT_KEYS = [
   { key: "cbtTrainingResult", gameKey: "CBT", fallbackType: "training" },
   { key: "latestCBTTrainingResult", gameKey: "CBT", fallbackType: "training" },
 
-  { key: "SSG_RESULT", gameKey: "SSG", fallbackType: "test" },
-  { key: "ssgTestResult", gameKey: "SSG", fallbackType: "test" },
-  { key: "latestSSGTestResult", gameKey: "SSG", fallbackType: "test" },
-  { key: "ssgTrainingResult", gameKey: "SSG", fallbackType: "training" },
-  { key: "latestSSGTrainingResult", gameKey: "SSG", fallbackType: "training" },
+  { key: "ARI_RESULT", gameKey: "ARI", fallbackType: "test" },
+  { key: "ariTestResult", gameKey: "ARI", fallbackType: "test" },
+  { key: "latestARITestResult", gameKey: "ARI", fallbackType: "test" },
+  { key: "ariTrainingResult", gameKey: "ARI", fallbackType: "training" },
+  { key: "latestARITrainingResult", gameKey: "ARI", fallbackType: "training" },
 
   { key: "DCCS_RESULT", gameKey: "DCCS", fallbackType: "test" },
   { key: "dccsTestResult", gameKey: "DCCS", fallbackType: "test" },
@@ -249,7 +254,7 @@ function inferGameKey(item = {}, sourceTable = "", sourceGameKey = "") {
   if (sourceText.includes("dccs")) return "DCCS";
   if (sourceText.includes("srt")) return "SRT";
   if (sourceText.includes("cbt")) return "CBT";
-  if (sourceText.includes("ssg")) return "SSG";
+  if (sourceText.includes("ari")) return "ARI";
   if (sourceText.includes("lb")) return "LB";
   if (sourceText.includes("picture") || sourceText.includes("pm")) return "PM";
 
@@ -272,7 +277,7 @@ function normalizeRecordFilterGameKey(value, record = {}) {
     "松鼠接橡實": "SRT",
     "圖片記憶": "PM",
     "跳石橋": "CBT",
-    "動物聲音辨識": "SSG",
+    "動物聲音辨識": "ARI",
     "衣物分類": "DCCS",
     "綿羊回家": "LB",
     "數字門牌": "LB",
@@ -308,7 +313,7 @@ function normalizeRecordFilterGameKey(value, record = {}) {
   if (nameText.includes("松鼠接橡實")) return "SRT";
   if (nameText.includes("圖片記憶") || nameText.includes("picture memory")) return "PM";
   if (nameText.includes("跳石橋")) return "CBT";
-  if (nameText.includes("動物聲音辨識")) return "SSG";
+  if (nameText.includes("動物聲音辨識")) return "ARI";
   if (nameText.includes("衣物分類")) return "DCCS";
   if (nameText.includes("綿羊回家") || nameText.includes("數字門牌")) return "LB";
 
@@ -449,7 +454,7 @@ function inferLocalResultMeta(storageKey = "") {
   if (lower.includes("dccs")) gameKey = "DCCS";
   else if (lower.includes("srt")) gameKey = "SRT";
   else if (lower.includes("cbt")) gameKey = "CBT";
-  else if (lower.includes("ssg")) gameKey = "SSG";
+  else if (lower.includes("ari")) gameKey = "ARI";
   else if (lower.includes("picturememory") || lower.includes("pmresult") || lower.includes("pmtest") || lower.includes("pmtraining")) gameKey = "PM";
   else if (lower.includes("lb_result") || lower.includes("lbtest") || lower.includes("lbtraining")) gameKey = "LB";
 
@@ -658,6 +663,17 @@ function getTrialOutcome(trial = {}) {
 function buildTrialDataExplanation(trial = {}, record = null, index = 0) {
   const outcome = getTrialOutcome(trial);
   const rt = getTrialReactionTime(trial);
+  if (record?.gameKey === "ARI" && trial.protocolVersion) {
+    return `第 ${trial.trialIndex} 題聽到${trial.soundType === "cat" ? "貓叫" : "狗叫"}，正確選擇為${trial.expectedTarget === "cat" ? "貓咪" : "狗狗"}，作答上限 ${trial.answerTimeLimit / 1000} 秒，結果為「${outcome.label}」。實際 MOUSE 提醒 ${trial.promptCount ?? 0} 次（等待提示 ${trial.idleHintCount ?? 0} 次、連錯提示 ${trial.consecutiveErrorHintCount ?? 0} 次），聲音重播 ${trial.replayCount ?? 0} 次。${trial.interference ? "本題含沙鈴干擾。" : ""}提醒與重播事件保留於原始資料。`;
+  }
+  if (record?.gameKey === "LB" && trial.protocolVersion) {
+    return `第 ${trial.stepInLevel} 個目標為「${trial.expectedLabel}」，作答上限 ${trial.answerTimeLimit} 秒，本次操作結果為「${outcome.label}」。反應時間 ${rt ?? "未記錄"} ms；本次新出現 MOUSE 提醒 ${trial.promptCount ?? 0} 次（等待提示 ${trial.idleHintCount ?? 0} 次、規則錯誤提示 ${trial.ruleErrorHintCount ?? 0} 次）。同一提示持續顯示不重複計數，提示事件保留於原始資料。`;
+  }
+  if (record?.gameKey === "PM" && trial.protocolVersion) {
+    const confusion = trial.confusionAnalysis;
+    const relations = (confusion?.errors || []).map((error) => `${error.selectedId} → ${error.matchedTargetIds.join("、") || "無已定義關聯"}（${error.type === "visual_similarity" ? "相近外形" : error.type === "same_category" ? "同類物品" : "其他錯選"}）`).join("；");
+    return `第 ${index + 1} 題記憶 ${trial.memoryCount} 個物件，觀看 ${trial.showTime} 秒、作答上限 ${trial.answerTimeLimit} 秒，結果為「${outcome.label}」。${rt != null ? `作答時間 ${rt} ms；` : ""}實際提醒 ${trial.promptCount ?? 0} 次。${relations ? `錯選與漏選目標關聯：${relations}。` : "未記錄可能混淆的錯選。"}相近外形或同類分類只標示可能關聯，不能確認實際錯誤原因。完整選取、取消選取與提示事件保留在本題原始資料。`;
+  }
   const assisted = normalizeTrialBoolean(firstDefined(trial.assisted, trial.usedAssist, trial.hintUsed));
   const falseClickCount = Number(firstDefined(trial.falseClickCount, trial.wrongTapCount, trial.errorClickCount, 0)) || 0;
   const repeatedClickCount = Number(firstDefined(trial.repeatedClickCount, trial.repeatClickCount, 0)) || 0;
@@ -1095,6 +1111,11 @@ function ClinicianDashboard() {
       total,
       errors,
       avgRt,
+      ...(gameKey === "SRT" ? getSrtClinicalMetrics(item) : {}),
+      ...(gameKey === "CBT" ? getCbtClinicalMetrics(item) : {}),
+      ...(gameKey === "PM" ? getPmClinicalMetrics(item) : {}),
+      ...(gameKey === "LB" ? getLbClinicalMetrics(item) : {}),
+      ...(gameKey === "ARI" ? getAriClinicalMetrics(item) : {}),
       duration: firstNumber(item.duration, item.duration_seconds, item.durationSeconds, item.total_time, item.totalTime, summary.duration, clinician.duration),
       difficulty: level,
       status: isCompletedResult(item) ? item.status || item.finishReason || item.reason || "已完成" : "測驗中斷",
@@ -2630,7 +2651,42 @@ function ClinicianDashboard() {
                             <InfoItem label="錯誤題數" value={selectedRecord.wrong ?? selectedRecord.errors ?? "-"} />
                             <InfoItem label="逾時題數" value={selectedRecord.timeout ?? "-"} />
                             <InfoItem label="平均反應時間" value={selectedRecord.avgRt ? `${selectedRecord.avgRt} ms` : "-"} />
+                            {selectedRecord.gameKey === "SRT" && <>
+                              <InfoItem label="反應時間標準差" value={selectedRecord.rtStd != null ? `${selectedRecord.rtStd} ms` : "資料不足"} />
+                              <InfoItem label="反應時間變異係數" value={selectedRecord.rtCV ?? "資料不足"} />
+                              <InfoItem label="實際提醒次數" value={selectedRecord.promptCount != null ? `${selectedRecord.promptCount} 次` : "未記錄"} />
+                              <InfoItem label="後段標準差變化" value={selectedRecord.rtStdIncrease != null ? `${selectedRecord.rtStdIncrease} ms` : "資料不足"} />
+                              <InfoItem label="後段變異係數變化" value={selectedRecord.rtCVIncrease ?? "資料不足"} />
+                            </>}
+                            {selectedRecord.gameKey === "CBT" && <>
+                              <InfoItem label="實際提醒次數" value={selectedRecord.promptCount != null ? `${selectedRecord.promptCount} 次` : "未記錄"} />
+                              <InfoItem label="等待提示次數" value={selectedRecord.idleHintCount != null ? `${selectedRecord.idleHintCount} 次` : "未記錄"} />
+                              <InfoItem label="第二步答案提示次數" value={selectedRecord.wrongAnswerHintCount != null ? `${selectedRecord.wrongAnswerHintCount} 次` : "未記錄"} />
+                              <InfoItem label="提前點擊（播放中）" value={selectedRecord.earlyClickCount != null ? `${selectedRecord.earlyClickCount} 次` : "未記錄"} />
+                              <InfoItem label="提前點擊判讀" value="需確認是否理解播放已結束，不能僅據此判定衝動" />
+                            </>}
+                            {selectedRecord.gameKey === "ARI" && <>
+                              <InfoItem label="實際 MOUSE 提醒次數" value={selectedRecord.promptCount != null ? `${selectedRecord.promptCount} 次` : "未記錄"} />
+                              <InfoItem label="等待提示次數" value={selectedRecord.idleHintCount != null ? `${selectedRecord.idleHintCount} 次` : "未記錄"} />
+                              <InfoItem label="連錯提示次數" value={selectedRecord.consecutiveErrorHintCount != null ? `${selectedRecord.consecutiveErrorHintCount} 次` : "未記錄"} />
+                              <InfoItem label="動物聲音重播次數" value={selectedRecord.replayCount != null ? `${selectedRecord.replayCount} 次` : "未記錄"} />
+                              <InfoItem label="每題作答上限" value={selectedRecord.answerTimeLimitMs != null ? `${selectedRecord.answerTimeLimitMs / 1000} 秒` : "未記錄"} />
+                            </>}
+                            {selectedRecord.gameKey === "LB" && <>
+                              <InfoItem label="實際 MOUSE 提醒次數" value={selectedRecord.promptCount != null ? `${selectedRecord.promptCount} 次` : "未記錄"} />
+                              <InfoItem label="等待提示次數" value={selectedRecord.idleHintCount != null ? `${selectedRecord.idleHintCount} 次` : "未記錄"} />
+                              <InfoItem label="規則錯誤提示次數" value={selectedRecord.ruleErrorHintCount != null ? `${selectedRecord.ruleErrorHintCount} 次` : "未記錄"} />
+                              <InfoItem label="每個門牌作答上限" value={selectedRecord.answerTimeLimit != null ? `${selectedRecord.answerTimeLimit} 秒` : "未記錄"} />
+                            </>}
                             <InfoItem label="逐題資料" value={Array.isArray(selectedRecord.trials) ? `${selectedRecord.trials.length} 筆` : "0 筆"} />
+                            {selectedRecord.gameKey === "PM" && <>
+                              <InfoItem label="實際提醒次數" value={selectedRecord.promptCount != null ? `${selectedRecord.promptCount} 次` : "未記錄"} />
+                              <InfoItem label="可能混淆的錯選" value={selectedRecord.possibleConfusionCount != null ? `${selectedRecord.possibleConfusionCount} 個` : "未記錄"} />
+                              <InfoItem label="相近外形錯選" value={selectedRecord.visualConfusionCount != null ? `${selectedRecord.visualConfusionCount} 個` : "未記錄"} />
+                              <InfoItem label="同類物品錯選" value={selectedRecord.categoryConfusionCount != null ? `${selectedRecord.categoryConfusionCount} 個` : "未記錄"} />
+                              <InfoItem label="其他錯選" value={selectedRecord.unrelatedWrongCount != null ? `${selectedRecord.unrelatedWrongCount} 個` : "未記錄"} />
+                              <InfoItem label="混淆判讀" value="依錯選物件與漏選目標的外形群組或素材分類標示可能關聯，不能確認實際錯誤原因" />
+                            </>}
                           </div>
                           <div style={trialReviewSectionStyle}>
                             <div style={trialReviewHeaderStyle}>
@@ -2905,11 +2961,7 @@ function ClinicianDashboard() {
       <nav className="clinician-dashboard-research-nav" style={researchNavStyle} aria-label="研究功能選單">
         <span style={researchNavTitleStyle}>研究與分析工具</span>
         <div className="clinician-dashboard-research-nav-actions" style={researchNavActionsStyle}>
-          <button onClick={() => navigate("/research-statistics")} style={refreshButtonStyle}>研究統計</button>
-          <button onClick={() => navigate("/ai-behavioral-analysis")} style={refreshButtonStyle}>AI 行為分析</button>
-          <button onClick={() => navigate("/adaptive-recommendation-research")} style={refreshButtonStyle}>自適應建議</button>
-          <button onClick={() => navigate("/longitudinal-dashboard")} style={refreshButtonStyle}>縱向追蹤儀表板</button>
-          <button onClick={() => navigate("/research-professional-dashboard")} style={refreshButtonStyle}>研究工作區</button>
+          <button onClick={() => navigate("/research-tools")} style={refreshButtonStyle}>開啟五合一研究工作台</button>
         </div>
       </nav>
 

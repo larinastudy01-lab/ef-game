@@ -1,3 +1,4 @@
+import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
 // src/pages/ResultPage_LB.jsx
 
 import React, { useEffect, useMemo, useRef } from "react";

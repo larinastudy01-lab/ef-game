@@ -56,11 +56,11 @@ const GAME_CACHE_KEY_PATTERNS = [
   /completed_training_levels/i,
   /training.*level.*(completed|stars)/i,
   /honey_mission|today_training|training_duration/i,
-  /^(SRT|PM|CBT|SSG|DCCS|LB)[_-].*(session|state|cache|draft|progress|answers|history|current|temp|trial|round|pending|result)$/i,
-  /^(srt|pm|cbt|ssg|dccs|lb)[_-].*(session|state|cache|draft|progress|answers|history|current|temp|trial|round|pending|result)$/i,
-  /^(SRT|PM|CBT|SSG|DCCS|LB|srt|pm|cbt|ssg|dccs|lb).*level.*(completed|stars)$/i,
-  /(session|state|cache|draft|progress|answers|history|current|temp|trial|round|pending|result)[_-]?(SRT|PM|CBT|SSG|DCCS|LB)$/i,
-  /(session|state|cache|draft|progress|answers|history|current|temp|trial|round|pending|result)[_-]?(srt|pm|cbt|ssg|dccs|lb)$/i,
+  /^(SRT|PM|CBT|ARI|DCCS|LB)[_-].*(session|state|cache|draft|progress|answers|history|current|temp|trial|round|pending|result)$/i,
+  /^(srt|pm|cbt|ari|dccs|lb)[_-].*(session|state|cache|draft|progress|answers|history|current|temp|trial|round|pending|result)$/i,
+  /^(SRT|PM|CBT|ARI|DCCS|LB|srt|pm|cbt|ari|dccs|lb).*level.*(completed|stars)$/i,
+  /(session|state|cache|draft|progress|answers|history|current|temp|trial|round|pending|result)[_-]?(SRT|PM|CBT|ARI|DCCS|LB)$/i,
+  /(session|state|cache|draft|progress|answers|history|current|temp|trial|round|pending|result)[_-]?(srt|pm|cbt|ari|dccs|lb)$/i,
 ];
 
 const PRESERVED_CACHE_KEY_PATTERNS = [

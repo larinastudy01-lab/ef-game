@@ -1,3 +1,4 @@
+import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
 import React, { useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -6,6 +7,7 @@ import clickSfx from "../asset/Click.mp3";
 import homeBackBtn from "../asset/home/back.webp";
 import homeAgainBtn from "../asset/home/again.webp";
 import { calculatePMScore } from "../utils/pmScoring";
+import { PM_DIFFICULTY_ORDER, PM_TRAINING_CONFIG } from "../utils/pmProtocol";
 
 export default function ResultPage_PM() {
   const navigate = useNavigate();
@@ -155,6 +157,9 @@ export default function ResultPage_PM() {
           reactionTimeStd,
           totalLevels,
         });
+
+  simpleIndicators.push({ title: "實際等待提示", question: "這次有使用提示嗎？", status: summary.promptCount == null ? "未記錄" : `${summary.promptCount} 次`, tone: "normal", description: "記錄實際出現的提示，供區分有提示與獨立作答表現。", meaning: "提示次數不代表孩子的獨立記憶能力。" });
+  simpleIndicators.push({ title: "可能混淆的錯選", question: "錯選物件與漏選目標有相似關聯嗎？", status: summary.possibleConfusionCount == null ? "未記錄" : `${summary.possibleConfusionCount} 個`, tone: "normal", description: `相近外形 ${summary.visualConfusionCount ?? 0} 個、同類物品 ${summary.categoryConfusionCount ?? 0} 個。`, meaning: "依錯選與漏選物件的關聯標示，不能確認實際錯誤原因。" });
 
   const nextSteps =
     mode === "training"
@@ -898,7 +903,7 @@ function getPMDetailedLevelInfo(context = {}) {
     context.resultState?.difficultyLabel ||
     context.resultState?.trainingDifficultyLabel ||
     context.summary?.difficultyLabel ||
-    `Level ${level}`;
+    PM_TRAINING_CONFIG[PM_DIFFICULTY_ORDER[Math.min(5, Math.max(1, level)) - 1]]?.label || `Level ${level}`;
 
   if (level >= 5) {
     return {
@@ -907,7 +912,7 @@ function getPMDetailedLevelInfo(context = {}) {
       label,
       title: "進階圖片記憶層級",
       meaning:
-        "這一層會同時增加圖片數量、記憶負荷與搜尋壓力，孩子需要把剛看過的圖片保留在腦中，再從選項中穩定找回來。",
+        "這一層主要提高記憶物件數量。觀看時間依物件數量設定為 3 秒或 5 秒，作答上限維持 15 秒，反應時間只供觀察。",
     };
   }
 
@@ -918,7 +923,7 @@ function getPMDetailedLevelInfo(context = {}) {
       label,
       title: "穩定圖片記憶層級",
       meaning:
-        "這一層開始要求孩子記住多個圖片，並在短時間內把記憶和眼前選項配對，重點是正確率與穩定搜尋。",
+        "這一層要求孩子記住更多物件，再從選項中找回。主要觀察記憶負荷與正確率，作答上限維持 15 秒。",
     };
   }
 
@@ -1075,9 +1080,9 @@ function getPMDetailedProfile(context = {}) {
       description:
         "孩子可能會花時間回想與比對圖片，但最後仍能找對，代表記憶線索是存在的。",
       meaning:
-        "這是可以接受的發展型態，下一步才是慢慢縮短搜尋時間。",
+        "回想所需時間可保留觀察，主要分級依據仍是記憶負荷與正確率。",
       advice:
-        "下一次可維持同層級，讓孩子先保持正確，再用輕鬆方式練習稍微快一點。",
+        "下一次可維持同層級與固定觀看、作答條件，先觀察記憶是否穩定。",
     };
   }
 
@@ -1230,7 +1235,7 @@ function buildDetailedPMTrainingIndicators(context = {}) {
       description: `這次逾時 ${timeoutCount} 題，誤點 ${wrongTapCount} 次。`,
       meaning:
         timeoutRate >= 0.3
-          ? "逾時偏多時，下一步通常是降低搜尋壓力或延長確認時間。"
+          ? "逾時偏多時，可先降低記憶數量，作答上限維持 15 秒。"
           : wrongTapRate >= 0.3
           ? "誤點偏多時，下一步通常是練習看完全部選項後再決定。"
           : "逾時與誤點都不高，代表作答流程相對穩定。",
@@ -1466,7 +1471,7 @@ function buildSimpleIndicators({
           ? "可能比較急著點，建議先看清楚再選。"
           : timeoutCount > 0 || wrongTapCount > 0
           ? "有少量波動是正常的，可以再觀察是否常常發生。"
-          : "代表作答時較能維持注意力，也比較少衝動點擊。",
+          : "表示本次錯選較少，仍需搭配目標、選項與點擊歷程觀察。",
     },
     {
       key: "steady",
@@ -1550,7 +1555,7 @@ function buildNextSteps({
 
   if (timeoutCount > 0) {
     steps.push({
-      text: "如果常常逾時，先不要急著變快，可以讓他慢慢回想，等穩定後再縮短時間。",
+      text: "如果常常逾時，可先減少記憶物件數，觀看時間依 3／5 秒規則設定，作答上限維持 15 秒。",
     });
   }
 

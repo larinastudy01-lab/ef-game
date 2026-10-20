@@ -182,7 +182,7 @@ const CATEGORY_MAP = [
   },
   {
     prefix: "04_",
-    gameKey: "SSG",
+    gameKey: "ARI",
     ability: "selective_attention_response_inhibition",
     population: "GENERAL",
     isCore: true,

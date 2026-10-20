@@ -37,8 +37,8 @@ export function createRecordWorkbook({ patientName, age, gender, records, format
     ["個案", patientName], ["年齡", age], ["性別", gender],
     ["匯出時間", formatDate(new Date().toISOString())], ["紀錄筆數", records.length],
   ]);
-  addSheet("紀錄摘要", ["紀錄 ID", "日期", "類型", "遊戲", "遊戲代碼", "能力", "難度", "分數", "星級", "正確率 (%)", "平均反應 (ms)", "正確題數", "總題數", "錯誤次數", "資料來源"],
-    records.map((r) => [r.id, formatDate(r.date), r.type === "test" ? "測驗" : r.type === "training" ? "訓練" : "紀錄", r.gameName, r.gameKey, r.ability, r.difficulty, r.score, r.stars, r.accuracy, r.avgRt, r.correct, r.total, r.errors, r.sourceTable ?? r.source]));
+  addSheet("紀錄摘要", ["紀錄 ID", "日期", "類型", "遊戲", "遊戲代碼", "能力", "難度", "分數", "星級", "正確率 (%)", "平均反應 (ms)", "正確題數", "總題數", "錯誤次數", "資料來源", "反應時間標準差 (ms)", "反應時間變異係數", "實際提醒次數", "後段標準差變化 (ms)", "後段變異係數變化", "提前點擊次數", "第二步答案提示次數", "等待提示次數", "PM 可能混淆錯選數", "PM 相近外形錯選數", "PM 同類物品錯選數", "PM 其他錯選數", "LB 規則錯誤提示次數", "每個門牌作答上限 (秒)", "ARI 連錯提示次數", "ARI 重播次數", "ARI 每題作答上限 (秒)"],
+    records.map((r) => [r.id, formatDate(r.date), r.type === "test" ? "測驗" : r.type === "training" ? "訓練" : "紀錄", r.gameName, r.gameKey, r.ability, r.difficulty, r.score, r.stars, r.accuracy, r.avgRt, r.correct, r.total, r.errors, r.sourceTable ?? r.source, r.rtStd, r.rtCV, r.promptCount, r.rtStdIncrease, r.rtCVIncrease, r.earlyClickCount, r.wrongAnswerHintCount, r.idleHintCount, r.possibleConfusionCount, r.visualConfusionCount, r.categoryConfusionCount, r.unrelatedWrongCount, r.ruleErrorHintCount, r.answerTimeLimit, r.consecutiveErrorHintCount, r.replayCount, r.answerTimeLimitMs != null ? r.answerTimeLimitMs / 1000 : null]));
   const trialRows = [];
   const rawRows = [];
   records.forEach((record) => {
@@ -47,12 +47,16 @@ export function createRecordWorkbook({ patientName, age, gender, records, format
       trialRows.push([record.id, index + 1, trial?.trialNumber ?? trial?.round ?? index + 1,
         correct === true ? "正確" : correct === false ? "錯誤" : trial?.result ?? trial?.status ?? trial?.outcome,
         trial?.reactionTime ?? trial?.responseTime ?? trial?.rt ?? trial?.reaction_time,
-        trial?.difficultyLabel ?? trial?.difficultyLevel ?? trial?.difficulty ?? record.difficulty]);
+        trial?.difficultyLabel ?? trial?.difficultyLevel ?? trial?.difficulty ?? record.difficulty,
+        trial?.promptCount, trial?.confusionAnalysis?.possibleConfusionCount ?? trial?.possibleConfusionCount,
+        trial?.confusionAnalysis?.visualSimilarityConfusionCount ?? trial?.visualConfusionCount,
+        trial?.confusionAnalysis?.categoryConfusionCount ?? trial?.categoryConfusionCount,
+        trial?.confusionAnalysis?.unrelatedErrorCount ?? trial?.unrelatedWrongCount]);
       flattenJson(trial).forEach((row) => rawRows.push([record.id, "逐題", index + 1, ...row]));
     });
     if (record.raw !== undefined) flattenJson(record.raw).forEach((row) => rawRows.push([record.id, "原始紀錄", "", ...row]));
   });
-  addSheet("逐題紀錄", ["紀錄 ID", "題目索引", "題號", "結果", "反應時間 (ms)", "難度"], trialRows);
+  addSheet("逐題紀錄", ["紀錄 ID", "題目索引", "題號", "結果", "反應時間 (ms)", "難度", "實際提醒次數", "PM 可能混淆錯選數", "PM 相近外形錯選數", "PM 同類物品錯選數", "PM 其他錯選數"], trialRows);
   addSheet("原始資料", ["紀錄 ID", "來源", "題目索引", "欄位路徑", "資料型別", "分段", "值"], rawRows);
   if (notes.length) addSheet("比較與判讀", ["序號", "內容"], notes.map((note, index) => [index + 1, note]));
   return workbook;

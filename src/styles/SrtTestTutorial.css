@@ -1,0 +1,101 @@
+.srt-practice-board {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  min-height: 420px;
+  overflow: hidden;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.srt-practice-header {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(90%, 620px);
+  z-index: 4;
+  pointer-events: none;
+}
+.srt-practice-progress { display: flex; justify-content: center; gap: 16px; }
+.srt-practice-progress img { width: clamp(30px, 5vw, 44px); height: auto; opacity: 0.25; filter: grayscale(1); }
+.srt-practice-progress img.is-complete { opacity: 1; filter: none; }
+.srt-practice-target {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+  z-index: 2;
+}
+.srt-practice-target img { display: block; width: 100%; height: auto; pointer-events: none; }
+.srt-practice-target[data-visible="false"] { outline: none; }
+.srt-practice-response-feedback {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #f7ffe2;
+  color: #5c8b38;
+  font-size: 24px;
+  z-index: 3;
+  pointer-events: none;
+}
+.srt-practice-response-feedback.is-gentle { background: #fff7dc; }
+.srt-practice-feedback {
+  position: absolute;
+  top: 47%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 112px;
+  height: 112px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 76px;
+  background: rgba(247, 255, 226, 0.9);
+  color: #5c8b38;
+  pointer-events: none;
+  animation: srt-practice-feedback-in 450ms ease-out both;
+}
+.srt-practice-feedback.is-gentle { font-size: 60px; background: rgba(255, 247, 220, 0.92); }
+.srt-practice-page[data-feedback-animation="false"] .srt-practice-feedback { animation: none; }
+.srt-practice-actions, .srt-practice-assistance {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+}
+.srt-practice-assistance {
+  width: min(84vw, 540px);
+  padding: 24px;
+  box-sizing: border-box;
+  background: rgba(255, 251, 230, 0.96);
+  border: 3px solid #ddb35c;
+  border-radius: 28px;
+  color: #68401e;
+  font-size: 22px;
+}
+.srt-practice-assistance button {
+  margin: 8px;
+  padding: 12px 20px;
+  border: 2px solid #8aa658;
+  border-radius: 16px;
+  background: #f0f7d3;
+  color: #4a652e;
+  font: inherit;
+  cursor: pointer;
+}
+@keyframes srt-practice-feedback-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .srt-practice-feedback { animation: none; }
+}

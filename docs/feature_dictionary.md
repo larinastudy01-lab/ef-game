@@ -143,19 +143,19 @@ Derived only from recorded `memorySpan/sequenceLength`, target/user sequences, h
 
 Extreme rates are technical behavioral flags, not normative classifications.
 
-### Sound-Symbol Game implementation (`SSG`)
+### Sound-Symbol Game implementation (`ARI`)
 
 The current implementation records auditory cat/dog cues, expected animal, selected animal, left/right position, anticipation, and audio fallback. It does not contain comparable traditional congruent versus incongruent probe conditions—all current records may be marked incongruent—so an attentional-bias score is not computed.
 
 | Feature | Definition |
 |---|---|
-| `ssg_cat_sound_accuracy` / `ssg_dog_sound_accuracy` | Accuracy by recorded sound cue |
-| `ssg_left_response_accuracy` / `ssg_right_response_accuracy` | Accuracy by selected position |
-| `ssg_anticipation_rate` | Anticipation markers/errors / trials |
-| `ssg_same_animal_error_rate` | Recorded same-animal errors / trials |
-| `ssg_audio_fallback_rate` | Audio playback failure/fallback trials / trials |
-| `ssg_attentional_bias_available` | Always false in `features_v1` |
-| `ssg_attentional_bias_unavailable_reason` | Machine-readable explanatory text |
+| `ari_cat_sound_accuracy` / `ari_dog_sound_accuracy` | Accuracy by recorded sound cue |
+| `ari_left_response_accuracy` / `ari_right_response_accuracy` | Accuracy by selected position |
+| `ari_anticipation_rate` | Anticipation markers/errors / trials |
+| `ari_same_animal_error_rate` | Recorded same-animal errors / trials |
+| `ari_audio_fallback_rate` | Audio playback failure/fallback trials / trials |
+| `ari_attentional_bias_available` | Always false in `features_v1` |
+| `ari_attentional_bias_unavailable_reason` | Machine-readable explanatory text |
 
 ### Linking Balloons (`LB`)
 
@@ -197,7 +197,7 @@ included_task_codes
 corsi_*
 picture_memory_*
 srt_*
-ssg_*
+ari_*
 linking_balloons_*
 dccs_*
 overall_*

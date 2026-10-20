@@ -15,26 +15,12 @@
  * 7. 產生家長端與醫療端摘要
  */
 
-export const CBT_DIFFICULTY_ORDER = [
-  "veryEasy1",
-  "veryEasy2",
-  "veryEasy3",
-  "easy1",
-  "easy2",
-  "easy3",
-  "normal1",
-  "normal2",
-  "normal3",
-  "advanced1",
-  "advanced2",
-  "advanced3",
-  "hard1",
-  "hard2",
-  "hard3",
-  "expert1",
-  "expert2",
-  "expert3",
-];
+import {
+  CBT_DIFFICULTY_ORDER,
+  normalizeCBTDifficulty,
+} from "../utils/cbtProtocol";
+
+export { CBT_DIFFICULTY_ORDER };
 
 export const CBT_PERFORMANCE_LEVEL = {
   EXCELLENT: "excellent",
@@ -94,27 +80,45 @@ const avg = (arr = []) => {
 const normalizeBool = (value) =>
   value === true || value === 1 || value === "1" || value === "true";
 
-const normalizeDifficulty = (difficulty = "normal1") => {
-  const raw = String(difficulty || "normal1").trim();
-  if (CBT_DIFFICULTY_ORDER.includes(raw)) return raw;
+const normalizeDifficulty = (difficulty = "medium") =>
+  normalizeCBTDifficulty(difficulty) || "medium";
 
-  const key = raw.replace(/[-_\s]/g, "").toLowerCase();
+const isCompletedRound = (round) =>
+  round?.completed !== false &&
+  !normalizeBool(round?.unfinished) &&
+  !normalizeBool(round?.aborted) &&
+  !normalizeBool(round?.isIncomplete);
 
-  const found = CBT_DIFFICULTY_ORDER.find(
-    (item) => item.toLowerCase() === key
+const eventCount = (explicit, events = [], fallback = 0) =>
+  Math.max(0, Number(explicit) || 0, events.length, fallback);
+
+const getPromptCounts = (round = {}) => {
+  const events = Array.isArray(round.promptEvents) ? round.promptEvents : [];
+  const idleEvents = events.filter((event) =>
+    ["idle_mouse", "idle_hint", "idleHint"].includes(event?.type)
   );
-
-  if (found) return found;
-
-  if (key.startsWith("veryeasy")) return "veryEasy2";
-  if (key.startsWith("easy")) return "easy2";
-  if (key.startsWith("normal")) return "normal2";
-  if (key.startsWith("advanced")) return "advanced2";
-  if (key.startsWith("hard")) return "hard2";
-  if (key.startsWith("expert")) return "expert2";
-
-  return "normal1";
+  const answerEvents = events.filter((event) =>
+    ["wrong_answer_hint", "wrongAnswerHint"].includes(event?.type)
+  );
+  const idleHintCount = eventCount(
+    round.idleHintCount,
+    idleEvents,
+    round.idleHintCount == null && normalizeBool(round.idleHintShown) ? 1 : 0
+  );
+  const wrongAnswerHintCount = eventCount(round.wrongAnswerHintCount, answerEvents);
+  const promptCount = eventCount(
+    round.promptCount,
+    events,
+    idleHintCount + wrongAnswerHintCount
+  );
+  return { idleHintCount, wrongAnswerHintCount, promptCount };
 };
+
+const getEarlyClickCount = (round = {}) => eventCount(
+  round.earlyClickCount,
+  Array.isArray(round.earlyClickEvents) ? round.earlyClickEvents : [],
+  round.earlyClickCount == null && normalizeBool(round.earlyClick) ? 1 : 0
+);
 
 const getSequenceLength = (round) =>
   Number(
@@ -164,9 +168,10 @@ const usedReplay = (round) =>
 const usedHint = (round) =>
   normalizeBool(round?.usedHint) ||
   normalizeBool(round?.hintUsed) ||
-  normalizeBool(round?.usedSupport);
+  normalizeBool(round?.usedSupport) ||
+  getPromptCounts(round).promptCount > 0;
 
-const isIdleHintShown = (round) => normalizeBool(round?.idleHintShown);
+const isIdleHintShown = (round) => getPromptCounts(round).idleHintCount > 0;
 
 const isRescueCorrect = (round) => normalizeBool(round?.rescueCorrect);
 
@@ -191,8 +196,9 @@ const isAssistedCorrect = (round) =>
     isRescueCorrect(round));
 
 const getFirstErrorPosition = (round) => {
-  const existing = Number(round?.firstErrorPosition ?? round?.errorIndex);
-  if (Number.isFinite(existing) && existing >= 0) return existing;
+  const supplied = round?.firstErrorPosition ?? round?.errorIndex;
+  const existing = Number(supplied);
+  if (supplied != null && Number.isFinite(existing) && existing >= 0) return existing;
 
   const target = getTargetSequence(round);
   const user = getUserSequence(round);
@@ -207,6 +213,7 @@ const getFirstErrorPosition = (round) => {
 
 export function detectCBTErrorPattern(round) {
   if (!round) return "unknown";
+  if (!isCompletedRound(round)) return "unfinished_trial";
 
   if (isTimeoutRound(round)) return "timeout_error";
 
@@ -216,7 +223,11 @@ export function detectCBTErrorPattern(round) {
     return "correct";
   }
 
-  if (round.errorPattern) return round.errorPattern;
+  // A click before playback ends is a timing event, not an answer error.
+  const eventOnlyPatterns = ["earlyClick", "early_click", "early_click_event"];
+  if (round.errorPattern && !eventOnlyPatterns.includes(round.errorPattern)) {
+    return round.errorPattern;
+  }
   if (round.errorType === "timeout") return "timeout_error";
 
   const target = getTargetSequence(round);
@@ -249,8 +260,35 @@ export function detectCBTErrorPattern(round) {
 }
 
 export function calculateCBTMetrics(history = []) {
-  const rounds = Array.isArray(history) ? history.filter(Boolean) : [];
+  const recordedRounds = Array.isArray(history) ? history.filter(Boolean) : [];
+  const rounds = recordedRounds.filter(isCompletedRound);
   const totalRounds = rounds.length;
+  const eventMetrics = {
+    totalRecordedRounds: recordedRounds.length,
+    unfinishedRoundCount: recordedRounds.length - totalRounds,
+    totalIdleHintCount: 0,
+    totalWrongAnswerHintCount: 0,
+    totalPromptCount: 0,
+    promptCount: 0,
+    earlyClickCount: 0,
+    earlyClickTrialCount: 0,
+    earlyClickEvents: [],
+    promptEvents: [],
+  };
+  recordedRounds.forEach((round) => {
+    const prompts = getPromptCounts(round);
+    eventMetrics.totalIdleHintCount += prompts.idleHintCount;
+    eventMetrics.totalWrongAnswerHintCount += prompts.wrongAnswerHintCount;
+    eventMetrics.totalPromptCount += prompts.promptCount;
+    const earlyClickCount = getEarlyClickCount(round);
+    eventMetrics.earlyClickCount += earlyClickCount;
+    if (earlyClickCount > 0) eventMetrics.earlyClickTrialCount += 1;
+    eventMetrics.earlyClickEvents.push(...(Array.isArray(round.earlyClickEvents) ? round.earlyClickEvents : []));
+    eventMetrics.promptEvents.push(...(Array.isArray(round.promptEvents) ? round.promptEvents : []));
+  });
+  eventMetrics.promptCount = eventMetrics.totalPromptCount;
+  eventMetrics.idleHintCount = eventMetrics.totalIdleHintCount;
+  eventMetrics.wrongAnswerHintCount = eventMetrics.totalWrongAnswerHintCount;
 
   if (!totalRounds) {
     return {
@@ -296,6 +334,7 @@ export function calculateCBTMetrics(history = []) {
       errorPatternCounts: {},
       supportNeedRate: 0,
       spanStats: [],
+      ...eventMetrics,
     };
   }
 
@@ -352,15 +391,15 @@ export function calculateCBTMetrics(history = []) {
     if (replay) replayUsedCount += 1;
     if (idleHint) idleHintShownCount += 1;
 
-    if (Number.isFinite(Number(round?.reactionTime))) {
+    if (round?.reactionTime != null && Number.isFinite(Number(round.reactionTime))) {
       reactionTimes.push(Number(round.reactionTime));
     }
 
-    if (Number.isFinite(Number(round?.firstTapTime))) {
+    if (round?.firstTapTime != null && Number.isFinite(Number(round.firstTapTime))) {
       firstTapTimes.push(Number(round.firstTapTime));
     }
 
-    if (Number.isFinite(Number(round?.averageTapInterval))) {
+    if (round?.averageTapInterval != null && Number.isFinite(Number(round.averageTapInterval))) {
       tapIntervals.push(Number(round.averageTapInterval));
     }
 
@@ -518,10 +557,12 @@ export function calculateCBTMetrics(history = []) {
     errorPatternCounts,
     supportNeedRate,
     spanStats,
+    ...eventMetrics,
   };
 }
 
 export function calculateCBTPerformanceScore(metrics = {}) {
+  if (metrics.totalRounds === 0) return 0;
   const accuracy = clamp(metrics.accuracy ?? 0, 0, 1);
   const cleanAccuracy = clamp(metrics.cleanAccuracy ?? 0, 0, 1);
 
@@ -609,30 +650,19 @@ export function getCBTFatigueRisk(metrics = {}) {
 }
 
 export function getCBTStageFromDifficulty(difficulty = "") {
-  const key = normalizeDifficulty(difficulty);
-
-  if (key.startsWith("veryEasy")) return "veryEasy";
-  if (key.startsWith("easy")) return "easy";
-  if (key.startsWith("normal")) return "normal";
-  if (key.startsWith("advanced")) return "advanced";
-  if (key.startsWith("hard")) return "hard";
-  if (key.startsWith("expert")) return "expert";
-
-  return "normal";
+  return normalizeDifficulty(difficulty);
 }
 
-export function getCBTUpgradeThreshold(currentDifficulty = "normal1") {
+export function getCBTUpgradeThreshold(currentDifficulty = "medium") {
   const stage = getCBTStageFromDifficulty(currentDifficulty);
 
   switch (stage) {
-    case "veryEasy":
+    case "beginner":
       return 65;
     case "easy":
       return 70;
-    case "normal":
+    case "medium":
       return 75;
-    case "advanced":
-      return 80;
     case "hard":
       return 85;
     case "expert":
@@ -645,12 +675,12 @@ export function getCBTUpgradeThreshold(currentDifficulty = "normal1") {
 export function recommendCBTNextDifficulty(
   metrics = {},
   score = 0,
-  currentDifficulty = "normal1",
+  currentDifficulty = "medium",
   difficultyOrder = CBT_DIFFICULTY_ORDER
 ) {
   const order =
     Array.isArray(difficultyOrder) && difficultyOrder.length
-      ? difficultyOrder
+      ? [...new Set(difficultyOrder.map(normalizeDifficulty))]
       : CBT_DIFFICULTY_ORDER;
 
   const safeCurrentDifficulty = normalizeDifficulty(currentDifficulty);
@@ -661,7 +691,9 @@ export function recommendCBTNextDifficulty(
   let reason = "目前表現接近練習區，建議維持相同難度再練習。";
   let indexDelta = 0;
 
-  if ((metrics.fatigueDrop ?? 0) >= 0.3) {
+  if (metrics.totalRounds === 0) {
+    reason = "目前沒有完成的題目，先保留目前難度並確認孩子理解看完再點的規則。";
+  } else if ((metrics.fatigueDrop ?? 0) >= 0.3) {
     action = CBT_RECOMMENDED_ACTION.REDUCE_FATIGUE_LOAD;
     reason = "後半段表現下降，可能有疲勞或注意維持下降，下一輪不建議升級。";
     indexDelta = 0;
@@ -684,9 +716,9 @@ export function recommendCBTNextDifficulty(
     (metrics.timeoutRate ?? 0) >= 0.3 &&
     (metrics.accuracy ?? 0) >= 0.5
   ) {
-    action = CBT_RECOMMENDED_ACTION.INCREASE_ANSWER_TIME;
-    reason = "孩子可能記得內容，但回想或作答啟動較慢，建議延長作答時間。";
-    indexDelta = 0;
+    action = CBT_RECOMMENDED_ACTION.DECREASE_SEQUENCE_LENGTH;
+    reason = "孩子可能記得內容，但回想或作答啟動較慢；作答上限維持 15 秒，建議先縮短序列並練習看完再點。";
+    indexDelta = -1;
   } else if ((metrics.rescueCorrectRate ?? 0) >= 0.4) {
     action = CBT_RECOMMENDED_ACTION.MAINTAIN_WITH_REPLAY;
     reason = "孩子在提示或重看後可以完成，代表目前難度接近能力邊界，建議維持難度並保留支持。";
@@ -695,10 +727,6 @@ export function recommendCBTNextDifficulty(
     action = CBT_RECOMMENDED_ACTION.INCREASE_NONVERBAL_SUPPORT;
     reason = "孩子需要較多非文字提示才能開始作答，建議保留提示支持。";
     indexDelta = 0;
-  } else if (score >= 90 && score >= upgradeThreshold + 10) {
-    action = CBT_RECOMMENDED_ACTION.INCREASE_TWO_LEVELS;
-    reason = "孩子表現非常穩定，正確率與獨立完成率都高，可小幅加快進階。";
-    indexDelta = 2;
   } else if (score >= upgradeThreshold) {
     action = CBT_RECOMMENDED_ACTION.INCREASE_ONE_LEVEL;
     reason = "孩子已穩定完成目前難度，可以提升一級。";
@@ -795,6 +823,9 @@ export function buildCBTParentSummary(analysis = {}) {
   if (recommendation.reason) {
     summary += ` 系統建議：${recommendation.reason}`;
   }
+  if ((metrics.earlyClickCount ?? 0) > 0) {
+    summary += ` 序列播放完成前有 ${metrics.earlyClickCount} 次提前點擊；需先確認孩子是否理解「看完再點」，不能僅據此判定衝動。`;
+  }
 
   return summary;
 }
@@ -823,6 +854,18 @@ export function buildCBTClinicianNotes(analysis = {}) {
     timeoutRate: metrics.timeoutRate ?? 0,
     replayRate: metrics.replayRate ?? 0,
     idleHintRate: metrics.idleHintRate ?? 0,
+    totalIdleHintCount: metrics.totalIdleHintCount ?? 0,
+    totalWrongAnswerHintCount: metrics.totalWrongAnswerHintCount ?? 0,
+    totalPromptCount: metrics.totalPromptCount ?? 0,
+    promptCount: metrics.totalPromptCount ?? 0,
+    idleHintCount: metrics.totalIdleHintCount ?? 0,
+    wrongAnswerHintCount: metrics.totalWrongAnswerHintCount ?? 0,
+    earlyClickCount: metrics.earlyClickCount ?? 0,
+    earlyClickTrialCount: metrics.earlyClickTrialCount ?? 0,
+    earlyClickEvents: metrics.earlyClickEvents || [],
+    promptEvents: metrics.promptEvents || [],
+    unfinishedRoundCount: metrics.unfinishedRoundCount ?? 0,
+    earlyClickInterpretation: "提前點擊是播放階段事件；可能與規則或播放結束提示理解有關，不直接判定為衝動。",
     rescueCorrectRate: metrics.rescueCorrectRate ?? 0,
     supportNeedRate: metrics.supportNeedRate ?? 0,
 
@@ -849,7 +892,7 @@ export function buildCBTClinicianNotes(analysis = {}) {
 
 export function analyzeCBTTraining(history = [], options = {}) {
   const {
-    currentDifficulty = "normal1",
+    currentDifficulty = "medium",
     difficultyOrder = CBT_DIFFICULTY_ORDER,
     includeSummary = true,
     mode = "training",
@@ -898,6 +941,10 @@ export function analyzeCBTTraining(history = [], options = {}) {
     timeoutRate: metrics.timeoutRate,
     replayRate: metrics.replayRate,
     idleHintRate: metrics.idleHintRate,
+    totalIdleHintCount: metrics.totalIdleHintCount,
+    totalWrongAnswerHintCount: metrics.totalWrongAnswerHintCount,
+    totalPromptCount: metrics.totalPromptCount,
+    earlyClickCount: metrics.earlyClickCount,
     rescueCorrectRate: metrics.rescueCorrectRate,
     supportNeedRate: metrics.supportNeedRate,
     fatigueDrop: metrics.fatigueDrop,

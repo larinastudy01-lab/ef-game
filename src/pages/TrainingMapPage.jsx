@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/TrainingMapPage.css";
+import { ARI_DIFFICULTY_ORDER, getAriTrainingConfig, normalizeAriDifficulty } from "../utils/ariProtocol";
 
 const ABILITY_AREAS = {
   memory: {
@@ -13,7 +14,7 @@ const ABILITY_AREAS = {
     title: "反應森林",
     subtitle: "練習專心看目標，不亂點",
     story: "波波和皮皮要幫小松鼠接橡實，也要幫狐狸夫婦趕走蒼蠅。",
-    games: ["SRT", "SSG"],
+    games: ["SRT", "ARI"],
   },
   flexibility: {
     title: "變化森林",
@@ -47,13 +48,13 @@ const GAME_CONFIG = {
     route: "/training-srt",
     storageKey: "srtTrainingResult",
   },
-  SSG: {
+  ARI: {
     name: "貓狗合唱團",
     character: "貓咪與狗狗",
     ability: "inhibition",
     description: "找到搗亂蒼蠅，幫派對順利開始。",
-    route: "/training-ssg",
-    storageKey: "ssgTrainingResult",
+    route: "/training-ari",
+    storageKey: "ariTrainingResult",
   },
   LB: {
     name: "幫助迷路的綿羊奶奶",
@@ -131,7 +132,7 @@ const getGameStats = (gameId) => {
       stars: 0,
       accuracy: 0,
       warningLevel: "none",
-      recommendedDifficulty: "easy",
+      recommendedDifficulty: gameId === "ARI" ? "beginner" : "easy",
       errorTypes: {},
       fatigueLevel: "low",
       hasRecord: false,
@@ -250,6 +251,7 @@ const TrainingMapPage = () => {
         gameId: selectedGameId,
         difficulty,
         fromTrainingMap: true,
+        isRecommended: selectedGameId === recommendation.gameId && (selectedGameId === "ARI" ? normalizeAriDifficulty(difficulty) === normalizeAriDifficulty(recommendation.difficulty) : difficulty === recommendation.difficulty),
         forestPath: "/training-map",
       },
     });
@@ -316,7 +318,7 @@ const TrainingMapPage = () => {
 
           <div className="pipi-recommend-info">
             <span>建議難度</span>
-            <strong>{translateDifficulty(recommendation.difficulty)}</strong>
+            <strong>{recommendation.gameId === "ARI" ? getAriTrainingConfig(recommendation.difficulty).label : translateDifficulty(recommendation.difficulty)}</strong>
           </div>
 
           <button
@@ -390,6 +392,10 @@ const DifficultyDialog = ({ gameId, onClose, onStart }) => {
   const game = GAME_CONFIG[gameId];
   const unlocked = getUnlockedDifficulties(gameId);
   const stats = getGameStats(gameId);
+  const difficulties = gameId === "ARI" ? ARI_DIFFICULTY_ORDER.map((key, index) => {
+    const config = getAriTrainingConfig(key);
+    return { id: key, label: config.label, unlockText: `每題 ${config.answerTimeLimit / 1000} 秒${config.allowReplay ? " · 可重播" : ""}${config.interference ? " · 沙鈴干擾" : ""}`, unlocked: index < 2 || (index === 2 ? unlocked.normal : unlocked.hard) };
+  }) : DIFFICULTIES;
 
   return (
     <section className="difficulty-overlay" role="dialog" aria-modal="true">
@@ -420,8 +426,8 @@ const DifficultyDialog = ({ gameId, onClose, onStart }) => {
         </div>
 
         <div className="difficulty-options">
-          {DIFFICULTIES.map((difficulty) => {
-            const isUnlocked = unlocked[difficulty.id];
+          {difficulties.map((difficulty) => {
+            const isUnlocked = difficulty.unlocked ?? unlocked[difficulty.id];
 
             return (
               <button

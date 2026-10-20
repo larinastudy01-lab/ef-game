@@ -1,3 +1,5 @@
+import { LB_DIFFICULTY_ORDER, getLBTrainingConfig, normalizeLBDifficulty } from "../utils/lbProtocol";
+import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
 // src/utils/lbTrainingAnalyzer.js
 //
 // LB 自適應訓練分析器
@@ -47,6 +49,9 @@ const TRAINING_RESULT_KEYS = [
 ];
 
 export const LB_DIFFICULTY_LEVELS = {
+  BEGINNER: 1,
+  MEDIUM: 3,
+  EXPERT: 5,
   VERY_EASY: 1,
   EASY: 2,
   NORMAL: 3,
@@ -54,21 +59,8 @@ export const LB_DIFFICULTY_LEVELS = {
   VERY_HARD: 5,
 };
 
-export const LB_DIFFICULTY_NAMES = {
-  1: "veryEasy",
-  2: "easy",
-  3: "normal",
-  4: "hard",
-  5: "veryHard",
-};
-
-export const LB_DIFFICULTY_LABELS = {
-  1: "非常簡單",
-  2: "簡單",
-  3: "普通",
-  4: "困難",
-  5: "非常困難",
-};
+export const LB_DIFFICULTY_NAMES = Object.fromEntries(LB_DIFFICULTY_ORDER.map((key, index) => [index + 1, key]));
+export const LB_DIFFICULTY_LABELS = Object.fromEntries(LB_DIFFICULTY_ORDER.map((key, index) => [index + 1, getLBTrainingConfig(key).difficultyLabel]));
 
 const DEFAULT_OPTIONS = {
   minimumDifficulty: LB_DIFFICULTY_LEVELS.VERY_EASY,
@@ -197,49 +189,7 @@ function isPlainObject(value) {
 }
 
 function normalizeDifficulty(value, fallback = 3) {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return clamp(Math.round(value), 1, 5);
-  }
-
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_-]/g, "");
-
-  const map = {
-    "1": 1,
-    veryeasy: 1,
-    beginner: 1,
-    simplest: 1,
-    最簡單: 1,
-    非常簡單: 1,
-
-    "2": 2,
-    easy: 2,
-    simple: 2,
-    簡單: 2,
-
-    "3": 3,
-    normal: 3,
-    medium: 3,
-    adaptive: 3,
-    普通: 3,
-    一般: 3,
-
-    "4": 4,
-    hard: 4,
-    difficult: 4,
-    困難: 4,
-
-    "5": 5,
-    veryhard: 5,
-    expert: 5,
-    hardest: 5,
-    非常困難: 5,
-    最困難: 5,
-  };
-
-  return map[normalized] || clamp(fallback, 1, 5);
+  return getLBTrainingConfig(normalizeLBDifficulty(value) || fallback).difficultyLevel;
 }
 
 function getDifficultyName(level) {
@@ -931,7 +881,7 @@ function determineAdjustment(metrics, overallScore, options) {
       adjustment: -1,
       decision: "decrease",
       reasonCode: "performance_far_below_target",
-      reason: "目前規則理解或作答穩定度較不足，下一次降低難度並增加提示。",
+      reason: "目前規則理解或作答穩定度較不足，下一次降低難度。",
     };
   }
 
@@ -985,314 +935,44 @@ function determineAdjustment(metrics, overallScore, options) {
   };
 }
 
-function buildTrainingConfig(difficulty, metrics = {}) {
-  const level = normalizeDifficulty(difficulty);
-
-  const configs = {
-    1: {
-      difficultyLevel: 1,
-      difficulty: "veryEasy",
-      difficultyLabel: "非常簡單",
-
-      maxNumber: 5,
-      sequenceLength: 5,
-      colorRuleMaxNumber: 3,
-
-      enableBackwardRule: false,
-      enableColorSwitchRule: false,
-      enableMixedMission: false,
-      enableMemoryTask: false,
-      enablePositionShuffle: false,
-
-      hintMode: "always",
-      hintDelayMs: 1800,
-      hintAfterWrong: 1,
-      previewMs: 4500,
-
-      feedbackDelayCorrectMs: 600,
-      feedbackDelayWrongMs: 900,
-
-      maximumWrongBeforeHint: 1,
-      maximumConsecutiveErrors: 5,
-
-      recommendedTaskTypes: [
-        "guidePath",
-        "findSequence",
-      ],
-    },
-
-    2: {
-      difficultyLevel: 2,
-      difficulty: "easy",
-      difficultyLabel: "簡單",
-
-      maxNumber: 7,
-      sequenceLength: 7,
-      colorRuleMaxNumber: 3,
-
-      enableBackwardRule: true,
-      enableColorSwitchRule: false,
-      enableMixedMission: false,
-      enableMemoryTask: true,
-      enablePositionShuffle: false,
-
-      hintMode: "delay",
-      hintDelayMs: 2800,
-      hintAfterWrong: 1,
-      previewMs: 3800,
-
-      feedbackDelayCorrectMs: 520,
-      feedbackDelayWrongMs: 800,
-
-      maximumWrongBeforeHint: 1,
-      maximumConsecutiveErrors: 5,
-
-      recommendedTaskTypes: [
-        "guidePath",
-        "findSequence",
-        "memoryPath",
-      ],
-    },
-
-    3: {
-      difficultyLevel: 3,
-      difficulty: "normal",
-      difficultyLabel: "普通",
-
-      maxNumber: 10,
-      sequenceLength: 10,
-      colorRuleMaxNumber: 5,
-
-      enableBackwardRule: true,
-      enableColorSwitchRule: true,
-      enableMixedMission: false,
-      enableMemoryTask: true,
-      enablePositionShuffle: false,
-
-      hintMode: "afterWrong",
-      hintDelayMs: 3400,
-      hintAfterWrong: 2,
-      previewMs: 3000,
-
-      feedbackDelayCorrectMs: 440,
-      feedbackDelayWrongMs: 700,
-
-      maximumWrongBeforeHint: 2,
-      maximumConsecutiveErrors: 4,
-
-      recommendedTaskTypes: [
-        "findSequence",
-        "memoryPath",
-        "ruleSwitch",
-      ],
-    },
-
-    4: {
-      difficultyLevel: 4,
-      difficulty: "hard",
-      difficultyLabel: "困難",
-
-      maxNumber: 10,
-      sequenceLength: 12,
-      colorRuleMaxNumber: 6,
-
-      enableBackwardRule: true,
-      enableColorSwitchRule: true,
-      enableMixedMission: true,
-      enableMemoryTask: true,
-      enablePositionShuffle: true,
-
-      hintMode: "afterWrong",
-      hintDelayMs: 4200,
-      hintAfterWrong: 3,
-      previewMs: 2400,
-
-      feedbackDelayCorrectMs: 380,
-      feedbackDelayWrongMs: 620,
-
-      maximumWrongBeforeHint: 3,
-      maximumConsecutiveErrors: 4,
-
-      recommendedTaskTypes: [
-        "memoryPath",
-        "ruleSwitch",
-        "mixedMission",
-      ],
-    },
-
-    5: {
-      difficultyLevel: 5,
-      difficulty: "veryHard",
-      difficultyLabel: "非常困難",
-
-      maxNumber: 10,
-      sequenceLength: 20,
-      colorRuleMaxNumber: 10,
-
-      enableBackwardRule: true,
-      enableColorSwitchRule: true,
-      enableMixedMission: true,
-      enableMemoryTask: true,
-      enablePositionShuffle: true,
-
-      hintMode: "afterWrong",
-      hintDelayMs: 5000,
-      hintAfterWrong: 3,
-      previewMs: 1800,
-
-      feedbackDelayCorrectMs: 320,
-      feedbackDelayWrongMs: 560,
-
-      maximumWrongBeforeHint: 3,
-      maximumConsecutiveErrors: 3,
-
-      recommendedTaskTypes: [
-        "ruleSwitch",
-        "mixedMission",
-      ],
-    },
-  };
-
-  const selected = {
-    ...configs[level],
-  };
-
-  // 即使整體難度不變，也可針對弱項給局部協助。
-  if (safeNumber(metrics.switchAccuracy, 100) < 55) {
-    selected.hintAfterWrong = Math.min(
-      selected.hintAfterWrong,
-      2
-    );
-
-    selected.enablePositionShuffle = false;
-  }
-
-  if (safeNumber(metrics.stabilityScore, 100) < 50) {
-    selected.hintDelayMs = Math.max(
-      1800,
-      selected.hintDelayMs - 700
-    );
-  }
-
-  if (safeNumber(metrics.timeoutRate, 0) >= 30) {
-    selected.previewMs += 700;
-    selected.hintDelayMs = Math.max(
-      1800,
-      selected.hintDelayMs - 500
-    );
-  }
-
-  if (safeNumber(metrics.hintRate, 0) >= 50) {
-    selected.hintAfterWrong = Math.min(
-      selected.hintAfterWrong,
-      1
-    );
-  }
-
-  return selected;
+function buildTrainingConfig(difficulty) {
+  return { ...getLBTrainingConfig(normalizeDifficulty(difficulty)) };
 }
 
 function getRecommendedLevelRange(difficulty) {
   const level = normalizeDifficulty(difficulty);
-
-  const ranges = {
-    1: {
-      minimumLevelIndex: 0,
-      maximumLevelIndex: 1,
-      suggestedLevelIds: ["1-1", "1-2"],
-    },
-    2: {
-      minimumLevelIndex: 1,
-      maximumLevelIndex: 4,
-      suggestedLevelIds: ["1-2", "1-3", "1-4", "2-1"],
-    },
-    3: {
-      minimumLevelIndex: 3,
-      maximumLevelIndex: 7,
-      suggestedLevelIds: ["1-4", "2-1", "2-2", "2-3", "3-1"],
-    },
-    4: {
-      minimumLevelIndex: 6,
-      maximumLevelIndex: 9,
-      suggestedLevelIds: ["2-3", "3-1", "3-2", "3-3"],
-    },
-    5: {
-      minimumLevelIndex: 8,
-      maximumLevelIndex: 11,
-      suggestedLevelIds: ["3-2", "3-3", "4-1", "4-2"],
-    },
-  };
-
-  return ranges[level];
+  return { minimumLevelIndex: level - 1, maximumLevelIndex: level - 1, suggestedLevelIds: [String(level)] };
 }
 
-function resolveNextLevelIndex({
-  currentLevelIndex,
-  adjustment,
-  nextDifficulty,
-  completed = true,
-  maximumLevelIndex = 11,
-}) {
-  const currentIndex = clamp(
-    safeNumber(currentLevelIndex, 0),
-    0,
-    maximumLevelIndex
-  );
-
-  const difficultyRange =
-    getRecommendedLevelRange(nextDifficulty);
-
-  let nextIndex = currentIndex;
-
-  if (!completed || adjustment < 0) {
-    // 表現較弱時不強制退關，只維持目前關卡，
-    // 由較低難度設定提供更多提示。
-    nextIndex = currentIndex;
-  } else if (adjustment > 0) {
-    nextIndex = currentIndex + 1;
-  } else {
-    nextIndex = currentIndex + 1;
-  }
-
-  return clamp(
-    nextIndex,
-    difficultyRange.minimumLevelIndex,
-    Math.min(
-      maximumLevelIndex,
-      difficultyRange.maximumLevelIndex
-    )
-  );
+function resolveNextLevelIndex({ nextDifficulty, maximumLevelIndex = 4 }) {
+  return clamp(normalizeDifficulty(nextDifficulty) - 1, 0, Math.min(4, maximumLevelIndex));
 }
 
 function buildSupportSuggestions(metrics) {
   const suggestions = [];
 
   if (metrics.accuracy < 60) {
-    suggestions.push("先練習較短的數字順序");
+    suggestions.push("可回到入門，練習正序門牌");
   }
 
   if (metrics.switchAccuracy < 60) {
-    suggestions.push("增加紅藍規則提示");
-  }
-
-  if (metrics.interferenceAccuracy < 60) {
-    suggestions.push("暫時關閉門牌換位或混合任務");
+    suggestions.push("可選簡單，搭配 MOUSE 提示練習正序與顏色交替");
   }
 
   if (metrics.speedScore < 50) {
-    suggestions.push("延長觀察與提示時間");
+    suggestions.push("可選入門，使用每個門牌 20 秒的作答時間");
   }
 
   if (metrics.stabilityScore < 50) {
-    suggestions.push("減少單次任務長度");
+    suggestions.push("可重複練習目前難度，觀察作答穩定性");
   }
 
   if (metrics.hintRate >= 50) {
-    suggestions.push("保留即時目標提示");
+    suggestions.push("可在入門或簡單練習，觀察對 MOUSE 提示的依賴");
   }
 
   if (metrics.maximumConsecutiveErrors >= 3) {
-    suggestions.push("錯誤後立即示範正確下一步");
+    suggestions.push("可回到入門或簡單，先確認門牌順序與顏色規則");
   }
 
   if (!suggestions.length) {
@@ -1644,7 +1324,7 @@ export function analyzeLBTraining(input = {}, userOptions = {}) {
   const maximumLevelIndex = safeNumber(
     input?.maximumLevelIndex ??
       input?.maxLevelIndex,
-    11
+    4
   );
 
   const nextLevelIndex = resolveNextLevelIndex({
@@ -1666,7 +1346,7 @@ export function analyzeLBTraining(input = {}, userOptions = {}) {
   const result = {
     gameId: GAME_ID,
     mode: "training",
-    analyzerVersion: "1.0.0",
+    analyzerVersion: "2.0.0",
 
     analyzedAt: new Date().toISOString(),
 

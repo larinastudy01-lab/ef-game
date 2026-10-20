@@ -5,6 +5,12 @@ import React, {
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
+import { getAchievementAsset } from "../utils/achievementAssets";
+import {
+  ACHIEVEMENT_LEVEL_NAMES, ACHIEVEMENT_RULE_TEXT, GROWTH_ACHIEVEMENTS,
+  getGrowthAchievementStates, preserveLegacyAchievementAwards,
+  readAchievementProgress, recordAchievementResult,
+} from "../utils/achievementProtocol";
 
 import gameCardBackground from "../asset/home/gamecard.webp";
 import stickerR1 from "../asset/sticker/regular/R1.webp";
@@ -33,21 +39,13 @@ import stickerR23 from "../asset/sticker/regular/R23.webp";
 import srtGameIcon from "../asset/SRT_icon.webp";
 import pmGameIcon from "../asset/PM_icon.webp";
 import cbtGameIcon from "../asset/CBT_icon.webp";
-import ssgGameIcon from "../asset/SSG_icon.webp";
+import ariGameIcon from "../asset/ARI_icon.webp";
 import dccsGameIcon from "../asset/DCCS_icon.webp";
 import lbGameIcon from "../asset/LB_icon.webp";
 
 const MENU_ROUTE = "/game-menu";
-const GAME_IDS = ["SRT", "PM", "CBT", "SSG", "DCCS", "LB"];
+const GAME_IDS = ["SRT", "PM", "CBT", "ARI", "DCCS", "LB"];
 const MAX_LEDGER_SESSIONS = 500;
-
-const LEVEL_META = [
-  { level: 1, folder: "level01", name: "銅級", shortName: "銅" },
-  { level: 2, folder: "level02", name: "銀級", shortName: "銀" },
-  { level: 3, folder: "level03", name: "金級", shortName: "金" },
-  { level: 4, folder: "level04", name: "鑽石級", shortName: "鑽" },
-  { level: 5, folder: "level05", name: "星耀級", shortName: "星" },
-];
 
 const CATEGORY_OPTIONS = [
   { id: "all", label: "全部" },
@@ -55,12 +53,12 @@ const CATEGORY_OPTIONS = [
   { id: "SRT", label: "SRT" },
   { id: "PM", label: "PM" },
   { id: "CBT", label: "CBT" },
-  { id: "SSG", label: "SSG" },
+  { id: "ARI", label: "ARI" },
   { id: "DCCS", label: "DCCS" },
   { id: "LB", label: "幫助迷路的綿羊奶奶" },
 ];
 
-const ACHIEVEMENTS = [
+const LEGACY_ACHIEVEMENTS = [
   {
     id: "training_journey",
     name: "森林第一步",
@@ -202,24 +200,24 @@ const ACHIEVEMENTS = [
     metric: "cbtCleanPaths",
   },
   {
-    id: "ssg_opposite_master",
+    id: "ari_opposite_master",
     name: "聲音反轉家",
-    category: "SSG",
-    categoryLabel: "SSG 貓狗聲音抑制",
+    category: "ARI",
+    categoryLabel: "ARI 貓狗聲音抑制",
     description: "累積依照聲音正確選擇相反動物",
     thresholds: [10, 30, 80, 160, 320],
     unit: "題",
-    metric: "ssgCorrectOpposites",
+    metric: "ariCorrectOpposites",
   },
   {
-    id: "ssg_inhibition_master",
+    id: "ari_inhibition_master",
     name: "抑制小高手",
-    category: "SSG",
-    categoryLabel: "SSG 貓狗聲音抑制",
+    category: "ARI",
+    categoryLabel: "ARI 貓狗聲音抑制",
     description: "完成零搶答、零同動物錯誤且正確率達 80% 的訓練",
     thresholds: [1, 3, 8, 15, 30],
     unit: "次",
-    metric: "ssgInhibitionSessions",
+    metric: "ariInhibitionSessions",
   },
   {
     id: "dccs_rule_switcher",
@@ -257,10 +255,10 @@ const ACHIEVEMENTS = [
     category: "LB",
     categoryLabel: "幫助迷路的綿羊奶奶",
     description: "以至少二星完成指定最高關卡",
-    thresholds: [1, 3, 6, 10, 12],
+    thresholds: [1, 2, 3, 4, 5],
     unit: "關",
     metric: "lbHighestTwoStarLevel",
-    thresholdLabels: ["第 1 關", "第 3 關", "第 6 關", "第 10 關", "第 12 關"],
+    thresholdLabels: ["入門", "簡單", "中等", "難", "專業"],
   },
 ];
 
@@ -289,13 +287,6 @@ const STICKER_CATALOG = [
   { id: "R22", image: stickerR22, name: "向日葵花束" },
   { id: "R23", image: stickerR23, name: "森林寶箱" },
 ];
-
-// achievement/level01～level05 內的檔名需與 ACHIEVEMENTS 的 id 相同。
-const achievementImageContext = require.context(
-  "../asset/sticker/achievement",
-  true,
-  /\.webp$/
-);
 
 function safeJsonParse(value, fallback = null) {
   try {
@@ -381,7 +372,7 @@ function inferGameId(raw, sourceKey = "") {
     .toUpperCase();
 
   if (text.includes("DCCS")) return "DCCS";
-  if (text.includes("SSG")) return "SSG";
+  if (text.includes("ARI")) return "ARI";
   if (text.includes("CBT") || text.includes("CORSI")) return "CBT";
   if (
     text.includes("SRT") ||
@@ -541,7 +532,7 @@ function isPotentialResultKey(key) {
   const text = String(key || "").toLowerCase();
 
   if (
-    text.startsWith("achievementresultledger_") ||
+    text.startsWith("achievement") ||
     text.startsWith("hatstickercollection_") ||
     text.startsWith("hatstickerclaims_")
   ) {
@@ -558,7 +549,7 @@ function isPotentialResultKey(key) {
     "pm",
     "cbt",
     "corsi",
-    "ssg",
+    "ari",
     "dccs",
     "lb",
   ].some((token) => text.includes(token));
@@ -712,6 +703,9 @@ function normalizeCandidate(candidate, currentChildId) {
   if (!GAME_IDS.includes(gameId)) return null;
 
   const resultChildId = extractChildId(raw);
+  // Old per-child ledgers are already scoped. Unscoped browser caches cannot
+  // establish which child earned a legacy badge.
+  if (!resultChildId && !String(candidate.sourceKey || "").endsWith(`_${currentChildId}`)) return null;
   if (
     resultChildId &&
     currentChildId !== "unassigned" &&
@@ -900,6 +894,7 @@ function normalizeCandidate(candidate, currentChildId) {
       )
     ),
     records,
+    achievementPolicyVersion: Object.prototype.hasOwnProperty.call(raw, "achievementAssignment") ? 2 : raw.achievementEligibility?.policyVersion || null,
     sourceKey: candidate.sourceKey,
   };
 }
@@ -1017,10 +1012,10 @@ function getAchievementMetrics(sessions) {
   );
   const pmRecords = recordsByGame.PM;
   const cbtRecords = recordsByGame.CBT;
-  const ssgSessions = meaningfulSessions.filter(
-    (session) => session.gameId === "SSG"
+  const ariSessions = meaningfulSessions.filter(
+    (session) => session.gameId === "ARI"
   );
-  const ssgRecords = recordsByGame.SSG;
+  const ariRecords = recordsByGame.ARI;
   const dccsRecords = recordsByGame.DCCS;
   const lbSessions = meaningfulSessions.filter(
     (session) => session.gameId === "LB"
@@ -1098,8 +1093,8 @@ function getAchievementMetrics(sessions) {
       : 0,
     cbtCleanPaths: cbtCleanRecords.length,
 
-    ssgCorrectOpposites: ssgRecords.filter((record) => record.isCorrect).length,
-    ssgInhibitionSessions: ssgSessions.filter(
+    ariCorrectOpposites: ariRecords.filter((record) => record.isCorrect).length,
+    ariInhibitionSessions: ariSessions.filter(
       (session) =>
         session.totalTrials > 0 &&
         session.anticipationCount === 0 &&
@@ -1137,17 +1132,7 @@ function getAchievementLevel(value, thresholds) {
   return level;
 }
 
-function getAchievementImage(id, level) {
-  const displayLevel = clamp(level || 1, 1, 5);
-  const folder = LEVEL_META[displayLevel - 1].folder;
-
-  try {
-    return achievementImageContext(`./${folder}/${id}.webp`);
-  } catch (error) {
-    console.warn(`找不到成就圖片：${folder}/${id}.webp`, error);
-    return null;
-  }
-}
+function getAchievementImage(id, level) { return getAchievementAsset(id, level); }
 
 function getAchievementState(achievement, metrics) {
   const value = Number(metrics[achievement.metric] || 0);
@@ -1212,6 +1197,7 @@ function AchievementRow({ achievement }) {
     achievement.nextThreshold
   );
   const currentText = `${formatNumber(achievement.value)} ${achievement.unit}`;
+  const levelText = achievement.level ? ACHIEVEMENT_LEVEL_NAMES[achievement.level - 1] : "尚未解鎖";
 
   return (
     <article
@@ -1240,14 +1226,15 @@ function AchievementRow({ achievement }) {
         <div className="floating-achievement-heading">
           <div>
             <h3>{achievement.name}</h3>
+            <span className="achievement-earned-level">{levelText}{achievement.legacy ? " · 舊制收藏" : ""}</span>
           </div>
 
           <div className="floating-achievement-status">
-            <strong>{achievement.level >= 5 ? "完成" : `${currentText} / ${goalText}`}</strong>
+            <strong>{achievement.legacy ? "永久保留" : achievement.level >= 5 ? "完成" : `${currentText} / ${goalText}`}</strong>
           </div>
         </div>
 
-        <div className="floating-achievement-progress-line">
+        {!achievement.legacy && <div className="floating-achievement-progress-line">
           <div className="floating-achievement-progress-track">
             <span style={{ width: `${achievement.progressPercent}%` }} />
           </div>
@@ -1256,7 +1243,22 @@ function AchievementRow({ achievement }) {
               ? "5 / 5"
               : `${Math.round(achievement.progressPercent)}%`}
           </span>
-        </div>
+        </div>}
+        {!achievement.legacy && <p className="achievement-goal-text">
+          {achievement.level >= 5 ? `已累積 ${achievement.value} 次達標紀錄` : `再達標 ${Math.max(0, achievement.nextThreshold - achievement.value)} 次，獲得${ACHIEVEMENT_LEVEL_NAMES[achievement.level]}徽章`}
+        </p>}
+        {!achievement.legacy && achievement.credits.length > 0 && <details className="achievement-evidence">
+          <summary>查看達標與獲得紀錄</summary>
+          <ul>
+            {Object.values(achievement.earned).map((award) => <li key={`award-${award.level}`}>
+              {new Date(award.earnedAt).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })} · 獲得{ACHIEVEMENT_LEVEL_NAMES[award.level - 1]} · {award.difficultyLabel}
+            </li>)}
+            {[...achievement.credits].reverse().map((credit) => <li key={credit.resultId}>
+              {credit.dayKey} · {credit.difficultyLabel} · 正確率 {Number(credit.accuracy.toFixed(2))}%
+              {credit.promptCount != null ? ` · 提醒 ${credit.promptCount} 次` : ""}
+            </li>)}
+          </ul>
+        </details>}
 
       </div>
     </article>
@@ -1295,11 +1297,11 @@ function StickerRow({ sticker, collectionItem }) {
 
 const FLOATING_NAV_ITEMS = [
   { id: "all", label: "全部成就", shortLabel: "全部", icon: "⭐" },
-  { id: "general", label: "綜合成就", shortLabel: "綜合", icon: "🎈" },
+  { id: "legacy", label: "舊制收藏", shortLabel: "舊藏", icon: "🎈" },
   { id: "SRT", label: "SRT 橡實注意力", shortLabel: "SRT", iconSrc: srtGameIcon },
   { id: "PM", label: "PM 圖片記憶", shortLabel: "PM", iconSrc: pmGameIcon },
   { id: "CBT", label: "CBT 石頭路記憶", shortLabel: "CBT", iconSrc: cbtGameIcon },
-  { id: "SSG", label: "SSG 貓狗聲音", shortLabel: "SSG", iconSrc: ssgGameIcon },
+  { id: "ARI", label: "ARI 貓狗聲音", shortLabel: "ARI", iconSrc: ariGameIcon },
   { id: "DCCS", label: "DCCS 衣物分類", shortLabel: "DCCS", iconSrc: dccsGameIcon },
   { id: "LB", label: "幫助迷路的綿羊奶奶", shortLabel: "LB", iconSrc: lbGameIcon },
   { id: "stickers", label: "一般貼紙", shortLabel: "貼紙", icon: "🎀" },
@@ -1310,7 +1312,8 @@ export default function Achievement() {
   const [view, setView] = useState("achievements");
   const [category, setCategory] = useState("all");
   const [childId, setChildId] = useState(() => resolveChildId());
-  const [sessions, setSessions] = useState([]);
+  const [growthProgress, setGrowthProgress] = useState({ credits: [], awards: {} });
+  const [legacyAwards, setLegacyAwards] = useState([]);
   const [stickerCollection, setStickerCollection] = useState({});
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
 
@@ -1323,7 +1326,16 @@ export default function Achievement() {
     const nextSessions = syncAchievementLedger(nextChildId);
 
     setChildId(nextChildId);
-    setSessions(nextSessions);
+    const legacyMetrics = getAchievementMetrics(nextSessions.filter((session) => !session.achievementPolicyVersion));
+    const preserved = preserveLegacyAchievementAwards(nextChildId,
+      LEGACY_ACHIEVEMENTS.map((badge) => getAchievementState(badge, legacyMetrics)));
+    setLegacyAwards(preserved);
+    // Replay only records carrying the original assignment and completion evidence.
+    // Silent recovery avoids refresh events recursively triggering another scan.
+    scanBrowserStorage().filter(({ raw }) => String(raw.achievementAssignment?.childId) === String(nextChildId))
+      .sort((a, b) => (Date.parse(extractTimestamp(a.raw)) || 0) - (Date.parse(extractTimestamp(b.raw)) || 0))
+      .forEach(({ raw }) => recordAchievementResult(raw, { notify: false }));
+    setGrowthProgress(readAchievementProgress(nextChildId));
     setStickerCollection(readStickerCollection(nextChildId));
     setLastUpdatedAt(new Date());
   }, []);
@@ -1360,19 +1372,19 @@ export default function Achievement() {
     };
   }, [closePanel, refreshCollection]);
 
-  const metrics = useMemo(() => getAchievementMetrics(sessions), [sessions]);
-
-  const achievementStates = useMemo(
-    () =>
-      ACHIEVEMENTS.map((achievement) =>
-        getAchievementState(achievement, metrics)
-      ),
-    [metrics]
-  );
+  const metrics = { trainingSessions: growthProgress.credits.length };
+  const achievementStates = useMemo(() => getGrowthAchievementStates(growthProgress).map((badge) => ({
+    ...badge, image: getAchievementImage(badge.imageId, badge.level),
+  })), [growthProgress]);
+  const legacyStates = useMemo(() => legacyAwards.map((award) => {
+    const badge = LEGACY_ACHIEVEMENTS.find((item) => item.id === award.id);
+    return badge ? { ...badge, ...award, legacy: true, progressPercent: 100,
+      image: getAchievementImage(badge.id, award.level) } : null;
+  }).filter(Boolean), [legacyAwards]);
 
   const visibleAchievements = useMemo(() => {
     const list =
-      category === "all"
+      category === "legacy" ? legacyStates : category === "all"
         ? achievementStates
         : achievementStates.filter(
             (achievement) => achievement.category === category
@@ -1385,7 +1397,7 @@ export default function Achievement() {
       }
       return first.name.localeCompare(second.name, "zh-Hant");
     });
-  }, [achievementStates, category]);
+  }, [achievementStates, legacyStates, category]);
 
   const unlockedAchievementCount = achievementStates.filter(
     (achievement) => achievement.level > 0
@@ -1423,19 +1435,19 @@ export default function Achievement() {
       ? "帽子遊戲獲得的森林貼紙"
       : category === "all"
       ? "六項訓練的成就進度"
-      : `${CATEGORY_OPTIONS.find((option) => option.id === category)?.label || "成就"} 類別`;
+      : category === "legacy" ? "已獲得的舊制徽章永久保留" : `${CATEGORY_OPTIONS.find((option) => option.id === category)?.label || "成就"} 類別`;
 
   const overallProgress =
     view === "stickers"
       ? STICKER_CATALOG.length > 0
         ? (stickerStats.uniqueCount / STICKER_CATALOG.length) * 100
         : 0
-      : (unlockedStageCount / (ACHIEVEMENTS.length * 5)) * 100;
+      : (unlockedStageCount / (GROWTH_ACHIEVEMENTS.length * 5)) * 100;
 
   const overallProgressText =
     view === "stickers"
       ? `${stickerStats.uniqueCount} / ${STICKER_CATALOG.length}`
-      : `${unlockedStageCount} / ${ACHIEVEMENTS.length * 5}`;
+      : `${unlockedStageCount} / ${GROWTH_ACHIEVEMENTS.length * 5}`;
 
   const selectNavigation = (id) => {
     if (id === "stickers") {
@@ -1513,6 +1525,7 @@ export default function Achievement() {
                 <h2>
                   {view === "stickers"
                     ? `已收集 ${stickerStats.uniqueCount} 種貼紙`
+                    : category === "legacy" ? `已保留 ${legacyStates.length} 個舊制成就`
                     : `已解鎖 ${unlockedAchievementCount} 個成就`}
                 </h2>
               </div>
@@ -1524,10 +1537,10 @@ export default function Achievement() {
                       <span>總數 <strong>{stickerStats.totalCount}</strong></span>
                       <span>重複 <strong>{stickerStats.duplicateCount}</strong></span>
                     </>
-                  ) : (
+                  ) : category === "legacy" ? <span>永久保留</span> : (
                     <>
                       <span>星耀 <strong>{starLevelAchievementCount}</strong></span>
-                      <span>訓練 <strong>{metrics.trainingSessions}</strong></span>
+                      <span>達標 <strong>{metrics.trainingSessions}</strong></span>
                     </>
                   )}
                 </div>
@@ -1545,6 +1558,11 @@ export default function Achievement() {
             </div>
 
             <div className="achievement-floating-scroll-area">
+              {view === "achievements" && category !== "legacy" && <section className="achievement-common-rules" aria-label="徽章獲得通則">
+                <strong>每款遊戲都用相同規則</strong>
+                <p>{ACHIEVEMENT_RULE_TEXT}</p>
+                <p>銅級 1 次 · 銀級 3 次 · 金級 6 次 · 鑽石級 10 次 · 星耀級 15 次。累積次數永久保留。</p>
+              </section>}
               {view === "achievements" ? (
                 visibleAchievements.length > 0 ? (
                   <div className="achievement-floating-list">
@@ -1557,8 +1575,8 @@ export default function Achievement() {
                   </div>
                 ) : (
                   <div className="achievement-empty-state">
-                    <strong>目前沒有這個分類的成就</strong>
-                    <span>請選擇其他分類查看。</span>
+                    <strong>{category === "legacy" ? "目前沒有舊制收藏" : "目前沒有這個分類的成就"}</strong>
+                    <span>{category === "legacy" ? "已獲得的舊制徽章會保留在這裡。" : "請選擇其他分類查看。"}</span>
                   </div>
                 )
               ) : (
@@ -1578,7 +1596,7 @@ export default function Achievement() {
 
         <footer className="achievement-floating-footer">
           <span className="achievement-footer-label">
-            {view === "stickers" ? "貼紙收集進度" : "成就總進度"}
+            {view === "stickers" ? "貼紙收集進度" : category === "legacy" ? "新制成就總進度" : "成就總進度"}
           </span>
           <div className="achievement-footer-progress-track">
             <span style={{ width: `${clamp(overallProgress, 0, 100)}%` }} />
@@ -2778,6 +2796,15 @@ function AchievementStyles() {
           left: 8px;
         }
       }
+      .achievement-common-rules { margin: 0 0 14px; padding: 14px 16px; border-radius: 16px; background: #f4f9ed; color: #284d30; font-size: 13px; line-height: 1.6; }
+      .achievement-common-rules p { margin: 5px 0 0; }
+      .achievement-earned-level { font-size: 12px; font-weight: 700; color: #56713e; }
+      .achievement-floating-list:not(.sticker-list) .floating-achievement-row { aspect-ratio: auto; min-height: 260px; padding-bottom: 14px; }
+      .achievement-floating-list:not(.sticker-list) .floating-achievement-progress-line { position: static; width: 100%; margin: 8px 0; }
+      .achievement-floating-list:not(.sticker-list) .floating-achievement-info > .achievement-goal-text { display: block; overflow: visible; white-space: normal; font-size: 12px; line-height: 1.5; }
+      .achievement-evidence { margin-top: 8px; font-size: 12px; line-height: 1.6; text-align: left; }
+      .achievement-evidence summary { cursor: pointer; color: #285b3c; }
+      .achievement-evidence ul { max-height: 190px; overflow: auto; padding-left: 18px; margin: 8px 0; }
     `}</style>
   );
 }

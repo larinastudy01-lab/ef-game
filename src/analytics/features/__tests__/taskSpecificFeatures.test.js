@@ -22,12 +22,12 @@ test("PM stratifies observed memory load", () => {
   expect(features.pm_accuracy_by_memory_load[4].accuracy).toBe(0);
 });
 
-test("SSG explicitly does not invent attentional bias", () => {
-  const features = calculateTaskSpecificFeatures("SSG", [
+test("ARI explicitly does not invent attentional bias", () => {
+  const features = calculateTaskSpecificFeatures("ARI", [
     t(true, 500, { soundType: "cat", selectedPosition: "left", isIncongruent: true }),
   ]);
-  expect(features.ssg_cat_sound_accuracy).toBe(1);
-  expect(features.ssg_attentional_bias_available).toBe(false);
+  expect(features.ari_cat_sound_accuracy).toBe(1);
+  expect(features.ari_attentional_bias_available).toBe(false);
 });
 
 test("DCCS calculates switch cost only from observed switch markers", () => {

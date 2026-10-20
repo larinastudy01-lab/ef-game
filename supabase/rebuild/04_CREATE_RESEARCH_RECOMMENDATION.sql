@@ -35,7 +35,7 @@ create table if not exists public.behavioral_sessions (
 create table if not exists public.behavioral_task_sessions (
   id uuid primary key,
   session_id uuid not null references public.behavioral_sessions(id) on delete cascade,
-  task_code text not null check (task_code in ('CBT', 'PM', 'SRT', 'SSG', 'LB', 'DCCS')),
+  task_code text not null check (task_code in ('CBT', 'PM', 'SRT', 'ARI', 'LB', 'DCCS')),
   task_name text not null,
   task_order_index integer not null default 1 check (task_order_index > 0),
   difficulty text,
@@ -75,7 +75,7 @@ create table if not exists public.behavioral_trial_derivations (
   trial_id uuid not null references public.behavioral_trials(id) on delete cascade,
   participant_id uuid not null references public.research_participants(id) on delete restrict,
   task_name text not null,
-  task_code text not null check (task_code in ('CBT', 'PM', 'SRT', 'SSG', 'LB', 'DCCS')),
+  task_code text not null check (task_code in ('CBT', 'PM', 'SRT', 'ARI', 'LB', 'DCCS')),
   trial_index integer,
   stimulus jsonb,
   condition text,

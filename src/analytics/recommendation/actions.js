@@ -1,4 +1,4 @@
-export const TRAINING_TASKS = ["CBT", "PM", "SRT", "SSG", "LB", "DCCS"];
+export const TRAINING_TASKS = ["CBT", "PM", "SRT", "ARI", "LB", "DCCS"];
 export const DIFFICULTY_LEVELS = [1, 2, 3, 4, 5];
 
 export const buildActionCatalog = (tasks = TRAINING_TASKS, difficulties = DIFFICULTY_LEVELS) =>

@@ -35,11 +35,11 @@ const FALLBACK_TEST_FLOW_GAMES = [
     resultKeys: ["cbtTestResult"],
   },
   {
-    gameId: "SSG",
+    gameId: "ARI",
     name: "蒼蠅注意任務",
     ability: "抑制控制",
-    route: "/test-ssg",
-    resultKeys: ["ssgTestResult"],
+    route: "/test-ari",
+    resultKeys: ["ariTestResult"],
   },
   {
     gameId: "LB",

@@ -88,7 +88,7 @@ export const saveTrainingSettings = (settings) => {
 
 const ALL_RESULTS_KEY = "efGameResults";
 
-const TRAINING_GAME_IDS = ["srt", "pm", "cbt", "ssg", "dccs", "lb"];
+const TRAINING_GAME_IDS = ["srt", "pm", "cbt", "ari", "dccs", "lb"];
 
 export const getRecommendedGameIdFromDecision = (decision) => {
   const gameId = String(decision?.selected_action?.task_code || "").toLowerCase();
@@ -139,10 +139,10 @@ const RESULT_KEYS_BY_GAME_ID = {
     training: ["cbtTrainingResult", "latestCBTTrainingResult", "ef_game_cbt_training_result", "cbtResults", "cbtHistory"],
     test: ["cbtTestResult", "latestCBTTestResult", "ef_game_cbt_test_result", "CBT_RESULT", "cbtResult"],
   },
-  ssg: {
-    gameCode: "SSG",
-    training: ["ssgTrainingResult", "latestSSGTrainingResult", "latestSsgTrainingResult", "latestSsgResult", "ssgResults", "ssgHistory"],
-    test: ["ssgTestResult", "latestSSGTestResult", "latestSsgTestResult", "latestSsgResult", "SSG_RESULT"],
+  ari: {
+    gameCode: "ARI",
+    training: ["ariTrainingResult", "latestARITrainingResult", "latestAriTrainingResult", "latestAriResult", "ariResults", "ariHistory"],
+    test: ["ariTestResult", "latestARITestResult", "latestAriTestResult", "latestAriResult", "ARI_RESULT"],
   },
   dccs: {
     gameCode: "DCCS",
@@ -492,7 +492,7 @@ const buildTrainingLevelPlan = (gameIds, recommendations = []) => {
     guard += 1;
 
     const nextLevel = (gameUseCount[gameId] || 0) + 1;
-    if (nextLevel > (gameId === "lb" ? 4 : MAX_LEVELS_PER_GAME_IN_PLAN)) continue;
+    if (nextLevel > MAX_LEVELS_PER_GAME_IN_PLAN) continue;
 
     const item = recommendationMap.get(gameId) || {};
     gameUseCount[gameId] = nextLevel;

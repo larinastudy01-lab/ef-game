@@ -3,7 +3,7 @@ import { getTrainingRoute } from "./GameMenuPage";
 describe("getTrainingRoute", () => {
   test.each([
     ["srt", "/training-srt"],
-    ["ssg", "/training-ssg"],
+    ["ari", "/training-ari"],
     ["pm", "/training-picture-memory"],
     ["cbt", "/training-cbt"],
     ["dccs", "/training-dccs"],

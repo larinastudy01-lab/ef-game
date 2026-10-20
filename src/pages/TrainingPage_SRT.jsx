@@ -1,10 +1,12 @@
+import { useTrainingAchievementAssignment } from "../utils/useTrainingAchievementAssignment";
+import { gameLocalStorage as localStorage } from "../temporaryGameTesting/runtime";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import bgImg from "../asset/SRT/SRT_background.webp";
-import normalImg from "../asset/SRT/acorn.webp";
-import goldenImg from "../asset/SRT/golden_acorn.webp";
-import rottenImg from "../asset/SRT/rotten_acorn.webp";
+import normalImg from "../asset/SRT/training/acorn.webp";
+import goldenImg from "../asset/SRT/training/golden_acorn.webp";
+import rottenImg from "../asset/SRT/training/rotten_acorn.webp";
 import levelIcon from "../asset/SRT_icon.webp";
 import startAvatar from "../asset/SRT/bear.webp";
 import tutorialAvatar from "../asset/SRT/chicken.webp";
@@ -31,6 +33,16 @@ import { analyzeErrors } from "../ai/errorAnalyzer";
 import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
 import { clampNumber, getTodayKey, safeParse } from "../utils/trainingDataUtils";
+import {
+  SRT_PROTOCOL_VERSION,
+  SRT_ITEM_SIZE,
+  SRT_TRAINING_SETTINGS,
+  normalizeSrtDifficulty,
+  getSrtDifficultyFromStep,
+  getSrtDifficultyStep,
+  pickSrtInterval,
+  createSrtTargetBlock,
+} from "../utils/srtProtocol";
 
 const GAME_ID = "srt";
 const COMPLETED_LEVELS_STORAGE_KEY = "ef_game_completed_training_levels";
@@ -126,54 +138,22 @@ const getSrtTestBand = () => {
   return "middle";
 };
 
-const hashText = (text) => {
-  return String(text || "").split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
-};
+const getDifficultyKeyFromStep = getSrtDifficultyFromStep;
+const getDifficultyStep = getSrtDifficultyStep;
+const getDisplayDifficultyKey = (key) => normalizeSrtDifficulty(key) || "beginner";
 
-const getDifficultyKeyFromStep = (step) => {
-  const normalizedStep = clampNumber(step, 1, 9);
-  if (normalizedStep <= 3) return `easy-${normalizedStep}`;
-  if (normalizedStep <= 6) return `medium-${normalizedStep - 3}`;
-  return `hard-${normalizedStep - 6}`;
-};
-
-const getDifficultyStep = (difficultyKey) => {
-  const config = difficultySettings[difficultyKey];
-  return config?.step || 1;
-};
-
-const getDisplayDifficultyKey = (difficultyKey) => {
-  const step = getDifficultyStep(difficultyKey);
-  if (step <= 3) return "easy";
-  if (step <= 6) return "medium";
-  return "hard";
-};
-
-const getAutoDifficultyForStage = ({ level, stageId, todayKey }) => {
+const getAutoDifficultyForStage = ({ level }) => {
   const normalizedLevel = clampNumber(level, 1, 999);
   const patternLevelIndex = (normalizedLevel - 1) % 5;
   const cycleBoost = Math.floor((normalizedLevel - 1) / 5);
   const testBand = getSrtTestBand();
 
-  const stepPatternsByBand = {
+  const patterns = {
     low: [1, 2, 3, 4, 5],
-    middle: [2, 3, 4, 5, 6],
-    high: [4, 5, 6, 7, 8],
+    middle: [2, 2, 3, 4, 5],
+    high: [3, 3, 4, 4, 5],
   };
-
-  if (testBand) {
-    const baseStep = stepPatternsByBand[testBand][patternLevelIndex] || 5;
-    return getDifficultyKeyFromStep(baseStep + cycleBoost);
-  }
-
-  const fallbackStepPatterns = [
-    [1, 2, 3, 4, 5],
-    [2, 3, 4, 5, 6],
-    [1, 2, 4, 5, 7],
-  ];
-  const patternIndex = hashText(`${todayKey}-${stageId}`) % fallbackStepPatterns.length;
-  const baseStep = fallbackStepPatterns[patternIndex][patternLevelIndex] || 5;
-
+  const baseStep = (patterns[testBand] || patterns.low)[patternLevelIndex];
   return getDifficultyKeyFromStep(baseStep + cycleBoost);
 };
 
@@ -216,160 +196,7 @@ const appendUniqueStorageItems = (key, values) => {
   localStorage.setItem(key, JSON.stringify(next));
 };
 
-const difficultySettings = {
-  "easy-1": {
-    key: "easy-1",
-    step: 1,
-    displayKey: "easy",
-    label: "簡單",
-    storyLabel: "橡實練習 1",
-    subtitle: "3 分鐘低壓力練習，橡實最大、干擾最低。",
-    totalTime: 180000,
-    maxTrials: 60,
-    visibleTime: 2200,
-    nextDelay: 2400,
-    itemSize: 146,
-    normalRate: 1,
-    goldenRate: 0,
-    rottenRate: 0,
-  },
-
-  "easy-2": {
-    key: "easy-2",
-    step: 2,
-    displayKey: "easy",
-    label: "簡單",
-    storyLabel: "橡實練習 2",
-    subtitle: "3 分 30 秒練習，加入少量金色橡實。",
-    totalTime: 210000,
-    maxTrials: 70,
-    visibleTime: 2000,
-    nextDelay: 2200,
-    itemSize: 138,
-    normalRate: 0.95,
-    goldenRate: 0.05,
-    rottenRate: 0,
-  },
-
-  "easy-3": {
-    key: "easy-3",
-    step: 3,
-    displayKey: "easy",
-    label: "簡單",
-    storyLabel: "橡實練習 3",
-    subtitle: "4 分鐘練習，加入少量壞橡實，開始練習看清楚再點。",
-    totalTime: 240000,
-    maxTrials: 85,
-    visibleTime: 1800,
-    nextDelay: 2000,
-    itemSize: 130,
-    normalRate: 0.9,
-    goldenRate: 0.05,
-    rottenRate: 0.05,
-  },
-
-  "medium-1": {
-    key: "medium-1",
-    step: 4,
-    displayKey: "medium",
-    label: "普通",
-    storyLabel: "橡實小任務 1",
-    subtitle: "4 分 30 秒中等負荷，訓練持續注意與抑制控制。",
-    totalTime: 270000,
-    maxTrials: 100,
-    visibleTime: 1600,
-    nextDelay: 1800,
-    itemSize: 122,
-    normalRate: 0.82,
-    goldenRate: 0.08,
-    rottenRate: 0.1,
-  },
-
-  "medium-2": {
-    key: "medium-2",
-    step: 5,
-    displayKey: "medium",
-    label: "普通",
-    storyLabel: "橡實小任務 2",
-    subtitle: "5 分鐘練習，觀察兒童長時間專注維持。",
-    totalTime: 300000,
-    maxTrials: 120,
-    visibleTime: 1400,
-    nextDelay: 1650,
-    itemSize: 116,
-    normalRate: 0.76,
-    goldenRate: 0.1,
-    rottenRate: 0.14,
-  },
-
-  "medium-3": {
-    key: "medium-3",
-    step: 6,
-    displayKey: "medium",
-    label: "普通",
-    storyLabel: "橡實小任務 3",
-    subtitle: "6 分鐘練習，速度更快、干擾更多，觀察穩定度與疲勞。",
-    totalTime: 360000,
-    maxTrials: 150,
-    visibleTime: 1250,
-    nextDelay: 1500,
-    itemSize: 108,
-    normalRate: 0.7,
-    goldenRate: 0.1,
-    rottenRate: 0.2,
-  },
-
-  "hard-1": {
-    key: "hard-1",
-    step: 7,
-    displayKey: "hard",
-    label: "困難",
-    storyLabel: "森林大挑戰 1",
-    subtitle: "6 分 30 秒高負荷練習，壞橡實比例提高。",
-    totalTime: 390000,
-    maxTrials: 170,
-    visibleTime: 1100,
-    nextDelay: 1400,
-    itemSize: 102,
-    normalRate: 0.68,
-    goldenRate: 0.08,
-    rottenRate: 0.24,
-  },
-
-  "hard-2": {
-    key: "hard-2",
-    step: 8,
-    displayKey: "hard",
-    label: "困難",
-    storyLabel: "森林大挑戰 2",
-    subtitle: "7 分鐘高干擾練習，需要更穩定的抑制控制。",
-    totalTime: 420000,
-    maxTrials: 190,
-    visibleTime: 950,
-    nextDelay: 1300,
-    itemSize: 94,
-    normalRate: 0.64,
-    goldenRate: 0.06,
-    rottenRate: 0.3,
-  },
-
-  "hard-3": {
-    key: "hard-3",
-    step: 9,
-    displayKey: "hard",
-    label: "困難",
-    storyLabel: "森林大挑戰 3",
-    subtitle: "8 分鐘最高挑戰，觀察長時間專注、疲勞與抑制控制。",
-    totalTime: 480000,
-    maxTrials: 220,
-    visibleTime: 850,
-    nextDelay: 1200,
-    itemSize: 88,
-    normalRate: 0.6,
-    goldenRate: 0.05,
-    rottenRate: 0.35,
-  },
-};
+const difficultySettings = SRT_TRAINING_SETTINGS;
 
 const objectTypes = {
   normal: {
@@ -417,7 +244,7 @@ const TrainingPage_SRT = () => {
   );
 
   const initialDifficulty = useMemo(() => {
-    const fixedDifficulty = trainingStageInfo.difficulty;
+    const fixedDifficulty = normalizeSrtDifficulty(trainingStageInfo.difficulty);
     if (fixedDifficulty && difficultySettings[fixedDifficulty]) return fixedDifficulty;
 
     return getAutoDifficultyForStage({
@@ -441,6 +268,7 @@ const TrainingPage_SRT = () => {
   };
 
   const [difficulty, setDifficulty] = useState(initialDifficulty);
+  const achievementAssignment = useTrainingAchievementAssignment({ gameId: "SRT", difficulty: initialDifficulty, trainingLevel: trainingStageInfo.level, location });
   const [, setTimeLeft] = useState(0);
 
   const [item, setItem] = useState(null);
@@ -448,6 +276,7 @@ const TrainingPage_SRT = () => {
   const [, setFalseStartWarning] = useState(null);
   const [, setShowMouseGuide] = useState(false);
   const [assistEffect, setAssistEffect] = useState(null);
+  const [promptCount, setPromptCount] = useState(0);
   const [idleFlashId, setIdleFlashId] = useState(null);
   const [, setHintText] = useState("小松鼠準備好接橡實囉！");
   const [, setShowHint] = useState(false);
@@ -460,6 +289,7 @@ const TrainingPage_SRT = () => {
   const [warmupReady, setWarmupReady] = useState(false);
 
   const [score, setScore] = useState(0);
+  const scoreRef = useRef(0);
   const [trialRecords, setTrialRecords] = useState([]);
   const [falseClickCount, setFalseClickCount] = useState(0);
   const [repeatedClickCount, setRepeatedClickCount] = useState(0);
@@ -481,7 +311,9 @@ const TrainingPage_SRT = () => {
   const assistedTrialRef = useRef(false);
   const assistTypeRef = useRef(null);
   const assistShownAtRef = useRef(null);
-  const recentTypesRef = useRef([]);
+  const targetQueueRef = useRef([]);
+  const promptEventsRef = useRef([]);
+  const previousOnsetRef = useRef(null);
 
   const itemTimeoutRef = useRef(null);
   const nextTrialTimeoutRef = useRef(null);
@@ -501,7 +333,7 @@ const TrainingPage_SRT = () => {
 
   const clickAudioRef = useRef(null);
 
-  const config = difficultySettings[difficulty] || difficultySettings["easy-1"];
+  const config = difficultySettings[difficulty] || difficultySettings.beginner;
 
   useEffect(() => {
     difficultyRef.current = difficulty;
@@ -580,6 +412,7 @@ const TrainingPage_SRT = () => {
     setWarmupReady(false);
 
     setScore(0);
+    scoreRef.current = 0;
     setTrialRecords([]);
     setFalseClickCount(0);
     setRepeatedClickCount(0);
@@ -599,11 +432,24 @@ const TrainingPage_SRT = () => {
     assistedTrialRef.current = false;
     assistTypeRef.current = null;
     assistShownAtRef.current = null;
-    recentTypesRef.current = [];
+    targetQueueRef.current = [];
+    promptEventsRef.current = [];
+    setPromptCount(0);
+    previousOnsetRef.current = null;
   };
 
   const addTrialRecord = (record) => {
-    const nextRecords = [...trialRecordsRef.current, record];
+    const targetItem = currentItemRef.current;
+    const nextRecords = [...trialRecordsRef.current, {
+      ...record,
+      stimulusOnsetMs: targetItem?.stimulusOnsetMs ?? null,
+      stimulusIntervalMs: targetItem?.stimulusIntervalMs ?? null,
+      nextStimulusIntervalMs: targetItem?.nextStimulusIntervalMs ?? null,
+      visibleTimeMs: targetItem?.visibleTimeMs ?? null,
+      itemSizePx: SRT_ITEM_SIZE,
+      promptCount: promptEventsRef.current.filter((event) => event.trialIndex === record.trialIndex).length,
+      goldenPurpose: record.targetType === "golden" ? "game_reward" : null,
+    }];
     trialRecordsRef.current = nextRecords;
     setTrialRecords(nextRecords);
   };
@@ -653,22 +499,22 @@ const TrainingPage_SRT = () => {
 
   const getRtStats = (records) => {
     const values = records
-      .filter((record) => record.trainingAction === "hit" && typeof record.reactionTime === "number")
+      .filter((record) => record.trainingAction === "hit" && Number.isFinite(record.reactionTime) && record.reactionTime >= 150)
       .map((record) => record.reactionTime);
 
     if (values.length === 0) {
-      return { count: 0, avg: 0, std: 0, cv: 0 };
+      return { count: 0, avg: null, std: null, cv: null };
     }
 
     const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
     const variance = values.reduce((sum, value) => sum + Math.pow(value - avg, 2), 0) / values.length;
-    const std = Math.sqrt(variance);
+    const std = values.length >= 2 ? Math.sqrt(variance) : null;
 
     return {
       count: values.length,
       avg: Math.round(avg),
-      std: Math.round(std),
-      cv: avg > 0 ? Number((std / avg).toFixed(2)) : 0,
+      std: std === null ? null : Math.round(std),
+      cv: std !== null && avg > 0 ? Number((std / avg).toFixed(2)) : null,
     };
   };
 
@@ -733,6 +579,8 @@ const TrainingPage_SRT = () => {
       firstThird,
       middleThird,
       lastThird,
+      rtStdIncrease: firstThird.rtStd !== null && lastThird.rtStd !== null ? lastThird.rtStd - firstThird.rtStd : null,
+      rtCVIncrease: firstThird.rtCV !== null && lastThird.rtCV !== null ? Number((lastThird.rtCV - firstThird.rtCV).toFixed(2)) : null,
       rtSlowing,
       missIncrease,
       wrongClickIncrease,
@@ -913,7 +761,7 @@ const TrainingPage_SRT = () => {
 
     const longAttentionMetrics = buildLongAttentionMetrics(records);
 
-    const currentConfig = difficultySettings[difficultyRef.current] || difficultySettings["easy-1"];
+    const currentConfig = difficultySettings[difficultyRef.current] || difficultySettings.beginner;
     const displayDifficulty = getDisplayDifficultyKey(difficultyRef.current);
 
     const performanceResult = analyzePerformance({
@@ -956,7 +804,7 @@ const TrainingPage_SRT = () => {
       abilityType: "inhibition",
       mode: "training",
       difficulty: displayDifficulty,
-      score,
+      score: scoreRef.current,
       stars: performanceResult.stars,
       accuracy: performanceResult.accuracy,
       avgReactionTime: performanceResult.avgReactionTime,
@@ -1094,9 +942,10 @@ const TrainingPage_SRT = () => {
     finishingRef.current = false;
     startedAtRef.current = new Date().toISOString();
 
-    const currentConfig = difficultySettings[difficultyRef.current] || difficultySettings["easy-1"];
+    const currentConfig = difficultySettings[difficultyRef.current] || difficultySettings.beginner;
 
     setScore(0);
+    scoreRef.current = 0;
     setTrialRecords([]);
     setFalseClickCount(0);
     setRepeatedClickCount(0);
@@ -1122,7 +971,10 @@ const TrainingPage_SRT = () => {
     assistedTrialRef.current = false;
     assistTypeRef.current = null;
     assistShownAtRef.current = null;
-    recentTypesRef.current = [];
+    targetQueueRef.current = [];
+    promptEventsRef.current = [];
+    setPromptCount(0);
+    previousOnsetRef.current = null;
 
     setTimeLeft(Math.ceil(currentConfig.totalTime / 1000));
     setGamePhase("playing");
@@ -1157,6 +1009,15 @@ const TrainingPage_SRT = () => {
   const finishTraining = () => {
     if (finishingRef.current || phaseRef.current === "ending" || phaseRef.current === "result") return;
     finishingRef.current = true;
+    const finalScore = scoreRef.current;
+    const pendingTrial = currentItemRef.current ? {
+      trialIndex: currentItemRef.current.trialIndex,
+      targetType: currentItemRef.current.type.key,
+      stimulusOnsetMs: currentItemRef.current.stimulusOnsetMs,
+      assisted: assistedTrialRef.current,
+      promptCount: promptEventsRef.current.filter((event) => event.trialIndex === currentItemRef.current.trialIndex).length,
+      status: "unfinished_at_session_end",
+    } : null;
 
     clearAllTimers();
 
@@ -1201,7 +1062,7 @@ const TrainingPage_SRT = () => {
 
     let scoringResult = {};
     try {
-      scoringResult = calculateSrtScore(scoringRecords) || {};
+      scoringResult = calculateSrtScore(scoringRecords, { mode: "training", promptCount: promptEventsRef.current.length }) || {};
     } catch (error) {
       console.error("SRT 計分失敗，改用基本結果：", error);
     }
@@ -1223,6 +1084,7 @@ const TrainingPage_SRT = () => {
           (difficultySettings[difficultyRef.current]?.totalTime || 0) / 1000
         ),
         childProfile: currentChild,
+        promptCount: promptEventsRef.current.length,
       }) || {};
 
       aiAnalysis = {
@@ -1278,8 +1140,24 @@ const TrainingPage_SRT = () => {
     const resultId = `SRT-${currentChild.childId}-${trainingStageInfo.stageId}-${Date.now()}`;
 
     const resultPayload = {
+      achievementAssignment, completed: true,
       resultId,
       schemaVersion: "1.0.0",
+      protocol: {
+        version: SRT_PROTOCOL_VERSION,
+        intervalDefinition: difficultySettings[difficultyRef.current].waitForResponse ? "wait_for_response" : "stimulus_onset_to_onset",
+        stimulusIntervalsMs: difficultySettings[difficultyRef.current].intervals,
+        visibleTimeMs: difficultySettings[difficultyRef.current].visibleTime,
+        itemSizePx: SRT_ITEM_SIZE,
+        goldenPurpose: "game_reward",
+        rottenRate: difficultySettings[difficultyRef.current].rottenRate,
+        goldenRate: difficultySettings[difficultyRef.current].goldenRate,
+      },
+      promptEvents: promptEventsRef.current,
+      promptCount: promptEventsRef.current.length,
+      pendingTrial,
+      rtStd: scoringResult?.summary?.rtStd ?? null,
+      rtCV: scoringResult?.summary?.rtCV ?? null,
       taskName: "Simple Reaction Time",
       taskCode: "SRT",
       gameId: "SRT",
@@ -1310,7 +1188,10 @@ const TrainingPage_SRT = () => {
         order: trainingStageInfo.order,
       },
       summary: {
-        score,
+        rtStd: scoringResult?.summary?.rtStd ?? null,
+        rtCV: scoringResult?.summary?.rtCV ?? null,
+        promptCount: promptEventsRef.current.length,
+        score: finalScore,
         stars: finalStars,
         accuracy:
           aiAnalysis?.metrics?.accuracy ??
@@ -1325,6 +1206,8 @@ const TrainingPage_SRT = () => {
         errorCount,
       },
       metrics: {
+        ...scoringResult?.summary,
+        promptCount: promptEventsRef.current.length,
         errorTypes: aiAnalysis?.errorTypes || {},
         reactionTimes,
         longAttentionMetrics: aiAnalysis?.longAttentionMetrics || {},
@@ -1340,7 +1223,7 @@ const TrainingPage_SRT = () => {
       recommendation:
         aiAnalysis?.recommendation || aiAnalysis?.aiRecommendation || null,
       syncStatus: "pending",
-      score,
+      score: finalScore,
       stars: finalStars,
       accuracy:
         aiAnalysis?.metrics?.accuracy ??
@@ -1421,12 +1304,12 @@ const TrainingPage_SRT = () => {
   };
 
   const shouldShowGoldenWarmup = () => {
-    const currentConfig = difficultySettings[difficultyRef.current] || difficultySettings["easy-1"];
+    const currentConfig = difficultySettings[difficultyRef.current] || difficultySettings.beginner;
     return currentConfig.goldenRate > 0;
   };
 
   const shouldShowRottenWarmup = () => {
-    const currentConfig = difficultySettings[difficultyRef.current] || difficultySettings["easy-1"];
+    const currentConfig = difficultySettings[difficultyRef.current] || difficultySettings.beginner;
     return currentConfig.rottenRate > 0;
   };
 
@@ -1595,32 +1478,25 @@ const TrainingPage_SRT = () => {
   };
 
   const getAssistConfig = (targetType) => {
-    const step = getDifficultyStep(difficultyRef.current);
-    const missCount = consecutiveMissRef.current;
-
-    if (!targetType?.shouldClick) return null;
-
-    if (step <= 2) {
-      return { delay: 1200, effect: "glow" };
-    }
-
-    if (step <= 3 && missCount >= 1) {
-      return { delay: 1050, effect: "glow" };
-    }
-
-    if (step <= 6 && missCount >= 2) {
-      return { delay: 950, effect: "shake" };
-    }
-
-    return null;
+    const currentConfig = difficultySettings[difficultyRef.current];
+    return targetType?.shouldClick && currentConfig.waitForResponse
+      ? { delay: currentConfig.promptDelay, effect: "mouse" }
+      : null;
   };
 
   const triggerAssistEffect = (effectType) => {
     assistedTrialRef.current = true;
     assistTypeRef.current = effectType;
-    assistShownAtRef.current = spawnTimeRef.current
+    assistShownAtRef.current = typeof spawnTimeRef.current === "number"
       ? Math.round(performance.now() - spawnTimeRef.current)
       : null;
+    promptEventsRef.current.push({
+      type: effectType,
+      trialIndex: currentItemRef.current?.trialIndex ?? null,
+      shownAfterMs: assistShownAtRef.current,
+      timestamp: Date.now(),
+    });
+    setPromptCount(promptEventsRef.current.length);
     setAssistEffect(effectType);
 
     if (effectType === "shake") {
@@ -1633,9 +1509,9 @@ const TrainingPage_SRT = () => {
   const getRandomPosition = () => {
     const step = getDifficultyStep(difficultyRef.current);
     const range =
-      step <= 3
+      step <= 2
         ? { minX: 24, maxX: 76, minY: 28, maxY: 72 }
-        : step <= 6
+        : step === 3
           ? { minX: 18, maxX: 82, minY: 22, maxY: 78 }
           : { minX: 12, maxX: 88, minY: 16, maxY: 84 };
 
@@ -1645,11 +1521,8 @@ const TrainingPage_SRT = () => {
     };
   };
 
-  const getRandomDelay = (currentConfig = difficultySettings[difficultyRef.current] || difficultySettings["easy-1"]) => {
-    const baseDelay = Number(currentConfig?.nextDelay) || 350;
-    const minDelay = Math.max(450, Math.round(baseDelay * 0.7));
-    const maxDelay = Math.max(minDelay + 160, Math.round(baseDelay * 1.6));
-    return Math.round(Math.random() * (maxDelay - minDelay) + minDelay);
+  const getRandomDelay = (currentConfig = difficultySettings[difficultyRef.current] || difficultySettings.beginner) => {
+    return pickSrtInterval(currentConfig.intervals);
   };
 
   const scheduleNextTrial = (delay = getRandomDelay()) => {
@@ -1664,46 +1537,21 @@ const TrainingPage_SRT = () => {
     }, delay);
   };
 
-  const drawRandomType = () => {
-    const currentDifficulty = difficultyRef.current;
-    const currentConfig = difficultySettings[currentDifficulty] || difficultySettings["easy-1"];
-    const rand = Math.random();
-
-    if (rand < currentConfig.normalRate) return objectTypes.normal;
-    if (rand < currentConfig.normalRate + currentConfig.goldenRate) {
-      return objectTypes.golden;
+  const getRandomType = () => {
+    if (targetQueueRef.current.length === 0) {
+      targetQueueRef.current = createSrtTargetBlock(difficultySettings[difficultyRef.current]);
     }
-
-    return objectTypes.rotten;
-  };
-
-  const getRandomType = (nextTrialNumber) => {
-    const recentTypes = recentTypesRef.current;
-    const recentTwo = recentTypes.slice(-2);
-    const currentBlockTypes = recentTypes.slice(-4);
-    const clickableCount = currentBlockTypes.filter(
-      (typeKey) => typeKey === "normal" || typeKey === "golden"
-    ).length;
-
-    if (nextTrialNumber % 5 === 0 && clickableCount < 2) {
-      return objectTypes.normal;
-    }
-
-    for (let attempt = 0; attempt < 8; attempt += 1) {
-      const candidate = drawRandomType();
-      const wouldRepeatSpecial =
-        (candidate.key === "rotten" || candidate.key === "golden") &&
-        recentTwo.length === 2 &&
-        recentTwo.every((typeKey) => typeKey === candidate.key);
-
-      if (!wouldRepeatSpecial) return candidate;
-    }
-
-    return objectTypes.normal;
+    return objectTypes[targetQueueRef.current.shift()];
   };
 
   const spawnTrial = () => {
     if (phaseRef.current !== "playing") return;
+
+    // Resolve an unclicked item before replacing it at the next onset.
+    if (currentItemRef.current && !trialLockedRef.current) {
+      if (difficultySettings[difficultyRef.current].waitForResponse) return;
+      handleTimeout(currentItemRef.current);
+    }
 
     if (itemTimeoutRef.current) {
       clearTimeout(itemTimeoutRef.current);
@@ -1715,7 +1563,7 @@ const TrainingPage_SRT = () => {
     }
 
     const currentDifficulty = difficultyRef.current;
-    const currentConfig = difficultySettings[currentDifficulty] || difficultySettings["easy-1"];
+    const currentConfig = difficultySettings[currentDifficulty] || difficultySettings.beginner;
 
     if (currentConfig.maxTrials && currentTrialRef.current >= currentConfig.maxTrials) {
       finishTraining();
@@ -1726,8 +1574,7 @@ const TrainingPage_SRT = () => {
     currentTrialRef.current = trialIndex;
 
     const position = getRandomPosition();
-    const type = getRandomType(trialIndex);
-    recentTypesRef.current = [...recentTypesRef.current, type.key].slice(-24);
+    const type = getRandomType();
 
     const newItem = {
       id: `${Date.now()}-${trialIndex}`,
@@ -1758,6 +1605,12 @@ const TrainingPage_SRT = () => {
       if (trialLockedRef.current) return;
 
       spawnTimeRef.current = performance.now();
+      newItem.stimulusOnsetMs = Math.round(spawnTimeRef.current);
+      newItem.stimulusIntervalMs = previousOnsetRef.current === null
+        ? null : Math.round(spawnTimeRef.current - previousOnsetRef.current);
+      previousOnsetRef.current = spawnTimeRef.current;
+      newItem.visibleTimeMs = currentConfig.visibleTime;
+      newItem.nextStimulusIntervalMs = currentConfig.waitForResponse ? null : getRandomDelay(currentConfig);
 
       const assistConfig = getAssistConfig(type);
 
@@ -1770,9 +1623,12 @@ const TrainingPage_SRT = () => {
         }, assistConfig.delay);
       }
 
-      itemTimeoutRef.current = setTimeout(() => {
-        handleTimeout(newItem);
-      }, currentConfig.visibleTime);
+      if (!currentConfig.waitForResponse) {
+        itemTimeoutRef.current = setTimeout(() => {
+          handleTimeout(newItem);
+        }, currentConfig.visibleTime);
+        scheduleNextTrial(newItem.nextStimulusIntervalMs);
+      }
     });
   };
 
@@ -1795,15 +1651,14 @@ const TrainingPage_SRT = () => {
       assistTimeoutRef.current = null;
     }
 
-    const currentDifficulty = difficultyRef.current;
-    const currentConfig = difficultySettings[currentDifficulty] || difficultySettings["easy-1"];
     const isRotten = targetItem.type.key === "rotten";
     const wasAssisted = assistedTrialRef.current;
     const assistType = assistTypeRef.current;
     const assistShownAt = assistShownAtRef.current;
 
     if (isRotten) {
-      setScore((prev) => prev + 1);
+      scoreRef.current += 1;
+      setScore(scoreRef.current);
 
       addTrialRecord({
         trialIndex: targetItem.trialIndex,
@@ -1859,7 +1714,6 @@ const TrainingPage_SRT = () => {
     currentItemRef.current = null;
     spawnTimeRef.current = null;
 
-    scheduleNextTrial(getRandomDelay(currentConfig));
   };
 
   const handleItemClick = (event, targetItem) => {
@@ -1875,7 +1729,7 @@ const TrainingPage_SRT = () => {
     trialLockedRef.current = true;
 
     const currentDifficulty = difficultyRef.current;
-    const currentConfig = difficultySettings[currentDifficulty] || difficultySettings["easy-1"];
+    const currentConfig = difficultySettings[currentDifficulty] || difficultySettings.beginner;
 
     if (itemTimeoutRef.current) {
       clearTimeout(itemTimeoutRef.current);
@@ -1906,7 +1760,8 @@ const TrainingPage_SRT = () => {
         ? Math.max(0, reactionTime - assistShownAt)
         : null;
 
-    setScore((prev) => Math.max(0, prev + scoreValue));
+    scoreRef.current = Math.max(0, scoreRef.current + scoreValue);
+    setScore(scoreRef.current);
 
     addTrialRecord({
       trialIndex: targetItem.trialIndex,
@@ -1954,7 +1809,7 @@ const TrainingPage_SRT = () => {
       setEffect(null);
     }, 360);
 
-    scheduleNextTrial(getRandomDelay(currentConfig));
+    if (currentConfig.waitForResponse) scheduleNextTrial(getRandomDelay(currentConfig));
   };
 
   const handleGameAreaClick = () => {
@@ -2015,8 +1870,8 @@ const TrainingPage_SRT = () => {
   }, [trialRecords, falseClickCount]);
 
   const scoringResult = useMemo(() => {
-    return calculateSrtScore(resultRecords);
-  }, [resultRecords]);
+    return calculateSrtScore(resultRecords, { mode: "training", promptCount });
+  }, [resultRecords, promptCount]);
 
   const scoringSummary = scoringResult?.summary || {};
 
@@ -2060,6 +1915,7 @@ const TrainingPage_SRT = () => {
       difficulty,
       totalTime: Math.round((config?.totalTime || 0) / 1000),
       childProfile: getCurrentChildProfile(),
+      promptCount: promptEventsRef.current.length,
     });
 
     return {
@@ -2088,7 +1944,7 @@ const TrainingPage_SRT = () => {
     };
     // Analyzer helpers are pure; these are their complete mutable data inputs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trialRecords, falseClickCount, repeatedClickCount, score, difficulty, config]);
+  }, [trialRecords, falseClickCount, repeatedClickCount, score, difficulty, config, promptCount]);
 
   /* eslint-disable react-hooks/exhaustive-deps -- buildLongAttentionMetrics is a pure render-local helper */
   const summaryData = useMemo(() => {
@@ -2152,10 +2008,11 @@ const TrainingPage_SRT = () => {
       avgRT,
       accuracy,
       assistedCount,
+      promptCount: promptEventsRef.current.length,
       assistedRate: validTrialCount > 0 ? Math.round((assistedCount / validTrialCount) * 100) : 0,
       longAttentionMetrics,
-      rtCV: longAttentionMetrics.rtCV,
-      rtStd: longAttentionMetrics.rtStd,
+      rtCV: scoringSummary.rtCV,
+      rtStd: scoringSummary.rtStd,
       attentionDrop: longAttentionMetrics.attentionDrop,
     };
   }, [
@@ -2173,6 +2030,7 @@ const TrainingPage_SRT = () => {
     avgRT,
     scoringResult,
     scoringSummary,
+    promptCount,
   ]);
   /* eslint-enable react-hooks/exhaustive-deps */
 
@@ -2215,6 +2073,7 @@ const TrainingPage_SRT = () => {
         <main className="srt-center-shell srt-start-shell">
           <section className="srt-soft-panel srt-start-panel game-start-card-artwork srt-opening-card-artwork" aria-label="訓練開始畫面">
             <div className="srt-game-title">幫小飛鼠弟弟接橡實</div>
+            <div aria-label="訓練難度">{config.label}</div>
             <div className="srt-start-content">
               <div className="srt-dialog-bubble srt-opening-bubble">
                 一起幫小飛鼠弟弟接橡實！
@@ -2326,6 +2185,7 @@ const TrainingPage_SRT = () => {
                     <button
                       type="button"
                       className={`srt-practice-acorn ${warmupReady ? "is-ready" : ""}`}
+                      style={{ width: SRT_ITEM_SIZE, height: Math.round(SRT_ITEM_SIZE * 194 / 151), padding: 0 }}
                       onClick={handleWarmupItemClick}
                       aria-label={warmupItem.type.label}
                     >
@@ -2368,11 +2228,13 @@ const TrainingPage_SRT = () => {
 
       {phase === "playing" && (
         <main className="srt-play-page">
-          <div className={`srt-test-game-area ${idleFlashId ? "srt-idle-flash" : ""}`} onClick={handleGameAreaClick}>
+          <div data-testid="srt-game-area" className={`srt-test-game-area ${idleFlashId ? "srt-idle-flash" : ""}`} onClick={handleGameAreaClick}>
             {item && (
               <button
                 type="button"
                 className="srt-item-hitbox"
+                data-testid="srt-target"
+                data-trial-index={item.trialIndex}
                 style={{
                   left: `${item.x}%`,
                   top: `${item.y}%`,
@@ -2388,10 +2250,22 @@ const TrainingPage_SRT = () => {
                   height={item.type.intrinsicHeight}
                   alt=""
                   draggable={false}
-                  className={`srt-test-item ${getDisplayDifficultyKey(difficulty) === "hard" ? "srt-game-item-hard" : ""} ${assistEffect === "glow" ? "srt-assist-glow" : ""} ${assistEffect === "shake" ? "srt-assist-shake" : ""}`}
+                  className="srt-test-item"
+                  data-testid="srt-stimulus"
                   style={{ width: `${config.itemSize}px` }}
                 />
               </button>
+            )}
+
+            {item && assistEffect === "mouse" && (
+              <img
+                className="srt-mouse-guide srt-mouse-in-play"
+                src={mouseGuideImg}
+                width="156"
+                height="156"
+                alt="點擊橡實提示"
+                style={{ left: `${item.x}%`, top: `${item.y}%` }}
+              />
             )}
 
             {effect && <div className="srt-test-effect" style={{ left: `${effect.x}%`, top: `${effect.y}%` }} />}
@@ -3585,7 +3459,7 @@ const trainingPageCss = `
   }
 
   .srt-test-item {
-    max-width: 96px;
+    max-width: none;
   }
 }
 @media (max-width: 720px) {

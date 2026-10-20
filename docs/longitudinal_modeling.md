@@ -44,7 +44,7 @@ All rolling values remain null until the participant-task series has at least th
 
 ## Six task series
 
-The pipeline always provides keys for CBT/Corsi, PM/Picture Memory, SRT, SSG, LB/Linking Balloons and DCCS. Missing tasks return empty arrays. Task-specific trend metrics are discovered only from actual numeric `cbt_*`, `pm_*`, `srt_*`, `ssg_*`, `lb_*` and `dccs_*` feature fields; no unrecorded condition is created.
+The pipeline always provides keys for CBT/Corsi, PM/Picture Memory, SRT, ARI, LB/Linking Balloons and DCCS. Missing tasks return empty arrays. Task-specific trend metrics are discovered only from actual numeric `cbt_*`, `pm_*`, `srt_*`, `ari_*`, `lb_*` and `dccs_*` feature fields; no unrecorded condition is created.
 
 ## Personal-baseline comparison
 

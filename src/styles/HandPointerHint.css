@@ -1,0 +1,26 @@
+.hand-pointer-hint {
+  position: absolute;
+  width: clamp(48px, 6vw, 72px);
+  height: auto;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0;
+  animation: hand-pointer-demonstration 1800ms ease-in-out both;
+}
+
+@keyframes hand-pointer-demonstration {
+  0% { opacity: 0; transform: translate(42px, 32px) scale(1); }
+  20% { opacity: 1; transform: translate(32px, 24px) scale(1); }
+  55% { opacity: 1; transform: translate(0, 0) scale(1); }
+  66% { opacity: 1; transform: translate(0, 0) scale(0.82); }
+  78% { opacity: 1; transform: translate(0, 0) scale(1); }
+  100% { opacity: 0; transform: translate(0, 0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hand-pointer-hint { animation-name: hand-pointer-gentle; }
+  @keyframes hand-pointer-gentle {
+    0%, 100% { opacity: 0; }
+    25%, 75% { opacity: 1; }
+  }
+}

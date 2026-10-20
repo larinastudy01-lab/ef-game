@@ -128,7 +128,7 @@
         "Accept":  true
     },
     {
-        "File":  "SSG_end.mp4",
+        "File":  "ARI_end.mp4",
         "OriginalMB":  10.5,
         "CandidateMB":  8.79,
         "SavedPct":  16.3,
@@ -136,7 +136,7 @@
         "Accept":  true
     },
     {
-        "File":  "SSG_start.mp4",
+        "File":  "ARI_start.mp4",
         "OriginalMB":  11.55,
         "CandidateMB":  9.46,
         "SavedPct":  18.1,
@@ -144,7 +144,7 @@
         "Accept":  true
     },
     {
-        "File":  "SSG_step.mp4",
+        "File":  "ARI_step.mp4",
         "OriginalMB":  10.08,
         "CandidateMB":  8.16,
         "SavedPct":  19,

@@ -13,7 +13,7 @@ export function vectorizeContext(context = {}, arm = null) {
 export function sanitizeContext(context = {}) {
   const allowed = [...CONTEXT_FEATURES, "target_rt_ms", "previous_task", "task_history"];
   const safe = Object.fromEntries(Object.entries(context).filter(([key]) => allowed.includes(key)));
-  safe.task_history = Object.fromEntries(Object.entries(safe.task_history || {}).filter(([task]) => ["CBT", "PM", "SRT", "SSG", "LB", "DCCS"].includes(task))
+  safe.task_history = Object.fromEntries(Object.entries(safe.task_history || {}).filter(([task]) => ["CBT", "PM", "SRT", "ARI", "LB", "DCCS"].includes(task))
     .map(([task, history]) => [task, Object.fromEntries(Object.entries(history || {}).filter(([key]) =>
       ["recent_accuracy", "recent_mean_rt", "rt_variability", "performance_change", "training_count", "current_difficulty"].includes(key))) ]));
   return safe;

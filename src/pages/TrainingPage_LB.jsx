@@ -1,6 +1,10 @@
+import { useTrainingAchievementAssignment } from "../utils/useTrainingAchievementAssignment";
+import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/GamePage_LB.css";
+import { LB_DIFFICULTY_ORDER, LB_PROTOCOL_VERSION, getLBTrainingConfig, normalizeLBDifficulty } from "../utils/lbProtocol";
+import { getLBDoorplateImage as getDoorplateImage } from "../utils/lbDoorplateAssets";
 import { saveUnifiedResult } from "../utils/resultManager";
 import {
   analyzeAndSaveLBTraining,
@@ -54,18 +58,10 @@ const getQueryValue = (search, key) => {
   return params.get(key);
 };
 
-const doorplateAssets = require.context("../asset/LB", false, /(?:blue|yellow)_\d{2}\.webp$/);
-
-function getDoorplateImage(color, number) {
-  const imageColor = color === "blue" ? "blue" : "yellow";
-  const safeNumber = String(Math.min(30, Math.max(1, Number(number) || 1))).padStart(2, "0");
-  return doorplateAssets(`./${imageColor}_${safeNumber}.webp`);
-}
-
 const TRAINING_CONFIG = {
   mode: "training",
   difficulty: "adaptive",
-  hintDelayMs: 3200,
+  hintDelayMs: 3000,
   feedbackDelayCorrectMs: 420,
   feedbackDelayWrongMs: 680,
   reviewStepMs: 520,
@@ -139,243 +135,7 @@ const HOME_PATH_POINT = {
   position: { x: 92, y: 78, r: 0 },
 };
 
-const TRAINING_LEVEL_PRESETS = [
-  {
-    id: "1-1",
-    chapter: "數字小路",
-    title: "跟著腳印走",
-    ruleType: RULE_TYPES.FORWARD,
-    taskType: TASK_TYPES.GUIDE_PATH,
-    maxNumber: 5,
-    sequenceLength: 5,
-    hintMode: "always",
-    iconHint: "1 → 2 → 3",
-    ability: "順序理解、視覺搜尋",
-  },
-  {
-    id: "1-2",
-    chapter: "數字小路",
-    title: "自己找門牌",
-    ruleType: RULE_TYPES.FORWARD,
-    taskType: TASK_TYPES.FIND_SEQUENCE,
-    maxNumber: 10,
-    sequenceLength: 10,
-    hintMode: "delay",
-    iconHint: "1 → 10",
-    ability: "持續注意、順序搜尋",
-  },
-  {
-    id: "1-3",
-    chapter: "數字小路",
-    title: "記住亮過的路",
-    ruleType: RULE_TYPES.FORWARD,
-    taskType: TASK_TYPES.MEMORY_PATH,
-    maxNumber: 7,
-    sequenceLength: 7,
-    previewMs: 3000,
-    hintMode: "afterWrong",
-    hintAfterWrong: 2,
-    iconHint: "看 → 記 → 點",
-    ability: "工作記憶、順序保持",
-  },
-  {
-    id: "1-4",
-    chapter: "數字小路",
-    title: "完整數字小路",
-    ruleType: RULE_TYPES.FORWARD,
-    taskType: TASK_TYPES.FIND_SEQUENCE,
-    maxNumber: 10,
-    sequenceLength: 10,
-    hintMode: "afterWrong",
-    hintAfterWrong: 2,
-    iconHint: "1 → 10",
-    ability: "持續注意、順序搜尋",
-  },
-  {
-    id: "2-1",
-    chapter: "回家的倒路",
-    title: "倒著走示範",
-    ruleType: RULE_TYPES.BACKWARD,
-    taskType: TASK_TYPES.GUIDE_PATH,
-    maxNumber: 10,
-    startNumber: 10,
-    sequenceLength: 5,
-    hintMode: "always",
-    iconHint: "10 → 9 → 8",
-    ability: "倒序概念、規則轉換",
-  },
-  {
-    id: "2-2",
-    chapter: "回家的倒路",
-    title: "倒序找門牌",
-    ruleType: RULE_TYPES.BACKWARD,
-    taskType: TASK_TYPES.FIND_SEQUENCE,
-    maxNumber: 10,
-    sequenceLength: 10,
-    hintMode: "delay",
-    iconHint: "10 → 1",
-    ability: "工作記憶、抑制順序習慣",
-  },
-  {
-    id: "2-3",
-    chapter: "回家的倒路",
-    title: "門牌會換位置",
-    ruleType: RULE_TYPES.BACKWARD,
-    taskType: TASK_TYPES.MIXED_MISSION,
-    maxNumber: 10,
-    sequenceLength: 10,
-    shuffleAfterSteps: [3, 6],
-    hintMode: "afterWrong",
-    hintAfterWrong: 2,
-    iconHint: "10 → 1  ↻",
-    ability: "重新搜尋、抗干擾",
-  },
-  {
-    id: "3-1",
-    chapter: "紅藍換換路",
-    title: "紅色再藍色",
-    ruleType: RULE_TYPES.RED_BLUE,
-    taskType: TASK_TYPES.RULE_SWITCH,
-    maxNumber: 3,
-    sequenceLength: 6,
-    hintMode: "always",
-    iconHint: "紅1 → 藍1 → 紅2",
-    ability: "顏色切換、規則配對",
-  },
-  {
-    id: "3-2",
-    chapter: "紅藍換換路",
-    title: "藍色先出發",
-    ruleType: RULE_TYPES.BLUE_RED,
-    taskType: TASK_TYPES.RULE_SWITCH,
-    maxNumber: 5,
-    sequenceLength: 10,
-    hintMode: "delay",
-    iconHint: "藍1 → 紅1 → 藍2",
-    ability: "認知彈性、規則切換",
-  },
-  {
-    id: "3-3",
-    chapter: "紅藍換換路",
-    title: "紅藍完整挑戰",
-    ruleType: RULE_TYPES.RED_BLUE,
-    taskType: TASK_TYPES.RULE_SWITCH,
-    maxNumber: 10,
-    sequenceLength: 20,
-    hintMode: "afterWrong",
-    hintAfterWrong: 2,
-    iconHint: "紅 → 藍 → 紅 → 藍",
-    ability: "雙規則維持、認知彈性",
-  },
-  {
-    id: "4-1",
-    chapter: "森林任務",
-    title: "任務卡：倒著紅藍",
-    ruleType: RULE_TYPES.RED_BLUE,
-    taskType: TASK_TYPES.MIXED_MISSION,
-    maxNumber: 5,
-    reverseNumbers: true,
-    sequenceLength: 10,
-    hintMode: "afterWrong",
-    hintAfterWrong: 2,
-    iconHint: "紅5 → 藍5 → 紅4",
-    ability: "混合規則、彈性轉換",
-  },
-  {
-    id: "4-2",
-    chapter: "森林任務",
-    title: "森林綜合挑戰",
-    ruleType: RULE_TYPES.RED_BLUE,
-    taskType: TASK_TYPES.MIXED_MISSION,
-    maxNumber: 6,
-    sequenceLength: 12,
-    shuffleAfterSteps: [4, 8],
-    hintMode: "afterWrong",
-    hintAfterWrong: 2,
-    iconHint: "看規則 → 找門牌",
-    ability: "綜合執行功能",
-  },
-];
-
-const TRAINING_LEVELS = [
-  {
-    id: "1",
-    chapter: "Level 1",
-    title: "單一規則",
-    ruleType: RULE_TYPES.FORWARD,
-    taskType: TASK_TYPES.GUIDE_PATH,
-    maxNumber: 5,
-    sequenceLength: 5,
-    hintMode: "always",
-    iconHint: "1 → 2 → 3 → 4 → 5",
-    ability: "依照數字順序完成路徑",
-  },
-  {
-    id: "2",
-    chapter: "Level 2",
-    title: "顏色交替",
-    ruleType: RULE_TYPES.RED_BLUE,
-    taskType: TASK_TYPES.RULE_SWITCH,
-    maxNumber: 4,
-    explicitSequence: [
-      { color: "red", number: 1 },
-      { color: "blue", number: 2 },
-      { color: "red", number: 3 },
-      { color: "blue", number: 4 },
-    ],
-    hintMode: "delay",
-    iconHint: "紅1 → 藍2 → 紅3 → 藍4",
-    ability: "維持紅藍交替規則",
-  },
-  {
-    id: "3",
-    chapter: "Level 3",
-    title: "雙規則",
-    ruleType: RULE_TYPES.RED_BLUE,
-    taskType: TASK_TYPES.RULE_SWITCH,
-    maxNumber: 8,
-    explicitSequence: [
-      { color: "red", number: 1 },
-      { color: "red", number: 3 },
-      { color: "red", number: 5 },
-      { color: "red", number: 7 },
-      { color: "blue", number: 2 },
-      { color: "blue", number: 4 },
-      { color: "blue", number: 6 },
-      { color: "blue", number: 8 },
-    ],
-    hintMode: "afterWrong",
-    hintAfterWrong: 2,
-    iconHint: "紅奇數 → 藍偶數",
-    ability: "同時維持顏色與奇偶規則",
-  },
-  {
-    id: "4",
-    chapter: "Level 4",
-    title: "規則突然改變",
-    ruleType: RULE_TYPES.RED_BLUE,
-    taskType: TASK_TYPES.MIXED_MISSION,
-    maxNumber: 8,
-    explicitSequence: [
-      { color: "red", number: 1 },
-      { color: "blue", number: 2 },
-      { color: "red", number: 3 },
-      { color: "blue", number: 4 },
-      { color: "blue", number: 5 },
-      { color: "red", number: 6 },
-      { color: "blue", number: 7 },
-      { color: "red", number: 8 },
-    ],
-    ruleChangeAfterStep: 4,
-    hintMode: "afterWrong",
-    hintAfterWrong: 2,
-    iconHint: "紅1 → 藍2 → 紅3 → 藍4｜藍5 → 紅6 → 藍7 → 紅8",
-    ability: "規則改變後快速切換反應",
-  },
-];
-
-void TRAINING_LEVEL_PRESETS;
-
+const TRAINING_LEVELS = LB_DIFFICULTY_ORDER.map(getLBTrainingConfig);
 const MAX_LEVEL_PER_GAME = TRAINING_LEVELS.length;
 
 function hasExplicitTrainingLevel(location) {
@@ -383,52 +143,26 @@ function hasExplicitTrainingLevel(location) {
   const search = location?.search || "";
 
   return Boolean(
-    state.trainingLevel ??
+    state.difficulty ?? getQueryValue(search, "difficulty") ??
+      state.trainingLevel ??
       state.level ??
       getQueryValue(search, "level") ??
       getQueryValue(search, "trainingLevel")
   );
 }
 
-function applyAdaptiveConfigToLevel(level, adaptiveConfig = {}) {
-  if (!level) return level;
-
-  const nextLevel = { ...level };
-
-  if (adaptiveConfig.hintMode) {
-    nextLevel.hintMode = adaptiveConfig.hintMode;
-  }
-
-  if (Number.isFinite(Number(adaptiveConfig.hintDelayMs))) {
-    nextLevel.hintDelayMs = Number(adaptiveConfig.hintDelayMs);
-  }
-
-  if (Number.isFinite(Number(adaptiveConfig.hintAfterWrong))) {
-    nextLevel.hintAfterWrong = Number(adaptiveConfig.hintAfterWrong);
-  }
-
-  if (Number.isFinite(Number(adaptiveConfig.previewMs))) {
-    nextLevel.previewMs = Number(adaptiveConfig.previewMs);
-  }
-
-  // 低難度時關閉換位干擾；高難度且原關卡允許時保留換位。
-  if (adaptiveConfig.enablePositionShuffle === false) {
-    nextLevel.shuffleAfterSteps = [];
-  }
-
-  return nextLevel;
-}
-
 const getTrainingStageInfo = (location) => {
   const state = location?.state || {};
   const search = location?.search || "";
   const levelFromRoute =
+    state.difficulty ?? getQueryValue(search, "difficulty") ??
     state.trainingLevel ??
     state.level ??
     getQueryValue(search, "level") ??
     getQueryValue(search, "trainingLevel");
 
-  const level = clampNumber(levelFromRoute || 1, 1, MAX_LEVEL_PER_GAME);
+  const requested = normalizeLBDifficulty(levelFromRoute);
+  const level = requested ? getLBTrainingConfig(requested).difficultyLevel : 1;
   const stageId =
     state.trainingStageId ||
     state.stageId ||
@@ -603,11 +337,11 @@ function buildColorSequence({ maxNumber, ruleType, reverseNumbers = false, lengt
   const pairColors = ruleType === RULE_TYPES.BLUE_RED ? ["blue", "red"] : ["red", "blue"];
   const sequence = orderedNumbers.flatMap((number) =>
     pairColors.map((color) => ({
-      key: `${color}-${number}`,
+      key: color === "cream" ? `n-${number}` : `${color}-${number}`,
       number,
       color,
       label: `${number}`,
-      expectedColor: color,
+      expectedColor: color === "cream" ? null : color,
     }))
   );
 
@@ -617,11 +351,11 @@ function buildColorSequence({ maxNumber, ruleType, reverseNumbers = false, lengt
 function buildSequence(level) {
   if (Array.isArray(level.explicitSequence)) {
     return level.explicitSequence.map(({ color, number }) => ({
-      key: `${color}-${number}`,
+      key: color === "cream" ? `n-${number}` : `${color}-${number}`,
       number,
       color,
       label: `${number}`,
-      expectedColor: color,
+      expectedColor: color === "cream" ? null : color,
     }));
   }
 
@@ -710,7 +444,8 @@ function summarizeLogs(logs, options = {}) {
   const safeLogs = Array.isArray(logs) ? logs : [];
   const correctLogs = safeLogs.filter((log) => log.isCorrect);
   const wrongLogs = safeLogs.filter((log) => !log.isCorrect);
-  const hintCount = safeLogs.filter((log) => log.hintShown).length;
+  const promptEvents = options.promptEvents || safeLogs.flatMap((log) => log.promptEvents || []);
+  const hintCount = promptEvents.length;
   const expectedSteps = Math.max(0, Number(options.expectedSteps) || 0);
   const completedSteps = Math.min(correctLogs.length, expectedSteps || correctLogs.length);
   const completionRate = expectedSteps
@@ -729,7 +464,7 @@ function summarizeLogs(logs, options = {}) {
 
   const accuracy = safeLogs.length ? Math.round((correctLogs.length / safeLogs.length) * 100) : 0;
   const score = Math.round((accuracy * 0.65) + (completionRate * 0.35));
-  const stars = completionRate >= 100 && score >= 85 ? 3 : completionRate >= 60 && score >= 60 ? 2 : 1;
+  const stars = completionRate >= 100 ? (score >= 85 ? 3 : score >= 60 ? 2 : 1) : 1;
 
   return {
     accuracy,
@@ -741,7 +476,11 @@ function summarizeLogs(logs, options = {}) {
     completed: expectedSteps > 0 && completedSteps >= expectedSteps,
     correctTrials: correctLogs.length,
     wrongTrials: wrongLogs.length,
+    timeoutCount: safeLogs.filter((log) => log.isTimeout).length,
     hintCount,
+    promptCount: hintCount,
+    idleHintCount: promptEvents.filter((event) => event.reason === "idle").length,
+    ruleErrorHintCount: promptEvents.filter((event) => event.reason === "rule_error").length,
     avgReactionTime,
     errorTypes,
   };
@@ -798,6 +537,9 @@ function DoorplateButton({
         className={`lb-doorplate-art ${hidePlateNumber ? "lb-doorplate-art-hidden" : ""}`}
         draggable="false"
       />
+      {activeHint && (
+        <img src={mouseGuideImg} alt="MOUSE 提示正確答案" className="lb-answer-mouse" draggable="false" />
+      )}
     </button>
   );
 }
@@ -1056,7 +798,10 @@ function TrainingInlineStyle() {
       .lb-doorplate-node-completed { opacity: 0.68 !important; }
       .lb-doorplate-node-correct-flash { filter: drop-shadow(0 0 18px rgba(255, 222, 96, 0.95)) !important; }
       .lb-doorplate-node-wrong { filter: drop-shadow(0 0 14px rgba(255, 92, 92, 0.95)) !important; }
-      .lb-training-hint-target { filter: drop-shadow(0 0 22px rgba(255, 225, 73, 1)) drop-shadow(0 0 12px rgba(255, 153, 44, .75)) !important; }
+      .lb-training-hint-target { z-index: 15 !important; filter: drop-shadow(0 0 22px rgba(255, 225, 73, 1)) drop-shadow(0 0 12px rgba(255, 153, 44, .75)) !important; }
+      .lb-doorplate-node-red .lb-doorplate-art, .lb-image-guide-step .lb-doorplate-art-red { filter: sepia(1) saturate(5.5) hue-rotate(320deg) brightness(1.02) drop-shadow(0 10px 8px rgba(89,58,22,.16)) !important; }
+      .lb-answer-mouse { position: absolute; width: 75%; height: auto; right: -35%; bottom: -40%; z-index: 30; pointer-events: none; }
+      .lb-training-clock { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 35; border-radius: 18px; padding: 8px 18px; background: #fff9e9; color: #453723; font-weight: 700; pointer-events: none; }
       .lb-training-memory-hidden .lb-doorplate-number:empty::after { content: "?"; color: rgba(107, 58, 22, .35); }
 
       .lb-map-home-img {
@@ -1822,8 +1567,8 @@ function TrainingInlineStyle() {
 export default function TrainingPage_LB() {
   const navigate = useNavigate();
   const location = useLocation();
-  const trainingStage = getTrainingStageInfo(location);
-  const stageLevelIndex = clampNumber(trainingStage.level, 1, TRAINING_LEVELS.length) - 1;
+  const routedStage = getTrainingStageInfo(location);
+  const stageLevelIndex = clampNumber(routedStage.level, 1, TRAINING_LEVELS.length) - 1;
   const adaptiveInitial = useMemo(() => getLBInitialTrainingConfig(), []);
   const adaptiveStartIndex = hasExplicitTrainingLevel(location)
     ? stageLevelIndex
@@ -1832,10 +1577,11 @@ export default function TrainingPage_LB() {
         0,
         TRAINING_LEVELS.length - 1
       );
-  const stageLevel = applyAdaptiveConfigToLevel(
-    TRAINING_LEVELS[adaptiveStartIndex],
-    adaptiveInitial?.trainingConfig
-  );
+  const stageLevel = TRAINING_LEVELS[adaptiveStartIndex];
+  const trainingStage = hasExplicitTrainingLevel(location) ? routedStage : {
+    ...routedStage, level: adaptiveStartIndex + 1, order: adaptiveStartIndex + 1,
+    stageId: `lb-L${adaptiveStartIndex + 1}`,
+  };
 
   const [phase, setPhase] = useState("start");
   const [levelIndex, setLevelIndex] = useState(adaptiveStartIndex);
@@ -1852,10 +1598,19 @@ export default function TrainingPage_LB() {
   const [showRuleChange, setShowRuleChange] = useState(false);
   const [walkingIndex, setWalkingIndex] = useState(0);
   const [summary, setSummary] = useState(null);
+  const [remainingSeconds, setRemainingSeconds] = useState(stageLevel.answerTimeLimit);
 
   const delayTimerRef = useRef(null);
   const wrongFlashTimerRef = useRef(null);
   const hintTimerRef = useRef(null);
+  const answerTimerRef = useRef(null);
+  const countdownRef = useRef(null);
+  const stepActiveRef = useRef(false);
+  const hintKeyRef = useRef(null);
+  const promptEventsRef = useRef([]);
+  const pendingPromptEventsRef = useRef([]);
+  const finishedRef = useRef(false);
+  const timeoutHandlerRef = useRef(null);
   const previewTimerRef = useRef(null);
   const stepRafRef = useRef(null);
   const reviewIntervalRef = useRef(null);
@@ -1870,24 +1625,14 @@ export default function TrainingPage_LB() {
   const stepVideoRef = useRef(null);
   const endingVideoRef = useRef(null);
 
-  const currentLevel = useMemo(
-    () =>
-      applyAdaptiveConfigToLevel(
-        TRAINING_LEVELS[levelIndex],
-        adaptiveInitial?.trainingConfig
-      ),
-    [levelIndex, adaptiveInitial]
-  );
+  const currentLevel = TRAINING_LEVELS[levelIndex];
+  const achievementAssignment = useTrainingAchievementAssignment({ gameId: "LB", difficulty: currentLevel.difficulty, difficultyLabel: currentLevel.difficultyLabel, trainingLevel: trainingStage.level, location });
   const currentSequence = useMemo(() => buildSequence(currentLevel), [currentLevel]);
-  const adaptiveDifficultyLevel = clampNumber(
-    adaptiveInitial?.difficultyLevel ?? 3,
-    1,
-    5
-  );
-  const adaptiveDifficulty = adaptiveInitial?.difficulty || "normal";
+  const adaptiveDifficultyLevel = currentLevel.difficultyLevel;
+  const adaptiveDifficulty = currentLevel.difficulty;
   const activeFeedbackConfig = {
     ...TRAINING_CONFIG,
-    ...(adaptiveInitial?.trainingConfig || {}),
+    ...currentLevel,
   };
   const expectedItem = currentSequence[stepIndex] || null;
 
@@ -1895,6 +1640,9 @@ export default function TrainingPage_LB() {
     clearTimeout(delayTimerRef.current);
     clearTimeout(wrongFlashTimerRef.current);
     clearTimeout(hintTimerRef.current);
+    clearTimeout(answerTimerRef.current);
+    clearInterval(countdownRef.current);
+    stepActiveRef.current = false;
     clearTimeout(previewTimerRef.current);
     clearTimeout(reviewEndTimerRef.current);
     clearInterval(reviewIntervalRef.current);
@@ -1932,42 +1680,50 @@ export default function TrainingPage_LB() {
     };
   }, [clearTrainingTimers, pauseAllVideos]);
 
+  const showMouseHint = useCallback((reason) => {
+    if (currentLevel.hintMode === "none" || !stepActiveRef.current || hintKeyRef.current || !expectedItem) return;
+    const event = {
+      id: `lb-prompt-${promptEventsRef.current.length + 1}`,
+      trialId: `${currentLevel.id}-${stepIndex + 1}`,
+      levelId: currentLevel.id, stepInLevel: stepIndex + 1, reason,
+      expectedKey: expectedItem.key,
+      elapsedMs: Math.round(performance.now() - stepStartTimeRef.current),
+      shownAt: new Date().toISOString(),
+    };
+    promptEventsRef.current.push(event);
+    pendingPromptEventsRef.current.push(event);
+    hintKeyRef.current = expectedItem.key;
+    setHintKey(expectedItem.key);
+  }, [currentLevel, expectedItem, stepIndex]);
+
   useEffect(() => {
-    if (phase !== "playing" || !expectedItem || isLocked) return undefined;
-
-    clearTimeout(hintTimerRef.current);
-    cancelAnimationFrame(stepRafRef.current);
-
-    // 計時起點必須在引導結束、門牌正式啟用，且畫面完成繪製後才重設。
-    // 避免把任務說明、記憶預覽、錯誤鎖定提示時間算進第一步或下一步 RT。
+    if (phase !== "playing" || !expectedItem) return undefined;
+    // Each target gets one deadline. Wrong clicks never restart this clock.
     stepRafRef.current = requestAnimationFrame(() => {
       stepStartTimeRef.current = performance.now();
-
-      if (currentLevel.hintMode === "always") {
-        setHintKey(expectedItem.key);
-      } else {
-        setHintKey(null);
-      }
-
+      stepActiveRef.current = true;
+      hintKeyRef.current = null;
+      setHintKey(null);
+      setRemainingSeconds(currentLevel.answerTimeLimit);
       if (currentLevel.hintMode === "delay") {
-        hintTimerRef.current = setTimeout(() => {
-          setHintKey(expectedItem.key);
-          setFooterMessage(`提示：找 ${getExpectedText(expectedItem)}`);
-        }, currentLevel.hintDelayMs || TRAINING_CONFIG.hintDelayMs);
+        hintTimerRef.current = setTimeout(() => showMouseHint("idle"), currentLevel.hintDelayMs);
       }
+      answerTimerRef.current = setTimeout(() => timeoutHandlerRef.current?.(), currentLevel.answerTimeLimit * 1000);
+      countdownRef.current = setInterval(() => {
+        setRemainingSeconds(Math.max(0, Math.ceil(currentLevel.answerTimeLimit - (performance.now() - stepStartTimeRef.current) / 1000)));
+      }, 250);
     });
-
     return () => {
+      stepActiveRef.current = false;
       clearTimeout(hintTimerRef.current);
+      clearTimeout(answerTimerRef.current);
+      clearInterval(countdownRef.current);
       cancelAnimationFrame(stepRafRef.current);
     };
-  }, [phase, levelIndex, stepIndex, expectedItem, currentLevel, isLocked]);
+  }, [phase, expectedItem, currentLevel, showMouseHint]);
 
   function resetLevel(nextLevelIndex) {
-    const level = applyAdaptiveConfigToLevel(
-      TRAINING_LEVELS[nextLevelIndex],
-      adaptiveInitial?.trainingConfig
-    );
+    const level = TRAINING_LEVELS[nextLevelIndex];
     clearTrainingTimers();
 
     setLevelIndex(nextLevelIndex);
@@ -1980,6 +1736,9 @@ export default function TrainingPage_LB() {
     setWrongKey(null);
     setCorrectGlowKey(null);
     setHintKey(null);
+    hintKeyRef.current = null;
+    pendingPromptEventsRef.current = [];
+    setRemainingSeconds(level.answerTimeLimit);
     setIsLocked(false);
     setWalkingIndex(0);
     setMemoryHidden(false);
@@ -1989,6 +1748,8 @@ export default function TrainingPage_LB() {
 
   function startTraining(startIndex = stageLevelIndex) {
     logsRef.current = [];
+    promptEventsRef.current = [];
+    finishedRef.current = false;
     totalStartedAtRef.current = performance.now();
     sessionStorage.removeItem(SESSION_KEY);
     setSummary(null);
@@ -2017,10 +1778,7 @@ export default function TrainingPage_LB() {
     resetLevel(levelIndex);
     clearTrainingTimers();
     setTrainingPhase("playing");
-    const level = applyAdaptiveConfigToLevel(
-      TRAINING_LEVELS[levelIndex],
-      adaptiveInitial?.trainingConfig
-    );
+    const level = TRAINING_LEVELS[levelIndex];
     setFooterMessage(`找：${getExpectedText(buildSequence(level)[0])}`);
 
     if (level.taskType === TASK_TYPES.MEMORY_PATH) {
@@ -2037,13 +1795,16 @@ export default function TrainingPage_LB() {
   }
 
   function buildLog({ clickedItem, isCorrect, reactionTime, status, wrongType, hintShown }) {
+    const promptEvents = pendingPromptEventsRef.current.splice(0);
     return {
       task: "LB",
       gameId: "LB",
       mode: TRAINING_CONFIG.mode,
       difficulty: adaptiveDifficulty,
       difficultyLevel: adaptiveDifficultyLevel,
-      difficultyLabel: adaptiveInitial?.difficultyLabel || "普通",
+      difficultyLabel: currentLevel.difficultyLabel,
+      protocolVersion: LB_PROTOCOL_VERSION,
+      answerTimeLimit: currentLevel.answerTimeLimit,
       abilityType: "flexibility",
 
       levelId: currentLevel.id,
@@ -2073,6 +1834,12 @@ export default function TrainingPage_LB() {
       result: status,
       wrongType: wrongType || null,
       hintShown: Boolean(hintShown),
+      hintUsed: Boolean(hintShown),
+      promptEvents,
+      promptCount: promptEvents.length,
+      idleHintCount: promptEvents.filter((event) => event.reason === "idle").length,
+      ruleErrorHintCount: promptEvents.filter((event) => event.reason === "rule_error").length,
+      isTimeout: status === "timeout",
       rt: reactionTime,
       reactionTime,
       timestamp: new Date().toISOString(),
@@ -2086,7 +1853,11 @@ export default function TrainingPage_LB() {
 
   function handleBlankClick(event) {
     if (event.target !== event.currentTarget) return;
-    if (phase !== "playing" || isLocked) return;
+    if (phase !== "playing" || isLocked || !stepActiveRef.current) return;
+    if (performance.now() - stepStartTimeRef.current >= currentLevel.answerTimeLimit * 1000) {
+      handleAnswerTimeout();
+      return;
+    }
 
     const reactionTime = Math.max(0, Math.round(performance.now() - stepStartTimeRef.current));
     appendLog(
@@ -2104,9 +1875,12 @@ export default function TrainingPage_LB() {
   }
 
   function handleDoorplateClick(item) {
-    if (phase !== "playing" || isLocked || !expectedItem) return;
+    if (phase !== "playing" || isLocked || !expectedItem || !stepActiveRef.current) return;
+    if (performance.now() - stepStartTimeRef.current >= currentLevel.answerTimeLimit * 1000) {
+      handleAnswerTimeout();
+      return;
+    }
 
-    clearTimeout(hintTimerRef.current);
     clearTimeout(delayTimerRef.current);
     clearTimeout(wrongFlashTimerRef.current);
     setIsLocked(true);
@@ -2114,6 +1888,9 @@ export default function TrainingPage_LB() {
     const reactionTime = Math.max(0, Math.round(performance.now() - stepStartTimeRef.current));
     const correct = isCorrectStep(item, expectedItem);
     const wrongType = correct ? null : getWrongType(item, expectedItem);
+    if (!correct && currentLevel.hintOnRuleError && ["colorError", "ruleSwitchError"].includes(wrongType)) {
+      showMouseHint("rule_error");
+    }
 
     appendLog(
       buildLog({
@@ -2122,15 +1899,20 @@ export default function TrainingPage_LB() {
         reactionTime,
         status: correct ? "correct" : "wrong",
         wrongType,
-        hintShown: Boolean(hintKey),
+        hintShown: Boolean(hintKeyRef.current),
       })
     );
 
     if (correct) {
+      stepActiveRef.current = false;
+      clearTimeout(hintTimerRef.current);
+      clearTimeout(answerTimerRef.current);
+      clearInterval(countdownRef.current);
       wrongStepCountRef.current = 0;
       setCorrectGlowKey(item.key);
       setWrongKey(null);
       setHintKey(null);
+      hintKeyRef.current = null;
 
       // 過關判定改用本次點擊後即時計算出的 nextCompleted.length，
       // 避免依賴 React 非同步 state 導致混合任務或記憶隱藏關卡判定錯位。
@@ -2193,10 +1975,6 @@ export default function TrainingPage_LB() {
 
     setFooterMessage(messageMap[wrongType] || "再試一次");
 
-    if (wrongStepCountRef.current >= (currentLevel.hintAfterWrong || 2)) {
-      setHintKey(expectedItem.key);
-    }
-
     // 誤點後不前進、不把錯誤門牌設為完成，並立即解鎖讓孩子可以重新點選。
     setIsLocked(false);
     wrongFlashTimerRef.current = setTimeout(() => {
@@ -2233,12 +2011,7 @@ export default function TrainingPage_LB() {
     const completedStepCount = completedKeysRef.current.length;
 
     if (completedStepCount < currentSequence.length) {
-      setHintKey(expectedItem?.key || null);
-      setFooterMessage(
-        expectedItem
-          ? `還沒完成，下一個請找：${getExpectedText(expectedItem)}`
-          : "還沒完成這條小路"
-      );
+      setFooterMessage("還沒完成這條小路，請繼續作答");
       return;
     }
 
@@ -2251,15 +2024,30 @@ export default function TrainingPage_LB() {
     finishTraining();
   }
 
-  function finishTraining() {
+  function handleAnswerTimeout() {
+    if (!stepActiveRef.current || finishedRef.current) return;
+    setRemainingSeconds(0);
+    appendLog(buildLog({
+      clickedItem: null, isCorrect: false,
+      reactionTime: currentLevel.answerTimeLimit * 1000,
+      status: "timeout", wrongType: "timeout", hintShown: Boolean(hintKeyRef.current),
+    }));
+    finishTraining("timeout");
+  }
+  timeoutHandlerRef.current = handleAnswerTimeout;
+
+  function finishTraining(reason) {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
     clearTrainingTimers();
 
     const finalLogs = logsRef.current;
     const expectedStepCount = currentSequence.length;
     const completedStepCount = finalLogs.filter((log) => log.levelId === currentLevel.id && log.isCorrect).length;
     const isLevelCompleted = expectedStepCount > 0 && completedStepCount >= expectedStepCount;
-    const finishReason = isLevelCompleted ? "completed" : "manualIncomplete";
-    const resultSummary = summarizeLogs(finalLogs, { expectedSteps: expectedStepCount });
+    const finishReason = isLevelCompleted ? "completed" : reason || "manualIncomplete";
+    const promptEvents = [...promptEventsRef.current];
+    const resultSummary = summarizeLogs(finalLogs, { expectedSteps: expectedStepCount, promptEvents });
 
     const levelSummaries = [currentLevel].map((level) => {
       const levelLogs = finalLogs.filter((log) => log.levelId === level.id);
@@ -2288,13 +2076,17 @@ export default function TrainingPage_LB() {
     });
 
     const payload = {
+      achievementAssignment,
       task: "LB",
       gameId: "LB",
       taskName: "幫助迷路的綿羊奶奶",
       mode: TRAINING_CONFIG.mode,
       difficulty: adaptiveDifficulty,
       difficultyLevel: adaptiveDifficultyLevel,
-      difficultyLabel: adaptiveInitial?.difficultyLabel || "普通",
+      difficultyLabel: currentLevel.difficultyLabel,
+      protocolVersion: LB_PROTOCOL_VERSION,
+      protocol: currentLevel,
+      promptEvents,
       nextDifficulty: adaptiveAnalysis.nextDifficulty,
       nextDifficultyLevel: adaptiveAnalysis.nextDifficultyLevel,
       nextDifficultyLabel: adaptiveAnalysis.nextDifficultyLabel,
@@ -2311,6 +2103,7 @@ export default function TrainingPage_LB() {
       completed: isLevelCompleted,
       finishReason,
       score: resultSummary.score,
+      status: isLevelCompleted ? "completed" : "interrupted",
       levelSummaries,
       weakestLevel,
       recommendedNextTraining:
@@ -2370,7 +2163,7 @@ export default function TrainingPage_LB() {
             <h1 className="lb-game-title">幫助迷路的綿羊奶奶</h1>
             <div className="lb-start-content">
               <div className="lb-dialog-bubble lb-opening-bubble">
-                先跟綿羊奶奶練習這一關的小路，照順序把小路連回家。
+                {currentLevel.difficultyLabel}：{currentLevel.title}。每個門牌有 {currentLevel.answerTimeLimit} 秒作答時間，照順序把小路連回家。
               </div>
               <div className="lb-round-icon lb-start-avatar">
                 <img width={1024} height={1024} loading="lazy" src={blowingBubblesImg} alt="綿羊奶奶和朋友們" draggable="false" />
@@ -2467,7 +2260,7 @@ export default function TrainingPage_LB() {
                 <React.Fragment key={item.key}>
                   {index > 0 && <span className="lb-image-guide-arrow" aria-hidden="true">→</span>}
                   <div className="lb-image-guide-step">
-                    <img src={getDoorplateImage(item.color, item.number)} alt={`門牌 ${getExpectedText(item)}`} draggable="false" />
+                    <img src={getDoorplateImage(item.color, item.number)} className={item.color === "red" ? "lb-doorplate-art-red" : undefined} alt={`門牌 ${getExpectedText(item)}`} draggable="false" />
                   </div>
                 </React.Fragment>
               ))}
@@ -2530,7 +2323,7 @@ export default function TrainingPage_LB() {
             </div>
             <div className="lb-start-content lb-result-content">
               <div className="lb-dialog-bubble">
-                訓練完成！你幫綿羊奶奶完成這一關的小路。
+                {summary?.completed ? "訓練完成！你幫綿羊奶奶完成這一關的小路。" : "這次時間到了，休息一下，再陪綿羊奶奶試一次吧！"}
               </div>
               <div className="lb-round-icon lb-result-icon">
                 <img width={1024} height={1024} loading="lazy" src={homeImg} alt="LB 訓練圖示" draggable="false" />
@@ -2555,7 +2348,10 @@ export default function TrainingPage_LB() {
     <div className="lb-page lb-page-with-bg lb-training-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
       <TrainingInlineStyle />
       <div className="lb-training-simple-frame">
-        <main className="lb-training-simple-play" onClick={handleBlankClick}>
+        <main className="lb-training-simple-play" onClick={handleBlankClick} data-testid="lb-training-stage" data-phase={phase} data-difficulty={currentLevel.difficulty}>
+          <div className="lb-training-clock" role="timer" aria-label="作答剩餘時間">
+            {currentLevel.difficultyLabel} · {phase === "reviewing" ? "路線完成" : `剩餘 ${remainingSeconds} 秒`}
+          </div>
           {showRuleChange && (
             <div
               role="status"

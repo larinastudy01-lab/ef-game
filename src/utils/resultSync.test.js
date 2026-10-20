@@ -14,7 +14,7 @@ jest.mock("../lib/supabaseClient", () => ({
 let authChanged;
 let stop;
 const result = (id = "attempt-1", status = "completed") => ({
-  resultId: id, child: { childId: "child-1" }, game: { gameId: "SSG" },
+  resultId: id, child: { childId: "child-1" }, game: { gameId: "ARI" },
   session: { mode: "test", status, startedAt: "2026-10-07T00:00:00Z" },
   trials: [{ isCorrect: false }], rawResult: {},
 });
@@ -53,7 +53,7 @@ test("offline records persist; the online event automatically uploads the same I
   await flushResultOutbox();
   expect(saveGameResultToCloud).not.toHaveBeenCalled();
   expect(readResultOutbox()).toHaveLength(1);
-  localStorage.setItem("ssgTestResult", JSON.stringify({ resultId: record.resultId, syncStatus: "pending" }));
+  localStorage.setItem("ariTestResult", JSON.stringify({ resultId: record.resultId, syncStatus: "pending" }));
   online(true);
   window.dispatchEvent(new Event("online"));
   await Promise.resolve();
@@ -62,7 +62,7 @@ test("offline records persist; the online event automatically uploads the same I
   await flushResultOutbox();
   expect(saveGameResultToCloud).toHaveBeenCalledWith(expect.objectContaining({ resultId: record.resultId }), { expectedOwnerId: "owner-a" });
   expect(readResultOutbox()).toHaveLength(0);
-  expect(JSON.parse(localStorage.getItem("ssgTestResult")).syncStatus).toBe("synced");
+  expect(JSON.parse(localStorage.getItem("ariTestResult")).syncStatus).toBe("synced");
 });
 
 test("failed and unauthenticated uploads remain pending while other records succeed", async () => {
@@ -128,8 +128,8 @@ test("recovery preserves answers and marks abandoned drafts interrupted without 
   expect(entry.activeTabId).toBeNull();
   expect(entry.result.session.status).toBe("interrupted");
   expect(entry.result.trials).toEqual([{ isCorrect: false }]);
-  expect(localStorage.getItem("ssgTestResult")).toBeNull();
-  expect(localStorage.getItem("ef_test_SSG_completed")).toBeNull();
+  expect(localStorage.getItem("ariTestResult")).toBeNull();
+  expect(localStorage.getItem("ef_test_ARI_completed")).toBeNull();
 });
 
 test("live attempts, including a background tab holding a lock, are not recovered", async () => {

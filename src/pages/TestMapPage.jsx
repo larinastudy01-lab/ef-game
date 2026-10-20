@@ -4,7 +4,7 @@ import gameMapBackground from "../asset/GameMap.webp";
 import srtIcon from "../asset/SRT_icon.webp";
 import pmIcon from "../asset/PM_icon.webp";
 import cbtIcon from "../asset/CBT_icon.webp";
-import ssgIcon from "../asset/SSG/cat.webp";
+import ariIcon from "../asset/ARI/cat.webp";
 import dccsIcon from "../asset/DCCS_icon.webp";
 import lbIcon from "../asset/LB_icon.webp";
 import mouseGuide from "../asset/mouse.webp";
@@ -14,12 +14,12 @@ import "../styles/TestMapPage.css";
 
 const TEST_GAMES = [
   {
-    gameId: "SSG",
+    gameId: "ARI",
     level: 1,
     name: "貓狗合唱團",
     childText: "聽聲音選相反動物",
-    route: "/test-ssg",
-    icon: ssgIcon,
+    route: "/test-ari",
+    icon: ariIcon,
     x: 8.6,
     y: 76.0,
   },
@@ -98,7 +98,7 @@ const LEGACY_RESULT_KEYS = {
     "testResult_CBT",
     "CBT_testResult",
   ],
-  SSG: ["ssgTestResult", "SSG_RESULT", "testResult_SSG", "SSG_testResult"],
+  ARI: ["ariTestResult", "ARI_RESULT", "testResult_ARI", "ARI_testResult"],
   DCCS: ["dccsTestResult", "DCCS_RESULT", "dccsResult", "testResult_DCCS", "DCCS_testResult"],
   LB: ["lbTestResult", "LB_RESULT", "linkingBalloonsTestResult", "testResult_LB", "LB_testResult"],
 };
@@ -107,7 +107,7 @@ const LEGACY_STAR_KEYS = {
   SRT: ["srtStars", "srt_stars", "SRT_stars", "trainingSrtStars", "srtTrainingStars", "srtTrainingResult"],
   PM: ["pmStars", "pm_stars", "PM_stars", "trainingPmStars", "pmTrainingStars", "pmTrainingResult"],
   CBT: ["cbtStars", "cbt_stars", "CBT_stars", "trainingCbtStars", "cbtTrainingStars", "cbtTrainingResult"],
-  SSG: ["ssgStars", "ssg_stars", "SSG_stars", "trainingSsgStars", "ssgTrainingStars", "ssgTrainingResult"],
+  ARI: ["ariStars", "ari_stars", "ARI_stars", "trainingAriStars", "ariTrainingStars", "ariTrainingResult"],
   DCCS: ["dccsStars", "dccs_stars", "DCCS_stars", "trainingDccsStars", "dccsTrainingStars", "dccsTrainingResult"],
   LB: ["lbStars", "lb_stars", "LB_stars", "trainingLbStars", "lbTrainingStars", "lbTrainingResult"],
 };

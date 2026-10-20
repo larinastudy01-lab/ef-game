@@ -6,7 +6,7 @@ import { LONGITUDINAL_VERSION } from "./version";
 
 export function analyzeParticipantLongitudinal(participantId, taskRows = [], recommendations = []) {
   const participantRows = taskRows.filter((row) => row.participant_id === participantId);
-  const taskSeries = Object.fromEntries(["CBT", "PM", "SRT", "SSG", "LB", "DCCS"].map((task) => [task,
+  const taskSeries = Object.fromEntries(["CBT", "PM", "SRT", "ARI", "LB", "DCCS"].map((task) => [task,
     addRollingFeatures(participantRows.filter((row) => row.task_code === task))]));
   return { longitudinal_version: LONGITUDINAL_VERSION, participant_id: participantId,
     comparison_reference: "Personal baseline (first valid recorded session for the same task and metric); no normative comparison.",

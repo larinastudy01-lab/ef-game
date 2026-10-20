@@ -14,23 +14,15 @@
   =========================================================
 */
 
+import { SRT_DIFFICULTY_ORDER, normalizeSrtDifficulty, getSrtDifficultyStep, getSrtDifficultyFromStep } from "../utils/srtProtocol";
+
 const MIN_VALID_REACTION_TIME_MS = 150;
 const MIN_TOTAL_TRIALS_FOR_RECOMMENDATION = 15;
 const MIN_VALID_RT_FOR_RECOMMENDATION = 8;
 const MIN_TOTAL_TRIALS_FOR_SEGMENT = 15;
 const MIN_SPECIAL_TRIALS = 3;
 
-const DIFFICULTY_ORDER = [
-  "easy-1",
-  "easy-2",
-  "easy-3",
-  "medium-1",
-  "medium-2",
-  "medium-3",
-  "hard-1",
-  "hard-2",
-  "hard-3",
-];
+const DIFFICULTY_ORDER = SRT_DIFFICULTY_ORDER;
 
 const clamp = (value, min, max) => {
   const number = Number(value);
@@ -88,30 +80,16 @@ const standardDeviation = (values = []) => {
 };
 
 const getDifficultyStep = (difficultyKey) => {
-  const index = DIFFICULTY_ORDER.indexOf(difficultyKey);
-
-  return index >= 0 ? index + 1 : 1;
+  return getSrtDifficultyStep(difficultyKey);
 };
 
 const getDifficultyFromStep = (step) => {
   const safeStep = clamp(step, 1, DIFFICULTY_ORDER.length);
-  const index = safeStep - 1;
-
-  return DIFFICULTY_ORDER[index];
+  return getSrtDifficultyFromStep(safeStep);
 };
 
 const getDisplayDifficulty = (difficultyKey) => {
-  const step = getDifficultyStep(difficultyKey);
-
-  if (step <= 3) {
-    return "easy";
-  }
-
-  if (step <= 6) {
-    return "medium";
-  }
-
-  return "hard";
+  return normalizeSrtDifficulty(difficultyKey) || "beginner";
 };
 
 const isValidReactionTime = (value) =>
@@ -456,6 +434,8 @@ const buildSegmentAnalysis = (records = []) => {
       first: null,
       middle: null,
       last: null,
+      rtStdIncrease: null,
+      rtCVIncrease: null,
       rtSlowing: null,
       missIncrease: null,
       wrongClickIncrease: null,
@@ -565,6 +545,8 @@ const buildSegmentAnalysis = (records = []) => {
     first,
     middle,
     last,
+    rtStdIncrease: first.rtStd !== null && last.rtStd !== null ? last.rtStd - first.rtStd : null,
+    rtCVIncrease: first.rtCV !== null && last.rtCV !== null ? Number((last.rtCV - first.rtCV).toFixed(2)) : null,
     rtSlowing,
     missIncrease,
     wrongClickIncrease,
@@ -684,7 +666,7 @@ const classifyAssistedNeed = ({
 };
 
 export const recommendNextSrtDifficulty = ({
-  difficulty = "easy-1",
+  difficulty = "beginner",
   accuracy = 0,
   unassistedAccuracy = 0,
   missRate = 0,
@@ -698,6 +680,7 @@ export const recommendNextSrtDifficulty = ({
   inhibitionDataSufficient = false,
   segmentDataSufficient = false,
 }) => {
+  difficulty = normalizeSrtDifficulty(difficulty) || "beginner";
   const currentStep =
     getDifficultyStep(difficulty);
 
@@ -924,12 +907,13 @@ export const generateSrtClinicianSummary = (
       : value;
 
   return [
-    `SRT 訓練分析：accuracy=${metrics.accuracy}%，unassistedAccuracy=${metrics.unassistedAccuracy}%，avgRT=${formatValue(metrics.avgRT)}ms，rtCV=${formatValue(metrics.rtCV)}。`,
+    `SRT 訓練分析：accuracy=${metrics.accuracy}%，unassistedAccuracy=${metrics.unassistedAccuracy}%，avgRT=${formatValue(metrics.avgRT)}ms，rtStd=${formatValue(metrics.rtStd)}ms，rtCV=${formatValue(metrics.rtCV)}。`,
     `資料品質：totalTrials=${dataQuality.totalTrials}，validRTCount=${dataQuality.validRTCount}，anticipatoryNoiseCount=${dataQuality.anticipatoryNoiseCount}，recommendationDataSufficient=${dataQuality.recommendationDataSufficient}。`,
     `錯誤型態：missRate=${metrics.missRate}%，rottenClickRate=${formatValue(metrics.rottenClickRate)}%，backgroundClickRate=${metrics.backgroundClickRate}%，repeatedClickRate=${metrics.repeatedClickRate}%。`,
     `特殊題資料：rottenTotal=${metrics.rottenTotal}，goldenTotal=${metrics.goldenTotal}，inhibitionDataSufficient=${dataQuality.inhibitionDataSufficient}，rewardDataSufficient=${dataQuality.rewardDataSufficient}。`,
-    `提示需求：assistedRate=${metrics.assistedRate}%，assistedNeed=${assistedNeed}，unassistedAvgRT=${formatValue(metrics.unassistedAvgRT)}ms，assistedAvgRT=${formatValue(metrics.assistedAvgRT)}ms。`,
+    `提示需求：promptCount=${metrics.promptCount}，assistedRate=${metrics.assistedRate}%，assistedNeed=${assistedNeed}，unassistedAvgRT=${formatValue(metrics.unassistedAvgRT)}ms，assistedAvgRT=${formatValue(metrics.assistedAvgRT)}ms。`,
     `長時間表現：segmentDataSufficient=${dataQuality.segmentDataSufficient}，rtSlowing=${formatValue(segmentAnalysis.rtSlowing)}ms，missIncrease=${formatValue(segmentAnalysis.missIncrease)}%，attentionDrop=${formatValue(segmentAnalysis.attentionDrop)}。`,
+    `前後段波動變化：rtStdIncrease=${formatValue(segmentAnalysis.rtStdIncrease)}ms，rtCVIncrease=${formatValue(segmentAnalysis.rtCVIncrease)}。金色橡實僅作遊戲獎勵；壞橡實比例較低時仍須抑制已建立的點擊習慣。`,
     `AI 標籤：attention=${attentionLevel}，impulse=${impulseLevel}，fatigue=${fatigueLevel}。`,
     `建議：${recommendation.action} → ${recommendation.nextDifficulty}。${recommendation.reason}`,
     "備註：此分析僅作為訓練表現追蹤與臨床觀察輔助，不作為診斷依據。",
@@ -940,10 +924,12 @@ export const analyzeSrtTraining = ({
   records = [],
   falseClickCount = 0,
   repeatedClickCount = 0,
-  difficulty = "easy-1",
+  difficulty = "beginner",
   totalTime = 0,
   childProfile = null,
+  promptCount = null,
 } = {}) => {
+  difficulty = normalizeSrtDifficulty(difficulty) || "beginner";
   const normalizedRecords = (
     Array.isArray(records)
       ? records
@@ -1028,6 +1014,9 @@ export const analyzeSrtTraining = ({
 
   const metrics =
     summarizeRecords(allRecords);
+  metrics.promptCount = promptCount ?? normalizedRecords.reduce(
+    (sum, record) => sum + (record.promptCount ?? (record.assisted ? 1 : 0)), 0
+  );
 
   const segmentAnalysis =
     buildSegmentAnalysis(

@@ -1,3 +1,4 @@
+import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { averageFiniteRounded } from "../utils/numericUtils";
 import {
@@ -679,7 +680,7 @@ function buildDccsTrialSets() {
 
 function safeParseStorageItem(key, fallback = null) {
   try {
-    const value = window.localStorage?.getItem(key);
+    const value = localStorage?.getItem(key);
     return value ? JSON.parse(value) : fallback;
   } catch {
     return fallback;
@@ -694,7 +695,7 @@ function getStoredCurrentChild() {
     currentChild?.childId ||
     currentChild?.id ||
     currentChild?.patientId ||
-    window.localStorage?.getItem("currentChildId") ||
+    localStorage?.getItem("currentChildId") ||
     null;
 
   if (!currentChildId) return currentChild || null;

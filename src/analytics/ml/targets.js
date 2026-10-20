@@ -93,6 +93,6 @@ function numericFeatures(row, predicate = () => true) {
 }
 
 function taskPrefix(task) {
-  return ({ CBT: "corsi", PM: "picture_memory", SRT: "srt", SSG: "ssg", LB: "linking_balloons", DCCS: "dccs" })[task] || String(task).toLowerCase();
+  return ({ CBT: "corsi", PM: "picture_memory", SRT: "srt", ARI: "ari", LB: "linking_balloons", DCCS: "dccs" })[task] || String(task).toLowerCase();
 }
 

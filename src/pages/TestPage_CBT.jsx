@@ -1,7 +1,8 @@
+import { gameLocalStorage as localStorage } from "../temporaryGameTesting/runtime";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import stoneImg from "../asset/CBT/stone.webp";
+import stoneImg from "../asset/CBT/training/stone.webp";
 import stoneShinyImg from "../asset/CBT/stone_shiny.webp";
 import personImg from "../asset/CBT/CBT_person.webp";
 import bgImg from "../asset/CBT/CBT_background.webp";
@@ -27,89 +28,29 @@ import { analyzeErrors } from "../ai/errorAnalyzer";
 import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
 import { detectCBTErrorPattern } from "../ai/cbtTrainingAnalyzer";
+import { CBT_PROTOCOL_VERSION, CBT_ANSWER_TIME_SECONDS, CBT_MAX_SEQUENCE_LENGTH, CBT_MAX_STONES, createFixedCBTBlocks } from "../utils/cbtProtocol";
+import { CBTPhaseCue, useCbtStartCue } from "../components/CBTPhaseCue";
 
 // 仍保留內部作答時間上限，但不在幼兒畫面顯示壓力式倒數。
-const ANSWER_TIME = 10;
-const SHOW_SPEED = 720;
+const ANSWER_TIME = CBT_ANSWER_TIME_SECONDS;
+const SHOW_SPEED = 800;
 const GAP_SPEED = 260;
-const TOTAL_QUESTIONS = 10;
+const TOTAL_QUESTIONS = 12;
 const START_MEMORY_LENGTH = 2;
-const MAX_MEMORY_LENGTH = 6;
+const MAX_MEMORY_LENGTH = CBT_MAX_SEQUENCE_LENGTH;
 const TRIALS_PER_MEMORY_LENGTH = 2;
 const MAX_CONSECUTIVE_TIMEOUTS = 2;
 const IDLE_HINT_DELAY_MS = 6000;
 const TEST_PAGE_ROUTE = "/test-map";
 
-// 正式測驗棋盤尺寸。石頭座標會用這個範圍即時計算，
-// 所以每一題都會真的「換位置」，不再固定成同一種排列。
+// 正式測驗使用固定九顆石頭的位置與 ID，只調整記憶序列。
 const BOARD_WIDTH = 760;
 const BOARD_HEIGHT = 455;
 const STONE_SIZE = 250;
-const STONE_ASPECT_RATIO = 360 / 203;
-const STONE_GAP = 12;
 const PERSON_OFFSET_Y = 76;
 const WALK_ANIMATION_MS = 260;
 
-function createRandomLayout(blockCount) {
-  const positions = [];
-  let attempts = 0;
-  const visualHeight = STONE_SIZE / STONE_ASPECT_RATIO;
-  const marginX = STONE_SIZE / 2 + STONE_GAP;
-  const marginY = visualHeight / 2 + STONE_GAP;
-
-  const doesNotOverlap = (candidate) => positions.every((position) => {
-    const horizontalGap = Math.abs(position.left - candidate.left);
-    const verticalGap = Math.abs(position.top - candidate.top);
-    return horizontalGap >= STONE_SIZE + STONE_GAP ||
-      verticalGap >= visualHeight + STONE_GAP;
-  });
-
-  while (positions.length < blockCount && attempts < 1800) {
-    attempts += 1;
-
-    const candidate = {
-      left:
-        marginX + Math.random() * (BOARD_WIDTH - marginX * 2),
-      top:
-        marginY + Math.random() * (BOARD_HEIGHT - marginY * 2),
-    };
-
-    if (doesNotOverlap(candidate)) {
-      positions.push(candidate);
-    }
-  }
-
-  // 保底：如果隨機嘗試因為距離限制沒有排滿，就用大範圍備用點補齊。
-  if (positions.length < blockCount) {
-    return shuffleArray([
-      { top: 82, left: 130 }, { top: 82, left: 380 }, { top: 82, left: 630 },
-      { top: 227, left: 130 }, { top: 227, left: 380 }, { top: 227, left: 630 },
-      { top: 372, left: 130 }, { top: 372, left: 380 }, { top: 372, left: 630 },
-    ]).slice(0, blockCount);
-  }
-
-  return positions;
-}
-
 const COUNTDOWN_SECONDS = 5;
-
-function shuffleArray(items) {
-  const arr = [...items];
-
-  for (let i = arr.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-
-  return arr;
-}
-
-function createRandomizedBlocks(blockCount) {
-  return createRandomLayout(blockCount).map((position, index) => ({
-    ...position,
-    stoneId: index,
-  }));
-}
 
 function createSequence(questionIndex, previousLastStone = null, forcedMemoryLength = null) {
   const setting = getQuestionSetting(questionIndex, forcedMemoryLength);
@@ -130,25 +71,11 @@ function createSequence(questionIndex, previousLastStone = null, forcedMemoryLen
 }
 
 
-function getBlockCountByMemoryLength(memoryLength) {
-  if (memoryLength <= 4) return 5;
-  if (memoryLength <= 5) return 6;
-  return 8;
-}
-
 function getQuestionSetting(index, forcedMemoryLength = null) {
-  if (Number.isFinite(Number(forcedMemoryLength))) {
-    const level = Math.max(START_MEMORY_LENGTH, Number(forcedMemoryLength));
-    return { level, blockCount: getBlockCountByMemoryLength(level) };
-  }
-
-  if (index < 2) return { level: 2, blockCount: 5 };
-  if (index < 4) return { level: 3, blockCount: 5 };
-  if (index < 6) return { level: 4, blockCount: 5 };
-  if (index < 8) return { level: 5, blockCount: 6 };
-  return { level: 6, blockCount: 8 };
+  const requested = forcedMemoryLength == null ? 2 + Math.floor(index / 2) : Number(forcedMemoryLength);
+  const level = Math.min(MAX_MEMORY_LENGTH, Math.max(START_MEMORY_LENGTH, Number.isFinite(requested) ? requested : START_MEMORY_LENGTH));
+  return { level, blockCount: CBT_MAX_STONES };
 }
-
 
 const cbtSrtLikeCss = `
 .cbt-page {
@@ -1099,7 +1026,7 @@ export default function TestPage_CBT() {
   const [message, setMessage] = useState("");
   const [idleHintActive, setIdleHintActive] = useState(false);
 
-  const [boardPositions, setBoardPositions] = useState(() => createRandomizedBlocks(5));
+  const [boardPositions, setBoardPositions] = useState(() => createFixedCBTBlocks());
   const [finalResult, setFinalResult] = useState(null);
 
   const clickAudioRef = useRef(null);
@@ -1127,6 +1054,14 @@ export default function TestPage_CBT() {
   const idleHintShownRef = useRef(false);
   const idleHintCountRef = useRef(0);
   const idleBeforeFirstTapMsRef = useRef(null);
+  const answerDeadlineRef = useRef(null);
+  const trialLockedRef = useRef(false);
+  const earlyClickEventsRef = useRef([]);
+  const currentEarlyClickEventsRef = useRef([]);
+  const promptEventsRef = useRef([]);
+  const currentPromptEventsRef = useRef([]);
+  const [earlyClickCount, setEarlyClickCount] = useState(0);
+  useCbtStartCue(phase);
 
   const isWarmup =
     phase === "warmupShow" ||
@@ -1280,7 +1215,13 @@ export default function TestPage_CBT() {
     lastShownStoneRef.current = null;
     pendingFinalHistoryRef.current = null;
     resultSavedRef.current = false;
-    setBoardPositions(createRandomizedBlocks(5));
+    setBoardPositions(createFixedCBTBlocks());
+    earlyClickEventsRef.current = [];
+    currentEarlyClickEventsRef.current = [];
+    promptEventsRef.current = [];
+    currentPromptEventsRef.current = [];
+    trialLockedRef.current = false;
+    setEarlyClickCount(0);
     setFinalResult(null);
   }
 
@@ -1293,10 +1234,8 @@ export default function TestPage_CBT() {
 
   function startQuestion(targetIndex) {
     clearAllManagedTimers();
-    const setting = getQuestionSetting(targetIndex, currentMemoryLengthRef.current);
     const newSequence = createSequence(targetIndex, lastShownStoneRef.current, currentMemoryLengthRef.current);
     lastShownStoneRef.current = newSequence[newSequence.length - 1];
-    setBoardPositions(createRandomizedBlocks(setting.blockCount));
 
     setQuestionIndex(targetIndex);
     setSequence(newSequence);
@@ -1314,6 +1253,10 @@ export default function TestPage_CBT() {
     setTimeLeft(ANSWER_TIME);
     currentRandomClicksRef.current = 0;
     currentRepeatedClicksRef.current = 0;
+    currentEarlyClickEventsRef.current = [];
+    currentPromptEventsRef.current = [];
+    trialLockedRef.current = false;
+    setEarlyClickCount(0);
     firstTapAtRef.current = null;
     tapTimestampsRef.current = [];
     idleHintShownRef.current = false;
@@ -1334,8 +1277,8 @@ export default function TestPage_CBT() {
   }
 
   function recordTrial({ correct, input, errorType }) {
-    const reactionTime = getReactionTimeMs();
     const isTimeout = errorType === "timeout";
+    const reactionTime = isTimeout ? ANSWER_TIME * 1000 : getReactionTimeMs();
     const trialMemoryLength = currentMemoryLengthRef.current;
     const trialInLength = currentLengthTrialCountRef.current + 1;
     const firstTapTime = firstTapAtRef.current && answerStartRef.current
@@ -1369,6 +1312,7 @@ export default function TestPage_CBT() {
 
     const trial = {
       trialIndex: questionIndex + 1,
+      mode: "test",
       correct,
       isCorrect: correct,
 
@@ -1379,6 +1323,16 @@ export default function TestPage_CBT() {
       missed: isTimeout,
       randomClickCount: currentRandomClicksRef.current,
       repeatedClickCount: currentRepeatedClicksRef.current,
+      earlyClickCount: currentEarlyClickEventsRef.current.length,
+      earlyClickEvents: [...currentEarlyClickEventsRef.current],
+      promptCount: currentPromptEventsRef.current.length,
+      promptEvents: [...currentPromptEventsRef.current],
+      wrongAnswerHintCount: 0,
+      boardPositions: boardPositions.map((block) => ({ ...block })),
+      positionPolicy: "fixed",
+      recallDirection: "forward",
+      answerLimitMs: ANSWER_TIME * 1000,
+      answerDeadlineAt: answerDeadlineRef.current,
 
       level: currentSetting.level,
       length: sequence.length,
@@ -1403,6 +1357,7 @@ export default function TestPage_CBT() {
 
       reactionTime,
       answerTime: reactionTime,
+      responseElapsedMs: answerStartRef.current ? Math.max(0, Date.now() - answerStartRef.current) : null,
       firstTapTime,
       averageTapInterval,
       firstErrorPosition,
@@ -1415,7 +1370,7 @@ export default function TestPage_CBT() {
       rescueFailed: false,
       usedReplay: false,
       replayCount: 0,
-      usedHint: false,
+      usedHint: idleHintShownRef.current,
       remainingTime: timeLeft,
       totalTrialTime: questionStartRef.current ? Date.now() - questionStartRef.current : reactionTime,
 
@@ -1625,7 +1580,7 @@ export default function TestPage_CBT() {
     const records = Array.isArray(finalHistory) ? finalHistory : [];
     let scoring = {};
     try {
-      scoring = calculateCBTScore(records) || {};
+      scoring = calculateCBTScore(records, { mode: "test" }) || {};
     } catch (error) {
       console.warn("[TestPage_CBT] calculateCBTScore failed:", error);
       scoring = {
@@ -1655,6 +1610,14 @@ export default function TestPage_CBT() {
 
     const resultPayload = testAttempt.complete({
       ...legacyAiResult,
+      protocol: { version: CBT_PROTOCOL_VERSION, stoneCount: CBT_MAX_STONES,
+        maxStones: CBT_MAX_STONES, maxSequenceLength: MAX_MEMORY_LENGTH,
+        answerLimitMs: ANSWER_TIME * 1000, flashDurationMs: SHOW_SPEED,
+        positionPolicy: "fixed", recallDirection: "forward", environmentPhase: null },
+      earlyClickEvents: [...earlyClickEventsRef.current],
+      earlyClickCount: earlyClickEventsRef.current.length,
+      promptEvents: [...promptEventsRef.current],
+      promptCount: promptEventsRef.current.length,
 
       source: "test",
       mode: "test",
@@ -1666,7 +1629,8 @@ export default function TestPage_CBT() {
       generatedAt,
 
       scoring,
-      summary: scoring.summary,
+      summary: { ...scoring.summary, promptCount: promptEventsRef.current.length, earlyClickCount: earlyClickEventsRef.current.length },
+      metrics: { ...scoring.summary, promptCount: promptEventsRef.current.length, earlyClickCount: earlyClickEventsRef.current.length },
       parentView: scoring.parentView,
       clinicalView: scoring.clinicalView,
       childView: scoring.childView,
@@ -1792,8 +1756,21 @@ export default function TestPage_CBT() {
   }
 
   function handleBlockClick(index) {
+    if (phase === "show") {
+      const event = { type: "early_click", trialIndex: questionIndex + 1, stoneIndex: index,
+        playbackStep: showStep, timestamp: Date.now(), phase: "observation",
+        interpretation: "timing_event_requires_context" };
+      earlyClickEventsRef.current.push(event);
+      currentEarlyClickEventsRef.current.push(event);
+      setEarlyClickCount(currentEarlyClickEventsRef.current.length);
+      testAttempt.checkpoint({ earlyClickEvents: [...earlyClickEventsRef.current],
+        earlyClickCount: earlyClickEventsRef.current.length,
+        currentTrial: { questionIndex, sequence, earlyClickEvents: [...currentEarlyClickEventsRef.current], completed: false } });
+      return;
+    }
     if (phase !== "answer") return;
     if (endedRef.current) return;
+    if (trialLockedRef.current || Date.now() >= answerDeadlineRef.current) return;
     if (isClickResolvingRef.current) return;
 
     playClickSound();
@@ -1820,6 +1797,7 @@ export default function TestPage_CBT() {
     const correctIndex = sequence[nextInputLength - 1];
 
     if (index !== correctIndex) {
+      trialLockedRef.current = true;
       setWrongIndex(index);
       setMessage("走錯了。");
 
@@ -1847,6 +1825,8 @@ export default function TestPage_CBT() {
       return;
     }
 
+    if (nextInputLength === sequence.length) trialLockedRef.current = true;
+    userInputRef.current = nextInput;
     triggerPersonWalk(index, {
       countAsAnimationTime: true,
       onComplete: () => {
@@ -1899,6 +1879,7 @@ export default function TestPage_CBT() {
         idleBeforeFirstTapMsRef.current = null;
         setIdleHintActive(false);
         answerStartRef.current = Date.now();
+        answerDeadlineRef.current = answerStartRef.current + ANSWER_TIME * 1000;
         setPhase("answer");
       }
 
@@ -1916,7 +1897,7 @@ export default function TestPage_CBT() {
       gapTimer = setManagedTimeout(() => {
         setShowStep((prev) => prev + 1);
       }, GAP_SPEED);
-    }, SHOW_SPEED);
+    }, phase === "warmupShow" ? 1000 : SHOW_SPEED);
 
     return () => {
       clearManagedTimeout(showTimer);
@@ -1939,6 +1920,10 @@ export default function TestPage_CBT() {
 
       idleHintShownRef.current = true;
       idleHintCountRef.current += 1;
+      const prompt = { type: "idle_hint", trialIndex: questionIndex + 1, timestamp: Date.now() };
+      promptEventsRef.current.push(prompt);
+      currentPromptEventsRef.current.push(prompt);
+      testAttempt.checkpoint({ promptEvents: [...promptEventsRef.current], promptCount: promptEventsRef.current.length });
       if (answerStartRef.current && idleBeforeFirstTapMsRef.current === null) {
         idleBeforeFirstTapMsRef.current = Math.max(0, Date.now() - answerStartRef.current);
       }
@@ -1950,39 +1935,22 @@ export default function TestPage_CBT() {
     }, IDLE_HINT_DELAY_MS);
 
     return () => clearManagedTimeout(timer);
-  }, [phase, questionIndex]);
+  }, [phase, questionIndex, testAttempt]);
 
   useEffect(() => {
     if (phase !== "answer") return;
-    if (endedRef.current) return;
-
-    if (timeLeft <= 0) {
-      const finalHistory = recordTrial({
-        correct: false,
-        input: userInputRef.current,
-        errorType: "timeout",
-      });
-
-      setMessage("時間到了。");
-
-      setManagedTimeout(() => {
-        completeTrial(finalHistory, {
-          correct: false,
-          isTimeout: true,
-        });
-      }, 500);
-
-      return;
-    }
-
     const timer = setManagedTimeout(() => {
-      setTimeLeft((prev) => prev - 1);
-    }, 1000);
-
+      if (endedRef.current || trialLockedRef.current) return;
+      trialLockedRef.current = true;
+      clearAllManagedTimers();
+      setTimeLeft(0);
+      const finalHistory = recordTrial({ correct: false, input: userInputRef.current, errorType: "timeout" });
+      completeTrial(finalHistory, { correct: false, isTimeout: true });
+    }, Math.max(0, answerDeadlineRef.current - Date.now()));
     return () => clearManagedTimeout(timer);
-    // Timer callbacks use refs/current phase state; adding function deps resets the countdown loop.
+    // One absolute deadline per response phase; walking never extends it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, timeLeft]);
+  }, [phase, questionIndex]);
 
   useEffect(() => {
     if (phase !== "countdown") return;
@@ -2041,6 +2009,7 @@ export default function TestPage_CBT() {
 
       {(phase === "warmupShow" || phase === "warmupAnswer") && (
         <div className="cbt-card cbt-card--wide">
+          <CBTPhaseCue phase={phase} />
           <CBTBoard
             blocks={blocks}
             phase={phase}
@@ -2086,12 +2055,13 @@ export default function TestPage_CBT() {
           >
             {countdownLeft}
           </div>
-          <p className="cbt-text">看亮燈，照順序點。</p>
+          <p className="cbt-text">先看完亮燈，聽到「可以開始點了」再照順序點。</p>
         </div>
       )}
 
       {(phase === "show" || phase === "answer") && (
         <div className="cbt-card cbt-card--wide cbt-test-card">
+          <CBTPhaseCue phase={phase} />
 
           <CBTBoard
             blocks={blocks}
@@ -2104,10 +2074,13 @@ export default function TestPage_CBT() {
             idleHintActive={idleHintActive}
             onBlockClick={handleBlockClick}
             onBoardClick={() => {
+              if (phase === "show") { handleBlockClick(null); return; }
               currentRandomClicksRef.current += 1;
               setMessage("點亮過的石頭。");
             }}
-            disabled={phase !== "answer" || endedRef.current}
+            disabled={endedRef.current || trialLockedRef.current}
+            earlyClickCount={earlyClickCount}
+            promptCount={currentPromptEventsRef.current.length}
           />
         </div>
       )}
@@ -2192,6 +2165,7 @@ export default function TestPage_CBT() {
 function VideoOnlyPage({ videoSrc, onDone, showNext = true }) {
   return (
     <main className="cbt-video-only-card game-start-card-artwork cbt-video-card-artwork" aria-label="影片">
+      <p className="cbt-quiet-prompt">看完再點：先看完亮燈，聽到「可以開始點了」再照順序點石頭。</p>
       <div className="cbt-video-wrapper test-step-video-frame">
         <video
           src={videoSrc}
@@ -2468,10 +2442,16 @@ function CBTBoard({
   onBlockClick,
   onBoardClick,
   disabled,
+  earlyClickCount = 0,
+  promptCount = 0,
 }) {
   return (
     <div
       className={["cbt-board", idleHintActive ? "is-idle-hint" : ""].filter(Boolean).join(" ")}
+      data-testid="cbt-board"
+      data-phase={phase}
+      data-prompt-count={promptCount}
+      data-early-click-count={earlyClickCount}
       style={{
         width: BOARD_WIDTH,
         height: BOARD_HEIGHT,
@@ -2494,11 +2474,12 @@ function CBTBoard({
             key={index}
             type="button"
             className="cbt-block"
+            aria-label={`第 ${index + 1} 顆石頭`}
             style={{
               top: block.top,
               left: block.left,
               width: STONE_SIZE,
-              height: STONE_SIZE,
+              height: Math.round(STONE_SIZE * 203 / 360),
             }}
             disabled={disabled}
             onClick={(event) => {

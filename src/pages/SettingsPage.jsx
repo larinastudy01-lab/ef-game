@@ -33,7 +33,7 @@ const REMINDER_STATUS_LABELS = {
 const DEFAULT_SETTINGS = {
   bgmVolume: 60,
   sfxVolume: 75,
-  brightness: 72,
+  brightness: 95,
   eyeCareMode: true,
   fontSize: "normal",
   buttonSize: "large",

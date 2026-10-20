@@ -14,7 +14,7 @@ const RESULT_STORAGE_KEYS = {
   SRT: ["srtTrainingResult", "srtTestResult"],
   PM: ["pmTrainingResult", "pmTestResult"],
   CBT: ["cbtTrainingResult", "cbtTestResult"],
-  SSG: ["ssgTrainingResult", "ssgTestResult"],
+  ARI: ["ariTrainingResult", "ariTestResult"],
   DCCS: ["dccsTrainingResult", "dccsTestResult", "DCCS_TRAINING_RESULT", "DCCS_RESULT"],
   LB: ["lbTrainingResult", "lbTestResult", "LB_TRAINING_RESULT", "LB_RESULT"],
 };
@@ -23,7 +23,7 @@ const GAME_LABELS = {
   SRT: { name: "橡實反應任務", ability: "抑制控制", story: "幫小松鼠接住橡實" },
   PM: { name: "湖邊圖片記憶", ability: "工作記憶", story: "幫兔子妹妹找回物品" },
   CBT: { name: "石頭小橋記憶", ability: "工作記憶", story: "幫鹿先生通過石頭橋" },
-  SSG: { name: "蒼蠅派對任務", ability: "抑制控制", story: "幫狐狸夫婦趕走蒼蠅" },
+  ARI: { name: "蒼蠅派對任務", ability: "抑制控制", story: "幫狐狸夫婦趕走蒼蠅" },
   DCCS: { name: "孔雀服飾分類", ability: "認知彈性", story: "幫孔雀小姐整理服飾店" },
   LB: { name: "幫助迷路的綿羊奶奶", ability: "認知彈性", story: "幫綿羊奶奶照順序找到路" },
   DEFAULT: { name: "森林訓練任務", ability: "綜合能力", story: "波波與皮皮完成森林任務" },

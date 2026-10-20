@@ -45,7 +45,7 @@ test("begin and every answer persist an incomplete attempt with stable behaviora
 });
 
 test("failed performance can finish; completion retains the attempt and original account", () => {
-  const attempt = createTestAttempt({ gameId: "SSG" });
+  const attempt = createTestAttempt({ gameId: "ARI" });
   const first = attempt.begin(child);
   attempt.checkpoint({ trials: [{ isCorrect: false }] });
   const partial = readResultOutbox()[0].result;

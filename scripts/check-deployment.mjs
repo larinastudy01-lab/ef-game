@@ -7,7 +7,7 @@ const violations = [];
 const sourceMaps = [];
 const oversizedAssets = [];
 const lfsPointers = [];
-const maxDeploymentBytes = Number(process.env.MAX_DEPLOYMENT_MIB || 190) * 1024 * 1024;
+const maxDeploymentBytes = Number(process.env.MAX_DEPLOYMENT_MIB || 230) * 1024 * 1024;
 const maxAssetBytes = Number(process.env.MAX_ASSET_MIB || 24) * 1024 * 1024;
 let deploymentBytes = 0;
 

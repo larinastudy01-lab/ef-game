@@ -1,0 +1,36 @@
+/* These additions are scoped to practice; the formal LB board keeps its CSS. */
+.lb-playing-panel.lb-practice-panel .lb-doorplate {
+  width: min(clamp(54px, 7.8vw, 104px), calc((100vw - 100px) / 5.3), calc((100dvh - 168px) / 4.5));
+  height: min(clamp(54px, 7.8vw, 104px), calc((100vw - 100px) / 5.3), calc((100dvh - 168px) / 4.5));
+}
+
+.lb-playing-panel.lb-practice-panel .lb-map-home {
+  width: min(clamp(118px, 14vw, 188px), 24%, calc((100dvh - 168px) / 3));
+  max-height: 28%;
+  object-fit: contain;
+  object-position: bottom;
+}
+
+.lb-practice-mouse {
+  position: absolute;
+  z-index: 12;
+  width: clamp(46px, 6vw, 82px);
+  height: auto;
+  transform: translate(-12%, -12%);
+  transition: left 650ms ease-in-out, top 650ms ease-in-out;
+  pointer-events: none;
+}
+
+.lb-practice-mouse.is-clicking {
+  animation: lbPracticeMouseClick 550ms ease-in-out;
+}
+
+@keyframes lbPracticeMouseClick {
+  0%, 100% { transform: translate(-12%, -12%) scale(1); }
+  45% { transform: translate(-12%, -12%) scale(.78); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lb-practice-mouse { transition: none; }
+  .lb-practice-mouse.is-clicking { animation: none; }
+}

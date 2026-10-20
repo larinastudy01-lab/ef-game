@@ -1,15 +1,20 @@
+import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
 // src/pages/TestPage_LB.jsx
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/TestStepVideo.css";
+import { getLBDoorplateImage } from "../utils/lbDoorplateAssets";
 import calculateLBScore from "../utils/lbScoring";
 import { saveUnifiedResult } from "../utils/resultManager";
 import { useTestAttempt } from "../utils/useTestAttempt";
+import { LB_MODES, LB_PRACTICE_STAGES, buildLBPracticeItems } from "../utils/lbPracticeProtocol";
+import useLBPracticeFlow from "../utils/useLBPracticeFlow";
+import "../styles/LBPractice.css";
 
 import backgroundImg from "../asset/LB/LB_background.webp";
 import homeImg from "../asset/LB/grandma_sheep_house.webp";
-import blowingBubblesImg from "../asset/LB/walk/blowing_bubbles.webp";
+import lbIconImg from "../asset/LB_icon.webp";
 import walkImg from "../asset/LB/walk/walk.webp";
 import tutorialVideo from "../asset/optimized/mp4/LB_step.mp4";
 import homeStartBtn from "../asset/home/start.webp";
@@ -25,19 +30,16 @@ const RESULT_ROUTE = "/result-lb";
 const SESSION_KEY = "LB_RESULT";
 const LOCAL_KEY = "lbTestResult";
 
-const doorplateAssets = require.context("../asset/LB", false, /(?:blue|yellow)_\d{2}\.webp$/);
 const WALK_JUMP_DURATION_MS = 700;
 const WALK_HOME_DURATION_MS = 1000;
 
 function getDoorplateImage(item) {
-  const color = item.color === "blue" ? "blue" : "yellow";
-  const number = String(Math.min(30, Math.max(1, Number(item.number) || 1))).padStart(2, "0");
-  return doorplateAssets(`./${color}_${number}.webp`);
+  return getLBDoorplateImage(item.color, item.number);
 }
 
 function usesColorFallback() { return false; }
 
-const STAGES = [
+export const LB_TEST_STAGES = [
   {
     id: "forward",
     title: "第一關",
@@ -71,6 +73,8 @@ const STAGES = [
     ],
   },
 ];
+
+const STAGES = LB_TEST_STAGES;
 
 function toPercentPosition(x, y) {
   return { left: `${x}%`, top: `${y}%` };
@@ -208,8 +212,9 @@ function hasStageInterference(stageId) {
 
 function getExpectedText(item) {
   if (!item) return "";
+  if (item.color === "yellow") return `黃色${item.number}`;
+  if (item.color === "blue") return `藍色${item.number}`;
   if (item.color === "red") return `紅 ${item.number}`;
-  if (item.color === "blue") return `藍 ${item.number}`;
   return `${item.number}`;
 }
 
@@ -369,6 +374,7 @@ function DoorplateButton({ item, disabled, completed, visited, isWrong, isCorrec
       }}
       disabled={disabled}
       aria-label={getExpectedText(item)}
+      aria-pressed={completed}
     >
       <img
         className={usesColorFallback(item) ? "lb-doorplate-color-fallback" : ""}
@@ -386,6 +392,7 @@ function TestPageLB() {
   const testAttempt = useTestAttempt({ gameId: "LB", route: "/test-linking-balloons" });
 
   const [phase, setPhase] = useState("start");
+  const [mode, setMode] = useState(LB_MODES.formalMode);
   const [stageIndex, setStageIndex] = useState(0);
   const [completedKeys, setCompletedKeys] = useState([]);
   const [routeKeys, setRouteKeys] = useState([]);
@@ -393,7 +400,6 @@ function TestPageLB() {
   const [submittedCorrect, setSubmittedCorrect] = useState(null);
   const [trials, setTrials] = useState([]);
   const [stageRecords, setStageRecords] = useState([]);
-  const [message, setMessage] = useState("請依照前導教學中的規則完成測驗。");
   const [wrongKey, setWrongKey] = useState("");
   const [correctKey, setCorrectKey] = useState("");
   const [walkerStepIndex, setWalkerStepIndex] = useState(-1);
@@ -409,15 +415,19 @@ function TestPageLB() {
   const walkerTimersRef = useRef([]);
   const tutorialVideoRef = useRef(null);
 
-  const currentStage = STAGES[stageIndex];
-  const displayItems = useMemo(() => buildStageItems(currentStage), [currentStage]);
+  const practiceStage = LB_PRACTICE_STAGES[mode] || null;
+  const isPractice = Boolean(practiceStage);
+  const currentStage = practiceStage || STAGES[stageIndex];
+  const displayItems = useMemo(() => isPractice
+    ? buildLBPracticeItems(currentStage)
+    : buildStageItems(currentStage), [currentStage, isPractice]);
   const stageDone = completedKeys.length === currentStage.sequence.length;
 
   useEffect(() => {
-    if (phase === "playing") {
+    if (phase === "playing" && mode === LB_MODES.formalMode) {
       testAttempt.checkpoint({ currentStage: { stageIndex, selectedKeys: completedKeys, selectionLogs: selectionLogsRef.current } });
     }
-  }, [phase, stageIndex, completedKeys, testAttempt]);
+  }, [phase, mode, stageIndex, completedKeys, testAttempt]);
 
   const pauseVideo = useCallback((videoRef) => {
     const video = videoRef.current;
@@ -472,13 +482,13 @@ function TestPageLB() {
     stageStartedAtRef.current = Date.now();
     selectionLogsRef.current = [];
     setStageIndex(0);
+    setMode(LB_MODES.formalMode);
     setCompletedKeys([]);
     setRouteKeys([]);
     setRouteVisible(false);
     setSubmittedCorrect(null);
     setTrials([]);
     setStageRecords([]);
-    setMessage("請依照前導教學中的規則完成測驗。");
     setWrongKey("");
     setCorrectKey("");
     setWalkerStepIndex(-1);
@@ -493,7 +503,9 @@ function TestPageLB() {
   };
 
   const handleTutorialVideoEnd = () => {
-    setGamePhase("imageGuide");
+    resetStageState(0);
+    setMode(LB_MODES.practiceMode1);
+    setGamePhase("playing");
   };
 
   const resetStageState = (nextStageIndex) => {
@@ -511,20 +523,43 @@ function TestPageLB() {
     stageStartedAtRef.current = Date.now();
     selectionLogsRef.current = [];
 
-    setMessage("請依照剛剛記住的規則繼續完成測驗。");
   };
 
   const startGame = () => {
     startedAtRef.current = nowISO();
     testAttempt.begin();
+    setMode(LB_MODES.formalMode);
     resetStageState(0);
     setTrials([]);
     setStageRecords([]);
     setGamePhase("playing");
   };
 
+  const practice = useLBPracticeFlow({
+    stage: phase === "playing" ? practiceStage : null,
+    displayItems,
+    onRetry: () => {
+      setRouteKeys([]);
+      setRouteVisible(false);
+      setSubmittedCorrect(null);
+      setWalkerStepIndex(-1);
+      setWalkerEnteringHome(false);
+      setIsLocked(false);
+    },
+    onPassed: () => {
+      if (mode === LB_MODES.practiceMode1) {
+        resetStageState(0);
+        setMode(LB_MODES.practiceMode2);
+      } else {
+        startGame();
+      }
+    },
+  });
+  const controlsLocked = isLocked || (isPractice && practice.status !== "answering");
+
   const handleNumberClick = (item) => {
-    if (phase !== "playing" || isLocked || routeVisible || finishedRef.current) return;
+    if (phase !== "playing" || controlsLocked || routeVisible || finishedRef.current) return;
+    if (isPractice) practice.registerActivity();
 
     setCompletedKeys((previous) => {
       if (previous.includes(item.key)) {
@@ -533,12 +568,10 @@ function TestPageLB() {
           selectionLogsRef.current.filter((log) => log.key !== item.key),
           stageStartedAtRef.current
         );
-        setMessage("已取消這個門牌，請繼續選擇。");
         return next;
       }
 
       if (previous.length >= currentStage.sequence.length) {
-        setMessage(`這一段只要選 ${currentStage.sequence.length} 個門牌，可先取消再重選。`);
         return previous;
       }
 
@@ -554,30 +587,29 @@ function TestPageLB() {
           order: next.length,
         }),
       ];
-      setMessage(
-        next.length === currentStage.sequence.length
-          ? "選好了，請按送出答案。"
-          : `已選 ${next.length} 個，請繼續。`
-      );
       return next;
     });
   };
 
   const handleBlankClick = () => {
-    if (phase !== "playing" || isLocked || routeVisible || finishedRef.current) return;
-    setMessage("請點門牌；再次點同一個門牌可以取消。");
+    if (phase !== "playing" || controlsLocked || routeVisible || finishedRef.current) return;
+    if (isPractice) {
+      practice.registerActivity();
+    }
   };
 
   const handleUndoLastSelection = () => {
     if (
       phase !== "playing" ||
-      isLocked ||
+      controlsLocked ||
       routeVisible ||
       finishedRef.current ||
       completedKeys.length === 0
     ) {
       return;
     }
+
+    if (isPractice) practice.registerActivity();
 
     setCompletedKeys((previous) => {
       const removedKey = previous.at(-1);
@@ -588,7 +620,6 @@ function TestPageLB() {
       );
       return next;
     });
-    setMessage("已退回上一個門牌，可以重新選。");
   };
 
   const saveStageRecord = ({ selectedKeys = completedKeys, correctSteps = 0 } = {}) => {
@@ -625,8 +656,26 @@ function TestPageLB() {
     return stageRecord;
   };
 
+  // Practice and formal answers share the same walk.webp route review.
+  const startRouteReview = (selectedKeys, correct) => {
+    setRouteKeys(selectedKeys);
+    setRouteVisible(true);
+    setWalkerStepIndex(0);
+    setWalkerEnteringHome(false);
+    setSubmittedCorrect(correct);
+    setIsLocked(true);
+    return selectedKeys.length * WALK_JUMP_DURATION_MS + (correct ? WALK_HOME_DURATION_MS : 80);
+  };
+
   const handleSubmitStage = () => {
-    if (!stageDone || isLocked || routeVisible) return;
+    if (!stageDone || controlsLocked || routeVisible || phase !== "playing") return;
+
+    if (isPractice) {
+      const isAllCorrect = currentStage.sequence.every((key, index) => completedKeys[index] === key);
+      const durationMs = startRouteReview([...completedKeys], isAllCorrect);
+      practice.reviewAnswer({ correct: isAllCorrect, durationMs });
+      return;
+    }
 
     const selectedKeys = [...completedKeys];
     const submittedAt = Date.now();
@@ -682,24 +731,13 @@ function TestPageLB() {
     testAttempt.checkpoint({ trials: mergedTrials, stageRecords: [...stageRecords, currentRecord], stageIndex });
 
     setTrials(mergedTrials);
-    setRouteKeys(selectedKeys);
-    setRouteVisible(true);
-    setWalkerStepIndex(0);
-    setWalkerEnteringHome(false);
-    setSubmittedCorrect(isAllCorrect);
-    setIsLocked(true);
-    setMessage(isAllCorrect ? "完成！路線連起來了。" : "答案已送出，現在顯示你走的路線。");
+    const reviewDurationMs = startRouteReview(selectedKeys, isAllCorrect);
 
     window.clearTimeout(timeoutRef.current);
     timeoutRef.current = window.setTimeout(() => {
       if (nextStageIndex < STAGES.length) {
-        if (isAllCorrect) {
-          setGamePhase("stageComplete");
-        } else {
-          resetStageState(nextStageIndex);
-          setGamePhase("playing");
-        }
-        setMessage(`${currentStage.title}完成。`);
+        resetStageState(nextStageIndex);
+        setGamePhase("playing");
         return;
       }
 
@@ -708,15 +746,7 @@ function TestPageLB() {
         extraStageRecord: currentRecord,
         finalTrials: mergedTrials,
       });
-    }, selectedKeys.length * WALK_JUMP_DURATION_MS + (isAllCorrect ? WALK_HOME_DURATION_MS : 80));
-  };
-
-  const goNextStage = () => {
-    const nextStageIndex = stageIndex + 1;
-    if (nextStageIndex >= STAGES.length) return;
-
-    resetStageState(nextStageIndex);
-    setGamePhase("playing");
+    }, reviewDurationMs);
   };
 
   const finishGame = ({ completed, extraStageRecord = null, finalTrials = trials }) => {
@@ -794,7 +824,7 @@ function TestPageLB() {
             <div className="lb-start-content">
               <div className="lb-dialog-bubble">幫綿羊奶奶照順序找到門牌，一起走回家。</div>
               <div className="lb-round-icon lb-start-avatar">
-                <img width={1024} height={1024} loading="lazy" src={blowingBubblesImg} alt="綿羊奶奶和朋友們" />
+                <img width={1024} height={1024} loading="lazy" src={lbIconImg} alt="LB 遊戲圖示" />
               </div>
             </div>
             <div className="lb-guided-action lb-guided-start">
@@ -831,99 +861,6 @@ function TestPageLB() {
                 <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="" aria-hidden="true" />
               </div>
             </div>
-          </section>
-        </main>
-      </div>
-    );
-  }
-
-  if (phase === "imageGuide") {
-    const guideNumbers = [1, 2, 3];
-
-    return (
-      <div className="lb-simple-page lb-srt-skin">
-        <LBResetStyle />
-        <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-start-panel lb-image-guide-panel game-start-card-artwork" aria-label="第一關圖像操作說明">
-            <h1 className="lb-image-guide-title">按照數字順序點門牌</h1>
-            <div className="lb-image-guide-sequence" aria-label="依序點擊門牌一、二、三">
-              {guideNumbers.map((number, index) => (
-                <React.Fragment key={number}>
-                  {index > 0 && <span className="lb-image-guide-arrow" aria-hidden="true">→</span>}
-                  <div className="lb-image-guide-step">
-                    <img src={getDoorplateImage({ color: "cream", number })} alt={`門牌 ${number}`} draggable="false" />
-                  </div>
-                </React.Fragment>
-              ))}
-            </div>
-            <div className="lb-guided-action lb-image-guide-action">
-              <button type="button" className="lb-forest-button lb-image-button lb-btn-next" onClick={startGame} aria-label="看完說明，開始第一關">
-                <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" draggable="false" />
-              </button>
-              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="" aria-hidden="true" draggable="false" />
-            </div>
-          </section>
-        </main>
-      </div>
-    );
-  }
-
-  if (phase === "stageComplete") {
-    const nextStage = STAGES[stageIndex + 1];
-    const secondStageGuide = [
-      { number: 1, color: "red" },
-      { number: 2, color: "blue" },
-      { number: 3, color: "red" },
-    ];
-
-    return (
-      <div className="lb-simple-page lb-srt-skin">
-        <LBResetStyle />
-        <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-start-panel lb-image-guide-panel game-start-card-artwork" aria-label="第二關圖像操作說明">
-            <h1 className="lb-image-guide-title">黃色 1、藍色 2，依序交替點門牌</h1>
-            <div className="lb-image-guide-sequence" aria-label="黃色一、藍色二、黃色三">
-              {secondStageGuide.map((item, index) => (
-                <React.Fragment key={`${item.color}-${item.number}`}>
-                  {index > 0 && <span className="lb-image-guide-arrow" aria-hidden="true">→</span>}
-                  <div className="lb-image-guide-step">
-                    <img src={getDoorplateImage(item)} alt={`${item.color === "blue" ? "藍色" : "黃色"}門牌 ${item.number}`} draggable="false" />
-                  </div>
-                </React.Fragment>
-              ))}
-            </div>
-            <div className="lb-guided-action lb-image-guide-action">
-              <button type="button" className="lb-forest-button lb-image-button lb-btn-next" onClick={goNextStage} aria-label={`開始${nextStage?.title || "第二關"}`}>
-                <img width={1024} height={341} src={homeNextBtn} alt="下一步" draggable="false" />
-              </button>
-              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="" aria-hidden="true" draggable="false" />
-            </div>
-          </section>
-        </main>
-      </div>
-    );
-  }
-
-  if (phase === "stageCompleteLegacy") {
-    const nextStage = STAGES[stageIndex + 1];
-
-    return (
-      <div className="lb-simple-page lb-srt-skin">
-        <LBResetStyle />
-        <main className="lb-stage-open" aria-label={`${currentStage.title}完成`}>
-          <img width={1024} height={1024} loading="lazy" className="lb-stage-home" src={homeImg} alt="小屋" draggable="false" />
-          <section className="lb-stage-open-content">
-            <p className="lb-kicker">幫助迷路的綿羊奶奶</p>
-            <h1>{currentStage.title}完成</h1>
-            <p>很好，準備走下一段小路。</p>
-            <button
-              type="button"
-              className="lb-forest-button lb-image-button lb-btn-next"
-              onClick={goNextStage}
-              aria-label={`開始${nextStage?.title || "下一關"}`}
-            >
-              <img width={1024} height={341} src={homeNextBtn} alt="下一關" draggable="false" />
-            </button>
           </section>
         </main>
       </div>
@@ -967,8 +904,9 @@ function TestPageLB() {
   return (
     <div className="lb-simple-page lb-srt-skin">
       <LBResetStyle />
-      <main className="lb-game-card lb-playing-panel">
-        <section className="lb-play-board" onClick={handleBlankClick}>
+      <main className={`lb-game-card lb-playing-panel${isPractice ? " lb-practice-panel" : ""}`}
+        data-mode={mode} data-practice-status={isPractice ? practice.status : undefined}>
+        <section className="lb-play-board" onClick={handleBlankClick} aria-label={isPractice ? currentStage.title : "正式測驗"}>
           <img width={1024} height={1024} loading="lazy" className="lb-map-home" src={homeImg} alt="綿羊奶奶的房子" draggable="false" />
           {routeVisible && walkerStepIndex >= 0 && routeKeys.length > 0 && (() => {
             const activeKey = routeKeys[Math.min(walkerStepIndex, routeKeys.length - 1)];
@@ -992,28 +930,27 @@ function TestPageLB() {
             <DoorplateButton
               key={item.key}
               item={item}
-              disabled={isLocked}
-              completed={completedKeys.includes(item.key)}
+              disabled={controlsLocked}
+              completed={completedKeys.includes(item.key) || (isPractice && practice.demoKeys.includes(item.key))}
               visited={routeVisible && routeKeys.indexOf(item.key) <= walkerStepIndex && routeKeys.includes(item.key)}
               isWrong={wrongKey === item.key}
               isCorrect={correctKey === item.key}
               onClick={handleNumberClick}
             />
           ))}
+          {isPractice && practice.mouse && (
+            <img className={`lb-practice-mouse${practice.mouse.clicking ? " is-clicking" : ""}`}
+              src={mouseGuideImg} alt="滑鼠示範" aria-hidden="true" draggable="false"
+              style={practice.mouse.position} />
+          )}
         </section>
 
         <footer className="lb-game-footer">
-          <div className="lb-message" aria-live="polite">
-            <strong>{message}</strong>
-            <span>
-              {completedKeys.length}/{currentStage.sequence.length}
-            </span>
-          </div>
           <button
             type="button"
             className="lb-undo-button"
             onClick={handleUndoLastSelection}
-            disabled={completedKeys.length === 0 || isLocked}
+            disabled={completedKeys.length === 0 || controlsLocked}
             aria-label="退回上一個門牌"
           >
             <img
@@ -1029,7 +966,7 @@ function TestPageLB() {
             type="button"
             className="lb-submit-button"
             onClick={handleSubmitStage}
-            disabled={!stageDone || isLocked}
+            disabled={!stageDone || controlsLocked}
             aria-label="送出答案"
           >
             <img width={1024} height={341} loading="lazy" src={homeSendBtn} alt="送出答案" draggable="false" />
@@ -2390,6 +2327,20 @@ function LBResetStyle() {
         display: block;
       }
 
+      .lb-round-icon.lb-start-avatar {
+        padding: 0;
+      }
+
+      /* Crop the transparent margins already present in LB_icon.webp. */
+      .lb-round-icon.lb-start-avatar img {
+        flex: none;
+        width: 124%;
+        height: 124%;
+        max-width: none;
+        object-fit: cover;
+        transform: translateY(5.5%);
+      }
+
       .lb-forest-button {
         position: relative;
         z-index: 2;
@@ -2680,9 +2631,12 @@ function LBResetStyle() {
       }
 
       .lb-playing-panel .lb-message {
-        flex: 1 1 auto;
-        min-height: clamp(50px, 5.6vh, 66px);
-        padding: 8px 14px;
+        flex: 0 0 auto;
+        min-height: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
         pointer-events: none;
       }
 

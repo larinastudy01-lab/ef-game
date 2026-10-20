@@ -1,3 +1,4 @@
+import { gameLocalStorage as localStorage } from "../temporaryGameTesting/runtime";
 // src/utils/srtScoring.js
 
 /*
@@ -463,6 +464,8 @@ function buildLongAttentionMetrics(
       firstThird: null,
       middleThird: null,
       lastThird: null,
+      rtStdIncrease: null,
+      rtCVIncrease: null,
 
       rtSlowing: null,
       missIncrease: null,
@@ -552,6 +555,10 @@ function buildLongAttentionMetrics(
     firstThird: firstSummary,
     middleThird: middleSummary,
     lastThird: lastSummary,
+    rtStdIncrease: firstSummary.rtStd !== null && lastSummary.rtStd !== null
+      ? lastSummary.rtStd - firstSummary.rtStd : null,
+    rtCVIncrease: firstSummary.rtCV !== null && lastSummary.rtCV !== null
+      ? roundNumber(lastSummary.rtCV - firstSummary.rtCV, 2) : null,
 
     rtSlowing,
     missIncrease,
@@ -1709,6 +1716,8 @@ export function calculateSrtScore(
     mode = "test",
     baselineAvgRT = null,
     deviceType = null,
+    promptCount: suppliedPromptCount = null,
+    includeRewardSearchScore = false,
   } = options;
 
   const allRecords = safeArray(
@@ -2106,11 +2115,16 @@ export function calculateSrtScore(
       rottenTotal,
     });
 
-  const rewardSearchScore =
+  // Gold is a game reward; it has no separate assessment weight.
+  const rewardSearchScore = includeRewardSearchScore ?
     getRewardSearchScore({
       goldenHitRate,
       goldenTotal,
-    });
+    }) : null;
+
+  const promptCount = suppliedPromptCount ?? trialRecords.reduce(
+    (sum, record) => sum + (record.promptCount ?? (record.assisted ? 1 : 0)), 0
+  );
 
   const scoreBreakdown = {
     accuracyScore,
@@ -2294,7 +2308,7 @@ export function calculateSrtScore(
       rtCV,
       unassistedAvgReactionTime,
 
-      goldenTotal,
+      goldenTotal: includeRewardSearchScore ? goldenTotal : 0,
       goldenHitRate:
         goldenHitRate ?? 0,
 
@@ -2333,7 +2347,7 @@ export function calculateSrtScore(
       rottenClickRate:
         rottenClickRate ?? 0,
 
-      goldenTotal,
+      goldenTotal: includeRewardSearchScore ? goldenTotal : 0,
       goldenHitRate:
         goldenHitRate ?? 0,
 
@@ -2375,6 +2389,8 @@ export function calculateSrtScore(
     },
 
     summary: {
+      promptCount,
+      goldenPurpose: mode === "training" ? "game_reward" : "not_used_in_assessment",
       totalTrials,
       correctCount,
       wrongCount,
@@ -2584,7 +2600,7 @@ export function calculateSrtScore(
                   .attentionDataSufficient,
             }),
           description:
-            "觀察後半段是否出現反應變慢。",
+            "觀察後段是否變慢，以及前中後段反應波動是否增加。",
         },
         {
           key:
@@ -2622,7 +2638,7 @@ export function calculateSrtScore(
           description:
             "觀察是否能注意到金色橡實並完成點擊。",
         },
-      ],
+      ].filter((indicator) => includeRewardSearchScore || indicator.key !== "rewardSearch"),
 
       plainLanguageSummary:
         parentSummary,
@@ -2631,6 +2647,8 @@ export function calculateSrtScore(
     },
 
     clinicalView: {
+      promptCount,
+      goldenPurpose: mode === "training" ? "game_reward" : "not_used_in_assessment",
       totalTrials,
       correctCount,
       wrongCount,

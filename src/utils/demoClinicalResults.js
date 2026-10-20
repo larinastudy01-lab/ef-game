@@ -18,7 +18,7 @@ const GAME_META = {
     abilityLabel: "序列記憶 / 注意維持",
     difficulties: ["easy1", "easy2", "normal1", "normal2", "hard1"],
   },
-  SSG: {
+  ARI: {
     gameName: "動物聲音辨識",
     abilityLabel: "選擇性注意 / 抑制控制",
     difficulties: ["easy", "normal", "hard"],
@@ -41,7 +41,7 @@ const LEGACY_KEYS = {
   SRT: { test: "srtTestResult", training: "srtTrainingResult" },
   PM: { test: "pmTestResult", training: "pmTrainingResult" },
   CBT: { test: "cbtTestResult", training: "cbtTrainingResult" },
-  SSG: { test: "ssgTestResult", training: "ssgTrainingResult" },
+  ARI: { test: "ariTestResult", training: "ariTrainingResult" },
   DCCS: { test: "dccsTestResult", training: "dccsTrainingResult" },
   LB: { test: "lbTestResult", training: "lbTrainingResult" },
 };

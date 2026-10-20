@@ -23,7 +23,7 @@ function mapStimulus(taskCode, raw) {
   if (taskCode === "CBT") return first(raw.targetSequence, raw.sequence, raw.correctSequence);
   if (taskCode === "PM") return first(raw.correctIds, raw.memorizeItems, raw.memoryItems);
   if (taskCode === "SRT") return { targetType: raw.targetType, positionX: raw.positionX, positionY: raw.positionY };
-  if (taskCode === "SSG") return first(raw.stimulus, raw.target, raw.targetSide, raw.probeSide, raw.imageUrl);
+  if (taskCode === "ARI") return first(raw.stimulus, raw.target, raw.targetSide, raw.probeSide, raw.imageUrl);
   if (taskCode === "LB") return { expectedKey: raw.expectedKey, expectedNumber: raw.expectedNumber, expectedColor: raw.expectedColor };
   if (taskCode === "DCCS") return { cardId: raw.cardId, color: raw.cardColor, type: raw.cardType, cue: raw.cue };
   return first(raw.stimulus, null);
@@ -33,7 +33,7 @@ function mapExpectedResponse(taskCode, raw) {
   if (taskCode === "CBT") return first(raw.targetSequence, raw.sequence, raw.correctSequence);
   if (taskCode === "PM") return first(raw.correctIds, raw.expectedResponse);
   if (taskCode === "SRT") return first(raw.shouldClick, raw.targetType === "rotten" ? "withhold" : null, raw.expectedResponse);
-  if (taskCode === "SSG") return first(raw.expectedTarget, raw.correctAnswer, raw.expectedResponse, raw.targetSide, raw.probeSide);
+  if (taskCode === "ARI") return first(raw.expectedTarget, raw.correctAnswer, raw.expectedResponse, raw.targetSide, raw.probeSide);
   if (taskCode === "LB") return first(raw.expectedKey, raw.expectedNumber, raw.expectedResponse);
   if (taskCode === "DCCS") return first(raw.correctSide, raw.correctPosition, raw.expectedResponse);
   return raw.expectedResponse;
@@ -43,7 +43,7 @@ function mapActualResponse(taskCode, raw) {
   if (taskCode === "CBT") return first(raw.userSequence, raw.clickedSequence, raw.answer);
   if (taskCode === "PM") return first(raw.selectedIds, raw.actualResponse);
   if (taskCode === "SRT") return first(raw.trainingAction, raw.action, raw.actualResponse);
-  if (taskCode === "SSG") return first(raw.selectedTarget, raw.userAnswer, raw.selectedPosition, raw.selectedSide, raw.response, raw.actualResponse);
+  if (taskCode === "ARI") return first(raw.selectedTarget, raw.userAnswer, raw.selectedPosition, raw.selectedSide, raw.response, raw.actualResponse);
   if (taskCode === "LB") return first(raw.clickedKey, raw.clickedNumber, raw.actualResponse);
   if (taskCode === "DCCS") return first(raw.userAnswerSide, raw.selectedPosition, raw.actualResponse);
   return raw.actualResponse;

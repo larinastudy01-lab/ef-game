@@ -1,4 +1,4 @@
-const GAME_IDS = ["SSG", "DCCS", "PM", "CBT", "LB", "SRT"];
+const GAME_IDS = ["ARI", "DCCS", "PM", "CBT", "LB", "SRT"];
 
 const LEGACY_RESULT_KEYS = {
   SRT: ["srtTestResult", "latestSRTTestResult", "SRT_RESULT", "srtResult", "testResult_SRT", "SRT_testResult"],
@@ -12,7 +12,7 @@ const LEGACY_RESULT_KEYS = {
     "testResult_CBT",
     "CBT_testResult",
   ],
-  SSG: ["ssgTestResult", "latestSSGTestResult", "SSG_RESULT", "testResult_SSG", "SSG_testResult"],
+  ARI: ["ariTestResult", "latestARITestResult", "ARI_RESULT", "testResult_ARI", "ARI_testResult"],
   DCCS: ["dccsTestResult", "latestDCCSTestResult", "DCCS_RESULT", "dccsResult", "testResult_DCCS", "DCCS_testResult"],
   LB: ["lbTestResult", "latestLBTestResult", "LB_RESULT", "linkingBalloonsTestResult", "testResult_LB", "LB_testResult"],
 };
@@ -21,7 +21,7 @@ const LEGACY_STAR_KEYS = {
   SRT: ["srtStars", "srt_stars", "SRT_stars", "trainingSrtStars", "srtTrainingStars", "srtTrainingResult"],
   PM: ["pmStars", "pm_stars", "PM_stars", "trainingPmStars", "pmTrainingStars", "pmTrainingResult"],
   CBT: ["cbtStars", "cbt_stars", "CBT_stars", "trainingCbtStars", "cbtTrainingStars", "cbtTrainingResult"],
-  SSG: ["ssgStars", "ssg_stars", "SSG_stars", "trainingSsgStars", "ssgTrainingStars", "ssgTrainingResult"],
+  ARI: ["ariStars", "ari_stars", "ARI_stars", "trainingAriStars", "ariTrainingStars", "ariTrainingResult"],
   DCCS: ["dccsStars", "dccs_stars", "DCCS_stars", "trainingDccsStars", "dccsTrainingStars", "dccsTrainingResult"],
   LB: ["lbStars", "lb_stars", "LB_stars", "trainingLbStars", "lbTrainingStars", "lbTrainingResult"],
 };

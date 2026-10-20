@@ -1,3 +1,4 @@
+import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/TestStepVideo.css";
@@ -5,25 +6,14 @@ import "../styles/TestStepVideo.css";
 import { analyzePerformance } from "../ai/performanceAnalyzer";
 import { analyzeErrors } from "../ai/errorAnalyzer";
 import { analyzeFatigue } from "../ai/fatigueAnalyzer";
-import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
 import { createGameResult } from "../ai/gameResultTemplate";
 import { saveUnifiedResult } from "../utils/resultManager";
 import { useTestAttempt } from "../utils/useTestAttempt";
 import { calculatePMScore } from "../utils/pmScoring";
+import { PM_ITEMS, PM_ITEM_BY_ID, buildPMQuestion, analyzePMConfusions } from "../utils/pmItems";
+import { PM_PROTOCOL_VERSION, PM_ANSWER_TIME_SECONDS, PM_TEST_SHOW_TIME, getPMRecommendedDifficulty } from "../utils/pmProtocol";
 
 // ===== 圖片 =====
-import PM01 from "../asset/PM/PM_01.webp";
-import PM02 from "../asset/PM/PM_02.webp";
-import PM03 from "../asset/PM/PM_03.webp";
-import PM04 from "../asset/PM/PM_04.webp";
-import PM05 from "../asset/PM/PM_05.webp";
-import PM06 from "../asset/PM/PM_06.webp";
-import PM07 from "../asset/PM/PM_07.webp";
-import PM08 from "../asset/PM/PM_08.webp";
-import PM09 from "../asset/PM/PM_09.webp";
-import PM10 from "../asset/PM/PM_10.webp";
-import PM11 from "../asset/PM/PM_11.webp";
-import PM12 from "../asset/PM/PM_12.webp";
 import rabbitAvatar from "../asset/avatar/rabbit.webp";
 
 // ===== 背景 / 前導影片 / 結束影片 =====
@@ -39,43 +29,21 @@ import mouseGuideImg from "../asset/mouse.webp";
 
 const TEST_PAGE_ROUTE = "/test-map";
 
-const ALL_ITEMS = [
-  { id: "PM01", image: PM01, alt: "生日蛋糕" },
-  { id: "PM02", image: PM02, alt: "藍色水壺" },
-  { id: "PM03", image: PM03, alt: "紫色禮物盒" },
-  { id: "PM04", image: PM04, alt: "彩色棒棒糖" },
-  { id: "PM05", image: PM05, alt: "黃色帽子" },
-  { id: "PM06", image: PM06, alt: "黃色鞋子" },
-  { id: "PM07", image: PM07, alt: "莓果果醬" },
-  { id: "PM08", image: PM08, alt: "綠色樹葉" },
-  { id: "PM09", image: PM09, alt: "黃色小鴨" },
-  { id: "PM10", image: PM10, alt: "綠色手錶" },
-  { id: "PM11", image: PM11, alt: "金色湯匙" },
-  { id: "PM12", image: PM12, alt: "彩虹吊飾" },
-];
+
+// Catalog contains all 29 categorized stimuli; the background is excluded.
 
 // PM 完整測驗：7 個記憶跨度，每個跨度 2 題，最多 12 選。
-const MAX_RECOGNITION_OPTION_COUNT = 12;
-const FULL_TEST_SHOW_TIME = 5;
+const FULL_TEST_SHOW_TIME = PM_TEST_SHOW_TIME;
 
-const getRecognitionOptionCount = (memoryCount, itemPoolSize = ALL_ITEMS.length) => {
-  const safeMemoryCount = Math.max(1, Number(memoryCount) || 1);
-  const targetOptionCount =
-    safeMemoryCount >= 6
-      ? MAX_RECOGNITION_OPTION_COUNT
-      : safeMemoryCount * 2;
-
-  return Math.min(targetOptionCount, itemPoolSize);
-};
 
 const LEVELS = [
-  { level: 1, memoryCount: 1, showTime: FULL_TEST_SHOW_TIME, answerTime: 10 },
-  { level: 2, memoryCount: 2, showTime: FULL_TEST_SHOW_TIME, answerTime: 10 },
-  { level: 3, memoryCount: 3, showTime: FULL_TEST_SHOW_TIME, answerTime: 10 },
-  { level: 4, memoryCount: 4, showTime: FULL_TEST_SHOW_TIME, answerTime: 10 },
-  { level: 5, memoryCount: 5, showTime: FULL_TEST_SHOW_TIME, answerTime: 10 },
-  { level: 6, memoryCount: 6, showTime: FULL_TEST_SHOW_TIME, answerTime: 10 },
-  { level: 7, memoryCount: 7, showTime: FULL_TEST_SHOW_TIME, answerTime: 10 },
+  { level: 1, memoryCount: 1, showTime: FULL_TEST_SHOW_TIME, answerTime: PM_ANSWER_TIME_SECONDS },
+  { level: 2, memoryCount: 2, showTime: FULL_TEST_SHOW_TIME, answerTime: PM_ANSWER_TIME_SECONDS },
+  { level: 3, memoryCount: 3, showTime: FULL_TEST_SHOW_TIME, answerTime: PM_ANSWER_TIME_SECONDS },
+  { level: 4, memoryCount: 4, showTime: FULL_TEST_SHOW_TIME, answerTime: PM_ANSWER_TIME_SECONDS },
+  { level: 5, memoryCount: 5, showTime: FULL_TEST_SHOW_TIME, answerTime: PM_ANSWER_TIME_SECONDS },
+  { level: 6, memoryCount: 6, showTime: FULL_TEST_SHOW_TIME, answerTime: PM_ANSWER_TIME_SECONDS },
+  { level: 7, memoryCount: 7, showTime: FULL_TEST_SHOW_TIME, answerTime: PM_ANSWER_TIME_SECONDS },
 ];
 
 const TRIALS_PER_MEMORY_COUNT = 2;
@@ -98,14 +66,6 @@ const DEFAULT_ERRORS = {
   ruleSwitchError: 0,
 };
 
-function shuffleArray(arr) {
-  const copy = [...arr];
-  for (let i = copy.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
 
 function arraysEqualAsSet(arr1, arr2) {
   if (arr1.length !== arr2.length) return false;
@@ -128,19 +88,6 @@ function getSafeElapsedTime(startTime) {
   return Math.max(0, Math.round(performance.now() - startTime));
 }
 
-function safeRecommendedDifficulty(payload) {
-  try {
-    return getRecommendedDifficulty({
-      ...payload,
-      accuracy: safeNonNegative(payload.accuracy, 0),
-      avgReactionTime: safeNonNegative(payload.avgReactionTime, 0),
-      fatigueLevel: safeNumber(payload.fatigueLevel, 0),
-    });
-  } catch (error) {
-    console.warn("[TestPage_PM] getRecommendedDifficulty failed:", error);
-    return "normal";
-  }
-}
 
 function safeAnalyzeErrors(errorTypes) {
   try {
@@ -335,6 +282,8 @@ export default function TestPage_PM() {
   const testAttempt = useTestAttempt({ gameId: "PM", difficulty: "adaptive_span_test", route: "/test-picture-memory" });
 
   const answerStartRef = useRef(null);
+  const answerDeadlineRef = useRef(null);
+  const questionRef = useRef(null);
   const recordsRef = useRef([]);
   const tapLogsRef = useRef([]);
   const selectedIdsRef = useRef([]);
@@ -425,6 +374,7 @@ export default function TestPage_PM() {
       answerStartRef.current = null;
       answerStartFrameRef.current = requestAnimationFrame(() => {
         answerStartRef.current = performance.now();
+        answerDeadlineRef.current = answerStartRef.current + PM_ANSWER_TIME_SECONDS * 1000;
         answerTimeoutRef.current = setTimeout(() => {
           finalizeAnswerRef.current?.({
             isTimeout: true,
@@ -441,6 +391,7 @@ export default function TestPage_PM() {
   const resetRuntimeRefs = () => {
     clearAnswerTimers();
     answerStartRef.current = null;
+    answerDeadlineRef.current = null;
     tapLogsRef.current = [];
     selectedIdsRef.current = [];
     lastResultRef.current = null;
@@ -456,21 +407,11 @@ export default function TestPage_PM() {
   const setupLevel = (levelConfig) => {
     if (!levelConfig) return;
 
-    const memorizeItems = shuffleArray(ALL_ITEMS).slice(0, levelConfig.memoryCount);
-    const optionCount = getRecognitionOptionCount(levelConfig.memoryCount);
-    const maxDistractors = Math.max(optionCount - memorizeItems.length, 0);
-    const distractors = shuffleArray(
-      ALL_ITEMS.filter(
-        (item) => !memorizeItems.some((memoryItem) => memoryItem.id === item.id)
-      )
-    ).slice(0, maxDistractors);
-
-    const options = shuffleArray([...memorizeItems, ...distractors]).slice(
-      0,
-      optionCount
-    );
-
+    const question = buildPMQuestion(levelConfig.memoryCount, { mode: "test" });
+    const memorizeItems = question.targets;
+    const options = question.options;
     resetRuntimeRefs();
+    questionRef.current = question;
     setCurrentMemorizeItems(memorizeItems);
     setCurrentOptions(options);
     setSelectedIds([]);
@@ -529,6 +470,11 @@ export default function TestPage_PM() {
     if (phase !== "answer") return;
     if (hasSubmittedRef.current) return;
 
+    if (answerDeadlineRef.current == null) return;
+    if (performance.now() >= answerDeadlineRef.current) {
+      finalizeAnswer({ isTimeout: true, forceSelectedIds: selectedIdsRef.current });
+      return;
+    }
     const correctIds = currentMemorizeItems.map((item) => item.id);
     const prevSelected = selectedIdsRef.current;
     const alreadySelected = prevSelected.includes(itemId);
@@ -540,13 +486,22 @@ export default function TestPage_PM() {
       nextSelected = [...prevSelected, itemId];
     }
 
-    if (nextSelected === prevSelected) return;
+    if (nextSelected === prevSelected) {
+      tapLogsRef.current.push({ order: tapLogsRef.current.length + 1, itemId,
+        categoryKey: PM_ITEM_BY_ID[itemId]?.categoryKey, similarityGroup: PM_ITEM_BY_ID[itemId]?.similarityGroup,
+        timestamp: getSafeElapsedTime(answerStartRef.current), action: "blocked_select",
+        isCorrectItem: correctIds.includes(itemId), selectedCountAfter: prevSelected.length,
+        reason: "selection_limit" });
+      return;
+    }
 
     const now = getSafeElapsedTime(answerStartRef.current);
 
     const newLog = {
       order: tapLogsRef.current.length + 1,
       itemId,
+      categoryKey: PM_ITEM_BY_ID[itemId]?.categoryKey,
+      similarityGroup: PM_ITEM_BY_ID[itemId]?.similarityGroup,
       timestamp: now,
       action: alreadySelected ? "deselect" : "select",
       isCorrectItem: correctIds.includes(itemId),
@@ -565,7 +520,8 @@ export default function TestPage_PM() {
 
     clearAnswerTimers();
 
-    const finalSelectedIds = forceSelectedIds || selectedIdsRef.current;
+    isTimeout = isTimeout || (answerDeadlineRef.current != null && performance.now() >= answerDeadlineRef.current);
+    const finalSelectedIds = [...(forceSelectedIds || selectedIdsRef.current)];
     const correctIds = currentMemorizeItems.map((item) => item.id);
 
     const reactionTime = isTimeout
@@ -585,18 +541,33 @@ export default function TestPage_PM() {
     ).length;
     const missedTargetCount = correctIds.filter((id) => !finalSelectedIds.includes(id)).length;
     const firstOptionTap = tapLogsRef.current.find((tap) => tap.action === "select");
-    const firstTapTime = firstOptionTap?.timestamp || 0;
+    const firstTapTime = firstOptionTap?.timestamp ?? null;
 
     const errorTypes = {
       ...DEFAULT_ERRORS,
       miss: missedTargetCount,
       randomClick: randomClickCount,
       wrongTarget: wrongTapCount,
-      repeatedClick: deselectCount,
+      repeatedClick: 0,
       timeout: isTimeout ? 1 : 0,
     };
 
+    const confusionAnalysis = analyzePMConfusions({ targetIds: correctIds, selectedIds: finalSelectedIds, optionIds: questionRef.current?.optionIds });
     const record = {
+      protocolVersion: PM_PROTOCOL_VERSION,
+      mode: "test",
+      targetIds: correctIds,
+      optionIds: questionRef.current?.optionIds ?? currentOptions.map((item) => item.id),
+      targetMetadata: currentMemorizeItems.map(({ image, ...item }) => item),
+      optionMetadata: currentOptions.map(({ image, ...item }) => item),
+      similarityCondition: questionRef.current?.similarityCondition,
+      confusionAnalysis,
+      possibleConfusionCount: confusionAnalysis.possibleConfusionCount,
+      visualConfusionCount: confusionAnalysis.visualConfusionCount,
+      visualSimilarityConfusionCount: confusionAnalysis.visualConfusionCount,
+      categoryConfusionCount: confusionAnalysis.categoryConfusionCount,
+      unrelatedWrongCount: confusionAnalysis.unrelatedWrongCount,
+      clickLogs: [...tapLogsRef.current],
       task: "PM",
       level: currentLevel.level,
       trialNumber: currentLevelIndex + 1,
@@ -619,6 +590,8 @@ export default function TestPage_PM() {
       deselectCount,
       missedTargetCount,
       hintShown: false,
+      promptCount: 0,
+      promptEvents: [],
       errorTypes,
       selectedIds: finalSelectedIds,
       correctIds,
@@ -715,15 +688,7 @@ export default function TestPage_PM() {
     });
     const fatigueLevel = safeNumber(rawFatigueLevel, 0);
 
-    const recommendedDifficulty =
-      dataQuality.status === "insufficient"
-        ? "easy"
-        : safeRecommendedDifficulty({
-            accuracy: performanceResult.accuracy,
-            avgReactionTime: performanceResult.avgReactionTime,
-            errorTypes,
-            fatigueLevel,
-          });
+    const recommendedDifficulty = dataQuality.status === "insufficient" ? "beginner" : getPMRecommendedDifficulty(highestPassedMemoryCount, performanceResult.accuracy);
 
     const scoring = calculatePMScore(records, {
       mode: "test",
@@ -765,6 +730,8 @@ export default function TestPage_PM() {
       ...gameResult,
       resultId,
       schemaVersion: "1.0.0",
+      protocolVersion: PM_PROTOCOL_VERSION,
+      stimulusPolicy: { poolSize: PM_ITEMS.length, optionLimit: 12, sampling: "uniform_random_pool", visualInterference: "none", showTime: PM_TEST_SHOW_TIME, answerTimeLimit: PM_ANSWER_TIME_SECONDS },
       childId,
       gameId: "PM",
       mode: "test",
@@ -783,7 +750,12 @@ export default function TestPage_PM() {
       stopReason,
       stopReasonText: getPMStopReasonText(stopReason),
       scoring,
+      clinicalView: scoring.clinicalView,
+      parentView: scoring.parentView,
+      promptCount: 0,
+      possibleConfusionCount: scoring.summary?.possibleConfusionCount ?? 0,
       summary: {
+        ...scoring.summary,
         accuracy: performanceResult.accuracy,
         accuracyPercent: scoring?.summary?.accuracyPercent ?? Math.round(performanceResult.accuracy * 100),
         score: officialScore,
@@ -796,6 +768,7 @@ export default function TestPage_PM() {
         stopReason,
       },
       metrics: {
+        ...scoring.summary,
         accuracy: performanceResult.accuracy,
         avgReactionTime: performanceResult.avgReactionTime,
         timeoutRate: dataQuality.timeoutRate,
@@ -840,7 +813,7 @@ export default function TestPage_PM() {
         recommendedDifficulty,
         reason:
           errorTypes.miss > 0
-            ? "本次有漏選情形，建議下次可放大圖片或延長觀看時間。"
+            ? "本次有漏選情形，建議下次先減少訓練記憶物件數，維持固定觀看與作答時間規則。"
             : errorTypes.randomClick > 0 || errorTypes.wrongTarget > 0
             ? "本次有亂點或點錯目標，建議先降低干擾物數量。"
             : "本次表現穩定，可以維持目前難度或嘗試更高挑戰。",
@@ -929,7 +902,7 @@ export default function TestPage_PM() {
   const resultStars = Math.max(0, Math.min(3, Number(pendingResultRef.current?.stars) || 0));
 
   return (
-    <div style={styles.page(bgImage)}>
+    <div style={styles.page(bgImage)} data-testid="pm-stage" data-phase={phase} data-memory-count={currentLevel?.memoryCount} data-show-time={currentLevel?.showTime} data-answer-limit={PM_ANSWER_TIME_SECONDS}>
       <style>{`
         @keyframes pmMouseTap {
           0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.92; }
@@ -1038,6 +1011,9 @@ export default function TestPage_PM() {
                     <button
                       key={item.id}
                       type="button"
+                      aria-label={item.alt}
+                      aria-pressed={isSelected}
+                      data-item-id={item.id}
                       onClick={(event) => toggleSelect(event, item.id)}
                       style={{
                         ...styles.optionCard,

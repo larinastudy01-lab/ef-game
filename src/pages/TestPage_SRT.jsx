@@ -1,13 +1,13 @@
+import { gameLocalStorage as localStorage } from "../temporaryGameTesting/runtime";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/TestStepVideo.css";
 
 import bgImg from "../asset/SRT/SRT_background.webp";
-import normalImg from "../asset/SRT/acorn.webp";
-import goldenImg from "../asset/SRT/golden_acorn.webp";
-import rottenImg from "../asset/SRT/rotten_acorn.webp";
+import normalImg from "../asset/SRT/training/acorn.webp";
+import rottenImg from "../asset/SRT/training/rotten_acorn.webp";
 import levelIcon from "../asset/SRT_icon.webp";
-import startAvatar from "../asset/SRT/bear.webp";
+import startAvatar from "../asset/SRT/SRT_icon.webp";
 import tutorialVideo from "../asset/optimized/mp4/SRT_step.mp4";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
@@ -17,9 +17,11 @@ import homeResultBtn from "../asset/home/result.webp";
 import mouseImg from "../asset/mouse.webp";
 
 import SrtResultPage from "./ResultPage_SRT";
+import SrtTestTutorial from "../components/SrtTestTutorial";
 import { calculateSrtScore } from "../utils/srtScoring";
 import { saveUnifiedResult } from "../utils/resultManager";
 import { useTestAttempt } from "../utils/useTestAttempt";
+import { SRT_TEST_PROTOCOL_VERSION, SRT_ITEM_SIZE, SRT_TEST_INTERVALS, SRT_TEST_VISIBLE_TIME, SRT_TEST_TYPE_BLOCK, pickSrtInterval } from "../utils/srtProtocol";
 
 import { createGameResult } from "../ai/gameResultTemplate";
 import { analyzePerformance } from "../ai/performanceAnalyzer";
@@ -27,26 +29,11 @@ import { analyzeErrors } from "../ai/errorAnalyzer";
 import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
 
-const TEST_DURATION_MS = 300000; // 5 分鐘正式測驗
-const MAX_TRIALS = 180; // 保護上限，主要結束條件仍是時間到
-const ITEM_VISIBLE_TIME = 1200;
-const MIN_NEXT_DELAY = 900;
-const MAX_NEXT_DELAY = 1600;
-const ITEM_SIZE = 118;
+const TEST_DURATION_MS = 480000; // 8 分鐘正式測驗
+const MAX_TRIALS = Math.ceil(TEST_DURATION_MS / Math.min(...SRT_TEST_INTERVALS)) + 1;
+const ITEM_VISIBLE_TIME = SRT_TEST_VISIBLE_TIME;
+const ITEM_SIZE = SRT_ITEM_SIZE;
 const TEST_PAGE_ROUTE = "/test-map";
-
-const TEST_TYPE_BLOCK = [
-  "normal",
-  "normal",
-  "normal",
-  "normal",
-  "normal",
-  "normal",
-  "normal",
-  "golden",
-  "rotten",
-  "rotten",
-];
 
 const targetTypes = {
   normal: {
@@ -57,15 +44,6 @@ const targetTypes = {
     intrinsicHeight: 194,
     shouldClick: true,
     score: 3,
-  },
-  golden: {
-    key: "golden",
-    label: "金色橡實",
-    img: goldenImg,
-    intrinsicWidth: 166,
-    intrinsicHeight: 211,
-    shouldClick: true,
-    score: 4,
   },
   rotten: {
     key: "rotten",
@@ -92,6 +70,8 @@ const TestPage_SRT = () => {
 
   const phaseRef = useRef("start");
   const trialRecordsRef = useRef([]);
+  const behaviorRecordsRef = useRef([]);
+  const previousOnsetRef = useRef(null);
   const currentTrialRef = useRef(0);
   const spawnTimeRef = useRef(null);
   const currentItemRef = useRef(null);
@@ -172,6 +152,8 @@ const TestPage_SRT = () => {
     setIdleFlashId(null);
     setTrialRecords([]);
     trialRecordsRef.current = [];
+    behaviorRecordsRef.current = [];
+    previousOnsetRef.current = null;
     currentTrialRef.current = 0;
     spawnTimeRef.current = null;
     currentItemRef.current = null;
@@ -201,9 +183,17 @@ const TestPage_SRT = () => {
   };
 
   const addTrialRecord = (record) => {
-    const nextRecords = [...trialRecordsRef.current, record];
+    const targetItem = currentItemRef.current;
+    const nextRecords = [...trialRecordsRef.current, {
+      ...record,
+      stimulusOnsetMs: targetItem?.stimulusOnsetMs ?? null,
+      stimulusIntervalMs: targetItem?.stimulusIntervalMs ?? null,
+      nextStimulusIntervalMs: targetItem?.nextStimulusIntervalMs ?? null,
+      visibleTimeMs: ITEM_VISIBLE_TIME,
+      itemSizePx: ITEM_SIZE,
+    }];
     trialRecordsRef.current = nextRecords;
-    testAttempt.checkpoint({ trials: nextRecords, promptEvents: promptEventsRef.current });
+    testAttempt.checkpoint({ trials: nextRecords, behaviorRecords: behaviorRecordsRef.current, promptEvents: promptEventsRef.current });
     setTrialRecords(nextRecords);
   };
 
@@ -220,7 +210,7 @@ const TestPage_SRT = () => {
 
   const getNextTargetType = () => {
     if (targetQueueRef.current.length === 0) {
-      let nextBlock = shuffleArray(TEST_TYPE_BLOCK);
+      let nextBlock = shuffleArray(SRT_TEST_TYPE_BLOCK);
       const lastType = recentTargetTypesRef.current.at(-1);
 
       if (lastType === "rotten" && nextBlock[0] === "rotten") {
@@ -280,13 +270,14 @@ const TestPage_SRT = () => {
   };
 
   const handleStart = () => {
-    resetTest();
+    resetRuntimeState();
+    setFinalResult(null);
     setShowDetailedResult(false);
     setGamePhase("step");
   };
 
   const handleTutorialVideoEnd = () => {
-    startTest();
+    setGamePhase("tutorial");
   };
 
   const safeParseStorage = (key, fallback = null) => {
@@ -494,7 +485,8 @@ const TestPage_SRT = () => {
     clearCurrentPrompt();
 
     const records = trialRecordsRef.current;
-    const scoring = calculateSrtScore(records);
+    const allRecords = [...records, ...behaviorRecordsRef.current];
+    const scoring = calculateSrtScore(allRecords, { mode: "test", promptCount: promptEventsRef.current.length });
     const aiAnalysis = buildSrtAiResult(records, scoring);
     const finishedAtMs = Date.now();
     const startedAtMs = testStartedAtRef.current || finishedAtMs;
@@ -508,6 +500,17 @@ const TestPage_SRT = () => {
     const resultPayload = testAttempt.complete({
       resultId,
       schemaVersion: "1.0.0",
+      protocol: {
+        version: SRT_TEST_PROTOCOL_VERSION,
+        intervalDefinition: "stimulus_onset_to_onset",
+        stimulusIntervalsMs: SRT_TEST_INTERVALS,
+        visibleTimeMs: ITEM_VISIBLE_TIME,
+        itemSizePx: ITEM_SIZE,
+        goldenPurpose: "not_used_in_assessment",
+        normalRate: 0.75,
+        rottenRate: 0.25,
+        targetToNonTargetRatio: [3, 1],
+      },
       taskName: "Simple Reaction Time",
       taskCode: "SRT",
       gameId: "SRT",
@@ -548,9 +551,10 @@ const TestPage_SRT = () => {
       longAttentionMetrics: scoring?.summary?.longAttentionMetrics ?? null,
       distractorMetrics: aiAnalysis?.distractorMetrics,
       trials: records,
-      records,
-      metrics: scoring?.summary ?? {},
-      summary: scoring?.parentMetrics ?? {},
+      records: allRecords,
+      behaviorRecords: behaviorRecordsRef.current,
+      metrics: { ...scoring?.summary, promptCount: promptEventsRef.current.length },
+      summary: scoring?.summary ?? {},
       scoring,
       analysis: aiAnalysis,
       aiAnalysis,
@@ -561,6 +565,7 @@ const TestPage_SRT = () => {
 
     saveResultToLocalStorage(resultPayload, childProfile.childId);
     setFinalResult(resultPayload);
+    setGamePhase("result");
 
     try {
       await saveUnifiedResult({
@@ -576,13 +581,9 @@ const TestPage_SRT = () => {
       console.error("SRT 雲端同步失敗，結果已保留在本機：", error);
     }
 
-    clearAllTimers();
-    setItem(null);
-    setEffect(null);
-    setGamePhase("result");
   };
 
-  const getRandomDelay = () => Math.round(Math.random() * (MAX_NEXT_DELAY - MIN_NEXT_DELAY) + MIN_NEXT_DELAY);
+  const getRandomDelay = () => pickSrtInterval(SRT_TEST_INTERVALS);
 
   const scheduleNextTrial = (delay = getRandomDelay()) => {
     if (nextTrialTimeoutRef.current) {
@@ -615,8 +616,7 @@ const TestPage_SRT = () => {
       return;
     }
 
-    resetRuntimeState();
-    setFinalResult(null);
+    resetTest();
     testStartedAtRef.current = Date.now();
     testAttempt.begin(childProfile);
     setShowDetailedResult(false);
@@ -644,6 +644,11 @@ const TestPage_SRT = () => {
 
   const spawnTrial = () => {
     if (phaseRef.current !== "playing") return;
+    if (finishingRef.current) return;
+
+    if (currentItemRef.current && !trialLockedRef.current) {
+      handleMissedTrial(currentItemRef.current);
+    }
 
     if (itemTimeoutRef.current) {
       clearTimeout(itemTimeoutRef.current);
@@ -677,6 +682,8 @@ const TestPage_SRT = () => {
       scoreValue: typeConfig.score,
       img: typeConfig.img,
       label: typeConfig.label,
+      intrinsicWidth: typeConfig.intrinsicWidth,
+      intrinsicHeight: typeConfig.intrinsicHeight,
     };
 
     trialLockedRef.current = false;
@@ -697,10 +704,16 @@ const TestPage_SRT = () => {
       if (trialLockedRef.current) return;
 
       spawnTimeRef.current = performance.now();
+      newItem.stimulusOnsetMs = Math.round(spawnTimeRef.current);
+      newItem.stimulusIntervalMs = previousOnsetRef.current === null
+        ? null : Math.round(spawnTimeRef.current - previousOnsetRef.current);
+      previousOnsetRef.current = spawnTimeRef.current;
+      newItem.nextStimulusIntervalMs = getRandomDelay();
 
       itemTimeoutRef.current = setTimeout(() => {
         handleMissedTrial(newItem);
       }, ITEM_VISIBLE_TIME);
+      scheduleNextTrial(newItem.nextStimulusIntervalMs);
     });
   };
 
@@ -757,7 +770,6 @@ const TestPage_SRT = () => {
     lastBlankClickTimeRef.current = null;
     clearCurrentPrompt();
 
-    scheduleNextTrial();
   };
 
   const handleItemClick = (event, targetItem) => {
@@ -832,7 +844,6 @@ const TestPage_SRT = () => {
     if (effectTimeoutRef.current) clearTimeout(effectTimeoutRef.current);
     effectTimeoutRef.current = setTimeout(() => setEffect(null), 360);
 
-    scheduleNextTrial();
   };
 
   const handleGameAreaClick = () => {
@@ -841,6 +852,17 @@ const TestPage_SRT = () => {
     lastActionTimeRef.current = Date.now();
 
     if (!currentItemRef.current) {
+      behaviorRecordsRef.current.push({
+        trialIndex: `BG-${behaviorRecordsRef.current.length + 1}`,
+        targetType: "background",
+        trainingAction: "backgroundClick",
+        action: "backgroundClick",
+        falseClick: true,
+        falseClickCount: 1,
+        reactionTime: null,
+        timestamp: Date.now(),
+      });
+      testAttempt.checkpoint({ trials: trialRecordsRef.current, behaviorRecords: behaviorRecordsRef.current, promptEvents: promptEventsRef.current });
       return;
     }
 
@@ -916,7 +938,7 @@ const TestPage_SRT = () => {
             <div className="srt-start-content">
               <div className="srt-dialog-bubble srt-opening-bubble">小松鼠想請你一起找橡實。</div>
               <div className="srt-round-icon srt-start-avatar">
-                <img src={startAvatar} width="364" height="364" alt="小松鼠頭像" />
+                <img src={startAvatar} width="340" height="340" alt="小松鼠頭像" />
               </div>
             </div>
             <div className="srt-guided-action srt-guided-start">
@@ -946,12 +968,12 @@ const TestPage_SRT = () => {
             </div>
             <div className="srt-step-actions">
               <div className="srt-guided-action srt-guided-skip">
-                <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={startTest} aria-label="跳過動畫">
+                <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={handleTutorialVideoEnd} aria-label="跳過動畫">
                   <img src={homeSkipBtn} width="532" height="177" loading="lazy" alt="跳過動畫" />
                 </button>
               </div>
               <div className="srt-guided-action srt-guided-next">
-                <button type="button" className="srt-forest-button srt-image-button srt-btn-next" onClick={startTest} aria-label="下一步">
+                <button type="button" className="srt-forest-button srt-image-button srt-btn-next" onClick={handleTutorialVideoEnd} aria-label="下一步">
                   <img src={homeNextBtn} width="532" height="177" loading="lazy" alt="下一步" />
                 </button>
                 <img className="srt-mouse-guide srt-mouse-on-button" src={mouseImg} width="156" height="156" loading="lazy" alt="" aria-hidden="true" />
@@ -961,9 +983,15 @@ const TestPage_SRT = () => {
         </main>
       )}
 
+      {phase === "tutorial" && (
+        <SrtTestTutorial onReady={startTest} onExit={() => navigate(TEST_PAGE_ROUTE)}
+          childId={getCurrentChildId()} getPosition={getRandomPosition}
+          assessmentTiming={{ responseWindowMs: ITEM_VISIBLE_TIME, stimulusIntervalsMs: SRT_TEST_INTERVALS }} />
+      )}
+
       {phase === "playing" && (
-        <main className="srt-play-page">
-          <div className={`srt-test-game-area ${idleFlashId ? "srt-idle-flash" : ""}`} onClick={handleGameAreaClick}>
+        <main className="srt-play-page" data-mode="assessment">
+          <div data-testid="srt-game-area" className={`srt-test-game-area ${idleFlashId ? "srt-idle-flash" : ""}`} onClick={handleGameAreaClick}>
             {item && (
               <img loading="lazy"
                 src={item.img || normalImg}
@@ -972,6 +1000,7 @@ const TestPage_SRT = () => {
                 alt={item.label || "橡實"}
                 draggable={false}
                 className="srt-test-item"
+                data-testid="srt-stimulus"
                 style={{ left: `${item.x}%`, top: `${item.y}%`, width: `${ITEM_SIZE}px` }}
                 onClick={(event) => handleItemClick(event, item)}
               />
@@ -1019,11 +1048,12 @@ const TestPage_SRT = () => {
           score={storedResult?.score ?? score}
           avgRT={avgRT}
           rtRecords={rtRecords}
-          trialRecords={trialRecords}
+          trialRecords={storedResult?.records ?? trialRecords}
           totalSpawn={storedResult?.totalTrials ?? (trialRecords.length || MAX_TRIALS)}
           missCount={missCount}
           summaryData={storedResult?.summary ?? {}}
           starResult={storedResult?.scoring ?? null}
+          scoring={storedResult?.scoring ?? null}
           aiAnalysis={storedResult?.aiAnalysis ?? null}
           onBackToMenu={() => navigate(TEST_PAGE_ROUTE)}
         />
@@ -2280,7 +2310,7 @@ const testPageCss = `
   }
 
   .srt-test-item {
-    width: 96px !important;
+    width: ${ITEM_SIZE}px !important;
   }
 }
 @media (max-width: 720px) {

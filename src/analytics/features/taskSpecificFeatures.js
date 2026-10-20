@@ -64,18 +64,18 @@ function srtFeatures(trials) {
   };
 }
 
-function ssgFeatures(trials) {
+function ariFeatures(trials) {
   const selectedPosition = (trial) => meta(trial).selectedPosition ?? meta(trial).clickedSide;
   return {
-    ssg_cat_sound_accuracy: accuracy(trials.filter((trial) => meta(trial).soundType === "cat")),
-    ssg_dog_sound_accuracy: accuracy(trials.filter((trial) => meta(trial).soundType === "dog")),
-    ssg_left_response_accuracy: accuracy(trials.filter((trial) => selectedPosition(trial) === "left")),
-    ssg_right_response_accuracy: accuracy(trials.filter((trial) => selectedPosition(trial) === "right")),
-    ssg_anticipation_rate: rate(trials.filter((trial) => meta(trial).isAnticipation || trial.errorType === "anticipation").length, trials.length),
-    ssg_same_animal_error_rate: rate(trials.filter((trial) => trial.errorType === "sameAnimalError").length, trials.length),
-    ssg_audio_fallback_rate: rate(trials.filter((trial) => meta(trial).audioPlaybackFailed).length, trials.length),
-    ssg_attentional_bias_available: false,
-    ssg_attentional_bias_unavailable_reason: "Current task records auditory animal/position selection and lacks comparable congruent-versus-incongruent probe conditions.",
+    ari_cat_sound_accuracy: accuracy(trials.filter((trial) => meta(trial).soundType === "cat")),
+    ari_dog_sound_accuracy: accuracy(trials.filter((trial) => meta(trial).soundType === "dog")),
+    ari_left_response_accuracy: accuracy(trials.filter((trial) => selectedPosition(trial) === "left")),
+    ari_right_response_accuracy: accuracy(trials.filter((trial) => selectedPosition(trial) === "right")),
+    ari_anticipation_rate: rate(trials.filter((trial) => meta(trial).isAnticipation || trial.errorType === "anticipation").length, trials.length),
+    ari_same_animal_error_rate: rate(trials.filter((trial) => trial.errorType === "sameAnimalError").length, trials.length),
+    ari_audio_fallback_rate: rate(trials.filter((trial) => meta(trial).audioPlaybackFailed).length, trials.length),
+    ari_attentional_bias_available: false,
+    ari_attentional_bias_unavailable_reason: "Current task records auditory animal/position selection and lacks comparable congruent-versus-incongruent probe conditions.",
   };
 }
 
@@ -115,7 +115,7 @@ export function calculateTaskSpecificFeatures(taskValue, validTrials = []) {
   if (taskCode === "CBT") return cbtFeatures(validTrials);
   if (taskCode === "PM") return pmFeatures(validTrials);
   if (taskCode === "SRT") return srtFeatures(validTrials);
-  if (taskCode === "SSG") return ssgFeatures(validTrials);
+  if (taskCode === "ARI") return ariFeatures(validTrials);
   if (taskCode === "LB") return lbFeatures(validTrials);
   if (taskCode === "DCCS") return dccsFeatures(validTrials);
   return {};

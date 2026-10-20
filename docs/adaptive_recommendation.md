@@ -6,7 +6,7 @@ The repository already contains task-specific rule-based difficulty recommendati
 
 - CBT: `recommendCBTNextDifficulty` considers accuracy, early/location/order errors, timeout, replay/rescue, idle hints, late-session drop and performance score. It can maintain, change support, or move difficulty.
 - SRT: `recommendNextSrtDifficulty` requires minimum trial/RT counts, then considers accuracy, independent accuracy, misses, no-go errors, background clicks, assistance, RT CV and late-session change before moving one step.
-- DCCS and SSG analyzers similarly retain their task-specific recommendation outputs.
+- DCCS and ARI analyzers similarly retain their task-specific recommendation outputs.
 - `GameMenuPage.getRecommendedTrainingPlan` continues to consume the existing `trainingLevelPlan`/`dailyTrainingPlan`. If absent, it retains the existing rotating stage plan.
 
 The new `RuleBasedPolicy` is a common research comparator, not a silent replacement for those analyzers. It prioritizes tasks using:
@@ -22,7 +22,7 @@ For the selected task, accuracy ≥ .85 proposes one level higher, accuracy < .6
 
 ## Arms and action boundary
 
-Bandit arm v1 is one of the six existing tasks: CBT, PM, SRT, SSG, LB or DCCS. The selected action also contains a difficulty level, but task × difficulty is not yet modeled as an independent statistical arm.
+Bandit arm v1 is one of the six existing tasks: CBT, PM, SRT, ARI, LB or DCCS. The selected action also contains a difficulty level, but task × difficulty is not yet modeled as an independent statistical arm.
 
 Safety boundary:
 

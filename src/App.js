@@ -25,6 +25,10 @@ import LoginPage from "./pages/LoginPage";
 import ClinicianLoginPage from "./pages/ClinicianLoginPage";
 import ClinicianApplicationPage from "./pages/ClinicianApplicationPage";
 import { SHOW_AVATAR_ROOM } from "./config/featureFlags";
+import GameTestingControls, { useTemporaryGameTesting } from "./temporaryGameTesting/GameTestingControls";
+import { GAME_TESTING_ROUTE, gameTestingUrl, isGameTestingPath } from "./temporaryGameTesting/runtime";
+
+const GameTestingMenu = lazy(() => import("./temporaryGameTesting/GameTestingMenu"));
 
 const ProtectedRoute = lazy(() => import("./components/ProtectedRoute"));
 const ResultSyncStatus = lazy(() => import("./components/ResultSyncStatus"));
@@ -41,11 +45,7 @@ const HatStickerGamePage = lazy(() => import("./pages/HatStickerGamePage"));
 const AddPatient = lazy(() => import("./pages/AddPatientPage"));
 const ClinicianDashboard = lazy(() => import("./pages/ClinicianDashboard"));
 const AdminClinicianApplicationsPage = lazy(() => import("./pages/AdminClinicianApplicationsPage"));
-const ResearchStatistics = lazy(() => import("./pages/ResearchStatistics"));
-const AIBehavioralAnalysis = lazy(() => import("./pages/AIBehavioralAnalysis"));
-const AdaptiveRecommendationResearch = lazy(() => import("./pages/AdaptiveRecommendationResearch"));
-const LongitudinalDashboard = lazy(() => import("./pages/LongitudinalDashboard"));
-const ResearchProfessionalDashboard = lazy(() => import("./pages/ResearchProfessionalDashboard"));
+const ResearchTools = lazy(() => import("./pages/ResearchTools"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const ParentResultsPage = lazy(() => import("./pages/ParentResultsPage"));
 
@@ -65,9 +65,9 @@ const TrainingPageLB = lazy(() => import("./pages/TrainingPage_LB"));
 const TestPageLB = lazy(() => import("./pages/TestPage_LB"));
 const ResultPageLB = lazy(() => import("./pages/ResultPage_LB"));
 
-const TrainingPageSSG = lazy(() => import("./pages/TrainingPage_SSG"));
-const TestPageSSG = lazy(() => import("./pages/TestPage_SSG"));
-const ResultPageSSG = lazy(() => import("./pages/ResultPage_SSG"));
+const TrainingPageARI = lazy(() => import("./pages/TrainingPage_ARI"));
+const TestPageARI = lazy(() => import("./pages/TestPage_ARI"));
+const ResultPageARI = lazy(() => import("./pages/ResultPage_ARI"));
 
 const TrainingPageDCCS = lazy(() => import("./pages/TrainingPage_DCCS"));
 const TestPageDCCS = lazy(() => import("./pages/TestPage_DCCS"));
@@ -90,7 +90,7 @@ function ClinicianRoute({ children }) {
 const DEFAULT_APP_SETTINGS = {
   bgmVolume: 60,
   sfxVolume: 75,
-  brightness: 72,
+  brightness: 95,
   eyeCareMode: true,
   fontSize: "normal",
   buttonSize: "large",
@@ -151,6 +151,7 @@ function RouteFallback() {
 function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
+  const isGameTesting = useTemporaryGameTesting();
 
   useEffect(() => {
     document.title = "蒐秘密";
@@ -168,6 +169,14 @@ function AppContent() {
   const isClinicianPage =
     location.pathname === "/clinician-login" ||
     location.pathname === "/clinician-dashboard";
+  const isResearchPage = [
+    "/research-tools",
+    "/research-professional-dashboard",
+    "/research-statistics",
+    "/ai-behavioral-analysis",
+    "/adaptive-recommendation-research",
+    "/longitudinal-dashboard",
+  ].includes(location.pathname);
   const isSettingsPage = location.pathname === "/settings";
   const isHomePage = location.pathname === "/";
 
@@ -299,6 +308,7 @@ function AppContent() {
     <div
       className={[
         "app-settings-shell",
+        isGameTesting ? "game-testing-active" : "",
         appSettings.eyeCareMode ? "app-eye-care" : "",
         appSettings.fontSize === "large" ? "app-font-large" : "",
         appSettings.buttonSize === "large" ? "app-button-large" : "",
@@ -310,8 +320,9 @@ function AppContent() {
       }}
     >
       <audio ref={audioRef} src={BGM} loop preload="none" />
+      <GameTestingControls />
 
-      {!isSettingsPage && !isClinicianPage && (
+      {!isGameTesting && !isSettingsPage && !isClinicianPage && !isResearchPage && (
         <div className="app-settings-menu">
           <div className="app-header-actions">
             {isHomePage && (
@@ -368,7 +379,11 @@ function AppContent() {
       )}
 
       <Suspense fallback={<RouteFallback />}>
+      {isGameTesting && !isGameTestingPath(location.pathname) ? (
+        <Navigate to={gameTestingUrl(GAME_TESTING_ROUTE)} replace />
+      ) : (
       <Routes>
+        <Route path={GAME_TESTING_ROUTE} element={isGameTesting ? <GameTestingMenu /> : <Navigate to="/" replace />} />
         {/* 入口 / 帳號 / 角色流程 */}
         <Route path="/" element={<HomePage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -442,13 +457,13 @@ function AppContent() {
         />
         <Route path="/result-lb" element={<ResultPageLB />} />
 
-        {/* SSG */}
+        {/* ARI */}
         <Route
-          path="/training-ssg"
-          element={<TrainingPageSSG />}
+          path="/training-ari"
+          element={<TrainingPageARI />}
         />
-        <Route path="/test-ssg" element={<TestPageSSG />} />
-        <Route path="/result-ssg" element={<ResultPageSSG />} />
+        <Route path="/test-ari" element={<TestPageARI />} />
+        <Route path="/result-ari" element={<ResultPageARI />} />
 
         {/* DCCS */}
         <Route
@@ -490,11 +505,12 @@ function AppContent() {
           path="/clinician-dashboard"
           element={<ClinicianRoute><ClinicianDashboard /></ClinicianRoute>}
         />
-        <Route path="/research-statistics" element={<ClinicianRoute><ResearchStatistics /></ClinicianRoute>} />
-        <Route path="/ai-behavioral-analysis" element={<ClinicianRoute><AIBehavioralAnalysis /></ClinicianRoute>} />
-        <Route path="/adaptive-recommendation-research" element={<ClinicianRoute><AdaptiveRecommendationResearch /></ClinicianRoute>} />
-        <Route path="/longitudinal-dashboard" element={<ClinicianRoute><LongitudinalDashboard /></ClinicianRoute>} />
-        <Route path="/research-professional-dashboard" element={<ClinicianRoute><ResearchProfessionalDashboard /></ClinicianRoute>} />
+        <Route path="/research-tools" element={<ClinicianRoute><ResearchTools /></ClinicianRoute>} />
+        <Route path="/research-statistics" element={<Navigate to="/research-tools?view=statistics" replace />} />
+        <Route path="/ai-behavioral-analysis" element={<Navigate to="/research-tools?view=ai" replace />} />
+        <Route path="/adaptive-recommendation-research" element={<Navigate to="/research-tools?view=adaptive" replace />} />
+        <Route path="/longitudinal-dashboard" element={<Navigate to="/research-tools?view=longitudinal" replace />} />
+        <Route path="/research-professional-dashboard" element={<Navigate to="/research-tools?view=overview" replace />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route
           path="/parent-results"
@@ -504,7 +520,9 @@ function AppContent() {
         {/* 找不到頁面時回首頁 */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      )}
       </Suspense>
+      {!isGameTesting && <Suspense fallback={null}><ResultSyncStatus /></Suspense>}
     </div>
   );
 }
@@ -516,7 +534,6 @@ function App() {
       future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
       <AppContent />
-      <Suspense fallback={null}><ResultSyncStatus /></Suspense>
     </Router>
   );
 }

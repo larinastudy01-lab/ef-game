@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import { isTemporaryGameTesting } from "../temporaryGameTesting/runtime";
 import { createResultId, getCurrentChild, normalizeGameResult } from "./resultManager";
 import {
   getResultSyncAccountId, getResultSyncTabId, queueGameResult,
@@ -6,6 +7,11 @@ import {
 } from "./resultSync";
 
 export function createTestAttempt({ gameId, difficulty = "normal", route }) {
+  // Capture the mode for this attempt, including its unmount/pagehide cleanup.
+  // QA still computes an immediate result but never records checkpoints.
+  if (isTemporaryGameTesting()) {
+    return { begin: () => ({}), checkpoint: () => {}, complete: (raw) => raw, interrupt: () => {} };
+  }
   let attempt = null;
   const persist = (active) => {
     const result = normalizeGameResult({

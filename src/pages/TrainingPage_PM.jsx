@@ -1,26 +1,18 @@
+import { useTrainingAchievementAssignment } from "../utils/useTrainingAchievementAssignment";
+import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { analyzePerformance } from "../ai/performanceAnalyzer";
 import { analyzeErrors } from "../ai/errorAnalyzer";
 import { analyzeFatigue } from "../ai/fatigueAnalyzer";
-import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
 import { analyzePMTraining, calculatePMAIScore } from "../ai/pmTrainingAnalyzer";
 import { calculatePMScore } from "../utils/pmScoring";
 import { saveUnifiedResult } from "../utils/resultManager";
+import { PM_ITEMS, PM_ITEM_BY_ID, buildPMQuestion, analyzePMConfusions } from "../utils/pmItems";
+import { PM_PROTOCOL_VERSION, PM_DIFFICULTY_ORDER, PM_TRAINING_CONFIG,
+  PM_ANSWER_TIME_SECONDS, normalizePMDifficulty, getPMShowTime } from "../utils/pmProtocol";
 
-import PM01 from "../asset/PM/PM_01.webp";
-import PM02 from "../asset/PM/PM_02.webp";
-import PM03 from "../asset/PM/PM_03.webp";
-import PM04 from "../asset/PM/PM_04.webp";
-import PM05 from "../asset/PM/PM_05.webp";
-import PM06 from "../asset/PM/PM_06.webp";
-import PM07 from "../asset/PM/PM_07.webp";
-import PM08 from "../asset/PM/PM_08.webp";
-import PM09 from "../asset/PM/PM_09.webp";
-import PM10 from "../asset/PM/PM_10.webp";
-import PM11 from "../asset/PM/PM_11.webp";
-import PM12 from "../asset/PM/PM_12.webp";
 import rabbitAvatar from "../asset/avatar/rabbit.webp";
 
 import clickSfx from "../asset/Click.mp3";
@@ -37,44 +29,16 @@ import homeStartBtn from "../asset/home/start.webp";
 import homeNextBtn from "../asset/home/next.webp";
 import homeSendBtn from "../asset/home/send.webp";
 
-const ALL_ITEMS = [
-  { id: "PM01", image: PM01, alt: "生日蛋糕" },
-  { id: "PM02", image: PM02, alt: "藍色水壺" },
-  { id: "PM03", image: PM03, alt: "紫色禮物盒" },
-  { id: "PM04", image: PM04, alt: "彩色棒棒糖" },
-  { id: "PM05", image: PM05, alt: "黃色帽子" },
-  { id: "PM06", image: PM06, alt: "黃色鞋子" },
-  { id: "PM07", image: PM07, alt: "莓果果醬" },
-  { id: "PM08", image: PM08, alt: "綠色樹葉" },
-  { id: "PM09", image: PM09, alt: "黃色小鴨" },
-  { id: "PM10", image: PM10, alt: "綠色手錶" },
-  { id: "PM11", image: PM11, alt: "金色湯匙" },
-  { id: "PM12", image: PM12, alt: "彩虹吊飾" },
-];
+const ALL_ITEMS = PM_ITEMS;
+// Catalog contains all 29 categorized stimuli; the background is excluded.
 
 
 const COMPLETED_LEVELS_STORAGE_KEY = "ef_game_completed_training_levels";
 const PM_STAGE_STAR_STORAGE_KEY = "ef_game_training_stage_stars";
-const MAX_LEVEL_PER_GAME = 10;
+const MAX_LEVEL_PER_GAME = 5;
 const SPAN_TRIALS_PER_MEMORY_COUNT = 2;
 const MAX_TRAINING_MEMORY_SPAN = 7;
 const DEFAULT_TRAINING_TOTAL_ROUNDS = 6;
-const MAX_RECOGNITION_OPTION_COUNT = 12;
-const TRAINING_SHOW_TIME_BY_DIFFICULTY = {
-  easy: 5,
-  normal: 4,
-  hard: 3,
-};
-
-const getRecognitionOptionCount = (memoryCount, itemPoolSize = ALL_ITEMS.length) => {
-  const safeMemoryCount = Math.max(1, Number(memoryCount) || 1);
-  const targetOptionCount =
-    safeMemoryCount >= 6
-      ? MAX_RECOGNITION_OPTION_COUNT
-      : safeMemoryCount * 2;
-
-  return Math.min(targetOptionCount, itemPoolSize);
-};
 
 const clampNumber = (value, min, max) => {
   const number = Number(value);
@@ -155,6 +119,7 @@ const getTrainingStageInfo = (location) => {
     total: Number(state.trainingTotal || getQueryValue(search, "total") || MAX_LEVEL_PER_GAME),
     todayKey: state.todayKey || getQueryValue(search, "todayKey") || "",
     abilityLabel: state.abilityLabel || "記憶",
+    difficulty: state.difficulty || state.difficultyKey || getQueryValue(search, "difficulty"),
   };
 };
 
@@ -181,197 +146,22 @@ const resolveCurrentChildId = () => {
   return currentChild?.id || currentChild?.childId || currentChild?.profileId || null;
 };
 
-const getLatestPMTestResult = () => {
-  const childId = resolveCurrentChildId();
-  const possibleKeys = [
-    ...(childId ? [`pmTestResult_${childId}`] : []),
-    "pmTestResult",
-    "latestPMTestResult",
-    "PMTestResult",
-    "pictureMemoryTestResult",
-    "result_picture_memory_test",
-    "ef_game_pm_test_result",
-  ];
+const DIFFICULTY_CONFIGS = Object.fromEntries(PM_DIFFICULTY_ORDER.map((key, index) => {
+  const config = PM_TRAINING_CONFIG[key];
+  return [index + 1, { ...config, level: index + 1, shortLabel: config.label,
+    baseMemoryCount: config.minMemory, maxMemoryCount: config.maxMemory,
+    motion: "none", modeHint: config.label }];
+}));
 
-  for (const key of possibleKeys) {
-    const result = safeParse(safeStorageGet(localStorage, key), null);
-    if (result && typeof result === "object") return result;
-  }
-
-  const allResults = safeParse(safeStorageGet(localStorage, "ef_game_test_results"), null);
-  if (allResults && typeof allResults === "object") {
-    return allResults.pm || allResults.PM || allResults.pictureMemory || null;
-  }
-
-  return null;
-};
-
-const getAccuracyFromResult = (result) => {
-  if (!result || typeof result !== "object") return null;
-
-  const directAccuracy = Number(result.accuracy ?? result.correctRate ?? result.accuracyRate);
-  if (Number.isFinite(directAccuracy)) {
-    return directAccuracy > 1 ? directAccuracy / 100 : directAccuracy;
-  }
-
-  const correct = Number(result.correctTrials ?? result.correctCount ?? result.correct);
-  const total = Number(result.totalTrials ?? result.totalCount ?? result.total);
-  if (Number.isFinite(correct) && Number.isFinite(total) && total > 0) {
-    return correct / total;
-  }
-
-  if (Array.isArray(result.records) && result.records.length > 0) {
-    const correctRecords = result.records.filter((record) => record.isCorrect || record.correct).length;
-    return correctRecords / result.records.length;
-  }
-
-  return null;
-};
-
-const getAvgReactionTimeFromResult = (result) => {
-  if (!result || typeof result !== "object") return null;
-
-  const directRT = Number(result.avgReactionTime ?? result.averageReactionTime ?? result.avgRT);
-  if (Number.isFinite(directRT) && directRT > 0) return directRT;
-
-  if (Array.isArray(result.records)) {
-    const reactionTimes = result.records
-      .map((record) => Number(record.reactionTime ?? record.rt))
-      .filter((rt) => Number.isFinite(rt) && rt > 0);
-
-    if (reactionTimes.length > 0) {
-      return reactionTimes.reduce((sum, rt) => sum + rt, 0) / reactionTimes.length;
-    }
-  }
-
-  return null;
-};
-
-const DIFFICULTY_CONFIGS = {
-  1: {
-    level: 1,
-    shortLabel: "熟悉規則",
-    desc: "物品少、時間長，先熟悉怎麼記住與找回物品。",
-    baseMemoryCount: 2,
-    maxMemoryCount: 2,
-    showTime: 5,
-    minShowTime: 4.5,
-    answerTime: 16,
-    distractorExtra: 1,
-    motion: "none",
-    modeHint: "先慢慢看清楚兔子妹妹掉了什麼，再幫她找回來。",
-  },
-  2: {
-    level: 2,
-    shortLabel: "基礎記憶",
-    desc: "物品稍微增加，但湖面還是很平靜。",
-    baseMemoryCount: 2,
-    maxMemoryCount: 3,
-    showTime: 4.5,
-    minShowTime: 4,
-    answerTime: 15,
-    distractorExtra: 2,
-    motion: "none",
-    modeHint: "這次會多一點選項，請只找剛剛真的看過的物品。",
-  },
-  3: {
-    level: 3,
-    shortLabel: "增加容量",
-    desc: "要記住更多物品，並從更多選項中找回來。",
-    baseMemoryCount: 3,
-    maxMemoryCount: 4,
-    showTime: 4,
-    minShowTime: 3.5,
-    answerTime: 13,
-    distractorExtra: 3,
-    motion: "none",
-    modeHint: "森林裡的物品變多了，請一個一個看清楚。",
-  },
-  4: {
-    level: 4,
-    shortLabel: "輕度抗干擾",
-    desc: "湖面會有很輕微的波紋，需要更專心。",
-    baseMemoryCount: 4,
-    maxMemoryCount: 4,
-    showTime: 3.5,
-    minShowTime: 3,
-    answerTime: 12,
-    distractorExtra: 3,
-    motion: "none",
-    modeHint: "湖面會輕輕閃動，請專心記住真正掉進湖裡的物品。",
-  },
-  5: {
-    level: 5,
-    shortLabel: "記憶分辨",
-    desc: "要記住較多物品，也要避開更多非答案選項。",
-    baseMemoryCount: 4,
-    maxMemoryCount: 5,
-    showTime: 3,
-    minShowTime: 2.8,
-    answerTime: 10,
-    distractorExtra: 4,
-    motion: "flicker",
-    modeHint: "有些物品會混在一起，請找回剛剛真的出現過的物品。",
-  },
-  6: {
-    level: 6,
-    shortLabel: "高挑戰",
-    desc: "物品較多、時間較短，湖水會輕輕晃動。",
-    baseMemoryCount: 5,
-    maxMemoryCount: 6,
-    showTime: 2.8,
-    minShowTime: 2.5,
-    answerTime: 9,
-    distractorExtra: 4,
-    motion: "move",
-    modeHint: "湖水會晃動，請看清楚後再幫兔子妹妹找回來。",
-  },
-};
-
-const getBaseDifficultyFromTestResult = (result) => {
-  const accuracy = getAccuracyFromResult(result);
-  const avgReactionTime = getAvgReactionTimeFromResult(result);
-
-  if (accuracy == null) return null;
-
-  if (accuracy >= 0.9 && (!avgReactionTime || avgReactionTime <= 6000)) return 4;
-  if (accuracy >= 0.78 && (!avgReactionTime || avgReactionTime <= 7500)) return 3;
-  if (accuracy >= 0.6) return 2;
-  return 1;
-};
-
-const getStageDifficulty = (stageLevel, testResult) => {
-  const baseDifficulty = getBaseDifficultyFromTestResult(testResult);
-
-  if (baseDifficulty == null) {
-    if (stageLevel >= 10) return 6;
-    if (stageLevel >= 8) return 5;
-    if (stageLevel >= 6) return 4;
-    if (stageLevel >= 4) return 3;
-    if (stageLevel >= 2) return 2;
-    return 1;
-  }
-
-  const stageBoost = Math.floor((stageLevel - 1) / 2);
-  return clampNumber(baseDifficulty + stageBoost, 1, 6);
-};
-
-const getBroadDifficultyKey = (difficultyLevel) => {
-  if (difficultyLevel <= 2) return "easy";
-  if (difficultyLevel <= 4) return "normal";
-  return "hard";
-};
-
-const getTrainingShowTime = (difficultyLevel) =>
-  TRAINING_SHOW_TIME_BY_DIFFICULTY[getBroadDifficultyKey(difficultyLevel)] ||
-  TRAINING_SHOW_TIME_BY_DIFFICULTY.normal;
+const getStageDifficulty = (stageLevel) => clampNumber(Number(stageLevel), 1, 5);
+const getBroadDifficultyKey = (level) => PM_DIFFICULTY_ORDER[clampNumber(level, 1, 5) - 1];
 
 const getTrainingMemorySpanPlan = (difficultyLevel) => {
-  const level = clampNumber(difficultyLevel, 1, 6);
+  const level = clampNumber(difficultyLevel, 1, 5);
   const config = DIFFICULTY_CONFIGS[level] || DIFFICULTY_CONFIGS[1];
   const startSpan = clampNumber(config.baseMemoryCount || 2, 2, MAX_TRAINING_MEMORY_SPAN);
   const endSpan = clampNumber(
-    Math.max(config.maxMemoryCount || startSpan, startSpan + 2),
+    Math.max(config.maxMemoryCount || startSpan, startSpan),
     startSpan,
     MAX_TRAINING_MEMORY_SPAN
   );
@@ -459,16 +249,6 @@ const saveTrainingStageProgress = ({ stageId, level, stars, finalResult }) => {
   dispatchStorageRefresh();
 };
 
-function shuffleArray(arr) {
-  const copy = [...arr];
-
-  for (let i = copy.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-
-  return copy;
-}
 
 function arraysEqualAsSet(arr1, arr2) {
   if (arr1.length !== arr2.length) return false;
@@ -488,19 +268,6 @@ const getSafeElapsedTime = (startTime) => {
   return Math.max(0, Math.round(performance.now() - startTime));
 };
 
-const safeRecommendedDifficulty = (payload) => {
-  try {
-    return getRecommendedDifficulty({
-      ...payload,
-      accuracy: safeNonNegative(payload?.accuracy, 0),
-      avgReactionTime: safeNonNegative(payload?.avgReactionTime, 0),
-      fatigueLevel: safeNumber(payload?.fatigueLevel, 0),
-    });
-  } catch (error) {
-    console.warn("[TrainingPage_PM] difficulty recommendation failed:", error);
-    return "normal";
-  }
-};
 
 const safeCalculatePMScore = (records, options) => {
   try {
@@ -515,10 +282,11 @@ export default function TrainingPage_PM() {
   const navigate = useNavigate();
   const location = useLocation();
   const trainingStage = getTrainingStageInfo(location);
-  const pmTestResult = getLatestPMTestResult();
 
   const audioRef = useRef(null);
   const answerStartRef = useRef(null);
+  const answerDeadlineRef = useRef(null);
+  const questionRef = useRef(null);
   const recordsRef = useRef([]);
   const tapLogsRef = useRef([]);
   const selectedIdsRef = useRef([]);
@@ -526,20 +294,25 @@ export default function TrainingPage_PM() {
   const finalResultRef = useRef(null);
   const answerStartFrameRef = useRef(null);
   const roundTransitionRef = useRef(null);
-  const backgroundWarningTimerRef = useRef(null);
+  const answerTimeoutRef = useRef(null);
+  const finalizeAnswerRef = useRef(null);
+  const promptEventsRef = useRef([]);
   const idleHintTimerRef = useRef(null);
 
   const [phase, setPhase] = useState("rules");
   // rules -> introVideo -> stepVideo -> readyCountdown -> memorize -> answer -> endingVideo -> result
 
-  const [baseDifficulty] = useState(() => getStageDifficulty(trainingStage.level, pmTestResult));
+  const [baseDifficulty] = useState(() => {
+    const requested = normalizePMDifficulty(trainingStage.difficulty);
+    return requested ? PM_DIFFICULTY_ORDER.indexOf(requested) + 1 : getStageDifficulty(trainingStage.level);
+  });
   const trainingSpanPlan = Number.isFinite(baseDifficulty)
     ? getTrainingMemorySpanPlan(baseDifficulty)
     : getTrainingMemorySpanPlan(1);
   const trainingTotalRounds = trainingSpanPlan.length > 0
     ? trainingSpanPlan.length * SPAN_TRIALS_PER_MEMORY_COUNT
     : DEFAULT_TRAINING_TOTAL_ROUNDS;
-  const [adaptiveOffset, setAdaptiveOffset] = useState(0);
+
   const [round, setRound] = useState(1);
 
   const [currentMemorizeItems, setCurrentMemorizeItems] = useState([]);
@@ -547,16 +320,13 @@ export default function TrainingPage_PM() {
   const [selectedIds, setSelectedIds] = useState([]);
 
   const [readyCountdown, setReadyCountdown] = useState(5);
-  const [memorizeCountdown, setMemorizeCountdown] = useState(0);
-  const [answerCountdown, setAnswerCountdown] = useState(15);
 
   const [, setFeedbackText] = useState("");
   const [, setFeedbackType] = useState("success");
   const [, setLastRecord] = useState(null);
-  const [backgroundWarning, setBackgroundWarning] = useState(false);
   const [idleHintActive, setIdleHintActive] = useState(false);
 
-  const [motionTick, setMotionTick] = useState(0);
+
 
   useEffect(() => {
     audioRef.current = new Audio(clickSfx);
@@ -565,7 +335,7 @@ export default function TrainingPage_PM() {
   useEffect(() => {
     return () => {
       if (answerStartFrameRef.current) cancelAnimationFrame(answerStartFrameRef.current);
-      [roundTransitionRef, backgroundWarningTimerRef, idleHintTimerRef].forEach((timerRef) => {
+      [roundTransitionRef, answerTimeoutRef, idleHintTimerRef].forEach((timerRef) => {
         if (timerRef.current) clearTimeout(timerRef.current);
         timerRef.current = null;
       });
@@ -575,20 +345,6 @@ export default function TrainingPage_PM() {
   useEffect(() => {
     selectedIdsRef.current = selectedIds;
   }, [selectedIds]);
-
-  useEffect(() => {
-    const activeConfig = DIFFICULTY_CONFIGS[clampNumber(baseDifficulty + adaptiveOffset, 1, 6)];
-
-    if (phase !== "memorize" || activeConfig.motion === "none") {
-      return undefined;
-    }
-
-    const timer = setInterval(() => {
-      setMotionTick((prev) => prev + 1);
-    }, 120);
-
-    return () => clearInterval(timer);
-  }, [phase, baseDifficulty, adaptiveOffset]);
 
   const playClick = () => {
     if (!audioRef.current) return;
@@ -602,14 +358,14 @@ export default function TrainingPage_PM() {
   };
 
   const getDifficultyConfig = () => {
-    const difficultyLevel = clampNumber(baseDifficulty + adaptiveOffset, 1, 6);
+    const difficultyLevel = baseDifficulty;
     const preset = DIFFICULTY_CONFIGS[difficultyLevel] || DIFFICULTY_CONFIGS[1];
     const spanInfo = getSpanInfoForRound(round, baseDifficulty);
 
-    // 每個記憶跨度固定 2 題。AI 自適應只調整時間、干擾與動畫，不降低目前跨度。
+    // Only memory load changes within the selected level.
     const memoryCount = Math.min(spanInfo.memorySpan, ALL_ITEMS.length);
 
-    const showTime = getTrainingShowTime(difficultyLevel);
+    const showTime = getPMShowTime(memoryCount);
 
     return {
       ...preset,
@@ -625,12 +381,13 @@ export default function TrainingPage_PM() {
       spanPlan: spanInfo.spanPlan,
       showTime,
       answerTime: preset.answerTime,
-      adaptiveOffset,
+      adaptiveOffset: 0,
       baseDifficulty,
     };
   };
 
   const currentConfig = getDifficultyConfig();
+  const achievementAssignment = useTrainingAchievementAssignment({ gameId: "PM", difficulty: currentConfig.broadDifficulty, difficultyLabel: currentConfig.shortLabel, trainingLevel: trainingStage.level, location });
 
   const clearTimeoutRef = (timerRef) => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -664,42 +421,29 @@ export default function TrainingPage_PM() {
 
   const resetRuntimeRefs = () => {
     clearAnimationFrameRef(answerStartFrameRef);
-    clearTimeoutRef(backgroundWarningTimerRef);
+    clearTimeoutRef(answerTimeoutRef);
+    promptEventsRef.current = [];
     clearTimeoutRef(idleHintTimerRef);
     answerStartRef.current = null;
+    answerDeadlineRef.current = null;
     tapLogsRef.current = [];
     selectedIdsRef.current = [];
     hasSubmittedRef.current = false;
-    setBackgroundWarning(false);
     setIdleHintActive(false);
   };
 
   const setupRound = () => {
     const config = getDifficultyConfig();
 
-    const memorizeItems = shuffleArray(ALL_ITEMS).slice(0, config.memoryCount);
-
-    // 選項最多顯示 12 個，但必須先完整保留所有正確答案。
-    // 舊寫法把答案和干擾項一起洗牌後再 slice，會隨機切掉正確答案。
-    const optionCount = getRecognitionOptionCount(config.memoryCount);
-    const distractorCount = Math.max(0, optionCount - memorizeItems.length);
-
-    const distractors = shuffleArray(
-      ALL_ITEMS.filter(
-        (item) => !memorizeItems.some((memoryItem) => memoryItem.id === item.id)
-      )
-    ).slice(0, distractorCount);
-
-    // 只洗牌、不再裁切，確保 memorizeItems 每一個都一定出現在選項中。
-    const options = shuffleArray([...memorizeItems, ...distractors]);
-
+    const question = buildPMQuestion(config.memoryCount, { mode: "training" });
+    const memorizeItems = question.targets;
+    const options = question.options;
     resetRuntimeRefs();
+    questionRef.current = question;
 
     setCurrentMemorizeItems(memorizeItems);
     setCurrentOptions(options);
     setSelectedIds([]);
-    setMemorizeCountdown(config.showTime);
-    setAnswerCountdown(config.answerTime);
     setFeedbackText("");
     setFeedbackType("success");
     setLastRecord(null);
@@ -716,10 +460,7 @@ export default function TrainingPage_PM() {
     resetRoundViewState();
 
     setRound(1);
-    setAdaptiveOffset(0);
     setReadyCountdown(5);
-    setMemorizeCountdown(0);
-    setAnswerCountdown(15);
     setPhase("rules");
   };
 
@@ -777,67 +518,34 @@ export default function TrainingPage_PM() {
 
   useEffect(() => {
     if (phase !== "memorize") return undefined;
-
-    if (memorizeCountdown <= 0) {
-      const config = getDifficultyConfig();
-
-      setAnswerCountdown(config.answerTime);
-      setPhase("answer");
-      answerStartRef.current = null;
-      clearAnimationFrameRef(answerStartFrameRef);
-      answerStartFrameRef.current = requestAnimationFrame(() => {
-        answerStartRef.current = performance.now();
-      });
-
-      return undefined;
-    }
-
-    const timer = setTimeout(() => {
-      setMemorizeCountdown((prev) => Math.max(0, +(prev - 0.5).toFixed(1)));
-    }, 500);
-
+    const timer = setTimeout(() => setPhase("answer"), currentConfig.showTime * 1000);
     return () => clearTimeout(timer);
-    // Difficulty is sampled only when memorization ends, not on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, memorizeCountdown]);
+  }, [phase, currentConfig.showTime]);
 
   useEffect(() => {
     if (phase !== "answer") return undefined;
-    if (hasSubmittedRef.current) return undefined;
-
-    if (answerCountdown <= 0) {
-      finalizeAnswer({
-        isTimeout: true,
-        forceSelectedIds: selectedIdsRef.current,
-      });
-
-      return undefined;
-    }
-
-    const timer = setTimeout(() => {
-      setAnswerCountdown((prev) => prev - 1);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-    // finalizeAnswer reads refs and must not recreate the countdown timer each render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, answerCountdown]);
-
-  useEffect(() => {
-    if (phase !== "answer" || hasSubmittedRef.current || selectedIds.length > 0) {
-      clearTimeoutRef(idleHintTimerRef);
-      setIdleHintActive(false);
-      return undefined;
-    }
-
-    idleHintTimerRef.current = setTimeout(() => {
-      setIdleHintActive(true);
-    }, 5500);
-
+    answerStartRef.current = null;
+    answerStartFrameRef.current = requestAnimationFrame(() => {
+      answerStartRef.current = performance.now();
+      answerDeadlineRef.current = answerStartRef.current + PM_ANSWER_TIME_SECONDS * 1000;
+      answerTimeoutRef.current = setTimeout(() => {
+        finalizeAnswerRef.current?.({ isTimeout: true, forceSelectedIds: selectedIdsRef.current });
+      }, PM_ANSWER_TIME_SECONDS * 1000);
+      if (baseDifficulty === 1) {
+        idleHintTimerRef.current = setTimeout(() => {
+          const hasItemClick = tapLogsRef.current.some((tap) => tap.action === "select" || tap.action === "deselect");
+          if (hasSubmittedRef.current || hasItemClick || promptEventsRef.current.length) return;
+          promptEventsRef.current.push({ type: "idle_mouse", timestamp: getSafeElapsedTime(answerStartRef.current), optionId: questionRef.current?.optionIds[0] });
+          setIdleHintActive(true);
+        }, PM_TRAINING_CONFIG.beginner.idleHintDelay);
+      }
+    });
     return () => {
-      clearTimeoutRef(idleHintTimerRef);
+      if (answerStartFrameRef.current) cancelAnimationFrame(answerStartFrameRef.current);
+      if (answerTimeoutRef.current) clearTimeout(answerTimeoutRef.current);
+      if (idleHintTimerRef.current) clearTimeout(idleHintTimerRef.current);
     };
-  }, [phase, selectedIds.length, round]);
+  }, [phase, round, baseDifficulty]);
 
   const toggleSelect = (itemId) => {
     if (phase !== "answer") return;
@@ -848,6 +556,11 @@ export default function TrainingPage_PM() {
     clearTimeoutRef(idleHintTimerRef);
     setIdleHintActive(false);
 
+    if (answerDeadlineRef.current == null) return;
+    if (performance.now() >= answerDeadlineRef.current) {
+      finalizeAnswer({ isTimeout: true, forceSelectedIds: selectedIdsRef.current });
+      return;
+    }
     const correctIds = currentMemorizeItems.map((item) => item.id);
     const prevSelected = selectedIdsRef.current;
     const alreadySelected = prevSelected.includes(itemId);
@@ -860,13 +573,22 @@ export default function TrainingPage_PM() {
       nextSelected = [...prevSelected, itemId];
     }
 
-    if (nextSelected === prevSelected) return;
+    if (nextSelected === prevSelected) {
+      tapLogsRef.current.push({ order: tapLogsRef.current.length + 1, itemId,
+        categoryKey: PM_ITEM_BY_ID[itemId]?.categoryKey, similarityGroup: PM_ITEM_BY_ID[itemId]?.similarityGroup,
+        timestamp: getSafeElapsedTime(answerStartRef.current), action: "blocked_select",
+        isCorrectItem: correctIds.includes(itemId), selectedCountAfter: prevSelected.length,
+        reason: "selection_limit" });
+      return;
+    }
 
     const now = getSafeElapsedTime(answerStartRef.current);
 
     const newLog = {
       order: tapLogsRef.current.length + 1,
       itemId,
+      categoryKey: PM_ITEM_BY_ID[itemId]?.categoryKey,
+      similarityGroup: PM_ITEM_BY_ID[itemId]?.similarityGroup,
       timestamp: now,
       action: alreadySelected ? "deselect" : "select",
       isCorrectItem: correctIds.includes(itemId),
@@ -882,8 +604,11 @@ export default function TrainingPage_PM() {
   const finalizeAnswer = ({ isTimeout = false, forceSelectedIds = null }) => {
     if (hasSubmittedRef.current) return;
 
+    clearTimeoutRef(answerTimeoutRef);
+    clearTimeoutRef(idleHintTimerRef);
     const config = getDifficultyConfig();
-    const finalSelectedIds = forceSelectedIds || selectedIdsRef.current;
+    isTimeout = isTimeout || (answerDeadlineRef.current != null && performance.now() >= answerDeadlineRef.current);
+    const finalSelectedIds = [...(forceSelectedIds || selectedIdsRef.current)];
     const correctIds = currentMemorizeItems.map((item) => item.id);
 
     const reactionTime = isTimeout
@@ -902,7 +627,7 @@ export default function TrainingPage_PM() {
     ).length;
 
     const firstTapTime =
-      tapLogsRef.current.length > 0 ? tapLogsRef.current[0].timestamp : 0;
+      tapLogsRef.current.find((tap) => tap.action === "select")?.timestamp ?? null;
 
     const roundAIResult = calculatePMAIScore({
       accuracy: isCorrect ? 1 : 0,
@@ -912,9 +637,34 @@ export default function TrainingPage_PM() {
       totalWrongTapCount: wrongTapCount,
       fatigueLevel: 0,
       difficultyLevel: config.difficulty,
+      memorySpan: config.memoryCount,
+      highestMemorySpan: isCorrect ? config.memoryCount : 0,
+      promptCount: promptEventsRef.current.length,
+      supportedTrialCount: promptEventsRef.current.length ? 1 : 0,
     });
 
+    const confusionAnalysis = analyzePMConfusions({ targetIds: correctIds, selectedIds: finalSelectedIds, optionIds: questionRef.current?.optionIds });
     const record = {
+      promptCount: promptEventsRef.current.length,
+      idleHintCount: promptEventsRef.current.length,
+      promptEvents: [...promptEventsRef.current],
+      hintShown: promptEventsRef.current.length > 0,
+      usedHint: promptEventsRef.current.length > 0,
+      usedSupport: promptEventsRef.current.length > 0,
+      protocolVersion: PM_PROTOCOL_VERSION,
+      mode: "training",
+      targetIds: correctIds,
+      optionIds: questionRef.current?.optionIds ?? currentOptions.map((item) => item.id),
+      targetMetadata: currentMemorizeItems.map(({ image, ...item }) => item),
+      optionMetadata: currentOptions.map(({ image, ...item }) => item),
+      similarityCondition: questionRef.current?.similarityCondition,
+      confusionAnalysis,
+      possibleConfusionCount: confusionAnalysis.possibleConfusionCount,
+      visualConfusionCount: confusionAnalysis.visualConfusionCount,
+      visualSimilarityConfusionCount: confusionAnalysis.visualConfusionCount,
+      categoryConfusionCount: confusionAnalysis.categoryConfusionCount,
+      unrelatedWrongCount: confusionAnalysis.unrelatedWrongCount,
+      clickLogs: [...tapLogsRef.current],
       task: "PM_TRAINING",
       level: round,
       round,
@@ -987,11 +737,12 @@ export default function TrainingPage_PM() {
 
     roundTransitionRef.current = setTimeout(() => {
       roundTransitionRef.current = null;
-      updateAdaptiveDifficulty();
       setRound(nextRound);
       enterReadyCountdown({ resetFeedback: false });
     }, 200);
   };
+
+  finalizeAnswerRef.current = finalizeAnswer;
 
   const handleSubmit = () => {
     if (phase !== "answer") return;
@@ -1006,34 +757,6 @@ export default function TrainingPage_PM() {
     });
   };
 
-  const updateAdaptiveDifficulty = () => {
-    const records = recordsRef.current || [];
-    const recentThree = records.slice(-3);
-    const recentTwo = records.slice(-2);
-
-    if (recentThree.length >= 3) {
-      const recentCorrect = recentThree.filter((record) => record.isCorrect).length;
-      const recentTimeout = recentThree.filter((record) => record.isTimeout).length;
-      const recentAiScore =
-        recentThree.reduce((sum, record) => sum + safeNonNegative(record.aiRoundScore, 0), 0) /
-        recentThree.length;
-
-      if (recentCorrect === 3 && recentAiScore >= 82) {
-        setAdaptiveOffset((prev) => clampNumber(prev + 1, -2, 2));
-        return;
-      }
-
-      if (recentCorrect <= 1 || recentTimeout >= 2 || recentAiScore < 45) {
-        setAdaptiveOffset((prev) => clampNumber(prev - 1, -2, 2));
-        return;
-      }
-    }
-
-    if (recentTwo.length === 2 && recentTwo.every((record) => record.isTimeout)) {
-      setAdaptiveOffset((prev) => clampNumber(prev - 1, -2, 2));
-    }
-  };
-
   const handleBackToMap = () => {
     playClick();
     navigate("/game-menu");
@@ -1046,6 +769,7 @@ export default function TrainingPage_PM() {
     const totalTrials = records.length;
     const correctTrials = records.filter((record) => record.isCorrect).length;
     const reactionTimes = records
+      .filter((record) => !record.isTimeout)
       .map((record) => safeNonNegative(record.reactionTime, 0))
       .filter((rt) => Number.isFinite(rt) && rt > 0);
 
@@ -1053,8 +777,7 @@ export default function TrainingPage_PM() {
       (acc, record) => {
         if (record.isTimeout) acc.timeout += 1;
         if (!record.isCorrect && !record.isTimeout) acc.wrongTarget += 1;
-        acc.randomClick += record.wrongTapCount || 0;
-        acc.repeatedClick += record.deselectCount || 0;
+        acc.randomClick += (record.tapLogs || []).filter((tap) => tap.action === "randomClick").length;
         if (!record.isTimeout && (!record.selectedIds || record.selectedIds.length === 0)) {
           acc.miss += 1;
         }
@@ -1112,13 +835,6 @@ export default function TrainingPage_PM() {
     });
     const fatigueLevel = safeNumber(rawFatigueLevel, 0);
 
-    const recommendedDifficulty = safeRecommendedDifficulty({
-      accuracy: performanceResult.accuracy,
-      avgReactionTime: performanceResult.avgReactionTime,
-      errorTypes,
-      fatigueLevel,
-    });
-
     const accuracy = totalTrials > 0 ? correctTrials / totalTrials : 0;
     const avgReactionTime =
       reactionTimes.length > 0
@@ -1147,9 +863,21 @@ export default function TrainingPage_PM() {
       difficultyLevel: currentConfig.difficulty,
     });
 
+    const recommendedDifficulty = pmAIResult.recommendedDifficulty;
     const finalResult = {
+      achievementAssignment, completed: totalTrials >= trainingTotalRounds,
+      protocolVersion: PM_PROTOCOL_VERSION,
+      stimulusPolicy: { poolSize: PM_ITEMS.length, optionLimit: 12, sampling: "uniform_random_pool", visualInterference: "none", answerTimeLimit: PM_ANSWER_TIME_SECONDS },
+      trials: records,
+      summary: scoring.summary,
+      metrics: scoring.summary,
+      clinicalView: scoring.clinicalView,
+      parentView: scoring.parentView,
+      promptCount: scoring.summary?.promptCount ?? 0,
+      possibleConfusionCount: scoring.summary?.possibleConfusionCount ?? 0,
       gameId: "PM",
       gameKey: "pm",
+      childId: resolveCurrentChildId(),
       abilityType: "memory",
       mode: "training",
       stageId: trainingStage.stageId,
@@ -1175,10 +903,15 @@ export default function TrainingPage_PM() {
       timeoutRate: pmAIResult.timeoutRate,
       wrongTapRate: pmAIResult.wrongTapRate,
       aiScore: pmAIResult.aiScore,
+      nextMemorySpan: pmAIResult.nextMemorySpan,
+      nextDifficultyLevel: pmAIResult.nextDifficultyLevel,
+      aiClinicalNotes: pmAIResult.clinicianNotes,
       aiDifficultyDecision: pmAIResult.difficultyDecision,
       aiTrainingSuggestion: pmAIResult.trainingSuggestion,
       aiSubScores: {
         accuracyScore: pmAIResult.accuracyScore,
+        memoryLoadScore: pmAIResult.memoryLoadScore,
+        supportScore: pmAIResult.supportScore,
         reactionScore: pmAIResult.reactionScore,
         stabilityScore: pmAIResult.stabilityScore,
         focusScore: pmAIResult.focusScore,
@@ -1222,16 +955,14 @@ export default function TrainingPage_PM() {
   };
 
   const handleGameAreaClick = () => {
-    if (phase !== "answer" || hasSubmittedRef.current) return;
-
-    setBackgroundWarning(true);
-    clearTimeoutRef(backgroundWarningTimerRef);
-    backgroundWarningTimerRef.current = setTimeout(() => {
-      setBackgroundWarning(false);
-    }, 450);
+    if (phase !== "answer" || hasSubmittedRef.current || answerDeadlineRef.current == null) return;
+    if (performance.now() >= answerDeadlineRef.current) {
+      finalizeAnswer({ isTimeout: true });
+      return;
+    }
+    tapLogsRef.current.push({ order: tapLogsRef.current.length + 1, itemId: "background", timestamp: getSafeElapsedTime(answerStartRef.current), action: "randomClick", isCorrectItem: false, selectedCountAfter: selectedIdsRef.current.length });
   };
 
-  const intensity = Math.min(1, (round - 1) / 8);
   const resultStars = clampStarCount(finalResultRef.current?.stars || 1);
 
   const buttonMouse = (
@@ -1263,16 +994,12 @@ export default function TrainingPage_PM() {
   );
 
   return (
-    <div style={styles.page(bgImage)}>
+    <div style={styles.page(bgImage)} data-testid="pm-stage" data-phase={phase} data-difficulty={currentConfig.broadDifficulty} data-memory-count={currentConfig.memoryCount} data-show-time={currentConfig.showTime} data-answer-limit={PM_ANSWER_TIME_SECONDS}>
       <style>{`
         @keyframes pmMouseTap {
           0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.92; }
           45% { transform: translate(-10px, -9px) scale(1.08); opacity: 1; }
           62% { transform: translate(-4px, -4px) scale(0.96); opacity: 1; }
-        }
-        @keyframes pmIdleHint {
-          0%, 100% { transform: scale(1); box-shadow: 0 10px 20px rgba(77, 53, 30, 0.12), inset 0 -4px 0 rgba(233, 179, 91, 0.14); }
-          50% { transform: scale(1.035); box-shadow: 0 14px 24px rgba(80, 112, 58, 0.18), 0 0 0 7px rgba(139, 216, 86, 0.18); }
         }
         button[aria-label]:hover:not(:disabled) {
           transform: translateY(-2px) scale(1.03);
@@ -1286,7 +1013,7 @@ export default function TrainingPage_PM() {
         <div style={styles.container}>
           {phase === "rules" && (
             <div className="game-start-card-artwork pm-opening-card-artwork" style={styles.startPanel}>
-              <div style={styles.gameTitle}>圖片記憶任務</div>
+              <div style={styles.gameTitle}>圖片記憶任務・{currentConfig.shortLabel}</div>
 
               <div style={styles.startContent}>
                 <div style={styles.dialogBubble}>
@@ -1371,18 +1098,8 @@ export default function TrainingPage_PM() {
             <div style={styles.card}>
 
               <div style={styles.memoryGrid}>
-                {currentMemorizeItems.map((item, index) => {
+                {currentMemorizeItems.map((item) => {
                   const imageStyle = { ...styles.memoryImage };
-
-                  if (currentConfig.motion === "flicker") {
-                    const flickerValue = 0.7 + 0.3 * Math.sin(motionTick * 0.9 + index * 1.3 + round * 0.4);
-                    imageStyle.opacity = Math.max(0.45, flickerValue - intensity * 0.15);
-                  }
-
-                  if (currentConfig.motion === "move") {
-                    const offset = Math.sin(motionTick * 0.45 + index) * (10 + intensity * 20);
-                    imageStyle.transform = `translateX(${offset}px)`;
-                  }
 
                   return (
                     <div key={item.id} style={styles.memoryCard}>
@@ -1398,7 +1115,6 @@ export default function TrainingPage_PM() {
             <div
               style={{
                 ...styles.card,
-                ...(backgroundWarning ? styles.warningCard : {}),
               }}
               onClick={handleGameAreaClick}
             >
@@ -1411,16 +1127,22 @@ export default function TrainingPage_PM() {
                     <button
                       key={item.id}
                       type="button"
+                      aria-label={item.alt}
+                      aria-pressed={isSelected}
+                      data-item-id={item.id}
                       onClick={(event) => {
                         event.stopPropagation();
                         toggleSelect(item.id);
                       }}
                       style={{
                         ...styles.optionCard,
-                        ...(idleHintActive && selectedIds.length === 0 ? styles.optionCardIdleHint : {}),
+                        position: "relative",
                         ...(isSelected ? styles.optionCardSelected : {}),
                       }}
                     >
+                      {idleHintActive && item.id === currentOptions[0]?.id && (
+                        <img src={mouseGuideImg} alt="點擊物件提示" data-testid="pm-idle-hint" style={{ position: "absolute", width: 64, height: 64, right: -18, bottom: -14, zIndex: 2, pointerEvents: "none" }} />
+                      )}
                       <img src={item.image} alt={item.alt} width="162" height="162" loading="lazy" style={styles.optionImage} />
                     </button>
                   );
@@ -1698,10 +1420,6 @@ const styles = {
     boxSizing: "border-box",
   },
 
-  warningCard: {
-    borderColor: "#ff5f5f",
-    boxShadow: "0 0 0 7px rgba(255, 93, 93, 0.2), 0 18px 0 rgba(194, 125, 33, 0.14), 0 22px 36px rgba(86, 61, 27, 0.18)",
-  },
 
   backgroundWarning: {
     display: "inline-flex",
@@ -2023,10 +1741,6 @@ const styles = {
     overflow: "hidden",
   },
 
-  optionCardIdleHint: {
-    animation: "pmIdleHint 1.05s ease-in-out 2",
-    border: "4px solid rgba(121, 200, 67, 0.7)",
-  },
 
   optionCardSelected: {
     border: "4px solid #79c843",

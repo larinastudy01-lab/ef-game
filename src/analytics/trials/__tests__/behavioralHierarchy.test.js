@@ -6,7 +6,7 @@ const taskCases = [
   ["CBT", { trialIndex: 1, targetSequence: [1, 3], userSequence: [1, 3], isCorrect: true, reactionTime: 900 }, [1, 3]],
   ["PM", { trialNumber: 1, correctIds: ["a"], selectedIds: ["a"], isCorrect: true, reactionTime: 1200 }, ["a"]],
   ["SRT", { trialIndex: 1, targetType: "normal", trainingAction: "hit", isCorrect: true, reactionTime: 350 }, "hit"],
-  ["SSG", { trialIndex: 1, expectedTarget: "dog", selectedTarget: "dog", isCorrect: true, reactionTime: 500 }, "dog"],
+  ["ARI", { trialIndex: 1, expectedTarget: "dog", selectedTarget: "dog", isCorrect: true, reactionTime: 500 }, "dog"],
   ["LB", { trialId: "L1-1", stepInLevel: 1, expectedNumber: 1, clickedNumber: 1, isCorrect: true, rt: 650 }, 1],
   ["DCCS", { trialNumber: 1, ruleStage: "color", correctSide: "top", userAnswerSide: "top", isCorrect: true, responseTime: 700 }, "top"],
 ];

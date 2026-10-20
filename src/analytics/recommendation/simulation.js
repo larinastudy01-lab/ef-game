@@ -13,7 +13,7 @@ export const createSimulationPolicies = (seed = 11) => [new RandomPolicy({ seed 
   new UCBPolicy(), new ThompsonSamplingPolicy({ seed }), new ContextualBanditPolicy()];
 
 function environmentOutcome(action, context, random) {
-  const taskAffinity = ({ CBT: .73, PM: .68, SRT: .7, SSG: .62, LB: .66, DCCS: .64 })[action.task_code];
+  const taskAffinity = ({ CBT: .73, PM: .68, SRT: .7, ARI: .62, LB: .66, DCCS: .64 })[action.task_code];
   const mismatch = Math.abs(action.difficulty_level - Number(context.current_difficulty || 1));
   const noise = (random() - 0.5) * 0.18; const accuracy = Math.max(0.05, Math.min(0.98, taskAffinity - mismatch * .08 + noise));
   return { accuracy, mean_rt_ms: 650 + action.difficulty_level * 90 + random() * 180, rt_variability_ms: 80 + random() * 170,

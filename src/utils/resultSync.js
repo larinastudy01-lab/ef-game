@@ -1,6 +1,7 @@
 import { getPatientById, saveGameResultToCloud } from "../lib/database";
 import { supabase } from "../lib/supabaseClient";
 import { createBehavioralId } from "../analytics/trials/buildBehavioralHierarchy";
+import { isTemporaryGameTesting } from "../temporaryGameTesting/runtime";
 
 export const RESULT_OUTBOX_PREFIX = "efGameResultOutbox:";
 export const RESULT_SYNC_EVENT = "ef-game-result-sync";
@@ -64,6 +65,7 @@ function notify() {
 }
 
 export function queueGameResult(result, options = {}) {
+  if (isTemporaryGameTesting()) return null;
   const ownerId = options.ownerId !== undefined
     ? options.ownerId
     : result.rawResult?.syncOwnerId !== undefined ? result.rawResult.syncOwnerId : accountId;

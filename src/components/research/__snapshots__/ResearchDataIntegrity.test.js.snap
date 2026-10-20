@@ -1,0 +1,32 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`UI redesign preserves seeded model and every strategy simulation result 1`] = `
+Object {
+  "model": "12d98e8aad88a79068bbdb3d6211be1da88517b7390ab3103942c9ab77c96c0d",
+  "policies": "441e931c9ef540be9969a1eea156e20d8fbd3f2d6ea5255fa68993d242be345e",
+}
+`;
+
+exports[`UI redesign preserves statistics, longitudinal results and exact export bytes for ALL / PM 1`] = `
+Object {
+  "exports": "c506478ff0288ae100d1a02f271205383d48beb7704f237d3d6decc847f74e88",
+  "longitudinal": "cfe98aac99a4ab049368420517dc7b001b85cd83adb929e864216fe98e2fa136",
+  "statistics": "c89e6945914659a4c60329f57aa6b406dbd724077d08308eb021d4b6457fadb7",
+}
+`;
+
+exports[`UI redesign preserves statistics, longitudinal results and exact export bytes for P1 / ALL 1`] = `
+Object {
+  "exports": "0b12984d7b6bfe4e427a27cad929c3fabfe96d531be93e890ca8168bcbbb5af7",
+  "longitudinal": "d35cd0a937047bd019c35d47baacb9e6d19b46732100ae33d15a9fe52b6d0ac4",
+  "statistics": "fb0d300b69a28dc1c945f5c9ab55cf72e3b2d4c7de935aa20473e42b17792eca",
+}
+`;
+
+exports[`UI redesign preserves statistics, longitudinal results and exact export bytes for P2 / ARI 1`] = `
+Object {
+  "exports": "1c2715c638f0170a8616230ba6ad4431b9e2ace1688a57b713a352084e1180e2",
+  "longitudinal": "2084aa4f02db13886cac369ef0b2b43293779f951dfbcf399e5df44a182fa3ec",
+  "statistics": "8ea9935d81bf5b3ab30b1817e24dc0376f45fdc010aae05709b0729c936e66d8",
+}
+`;

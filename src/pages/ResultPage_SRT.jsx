@@ -1,9 +1,11 @@
+import { gameLocalStorage as localStorage } from "../temporaryGameTesting/runtime";
 import React, { useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import bgImg from "../asset/SRT/SRT_background.webp";
 import homeBackBtn from "../asset/home/back.webp";
 import homeAgainBtn from "../asset/home/again.webp";
+import { SRT_TRAINING_SETTINGS, normalizeSrtDifficulty } from "../utils/srtProtocol";
 import {
   calculateSrtScore,
   getStoredSrtResult,
@@ -200,7 +202,7 @@ const ResultPage_SRT = ({
     }
 
     if (normalizedRecords.length > 0) {
-      return calculateSrtScore(normalizedRecords);
+      return calculateSrtScore(normalizedRecords, { mode, promptCount: summaryData?.promptCount });
     }
 
     const stored = getStoredSrtResult();
@@ -209,7 +211,7 @@ const ResultPage_SRT = ({
     if (stored?.summary && stored?.childView) return stored;
 
     return calculateSrtScore([]);
-  }, [normalizedRecords, providedScoring]);
+  }, [normalizedRecords, providedScoring, mode, summaryData?.promptCount]);
 
   const summary = useMemo(() => scoringResult?.summary || {}, [scoringResult]);
   const childView = scoringResult?.childView || {};
@@ -298,13 +300,11 @@ const ResultPage_SRT = ({
       rtCV:
         metrics?.rtCV ??
         summaryData?.rtCV ??
-        scoringResult?.summary?.rtCV ??
-        0,
+        scoringResult?.summary?.rtCV ?? null,
       rtStd:
         metrics?.rtStd ??
         summaryData?.rtStd ??
-        scoringResult?.summary?.rtStd ??
-        0,
+        scoringResult?.summary?.rtStd ?? null,
       attentionDrop:
         segmentAnalysis?.attentionDrop ??
         summaryData?.attentionDrop ??
@@ -1004,7 +1004,7 @@ function getNextDifficultyLabel(summaryData = {}) {
     "hard-3": "困難 3",
   };
 
-  return map[value] || "維持練習";
+  return SRT_TRAINING_SETTINGS[normalizeSrtDifficulty(value)]?.label || map[value] || "維持練習";
 }
 
 function sanitizeAbilityScores(rawAbilityScores = {}, summary = {}) {
@@ -1071,7 +1071,10 @@ function normalizeTrainingDifficultyGroup(summaryData = {}) {
       ""
   ).toLowerCase();
 
-  if (rawValue.includes("hard") || rawValue.includes("3") || rawValue.includes("高")) {
+  const canonical = normalizeSrtDifficulty(rawValue);
+  if (canonical) return canonical;
+
+  if (rawValue.includes("hard") || rawValue.includes("高")) {
     return "hard";
   }
 
@@ -1096,6 +1099,11 @@ function getDetailedTrainingLevelInfo(summaryData = {}) {
     getNextDifficultyLabel(summaryData);
 
   const map = {
+    beginner: {
+      label,
+      title: "入門反應層級",
+      meaning: "先建立看到橡實後點擊的連結。橡實會等待孩子點擊，滿 3 秒時提供滑鼠提示並記錄提醒次數。",
+    },
     easy: {
       label,
       title: "基礎反應層級",
@@ -1112,7 +1120,12 @@ function getDetailedTrainingLevelInfo(summaryData = {}) {
       label,
       title: "進階控制層級",
       meaning:
-        "這一層同時拉高速度、持續注意與抑制控制的負荷，孩子需要在想快一點的情況下仍然維持判斷品質。",
+        "這一層使用 1～3 秒的隨機間隔，並降低壞橡實比例，觀察孩子能否抑制已建立的點擊習慣。",
+    },
+    expert: {
+      label,
+      title: "專業控制層級",
+      meaning: "刺激間隔隨機變化，橡實停留縮短至 0.8 秒；壞橡實僅占 10%，需在多數可點的情境下抑制點擊習慣。",
     },
   };
 
@@ -1322,7 +1335,7 @@ function buildDetailedTrainingHighlights(summaryData = {}) {
 
   return [
     {
-      badge: levelInfo.group === "hard" ? "高" : levelInfo.group === "medium" ? "中" : "基",
+      badge: ["hard", "expert"].includes(levelInfo.group) ? "高" : levelInfo.group === "medium" ? "中" : "基",
       tone: "neutral",
       title: levelInfo.title,
       text: levelInfo.meaning,
@@ -1733,7 +1746,9 @@ function buildIntuitiveIndicators({ summary = {}, abilityScores = {} }) {
       title: "每次表現穩不穩？",
       value: clampPercent(abilityScores.responseStability || 0),
       status: getSimpleStatus(abilityScores.responseStability || 0),
-      description: "看孩子每一題反應會不會忽快忽慢。",
+      description: summary.rtStd != null
+        ? `反應時間標準差 ${summary.rtStd} ms，變異係數 ${summary.rtCV ?? "資料不足"}；觀察是否忽快忽慢。`
+        : "有效反應時間不足，暫無法比較波動。",
       advice:
         (abilityScores.responseStability || 0) >= 80
           ? "反應節奏穩定。"
@@ -1745,7 +1760,7 @@ function buildIntuitiveIndicators({ summary = {}, abilityScores = {} }) {
       title: "玩到後面有沒有變慢？",
       value: clampPercent(abilityScores.attentionMaintenance || 0),
       status: getSimpleStatus(abilityScores.attentionMaintenance || 0),
-      description: "看孩子後半段是否比較容易累、分心或變慢。",
+      description: "比較前中後段的速度與波動，觀察長時間作答是否維持一致反應。",
       advice:
         (abilityScores.attentionMaintenance || 0) >= 80
           ? "注意力維持不錯。"
@@ -1781,7 +1796,7 @@ function buildIntuitiveIndicators({ summary = {}, abilityScores = {} }) {
           ? "可以先放慢速度，讓孩子更容易注意到金色橡實。"
           : "目前獎勵目標搜尋表現可以。",
     },
-  ];
+  ].filter((indicator) => indicator.key !== "rewardSearch");
 }
 
 
@@ -1803,7 +1818,8 @@ function buildTrainingIndicators(summaryData = {}, avgRT = 0) {
   const focusLabel = getFocusLabel(summaryData);
   const assistLabel = getAssistLabel(summaryData);
   const nextDifficultyLabel = getNextDifficultyLabel(summaryData);
-  const rtCV = safeNumber(summaryData?.rtCV, safeNumber(metrics.rtCV, 0));
+  const rtCV = summaryData?.rtCV ?? metrics.rtCV ?? null;
+  const rtStd = summaryData?.rtStd ?? metrics.rtStd ?? null;
   const assistedRate = safeNumber(summaryData?.assistedRate, safeNumber(metrics.assistedRate, 0));
   const attentionDrop = safeNumber(summaryData?.attentionDrop, safeNumber(metrics.attentionDrop, 0));
 
@@ -1813,7 +1829,7 @@ function buildTrainingIndicators(summaryData = {}, avgRT = 0) {
       title: "這次難度",
       value: summaryData?.difficultyLabel || "普通",
       status: summaryData?.difficultyLabel || "普通",
-      desc: "代表這次橡實出現的速度、大小與干擾程度。",
+      desc: "代表刺激間隔、停留時間與點擊抑制要求；各級橡實大小一致。",
     },
     {
       key: "hit",
@@ -1838,10 +1854,10 @@ function buildTrainingIndicators(summaryData = {}, avgRT = 0) {
     },
     {
       key: "golden",
-      title: "金色橡實有沒有注意到？",
+      title: "接到多少金色獎勵橡實？",
       value: `${summaryData?.distractorMetrics?.goldenHitCount ?? summaryData?.goldenHitCount ?? 0} 次`,
       status: `${summaryData?.distractorMetrics?.goldenHitCount ?? summaryData?.goldenHitCount ?? 0} 次`,
-      desc: "孩子有沒有注意到比較特別、比較值得接的金色橡實。",
+      desc: "金色橡實提供遊戲獎勵，接到次數不作為獨立評測指標。",
     },
     {
       key: "focus",
@@ -1856,16 +1872,16 @@ function buildTrainingIndicators(summaryData = {}, avgRT = 0) {
     {
       key: "assist",
       title: "需不需要小提醒？",
-      value: `${assistedRate}%`,
+      value: `${summaryData?.promptCount ?? summaryData?.assistedCount ?? 0} 次`,
       status: assistLabel,
-      desc: "提醒比例越高，代表孩子越常需要呼吸光、晃動或背景淡閃協助回到任務。",
+      desc: `入門橡實未點擊滿 3 秒時出現滑鼠提示；已完成題目的提示使用比例 ${assistedRate}%。`,
     },
     {
       key: "stability",
       title: "反應穩定度",
-      value: rtCV ? `CV ${rtCV}` : "--",
-      status: rtCV ? `CV ${rtCV}` : "--",
-      desc: "這裡看反應是否忽快忽慢；數字越高，代表注意力波動可能越明顯。",
+      value: rtStd !== null ? `標準差 ${rtStd} ms` : "資料不足",
+      status: rtCV !== null ? `CV ${rtCV}` : "資料不足",
+      desc: "標準差與變異係數用來觀察反應是否忽快忽慢；也會保留前中後段各自的波動。",
     },
     {
       key: "attentionDrop",

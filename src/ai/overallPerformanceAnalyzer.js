@@ -13,7 +13,7 @@ const ABILITY_MAP = {
   PM: "workingMemory",
 
   SRT: "inhibition",
-  SSG: "inhibition",
+  ARI: "inhibition",
 
   LB: "cognitiveFlexibility",
   DCCS: "cognitiveFlexibility",
@@ -301,7 +301,7 @@ const getRecommendedTraining = (abilityScores) => {
 const getSuggestedGames = (ability) => {
   const map = {
     workingMemory: ["CBT", "PM"],
-    inhibition: ["SRT", "SSG"],
+    inhibition: ["SRT", "ARI"],
     cognitiveFlexibility: ["LB", "DCCS"],
   };
 

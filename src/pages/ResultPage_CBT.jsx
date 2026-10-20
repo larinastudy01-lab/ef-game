@@ -1,8 +1,11 @@
+import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
 import React, { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import bgImg from "../asset/CBT/CBT_background.webp";
 import backImg from "../asset/home/back.webp";
 import "../styles/GamePage_CBT.css";
+import { getCbtClinicalMetrics } from "../utils/cbtClinicalMetrics";
+import { CBT_TRAINING_CONFIG, normalizeCBTDifficulty } from "../utils/cbtProtocol";
 
 /*
   家長直觀版 CBT 結果頁
@@ -104,7 +107,10 @@ export default function ResultPage_CBT() {
                     <MiniRecord label="路線正確率" value={`${result.weightedAccuracyPercent}%`} />
                     <MiniRecord label="完成題數" value={`${result.totalTrials} 題`} />
                     <MiniRecord label={result.isTestMode ? "最高嘗試" : "再看一次"} value={result.isTestMode ? `${result.maxAttemptSpan} 步` : `${result.totalReplayCount} 次`} />
+                    <MiniRecord label="實際提醒次數" value={result.promptCount != null ? `${result.promptCount} 次` : "未記錄"} />
+                    <MiniRecord label="播放中提前點擊" value={result.earlyClickCount != null ? `${result.earlyClickCount} 次` : "未記錄"} />
                   </div>
+                  {result.earlyClickCount > 0 && <p style={styles.bodyText}>提前點擊可能與「播放是否結束」的理解有關，不能僅據此認定為衝動。</p>}
                 </section>
 
                 <section style={styles.bigSummary}>
@@ -354,7 +360,7 @@ function clearCurrentCbtCache() {
     "testCbtHistory",
   ];
 
-  [window.localStorage, window.sessionStorage].forEach((storage) => {
+  [localStorage, sessionStorage].forEach((storage) => {
     if (!storage) return;
 
     volatileKeys.forEach((key) => storage.removeItem(key));
@@ -382,6 +388,7 @@ function buildParentFriendlyResult(historyInput, state = {}, mode = "training") 
   const history = normalizeHistory(historyInput);
   const safeState = state && typeof state === "object" ? state : {};
   const scoring = safeState?.scoring || safeState?.result || safeState?.cbtResult || null;
+  const eventMetrics = getCbtClinicalMetrics(safeState);
   const summary = scoring?.summary || safeState?.summary || {};
   const isTestMode = mode === "test";
 
@@ -558,6 +565,7 @@ function buildParentFriendlyResult(historyInput, state = {}, mode = "training") 
   const trialTimeline = buildTrialTimeline(history);
 
   return {
+    ...eventMetrics,
     totalTrials,
     correctCount,
     wrongCount,
@@ -744,6 +752,8 @@ function buildQuickInterpretation({
 }
 
 function getTrainingLevel({ maxAttemptSpan, independentSpan, difficulty }) {
+  const config = CBT_TRAINING_CONFIG[normalizeCBTDifficulty(difficulty)];
+  if (config) return { title: `${config.label}路線記憶層級`, description: config.storyText };
   const raw = String(difficulty || "").toLowerCase();
   const span = Math.max(maxAttemptSpan, independentSpan);
   if (raw.includes("hard") || span >= 5) {

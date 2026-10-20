@@ -1,3 +1,4 @@
+import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
 import React, {
   useCallback,
   useEffect,
@@ -6,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { isTemporaryGameTesting } from "../temporaryGameTesting/runtime";
 
 import capImage from "../asset/cap.webp";
 import startButtonImage from "../asset/home/start.webp";
@@ -176,8 +178,12 @@ export default function HatStickerGamePage() {
 
   const [rewardSessionId] = useState(initialSessionId);
   const [phase, setPhase] = useState(PHASE.READY);
-  const [round, setRound] = useState(1);
-  const [hats, setHats] = useState(() => createHats(3));
+  const [round, setRound] = useState(() => {
+    if (!isTemporaryGameTesting()) return 1;
+    const requested = Number(new URLSearchParams(location.search).get("round"));
+    return Number.isInteger(requested) ? Math.max(1, Math.min(MAX_ROUNDS, requested)) : 1;
+  });
+  const [hats, setHats] = useState(() => createHats(ROUND_CONFIG[round - 1].hatCount));
   const [winningHatId, setWinningHatId] = useState(null);
   const [selectedHatId, setSelectedHatId] = useState(null);
   const [currentSticker, setCurrentSticker] = useState(null);

@@ -6,6 +6,8 @@ import useTemporaryTestUnlock from "../utils/useTemporaryTestUnlock";
 import { getResultsByChild } from "../utils/resultManager";
 import { createOnlineRecommendation } from "../analytics/recommendation/onlineRecommendation";
 import { SHOW_AVATAR_ROOM } from "../config/featureFlags";
+import { getLBTrainingConfig } from "../utils/lbProtocol";
+import { getAriTrainingConfig } from "../utils/ariProtocol";
 
 import gameMapBackground from "../asset/GameMap.webp";
 import mousePointer from "../asset/mouse.webp";
@@ -21,7 +23,7 @@ import pawDoneAsset from "../asset/home/icon/關卡 綠_no_bg.webp";
 import srtIcon from "../asset/SRT_icon.webp";
 import pmIcon from "../asset/PM_icon.webp";
 import cbtIcon from "../asset/CBT_icon.webp";
-import ssgIcon from "../asset/SSG/cat.webp";
+import ariIcon from "../asset/ARI/cat.webp";
 import dccsIcon from "../asset/DCCS_icon.webp";
 import lbIcon from "../asset/LB_icon.webp";
 import storyIcon from "../asset/home/story.webp";
@@ -115,7 +117,7 @@ const createTrainingMenuSessionId = () => {
 
 const TRAINING_ROUTE_BY_GAME_ID = Object.freeze({
   srt: "/training-srt",
-  ssg: "/training-ssg",
+  ari: "/training-ari",
   pm: "/training-picture-memory",
   cbt: "/training-cbt",
   dccs: "/training-dccs",
@@ -433,7 +435,7 @@ const normalizeAbilityValue = (value) => {
     text.includes("專注") ||
     text.includes("反應") ||
     text.includes("srt") ||
-    text.includes("ssg")
+    text.includes("ari")
   ) {
     return "inhibition";
   }
@@ -495,7 +497,7 @@ const normalizeGameIdValue = (value) => {
   if (text.includes("srt") || text.includes("反應小松鼠") || text.includes("橡實")) return "srt";
   if (text.includes("pm") || text.includes("picture") || text.includes("記憶收藏家") || text.includes("圖片")) return "pm";
   if (text.includes("cbt") || text.includes("石頭") || text.includes("石橋")) return "cbt";
-  if (text.includes("ssg") || text.includes("dot") || text.includes("專注小幫手") || text.includes("小蟲")) return "ssg";
+  if (text.includes("ari") || text.includes("dot") || text.includes("專注小幫手") || text.includes("小蟲")) return "ari";
   if (text.includes("dccs") || text.includes("規則小隊長") || text.includes("分類")) return "dccs";
   if (text === "lb" || text.includes("linking") || text.includes("balloon") || text.includes("順序切換") || text.includes("路標")) return "lb";
 
@@ -569,7 +571,7 @@ const getRecommendedTrainingPlan = (settings, trainingGames) => {
           ? item.level || item.trainingLevel || item.difficultyLevel
           : null;
       const nextLevel = explicitLevel || (gameUseCount[game.id] || 0) + 1;
-      if (game.id === "lb" && Number(nextLevel) > 4) return null;
+      if (game.id === "lb" && Number(nextLevel) > MAX_LEVEL_PER_GAME) return null;
       const safeLevel = Math.min(MAX_LEVEL_PER_GAME, Math.max(1, Number(nextLevel) || 1));
 
       gameUseCount[game.id] = Math.max(gameUseCount[game.id] || 0, safeLevel);
@@ -807,13 +809,13 @@ function GameMenuPage() {
       testPath: "/test-srt",
     },
     {
-      id: "ssg",
+      id: "ari",
       ability: "inhibition",
-      shortName: "SSG",
+      shortName: "ARI",
       title: "聲音符號",
-      icon: ssgIcon,
-      trainPath: "/training-ssg",
-      testPath: "/test-ssg",
+      icon: ariIcon,
+      trainPath: "/training-ari",
+      testPath: "/test-ari",
     },
     {
       id: "pm",
@@ -919,7 +921,7 @@ function GameMenuPage() {
           todayKey,
           routeIndex: index,
           globalOrder: index + 1,
-          difficultyLabel: LEVEL_COPY[planItem.level] || `第 ${planItem.level} 關`,
+          difficultyLabel: planItem.id === "ari" ? getAriTrainingConfig(planItem.level).label : planItem.id === "lb" ? getLBTrainingConfig(planItem.level).difficultyLabel : LEVEL_COPY[planItem.level] || `第 ${planItem.level} 關`,
           mapX: point.x,
           mapY: point.y,
           abilityLabel: ABILITY_LABELS[planItem.ability] || planItem.title,
@@ -929,7 +931,7 @@ function GameMenuPage() {
 
     const availableGames = selectedTrainingGames.length > 0 ? selectedTrainingGames : trainingGames;
     const maxPossibleStages = availableGames.reduce(
-      (total, game) => total + (game.id === "lb" ? 4 : MAX_LEVEL_PER_GAME), 0
+      (total) => total + MAX_LEVEL_PER_GAME, 0
     );
     const targetCount = getPlannedStageCount(trainingMinutes, availableGames.length, maxPossibleStages);
     const plannedPoints = pickRoutePoints(targetCount);
@@ -939,7 +941,7 @@ function GameMenuPage() {
     let guard = 0;
 
     while (stages.length < targetCount && guard < 300) {
-      const selectableGames = availableGames.filter((game) => (gameUseCount[game.id] || 0) < (game.id === "lb" ? 4 : MAX_LEVEL_PER_GAME));
+      const selectableGames = availableGames.filter((game) => (gameUseCount[game.id] || 0) < MAX_LEVEL_PER_GAME);
 
       if (selectableGames.length === 0) break;
 
@@ -955,7 +957,7 @@ function GameMenuPage() {
         routeIndex: stages.length,
         globalOrder: stages.length + 1,
         level,
-        difficultyLabel: LEVEL_COPY[level],
+        difficultyLabel: game.id === "ari" ? getAriTrainingConfig(level).label : game.id === "lb" ? getLBTrainingConfig(level).difficultyLabel : LEVEL_COPY[level],
         mapX: point.x,
         mapY: point.y,
         abilityLabel: ABILITY_LABELS[game.ability] || game.title,
@@ -973,11 +975,11 @@ function GameMenuPage() {
     const selected = adaptiveRecommendation?.selected_action;
     if (!selected || baseDailyTrainingStages.length === 0) return baseDailyTrainingStages;
     const game = selectedTrainingGames.find((item) => item.shortName === selected.task_code);
-    if (!game || (game.id === "lb" && Number(selected.difficulty_level) > 4)) return baseDailyTrainingStages;
+    if (!game) return baseDailyTrainingStages;
     const first = baseDailyTrainingStages[0];
     return [{ ...first, ...game, gameId: game.id, level: selected.difficulty_level,
       stageId: `${todayKey}-${trainingMenuSessionId}-1-${game.id}-L${selected.difficulty_level}`,
-      difficultyLabel: LEVEL_COPY[selected.difficulty_level], source: "adaptive-ucb-v1",
+      difficultyLabel: game.id === "ari" ? getAriTrainingConfig(selected.difficulty_level).label : game.id === "lb" ? getLBTrainingConfig(selected.difficulty_level).difficultyLabel : LEVEL_COPY[selected.difficulty_level], source: "adaptive-ucb-v1",
       recommendationId: adaptiveRecommendation.recommendation_id,
       recommendationScore: adaptiveRecommendation.predicted_reward }, ...baseDailyTrainingStages.slice(1)];
   }, [adaptiveRecommendation, baseDailyTrainingStages, selectedTrainingGames, todayKey, trainingMenuSessionId]);
@@ -1195,6 +1197,13 @@ function GameMenuPage() {
         trainingOrder: stage.globalOrder,
         trainingTotal: dailyTrainingStages.length,
         trainingGameId: stage.id,
+        difficulty: stage.id === "ari" ? getAriTrainingConfig(stage.level).difficulty : undefined,
+        trainingAssignment: {
+          source: stage.source === "clinician" ? "clinician" : "system_plan",
+          gameId: String(stage.shortName || stage.id).toUpperCase(),
+          childId: selectedChild?.childId || selectedChild?.id,
+          trainingLevel: stage.level, stageId: stage.stageId,
+        },
         trainingAbility: stage.ability,
         abilityLabel: stage.abilityLabel,
         difficultyLabel: stage.difficultyLabel,

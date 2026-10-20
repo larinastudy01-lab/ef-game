@@ -1,7 +1,7 @@
 # Phase 1 Behavioral Data Dictionary
 
 Version: 1.0.0  
-Scope: Corsi Block Tapping (CBT), Picture Memory (PM), Simple Reaction Task (SRT), Sound-Symbol Game (SSG), Linking Balloons (LB), DCCS.
+Scope: Corsi Block Tapping (CBT), Picture Memory (PM), Simple Reaction Task (SRT), Sound-Symbol Game (ARI), Linking Balloons (LB), DCCS.
 
 Phase 2 derived features and formulas are versioned separately in [`feature_dictionary.md`](./feature_dictionary.md). Raw and normalized Phase 1 fields remain unchanged by feature calculation.
 
@@ -81,7 +81,7 @@ erDiagram
 | `started_at` | timestamptz | Session start | UTC timestamp | Existing task/session | Yes | `2026-07-30T01:00:00Z` | Duration/order analysis |
 | `completed_at` | timestamptz | Session completion | UTC timestamp | Existing task/session | Yes | `2026-07-30T01:04:00Z` | Completion and duration |
 | `device_information` | jsonb | Browser/device context without user name | — | Browser | No | `{"screenWidth":1280}` | Technical variance and quality review |
-| `task_order` | text[] | Ordered task codes | ordinal | Application | No | `{SRT,SSG}` | Order/fatigue effect analysis |
+| `task_order` | text[] | Ordered task codes | ordinal | Application | No | `{SRT,ARI}` | Order/fatigue effect analysis |
 | `session_status` | text | in_progress/completed/interrupted/abandoned | — | Application | No | `completed` | Session completeness |
 | `source_result_id` | text | Link to legacy `game_results.id` | — | Result manager | Yes | `SRT-test-…` | Idempotency/backward traceability |
 | `schema_version` | text | Behavioral contract version | — | Application | No | `1.0.0` | Reproducibility |
@@ -92,7 +92,7 @@ erDiagram
 |---|---|---|---|---|---|---|---|
 | `id` | uuid | Task-session identifier | — | Client UUID | No | `b061…` | Parent key for trials |
 | `session_id` | uuid | Behavioral session FK | — | Session | No | `510e…` | Session membership |
-| `task_code` | text | CBT/PM/SRT/SSG/LB/DCCS | — | Game route/result | No | `DCCS` | Task stratum |
+| `task_code` | text | CBT/PM/SRT/ARI/LB/DCCS | — | Game route/result | No | `DCCS` | Task stratum |
 | `task_name` | text | Human-readable task name | — | Mapping registry | No | `Dimensional Change Card Sort` | Reporting label |
 | `task_order_index` | integer | Position within session | ordinal | Application | No | `2` | Task-order effects |
 | `difficulty` | text | Difficulty used | task-defined | Existing task | Yes | `normal` | Protocol/load covariate |
@@ -165,7 +165,7 @@ Quality rules are acquisition checks, not normative cut-offs. A flagged trial is
 | `timeout` | task records timeout | invalid; raw retained |
 | `invalid_response` | response outside task response set | invalid |
 
-RT acquisition bounds: SRT/SSG 80–30,000 ms; DCCS 80–60,000 ms; CBT/PM/LB 80–120,000 ms. These bounds are versioned technical plausibility rules and must not be interpreted as developmental norms.
+RT acquisition bounds: SRT/ARI 80–30,000 ms; DCCS 80–60,000 ms; CBT/PM/LB 80–120,000 ms. These bounds are versioned technical plausibility rules and must not be interpreted as developmental norms.
 
 ## Six-task source-field mapping
 
@@ -176,7 +176,7 @@ This mapping is based on the current Test/Training page objects, not an assumed 
 | CBT | `trialIndex`, `correct/isCorrect`, `reactionTime/answerTime`, `errorType`, `createdAt` | `sequence/targetSequence/userSequence`, memory/span length, block count, first tap, tap interval, first error position, replay/hint/rescue, idle and repeated/random clicks |
 | PM | `trialNumber/trialIndex`, `isCorrect`, `reactionTime`, `isTimeout`, `createdAt` | `memoryCount`, option count, show/answer limits, `correctIds/selectedIds`, tap logs, wrong taps, deselects, misses, motion/adaptive span fields |
 | SRT | `trialIndex`, `isCorrect`, `reactionTime`, `timeout`, `timestamp` | target type, action/trainingAction, false/repeated clicks, score value, assistance/prompt timing, x/y position, rotten/no-go outcome |
-| SSG | `trialIndex`, `isCorrect`, `reactionTime`, `timeout`, `timestamp` | sound type, expected/selected animal, correct/selected position, cat/dog position, anticipation, congruency, audio fallback, premature/random/repeated clicks |
+| ARI | `trialIndex`, `isCorrect`, `reactionTime`, `timeout`, `timestamp` | sound type, expected/selected animal, correct/selected position, cat/dog position, anticipation, congruency, audio fallback, premature/random/repeated clicks |
 | LB | `stepIndex/stepInLevel/trialId`, `correct/isCorrect`, `reactionTime/rt`, `errorType/wrongType`, `timestamp` | stage/level, expected/clicked number-color-key, rule/task type, switch/interference, hint, cumulative time, selection order/path |
 | DCCS | `trialNumber`, `correct/isCorrect`, `reactionTime/responseTime`, `errorType`, `timestamp` | rule/rule stage, card color/type, cue, selected/correct/old-rule side, switch direction/index, interference/post-switch/perseverative fields, top/bottom target metadata |
 

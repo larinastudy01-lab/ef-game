@@ -1,38 +1,18 @@
+import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
 // src/utils/cbtScoring.js
 
 import analyzeCBTTraining, {
   detectCBTErrorPattern,
 } from "../ai/cbtTrainingAnalyzer";
+import {
+  CBT_DIFFICULTY_ORDER,
+  CBT_TRAINING_CONFIG,
+  normalizeCBTDifficulty,
+} from "./cbtProtocol";
 
-export const CBT_MICRO_DIFFICULTY_ORDER = [
-  "veryEasy1",
-  "veryEasy2",
-  "veryEasy3",
-  "easy1",
-  "easy2",
-  "easy3",
-  "normal1",
-  "normal2",
-  "normal3",
-  "advanced1",
-  "advanced2",
-  "advanced3",
-  "hard1",
-  "hard2",
-  "hard3",
-  "expert1",
-  "expert2",
-  "expert3",
-];
-
-const BASE_DIFFICULTY_ORDER = [
-  "veryEasy",
-  "easy",
-  "normal",
-  "advanced",
-  "hard",
-  "expert",
-];
+// Keep the old export name for saved-result consumers; training now has five levels.
+export const CBT_MICRO_DIFFICULTY_ORDER = CBT_DIFFICULTY_ORDER;
+const BASE_DIFFICULTY_ORDER = CBT_DIFFICULTY_ORDER;
 
 const DEFAULT_MODE = "training";
 
@@ -118,48 +98,58 @@ function toBoolean(value) {
   );
 }
 
-export function normalizeBaseDifficultyKey(value) {
-  if (value === null || value === undefined) return "normal";
+function hasTimingValue(value) {
+  return value != null && value !== "" && Number.isFinite(Number(value));
+}
 
-  const raw = String(value).trim();
-  if (!raw) return "normal";
+function getEventCounts(record = {}) {
+  const promptEvents = safeArray(record.promptEvents);
+  const earlyClickEvents = safeArray(record.earlyClickEvents);
+  const countEvents = (types) => promptEvents.filter((event) => types.includes(event?.type)).length;
+  const idleHintCount = Math.max(0, safeNumber(record.idleHintCount, 0),
+    countEvents(["idle_mouse", "idle_hint", "idleHint"]),
+    record.idleHintCount == null && toBoolean(record.idleHintShown) ? 1 : 0);
+  const wrongAnswerHintCount = Math.max(0, safeNumber(record.wrongAnswerHintCount, 0),
+    countEvents(["wrong_answer_hint", "wrongAnswerHint"]));
+  const promptCount = Math.max(0, safeNumber(record.promptCount, 0), promptEvents.length,
+    idleHintCount + wrongAnswerHintCount);
+  const earlyClickCount = Math.max(0, safeNumber(record.earlyClickCount, 0), earlyClickEvents.length,
+    record.earlyClickCount == null && toBoolean(record.earlyClick) ? 1 : 0);
+  return { promptEvents, earlyClickEvents, idleHintCount, wrongAnswerHintCount, promptCount, earlyClickCount };
+}
 
-  const key = raw.replace(/[-_\s]/g, "").toLowerCase();
-
-  const aliases = {
-    warmup: "veryEasy",
-    veryeasy: "veryEasy",
-    easy: "easy",
-    normal: "normal",
-    medium: "normal",
-    advanced: "advanced",
-    hard: "hard",
-    expert: "expert",
+function getSessionEventStats(history) {
+  const stats = {
+    totalRecordedTrials: history.length,
+    unfinishedTrialCount: history.filter((record) => !record.completed).length,
+    idleHintCount: 0, totalIdleHintCount: 0,
+    wrongAnswerHintCount: 0, totalWrongAnswerHintCount: 0,
+    promptCount: 0, totalPromptCount: 0,
+    earlyClickCount: 0, earlyClickTrialCount: 0,
+    promptEvents: [], earlyClickEvents: [],
   };
+  history.forEach((record) => {
+    stats.idleHintCount += record.idleHintCount;
+    stats.wrongAnswerHintCount += record.wrongAnswerHintCount;
+    stats.promptCount += record.promptCount;
+    stats.earlyClickCount += record.earlyClickCount;
+    if (record.earlyClickCount > 0) stats.earlyClickTrialCount += 1;
+    stats.promptEvents.push(...record.promptEvents);
+    stats.earlyClickEvents.push(...record.earlyClickEvents);
+  });
+  stats.totalIdleHintCount = stats.idleHintCount;
+  stats.totalWrongAnswerHintCount = stats.wrongAnswerHintCount;
+  stats.totalPromptCount = stats.promptCount;
+  return stats;
+}
 
-  if (aliases[key]) return aliases[key];
-
-  const microMatch = key.match(
-    /^(veryeasy|easy|normal|advanced|hard|expert)(1|2|3)$/
-  );
-
-  if (microMatch) {
-    return microMatch[1] === "veryeasy" ? "veryEasy" : microMatch[1];
-  }
-
-  if (key.startsWith("veryeasy")) return "veryEasy";
-  if (key.startsWith("easy")) return "easy";
-  if (key.startsWith("normal")) return "normal";
-  if (key.startsWith("advanced")) return "advanced";
-  if (key.startsWith("hard")) return "hard";
-  if (key.startsWith("expert")) return "expert";
-
-  return "normal";
+export function normalizeBaseDifficultyKey(value) {
+  return normalizeCBTDifficulty(value) || "medium";
 }
 
 function getMicroDifficultyByOrder(order) {
   const index = clamp(
-    Math.round(safeNumber(order, 8)) - 1,
+    Math.round(safeNumber(order, 3)) - 1,
     0,
     CBT_MICRO_DIFFICULTY_ORDER.length - 1
   );
@@ -168,49 +158,12 @@ function getMicroDifficultyByOrder(order) {
 }
 
 export function normalizeMicroDifficultyKey(value) {
-  if (value === null || value === undefined) return "normal2";
-
-  const raw = String(value).trim();
-  if (!raw) return "normal2";
-
-  const numericOrder = Number(raw);
+  const raw = value == null ? "" : String(value).trim();
+  const numericOrder = raw ? Number(raw) : NaN;
   if (Number.isFinite(numericOrder)) {
     return getMicroDifficultyByOrder(numericOrder);
   }
-
-  const key = raw.replace(/[-_\s]/g, "").toLowerCase();
-
-  const exact = CBT_MICRO_DIFFICULTY_ORDER.find(
-    (item) => item.toLowerCase() === key
-  );
-
-  if (exact) return exact;
-
-  const match = key.match(
-    /^(veryeasy|easy|normal|advanced|hard|expert)(1|2|3)$/
-  );
-
-  if (match) {
-    const base = match[1] === "veryeasy" ? "veryEasy" : match[1];
-    const candidate = `${base}${match[2]}`;
-
-    if (CBT_MICRO_DIFFICULTY_ORDER.includes(candidate)) {
-      return candidate;
-    }
-  }
-
-  const base = normalizeBaseDifficultyKey(raw);
-
-  const defaultMicroByBase = {
-    veryEasy: "veryEasy2",
-    easy: "easy2",
-    normal: "normal2",
-    advanced: "advanced2",
-    hard: "hard2",
-    expert: "expert2",
-  };
-
-  return defaultMicroByBase[base] || "normal2";
+  return normalizeBaseDifficultyKey(raw);
 }
 
 function getBaseFromMicroDifficulty(microDifficultyKey) {
@@ -219,29 +172,18 @@ function getBaseFromMicroDifficulty(microDifficultyKey) {
 
 function getDifficultyLabel(difficultyKey) {
   const labels = {
-    veryEasy: "暖身",
-    easy: "基礎",
-    normal: "穩定",
-    advanced: "進階",
-    hard: "挑戰",
-    expert: "高挑戰",
+    beginner: "入門",
+    easy: "簡單",
+    medium: "中等",
+    hard: "難",
+    expert: "專業",
   };
 
-  return labels[normalizeBaseDifficultyKey(difficultyKey)] || "穩定";
+  return labels[normalizeBaseDifficultyKey(difficultyKey)] || "中等";
 }
 
 function getMicroDifficultyLabel(microDifficultyKey) {
-  const key = normalizeMicroDifficultyKey(microDifficultyKey);
-  const base = getBaseFromMicroDifficulty(key);
-  const phase = key.match(/(1|2|3)$/)?.[1] || "2";
-
-  const phaseLabels = {
-    1: "前段",
-    2: "中段",
-    3: "後段",
-  };
-
-  return `${getDifficultyLabel(base)}-${phaseLabels[phase]}`;
+  return getDifficultyLabel(normalizeMicroDifficultyKey(microDifficultyKey));
 }
 
 function getDifficultyOrder(difficultyKey) {
@@ -253,32 +195,12 @@ function getDifficultyOrder(difficultyKey) {
 function getMicroDifficultyOrder(microDifficultyKey) {
   const key = normalizeMicroDifficultyKey(microDifficultyKey);
   const index = CBT_MICRO_DIFFICULTY_ORDER.indexOf(key);
-  return index >= 0 ? index + 1 : 8;
+  return index >= 0 ? index + 1 : 3;
 }
 
 export function getExpectedSpanByMicroDifficulty(microDifficultyKey) {
-  const expected = {
-    veryEasy1: 2,
-    veryEasy2: 2,
-    veryEasy3: 2,
-    easy1: 2,
-    easy2: 3,
-    easy3: 3,
-    normal1: 3,
-    normal2: 4,
-    normal3: 4,
-    advanced1: 4,
-    advanced2: 5,
-    advanced3: 5,
-    hard1: 5,
-    hard2: 6,
-    hard3: 6,
-    expert1: 6,
-    expert2: 7,
-    expert3: 7,
-  };
-
-  return expected[normalizeMicroDifficultyKey(microDifficultyKey)] || 4;
+  const key = normalizeMicroDifficultyKey(microDifficultyKey);
+  return CBT_TRAINING_CONFIG[key]?.maxLevel || getDifficultyOrder(key) + 2;
 }
 
 function getFirstMismatchIndex(targetSequence = [], userSequence = []) {
@@ -370,6 +292,9 @@ function getWeightedCorrectValue(record = {}) {
 }
 
 export function normalizeRecord(record = {}, fallbackMode = DEFAULT_MODE) {
+  const events = getEventCounts(record);
+  const completed = record.completed !== false &&
+    !toBoolean(record.unfinished) && !toBoolean(record.aborted) && !toBoolean(record.isIncomplete);
   const targetSequence =
     safeArray(record.targetSequence).length > 0
       ? safeArray(record.targetSequence)
@@ -423,13 +348,10 @@ export function normalizeRecord(record = {}, fallbackMode = DEFAULT_MODE) {
   const usedHint =
     toBoolean(record.usedHint) ||
     toBoolean(record.hintUsed) ||
-    toBoolean(record.usedSupport);
+    toBoolean(record.usedSupport) || events.promptCount > 0;
 
-  const idleHintShown = toBoolean(record.idleHintShown);
-  const idleHintCount = Math.max(
-    0,
-    safeNumber(record.idleHintCount, idleHintShown ? 1 : 0)
-  );
+  const idleHintShown = events.idleHintCount > 0;
+  const idleHintCount = events.idleHintCount;
 
   const wasRescued =
     toBoolean(record.wasRescued) ||
@@ -464,23 +386,21 @@ export function normalizeRecord(record = {}, fallbackMode = DEFAULT_MODE) {
     wasRescued,
   });
 
-  const reactionTime = Number.isFinite(
-    Number(record.reactionTime ?? record.answerTime ?? record.responseTime)
-  )
+  const reactionTime = hasTimingValue(record.reactionTime ?? record.answerTime ?? record.responseTime)
     ? Number(record.reactionTime ?? record.answerTime ?? record.responseTime)
     : null;
 
-  const firstTapTime = Number.isFinite(Number(record.firstTapTime))
+  const firstTapTime = hasTimingValue(record.firstTapTime)
     ? Number(record.firstTapTime)
     : null;
 
-  const averageTapInterval = Number.isFinite(Number(record.averageTapInterval))
+  const averageTapInterval = hasTimingValue(record.averageTapInterval)
     ? Number(record.averageTapInterval)
     : null;
 
-  const errorIndex = Number.isFinite(Number(record.errorIndex))
+  const errorIndex = hasTimingValue(record.errorIndex)
     ? Number(record.errorIndex)
-    : Number.isFinite(Number(record.firstErrorPosition))
+    : hasTimingValue(record.firstErrorPosition)
     ? Number(record.firstErrorPosition)
     : getFirstMismatchIndex(targetSequence, userSequence);
 
@@ -490,7 +410,7 @@ export function normalizeRecord(record = {}, fallbackMode = DEFAULT_MODE) {
       record.difficultyKey ||
       record.difficulty ||
       record.modeDifficulty ||
-      "normal2"
+      "medium"
   );
 
   const difficultyKey = normalizeBaseDifficultyKey(
@@ -501,7 +421,7 @@ export function normalizeRecord(record = {}, fallbackMode = DEFAULT_MODE) {
   );
 
   const cleanCorrect =
-    rawCorrect &&
+    completed && rawCorrect &&
     !isTimeout &&
     !usedReplay &&
     !usedHint &&
@@ -514,12 +434,14 @@ export function normalizeRecord(record = {}, fallbackMode = DEFAULT_MODE) {
 
   const normalizedBase = {
     ...record,
+    ...events,
+    completed,
 
     mode,
     resultType: record.resultType || mode,
 
-    isCorrect: rawCorrect,
-    correct: rawCorrect,
+    isCorrect: completed && rawCorrect,
+    correct: completed && rawCorrect,
 
     isTimeout,
     timeout: isTimeout,
@@ -550,7 +472,7 @@ export function normalizeRecord(record = {}, fallbackMode = DEFAULT_MODE) {
 
     idleHintShown,
     idleHintCount,
-    idleBeforeFirstTapMs: Number.isFinite(Number(record.idleBeforeFirstTapMs))
+    idleBeforeFirstTapMs: hasTimingValue(record.idleBeforeFirstTapMs)
       ? Number(record.idleBeforeFirstTapMs)
       : null,
 
@@ -573,21 +495,22 @@ export function normalizeRecord(record = {}, fallbackMode = DEFAULT_MODE) {
 
     difficultyKey,
     difficulty: difficultyKey,
-    difficultyLabel: record.difficultyLabel || getDifficultyLabel(difficultyKey),
+    difficultyLabel: getDifficultyLabel(difficultyKey),
 
     microDifficultyKey,
     microDifficulty: microDifficultyKey,
     microDifficultyLabel:
-      record.microDifficultyLabel || getMicroDifficultyLabel(microDifficultyKey),
+      getMicroDifficultyLabel(microDifficultyKey),
 
     difficultyOrder: getDifficultyOrder(difficultyKey),
     microDifficultyOrder: getMicroDifficultyOrder(microDifficultyKey),
   };
 
-  const errorPattern =
-    record.errorPattern ||
-    record.errorType ||
-    detectCBTErrorPattern(normalizedBase);
+  const eventOnlyPatterns = ["earlyClick", "early_click", "early_click_event"];
+  const suppliedPattern = record.errorPattern || record.errorType;
+  const errorPattern = !completed ? "unfinished_trial" :
+    (suppliedPattern && !eventOnlyPatterns.includes(suppliedPattern)
+      ? suppliedPattern : detectCBTErrorPattern(normalizedBase));
 
   const weightedCorrectValue = getWeightedCorrectValue({
     ...normalizedBase,
@@ -603,9 +526,11 @@ export function normalizeRecord(record = {}, fallbackMode = DEFAULT_MODE) {
 
 export function getCBTBasicStats(inputHistory = [], options = {}) {
   const mode = options.mode || DEFAULT_MODE;
-  const history = safeArray(inputHistory).map((record) =>
+  const recordedHistory = safeArray(inputHistory).filter(Boolean).map((record) =>
     normalizeRecord(record, mode)
   );
+  const history = recordedHistory.filter((record) => record.completed);
+  const eventStats = getSessionEventStats(recordedHistory);
 
   if (!history.length) {
     return {
@@ -697,19 +622,20 @@ export function getCBTBasicStats(inputHistory = [], options = {}) {
       distractorTrialCount: 0,
       averageDistractorCount: 0,
 
-      dominantDifficultyKey: "normal",
-      dominantDifficultyLabel: "穩定",
-      highestDifficultyKey: "normal",
-      highestDifficultyLabel: "穩定",
+      dominantDifficultyKey: "medium",
+      dominantDifficultyLabel: "中等",
+      highestDifficultyKey: "medium",
+      highestDifficultyLabel: "中等",
       averageDifficultyOrder: 3,
 
-      dominantMicroDifficultyKey: "normal2",
-      dominantMicroDifficultyLabel: "穩定-中段",
-      highestMicroDifficultyKey: "normal2",
-      highestMicroDifficultyLabel: "穩定-中段",
-      finalMicroDifficultyKey: "normal2",
-      finalMicroDifficultyLabel: "穩定-中段",
-      averageMicroDifficultyOrder: 8,
+      dominantMicroDifficultyKey: "medium",
+      dominantMicroDifficultyLabel: "中等",
+      highestMicroDifficultyKey: "medium",
+      highestMicroDifficultyLabel: "中等",
+      finalMicroDifficultyKey: "medium",
+      finalMicroDifficultyLabel: "中等",
+      averageMicroDifficultyOrder: 3,
+      ...eventStats,
     };
   }
 
@@ -799,15 +725,9 @@ export function getCBTBasicStats(inputHistory = [], options = {}) {
     ...history.map((r) => r.sequenceLength || 0)
   );
 
-  const validRtRecords = history.filter((r) =>
-    Number.isFinite(Number(r.reactionTime))
-  );
-  const validCorrectRtRecords = correctRecords.filter((r) =>
-    Number.isFinite(Number(r.reactionTime))
-  );
-  const validWrongRtRecords = wrongRecords.filter((r) =>
-    Number.isFinite(Number(r.reactionTime))
-  );
+  const validRtRecords = history.filter((r) => hasTimingValue(r.reactionTime));
+  const validCorrectRtRecords = correctRecords.filter((r) => hasTimingValue(r.reactionTime));
+  const validWrongRtRecords = wrongRecords.filter((r) => hasTimingValue(r.reactionTime));
 
   const reactionTimes = validRtRecords.map((r) => r.reactionTime);
   const correctReactionTimes = validCorrectRtRecords.map((r) => r.reactionTime);
@@ -861,15 +781,15 @@ export function getCBTBasicStats(inputHistory = [], options = {}) {
 
   const idleBeforeFirstTapValues = history
     .map((r) => r.idleBeforeFirstTapMs)
-    .filter((v) => Number.isFinite(Number(v)));
+    .filter(hasTimingValue);
 
   const firstTapTimes = history
     .map((r) => r.firstTapTime)
-    .filter((v) => Number.isFinite(Number(v)));
+    .filter(hasTimingValue);
 
   const averageTapIntervals = history
     .map((r) => r.averageTapInterval)
-    .filter((v) => Number.isFinite(Number(v)));
+    .filter(hasTimingValue);
 
   const errorPatternCounts = history.reduce((acc, r) => {
     const key = r.errorPattern || "unknown";
@@ -952,13 +872,13 @@ export function getCBTBasicStats(inputHistory = [], options = {}) {
 
   const dominantDifficultyKey =
     Object.entries(difficultyCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ||
-    "normal";
+    "medium";
 
   const highestDifficultyKey =
     history
       .map((r) => normalizeBaseDifficultyKey(r.difficultyKey))
       .sort((a, b) => getDifficultyOrder(b) - getDifficultyOrder(a))[0] ||
-    "normal";
+    "medium";
 
   const averageDifficultyOrder =
     average(history.map((r) => getDifficultyOrder(r.difficultyKey))) ?? 3;
@@ -971,22 +891,22 @@ export function getCBTBasicStats(inputHistory = [], options = {}) {
 
   const dominantMicroDifficultyKey =
     Object.entries(microDifficultyCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ||
-    "normal2";
+    "medium";
 
   const highestMicroDifficultyKey =
     history
       .map((r) => normalizeMicroDifficultyKey(r.microDifficultyKey))
       .sort(
         (a, b) => getMicroDifficultyOrder(b) - getMicroDifficultyOrder(a)
-      )[0] || "normal2";
+      )[0] || "medium";
 
   const finalMicroDifficultyKey = normalizeMicroDifficultyKey(
-    history[history.length - 1]?.microDifficultyKey || "normal2"
+    history[history.length - 1]?.microDifficultyKey || "medium"
   );
 
   const averageMicroDifficultyOrder =
     average(history.map((r) => getMicroDifficultyOrder(r.microDifficultyKey))) ??
-    8;
+    3;
 
   return {
     totalTrials: history.length,
@@ -1089,6 +1009,7 @@ export function getCBTBasicStats(inputHistory = [], options = {}) {
     finalMicroDifficultyKey,
     finalMicroDifficultyLabel: getMicroDifficultyLabel(finalMicroDifficultyKey),
     averageMicroDifficultyOrder: roundNumber(averageMicroDifficultyOrder, 1),
+    ...eventStats,
   };
 }
 
@@ -1121,9 +1042,9 @@ function getSpanScore({
   const assistedPenalty = assistedSpan > independentSpan ? 1 : 0;
 
   const difficultyBonus =
-    averageMicroDifficultyOrder >= 15
+    averageMicroDifficultyOrder >= 4
       ? 2
-      : averageMicroDifficultyOrder >= 12
+      : averageMicroDifficultyOrder >= 3
       ? 1
       : 0;
 
@@ -1151,7 +1072,7 @@ function getSequenceScore(sequenceMatchPercent) {
 }
 
 function getSpeedScore(avgCorrectReactionTime) {
-  if (!Number.isFinite(Number(avgCorrectReactionTime))) return 0;
+  if (!hasTimingValue(avgCorrectReactionTime)) return 0;
 
   const rt = Number(avgCorrectReactionTime);
 
@@ -1246,7 +1167,7 @@ function getDifficultyStarCapByMicroDifficulty(microDifficultyKey, mode) {
   const key = normalizeMicroDifficultyKey(microDifficultyKey);
 
   if (mode === "test") return 3;
-  if (key === "veryEasy1" || key === "veryEasy2") return 2;
+  if (key === "beginner") return 2;
 
   return 3;
 }
@@ -1428,6 +1349,7 @@ function buildParentSummary({
   omissionErrorRate,
   extraTapErrorRate,
   fatigueDrop,
+  earlyClickCount,
 }) {
   if (!totalTrials || totalTrials <= 0) {
     return "目前尚未有足夠題目資料，完成測驗或訓練後即可看到分析結果。";
@@ -1521,6 +1443,9 @@ function buildParentSummary({
   if (timeoutRate >= 0.3) {
     parts.push("逾時比例偏高，建議給孩子更短的路線或更多練習時間。");
   }
+  if (earlyClickCount > 0) {
+    parts.push(`序列播放完成前有 ${earlyClickCount} 次提前點擊；可能是孩子還不清楚何時播放結束，不能直接據此認定衝動。`);
+  }
 
   if (idleHintRate >= 0.35) {
     parts.push("孩子在部分題目中需要非文字提醒後才開始作答，表示注意啟動或任務維持可能需要一些支持。");
@@ -1541,6 +1466,13 @@ function buildParentSummary({
 
 function buildClinicalFlags(stats) {
   const flags = [];
+  if (stats.earlyClickCount > 0) {
+    flags.push({
+      type: "early_click_observed",
+      level: "notice",
+      message: `序列播放期間記錄到 ${stats.earlyClickCount} 次提前點擊。需先確認孩子是否理解「看完再點」及開始提示；此事件不直接判定為衝動或亂點錯誤。`,
+    });
+  }
   const {
     weightedAccuracyPercent,
     accuracyPercent,
@@ -1568,6 +1500,7 @@ function buildClinicalFlags(stats) {
 
   if (!totalTrials || totalTrials <= 0) {
     return [
+      ...flags,
       {
         type: "insufficient_data",
         level: "notice",
@@ -1602,7 +1535,7 @@ function buildClinicalFlags(stats) {
     flags.push({
       type: "independent_span_low_for_difficulty",
       level: "notice",
-      message: "獨立完成跨度低於此微難度的期待範圍，建議降低訓練難度或增加提示階段。",
+      message: "獨立完成跨度低於此難度的期待範圍，建議降低訓練難度或增加提示階段。",
     });
   }
 
@@ -1797,6 +1730,12 @@ function buildTrialSummaries(history = []) {
 
       idleHintShown: r.idleHintShown,
       idleHintCount: r.idleHintCount,
+      wrongAnswerHintCount: r.wrongAnswerHintCount,
+      promptCount: r.promptCount,
+      promptEvents: r.promptEvents,
+      earlyClickCount: r.earlyClickCount,
+      earlyClickEvents: r.earlyClickEvents,
+      completed: r.completed,
       idleBeforeFirstTapMs: r.idleBeforeFirstTapMs,
 
       cleanCorrect: r.cleanCorrect,
@@ -1840,7 +1779,7 @@ export function calculateCBTScore(inputHistory = [], options = {}) {
       summary: emptySummary,
 
       aiAnalysis: null,
-      recommendedDifficulty: "normal2",
+      recommendedDifficulty: "medium",
       recommendedAction: "maintain",
       recommendationReason: "目前資料不足，建議完成測驗或訓練後再判斷下一次難度。",
       mainWeakness: "insufficient_data",
@@ -1883,12 +1822,12 @@ export function calculateCBTScore(inputHistory = [], options = {}) {
         ...emptySummary,
         aiAnalysis: null,
         interpretationFlags: buildClinicalFlags(emptySummary),
-        trialSummaries: [],
-        history: [],
+        trialSummaries: buildTrialSummaries(history),
+        history,
       },
 
-      history: [],
-      records: [],
+      history,
+      records: history,
       generatedAt: new Date().toISOString(),
     };
   }
@@ -2017,7 +1956,7 @@ export function calculateCBTScore(inputHistory = [], options = {}) {
     summary,
 
     aiAnalysis,
-    recommendedDifficulty: aiAnalysis?.recommendedDifficulty || "normal2",
+    recommendedDifficulty: aiAnalysis?.recommendedDifficulty || "medium",
     recommendedAction: aiAnalysis?.recommendedAction || "maintain",
     recommendationReason:
       aiAnalysis?.recommendationReason ||
@@ -2299,7 +2238,7 @@ function getCurrentChildId() {
 
   for (const key of keys) {
     const value =
-      window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+      localStorage.getItem(key) || sessionStorage.getItem(key);
 
     if (value && value !== "null" && value !== "undefined") return value;
   }
@@ -2308,7 +2247,7 @@ function getCurrentChildId() {
 }
 
 export function getStoredCBTResult(storageKey = null, options = {}) {
-  if (typeof window === "undefined" || !window.localStorage) return null;
+  if (typeof window === "undefined" || !localStorage) return null;
 
   const childId = getCurrentChildId();
 
@@ -2327,7 +2266,7 @@ export function getStoredCBTResult(storageKey = null, options = {}) {
   ].filter(Boolean);
 
   for (const key of keys) {
-    const parsed = safeJsonParse(window.localStorage.getItem(key), null);
+    const parsed = safeJsonParse(localStorage.getItem(key), null);
 
     if (!hasCBTRecords(parsed)) continue;
 

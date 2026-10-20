@@ -1,14 +1,78 @@
+import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
 // src/utils/pmScoring.js
 
-const DEFAULT_TIMEOUT_RT = 10000;
-const FALLBACK_STD_SPREAD = 8000;
-const MAX_PM_DIFFICULTY_LEVEL = 7;
+import { analyzePMConfusions } from "./pmItems";
+import { PM_DIFFICULTY_ORDER, normalizePMDifficulty } from "./pmProtocol";
+
+const MAX_PM_DIFFICULTY_LEVEL = 5;
 const MAX_PM_MEMORY_SPAN = 7;
 const TRAINING_SPAN_TRIAL_COUNT = 2;
 const MIN_COMPLETION_RATE_FOR_STARS = 0.3;
 
 function safeArray(value) {
   return Array.isArray(value) ? value : [];
+}
+
+// Keep actual prompts/clicks from interrupted trials, without treating them as answers.
+export function normalizePMRecord(record = {}) {
+  const promptEvents = safeArray(record.promptEvents);
+  const promptCount = Math.max(0, Number(record.promptCount) || 0,
+    Number(record.idleHintCount) || 0, promptEvents.length);
+  const sourceLogs = Array.isArray(record.clickLogs) ? record.clickLogs : safeArray(record.tapLogs);
+  const tapLogs = sourceLogs.map((tap) => ({
+    ...tap,
+    action: tap.action === "selected" ? "select" : tap.action === "deselected" ? "deselect" : tap.action,
+  }));
+  const hasTargetIds = Array.isArray(record.targetIds) || Array.isArray(record.correctIds);
+  const targetIds = safeArray(record.targetIds ?? record.correctIds);
+  const selectedIds = safeArray(record.selectedIds);
+  const computedConfusion = hasTargetIds && Array.isArray(record.selectedIds)
+    ? analyzePMConfusions({ targetIds, selectedIds, optionIds: safeArray(record.optionIds) }) : null;
+  const confusionAnalysis = computedConfusion ?? record.confusionAnalysis ?? {};
+  const getCount = (...values) => Math.max(0, ...values.map((value) => Number(value) || 0));
+  const visualConfusionCount = getCount(confusionAnalysis.visualSimilarityConfusionCount,
+    confusionAnalysis.visualConfusionCount, record.visualConfusionCount);
+  const categoryConfusionCount = getCount(confusionAnalysis.categoryConfusionCount, record.categoryConfusionCount);
+  const possibleConfusionCount = getCount(confusionAnalysis.possibleConfusionCount,
+    record.possibleConfusionCount, visualConfusionCount + categoryConfusionCount);
+  const unrelatedWrongCount = getCount(confusionAnalysis.unrelatedErrorCount,
+    confusionAnalysis.unrelatedWrongCount, record.unrelatedWrongCount);
+  const completed = record.completed !== false;
+  const isTimeout = completed && (record.isTimeout === true || record.timeout === true);
+  const isCorrect = completed && !isTimeout && (record.isCorrect === true || record.correct === true);
+  return {
+    ...record, completed, isTimeout, isCorrect,
+    targetIds, correctIds: targetIds, selectedIds,
+    clickLogs: sourceLogs, tapLogs,
+    promptCount, totalPromptCount: promptCount, idleHintCount: promptCount, promptEvents,
+    usedSupport: record.usedSupport === true || record.usedHint === true || promptCount > 0,
+    confusionAnalysis, possibleConfusionCount, visualConfusionCount,
+    visualSimilarityConfusionCount: visualConfusionCount, categoryConfusionCount,
+    unrelatedWrongCount, unrelatedErrorCount: unrelatedWrongCount,
+  };
+}
+
+function getPMEventStats(history) {
+  const promptEvents = history.flatMap((record) => record.promptEvents);
+  const promptCount = history.reduce((total, record) => total + record.promptCount, 0);
+  const sumField = (key) => history.reduce((total, record) => total + (Number(record[key]) || 0), 0);
+  return {
+    totalRecordedTrials: history.length,
+    unfinishedTrialCount: history.filter((record) => !record.completed).length,
+    promptCount, totalPromptCount: promptCount, idleHintCount: promptCount,
+    totalIdleHintCount: promptCount, promptTrialCount: history.filter((record) => record.promptCount > 0).length,
+    promptEvents,
+    clickLogs: history.flatMap((record) => record.clickLogs),
+    possibleConfusionCount: sumField("possibleConfusionCount"),
+    visualConfusionCount: sumField("visualConfusionCount"),
+    visualSimilarityConfusionCount: sumField("visualConfusionCount"),
+    categoryConfusionCount: sumField("categoryConfusionCount"),
+    unrelatedWrongCount: sumField("unrelatedWrongCount"),
+    unrelatedErrorCount: sumField("unrelatedWrongCount"),
+    confusionTrialCount: history.filter((record) => record.possibleConfusionCount > 0).length,
+    confusionErrors: history.flatMap((record, index) => safeArray(record.confusionAnalysis?.errors)
+      .map((error) => ({ ...error, trialIndex: record.trialIndex ?? index + 1 }))),
+  };
 }
 
 function clamp(value, min = 0, max = 100) {
@@ -31,19 +95,6 @@ function average(numbers) {
   );
   if (valid.length === 0) return null;
   return valid.reduce((sum, n) => sum + n, 0) / valid.length;
-}
-
-function median(numbers) {
-  const valid = safeArray(numbers)
-    .filter((n) => typeof n === "number" && Number.isFinite(n))
-    .sort((a, b) => a - b);
-
-  if (valid.length === 0) return null;
-
-  const mid = Math.floor(valid.length / 2);
-  if (valid.length % 2 === 1) return valid[mid];
-
-  return (valid[mid - 1] + valid[mid]) / 2;
 }
 
 function standardDeviation(numbers) {
@@ -83,40 +134,17 @@ function hasWrongTap(record) {
 }
 
 function getStabilitySampleFromCorrectRTs(correctReactionTimes, allReactionTimes) {
-  if (correctReactionTimes.length >= 2) {
-    return {
-      sample: correctReactionTimes,
-      source: "correct_rt",
-      usedFallback: false,
-      fallbackMedianRt: null,
-    };
-  }
-
-  const fallbackMedianRt =
-    median(allReactionTimes) ??
-    median(correctReactionTimes) ??
-    DEFAULT_TIMEOUT_RT;
-
-  if (correctReactionTimes.length === 1) {
-    return {
-      sample: [correctReactionTimes[0], fallbackMedianRt],
-      source: "single_correct_rt_plus_median_fallback",
-      usedFallback: true,
-      fallbackMedianRt,
-    };
-  }
-
   return {
-    sample: [fallbackMedianRt, fallbackMedianRt + FALLBACK_STD_SPREAD],
-    source: "no_correct_rt_median_fallback",
-    usedFallback: true,
-    fallbackMedianRt,
+    sample: correctReactionTimes.length >= 2 ? correctReactionTimes : allReactionTimes,
+    source: correctReactionTimes.length >= 2 ? "correct_rt" : allReactionTimes.length >= 2 ? "observed_all_rt" : "insufficient_observed_rt",
+    usedFallback: false,
+    fallbackMedianRt: null,
   };
 }
 
 function getAccuracyScore(accuracyRate) {
   if (typeof accuracyRate !== "number" || Number.isNaN(accuracyRate)) return 0;
-  return roundNumber(clamp(accuracyRate, 0, 1) * 35, 0);
+  return roundNumber(clamp(accuracyRate, 0, 1) * 50, 0);
 }
 
 function getMemoryScore({
@@ -166,7 +194,7 @@ function getAttentionScore({
   score += accuracyRate * 2;
   score -= timeoutRate * 9;
   score -= wrongTapRate * 4;
-  score -= deselectRate * 3;
+  // A correction remains in the click history; it does not reduce the main score.
 
   if (timeoutRate >= 0.8) score -= 6;
   else if (timeoutRate >= 0.5) score -= 3;
@@ -195,7 +223,7 @@ function getStarRating(totalScore, { totalLevels = 0, completionRate = 1 } = {})
 
 function getChildMessage(stars) {
   if (stars <= 0) return "這次資料還不夠，我們再玩一次看看！";
-  if (stars === 3) return "太棒了！你記得很清楚，也很快找到正確圖片！";
+  if (stars === 3) return "太棒了！你記得很清楚，找到了正確圖片！";
   if (stars === 2) return "做得很好！你已經記住很多圖片了，再練習會更厲害！";
   return "沒關係！我們再一起練習記圖片，會越來越熟悉！";
 }
@@ -236,6 +264,8 @@ function getStabilityLevel(reactionTimeStd) {
 }
 
 function getRecordDifficultyLevel(record) {
+  const difficultyKey = normalizePMDifficulty(record?.difficulty ?? record?.difficultyKey ?? record?.difficultyLabel);
+  if (difficultyKey) return PM_DIFFICULTY_ORDER.indexOf(difficultyKey) + 1;
   const rawDifficulty =
     record?.difficultyLevel ??
     record?.internalDifficulty ??
@@ -258,10 +288,10 @@ function getRecordDifficultyLevel(record) {
     rawLabel.includes("8張") ||
     rawLabel.includes("最高挑戰")
   ) {
-    return 7;
+    return 5;
   }
 
-  if (rawLabel.includes("高挑戰") || rawLabel.includes("Lv.6")) return 6;
+  if (rawLabel.includes("高挑戰") || rawLabel.includes("Lv.6")) return 5;
   if (rawLabel.includes("記憶分辨") || rawLabel.includes("Lv.5")) return 5;
   if (rawLabel.includes("抗干擾") || rawLabel.includes("Lv.4")) return 4;
   if (rawLabel.includes("增加容量") || rawLabel.includes("Lv.3")) return 3;
@@ -370,11 +400,19 @@ function getStoppedMemorySpan({ options = {}, spanSummaries = [] }) {
 }
 
 export function getPMBasicStats(inputRecords = []) {
-  const records = safeArray(inputRecords);
+  const history = safeArray(inputRecords).map(normalizePMRecord);
+  const records = history.filter((record) => record.completed);
+  const events = getPMEventStats(history);
 
   if (records.length === 0) {
     return {
+      ...events,
       totalLevels: 0,
+      totalTrials: 0,
+      cleanCorrectCount: 0,
+      assistedCorrectCount: 0,
+      supportedTrialCount: 0,
+      supportRate: 0,
       correctCount: 0,
       wrongCount: 0,
       timeoutCount: 0,
@@ -395,7 +433,7 @@ export function getPMBasicStats(inputRecords = []) {
       reactionTimeStdSource: "no_records",
       usedRtFallbackForStd: false,
       fallbackMedianRt: null,
-      totalTapCount: 0,
+      totalTapCount: history.reduce((total, record) => total + record.tapLogs.length, 0),
       wrongTapCount: 0,
       wrongTapTrialCount: 0,
       deselectCount: 0,
@@ -420,6 +458,7 @@ export function getPMBasicStats(inputRecords = []) {
   const accuracyPercent = percentage(correctCount, records.length);
 
   const reactionTimes = records
+    .filter((record) => !record.isTimeout)
     .map(getFiniteReactionTime)
     .filter((rt) => rt !== null);
 
@@ -503,9 +542,17 @@ export function getPMBasicStats(inputRecords = []) {
 
   const fastCorrectRate =
     records.length > 0 ? fastCorrectCount / records.length : 0;
+  const supportedTrialCount = records.filter((record) => record.usedSupport).length;
+  const assistedCorrectCount = correctRecords.filter((record) => record.usedSupport).length;
 
   return {
+    ...events,
     totalLevels: records.length,
+    totalTrials: records.length,
+    cleanCorrectCount: correctCount - assistedCorrectCount,
+    assistedCorrectCount,
+    supportedTrialCount,
+    supportRate: supportedTrialCount / records.length,
     correctCount,
     wrongCount,
     timeoutCount,
@@ -541,8 +588,10 @@ export function getPMBasicStats(inputRecords = []) {
 }
 
 export function calculatePMScore(inputRecords = [], options = {}) {
-  const records = safeArray(inputRecords);
-  const stats = getPMBasicStats(records);
+  const history = safeArray(inputRecords).map(normalizePMRecord);
+  const records = history.filter((record) => record.completed);
+  const stats = getPMBasicStats(history);
+  const eventStats = getPMEventStats(history);
 
   const mode = typeof options?.mode === "string" ? options.mode : "test";
 
@@ -623,21 +672,10 @@ export function calculatePMScore(inputRecords = [], options = {}) {
 
   const stabilityScore = getStabilityScore(reactionTimeStd);
 
-  let totalScore = roundNumber(
-    accuracyScore + memoryScore + speedScore + attentionScore + stabilityScore,
-    0
-  );
-
-  const fastBonus =
-    fastCorrectRate >= 0.5
-      ? 3
-      : fastCorrectRate >= 0.3
-      ? 2
-      : fastCorrectRate >= 0.15
-      ? 1
-      : 0;
-
-  totalScore = clamp(totalScore + fastBonus, 0, 100);
+  // PM difficulty is memory load. RT and RT variation remain observational only.
+  let totalScore = totalLevels > 0
+    ? roundNumber(accuracyScore + memoryScore + attentionScore, 0) : 0;
+  const fastBonus = 0;
 
   if (extremeTimeoutRisk) {
     totalScore = clamp(totalScore - 20, 0, 25);
@@ -674,7 +712,7 @@ export function calculatePMScore(inputRecords = [], options = {}) {
     answerStability: roundNumber((stabilityScore / 10) * 100, 0),
   };
 
-  const levelSummaries = buildLevelSummaries(records);
+  const levelSummaries = buildLevelSummaries(history);
 
   return {
     taskName: "Picture Memory",
@@ -685,7 +723,13 @@ export function calculatePMScore(inputRecords = [], options = {}) {
     stars,
 
     summary: {
+      ...eventStats,
       totalLevels,
+      totalTrials: totalLevels,
+      cleanCorrectCount: stats.cleanCorrectCount,
+      assistedCorrectCount: stats.assistedCorrectCount,
+      supportedTrialCount: stats.supportedTrialCount,
+      supportRate: roundNumber(stats.supportRate, 3),
       plannedTotalRounds,
       completionRate,
 
@@ -752,12 +796,14 @@ export function calculatePMScore(inputRecords = [], options = {}) {
       stabilityScore,
       fastBonus,
       maxScores: {
-        accuracyScore: 35,
+        accuracyScore: 50,
         memoryScore: 35,
         attentionScore: 15,
         stabilityScore: 10,
         speedScore: 5,
       },
+      scoringWeights: { accuracy: 50, memory: 35, attention: 15, speed: 0, stability: 0 },
+      reactionTimeIsObservational: true,
     },
 
     childView: {
@@ -830,7 +876,13 @@ export function calculatePMScore(inputRecords = [], options = {}) {
     },
 
     clinicalView: {
+      ...eventStats,
       totalLevels,
+      totalTrials: totalLevels,
+      cleanCorrectCount: stats.cleanCorrectCount,
+      assistedCorrectCount: stats.assistedCorrectCount,
+      supportedTrialCount: stats.supportedTrialCount,
+      supportRate: roundNumber(stats.supportRate, 3),
       plannedTotalRounds,
       completionRate,
 
@@ -896,14 +948,17 @@ export function calculatePMScore(inputRecords = [], options = {}) {
         usedRtFallbackForStd,
         earlyStopReason,
         stoppedMemorySpan,
+        possibleConfusionCount: eventStats.possibleConfusionCount,
+        promptCount: eventStats.promptCount,
       }),
 
       levelSummaries,
 
-      records,
+      records: history,
     },
 
-    records,
+    records: history,
+    scoringVersion: "PM_MEMORY_LOAD_V4",
     generatedAt: new Date().toISOString(),
   };
 }
@@ -961,15 +1016,20 @@ function buildLevelSummaries(records = []) {
       (tap) => tap?.action === "deselect"
     ).length;
 
-    const firstTapTime =
-      tapLogs.length > 0 &&
-      typeof tapLogs[0].timestamp === "number" &&
-      Number.isFinite(tapLogs[0].timestamp)
-        ? tapLogs[0].timestamp
-        : null;
+    const firstTapTime = tapLogs.find((tap) => tap.action === "select")?.timestamp ?? null;
 
     return {
       trialIndex: record.trialIndex ?? index + 1,
+      completed: record.completed,
+      promptCount: record.promptCount,
+      promptEvents: record.promptEvents,
+      usedSupport: record.usedSupport,
+      confusionAnalysis: record.confusionAnalysis,
+      possibleConfusionCount: record.possibleConfusionCount,
+      visualConfusionCount: record.visualConfusionCount,
+      categoryConfusionCount: record.categoryConfusionCount,
+      unrelatedWrongCount: record.unrelatedWrongCount,
+      clickLogs: record.clickLogs,
       level: record.level ?? null,
       difficultyLevel: getRecordDifficultyLevel(record) || null,
       difficultyLabel: record.difficultyLabel ?? null,
@@ -1058,7 +1118,7 @@ function buildParentSummary({
       : timeoutRate >= 0.3
       ? "逾時比例偏高，可能表示孩子需要更長的搜尋或回想時間。"
       : wrongTapRate >= 0.5
-      ? "誤點題數比例偏高，可能表示孩子作答時較容易受干擾或衝動點擊。"
+      ? "錯選題數比例偏高，可搭配漏選目標及可能混淆的物件分類一起觀察。"
       : deselectRate >= 0.5
       ? "取消選取題數比例偏高，可能表示孩子作答時較猶豫或對答案不確定。"
       : "整體作答過程沒有明顯過高的逾時、誤點或取消選取情況。";
@@ -1093,7 +1153,7 @@ function buildTrainingSpanText({
   const baseText = `本次訓練從 ${firstSpan} 張圖片開始，最後進行到 ${lastSpan} 張圖片；目前可成功答對的最高跨度約為 ${bestPassedSpan || 0} 張。`;
 
   if (earlyStopReason === "span_two_timeouts") {
-    return `${baseText}因為 ${stoppedMemorySpan || lastSpan} 張圖片連續兩題逾時，建議下次先降低一個跨度或延長作答時間。`;
+    return `${baseText}因為 ${stoppedMemorySpan || lastSpan} 張圖片連續兩題逾時，建議下次先降低一個跨度，作答上限維持 15 秒。`;
   }
 
   if (earlyStopReason === "span_two_failed") {
@@ -1114,8 +1174,12 @@ function buildClinicalFlags({
   usedRtFallbackForStd,
   earlyStopReason = null,
   stoppedMemorySpan = null,
+  possibleConfusionCount = 0,
+  promptCount = 0,
 }) {
   const flags = [];
+  if (promptCount > 0) flags.push({ type: "support_used", level: "notice", message: `本次實際出現 ${promptCount} 次等待提示，應區分有提示與獨立作答的表現。` });
+  if (possibleConfusionCount > 0) flags.push({ type: "possible_confusion", level: "notice", message: `本次有 ${possibleConfusionCount} 個錯選物件與漏選目標具有相近外形或同類關聯；此紀錄不能確認實際錯誤原因。` });
 
   if (timeoutRate >= 0.8) {
     flags.push({
@@ -1193,7 +1257,7 @@ function buildClinicalFlags({
       type: "wrong_tap_high",
       level: "notice",
       message:
-        "發生誤點的題數比例偏高，可能表示衝動點擊、視覺搜尋困難，或對目標圖片記憶不清楚。",
+        "發生錯選的題數比例偏高，需搭配目標、選項、漏選及可能混淆分類判讀，不能僅依錯選認定衝動。",
     });
   }
 
@@ -1210,7 +1274,7 @@ function buildClinicalFlags({
     flags.push({
       type: "training_span_timeout_stop",
       level: "warning",
-      message: `訓練在 ${stoppedMemorySpan || "某一"} 張圖片跨度因連續兩題逾時而停止，建議優先觀察是否需要降低跨度或延長作答時間。`,
+      message: `訓練在 ${stoppedMemorySpan || "某一"} 張圖片跨度因連續兩題逾時而停止，建議降低記憶負荷，作答上限維持 15 秒。`,
     });
   }
 

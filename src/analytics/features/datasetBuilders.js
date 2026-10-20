@@ -6,7 +6,7 @@ const PREFIX_BY_TASK = {
   CBT: "corsi",
   PM: "picture_memory",
   SRT: "srt",
-  SSG: "ssg",
+  ARI: "ari",
   LB: "linking_balloons",
   DCCS: "dccs",
 };

@@ -1,8 +1,11 @@
+import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
 import { queueGameResult } from "./resultSync";
+import { isTemporaryGameTesting } from "../temporaryGameTesting/runtime";
 import { createBehavioralId } from "../analytics/trials/buildBehavioralHierarchy";
 import { awardTrainingCoins } from "./economyManager";
 import { completeActiveRecommendation } from "../analytics/recommendation/onlineRecommendation";
 import { getAttemptKeys } from "./resultIdentity";
+import { recordAchievementResult } from "./achievementProtocol";
 
 const savedResultObjects = new WeakMap();
 
@@ -42,8 +45,8 @@ export const GAME_META = {
     abilityType: "workingMemory",
     abilityLabel: "工作記憶",
   },
-  SSG: {
-    gameId: "SSG",
+  ARI: {
+    gameId: "ARI",
     gameName: "蒼蠅注意任務",
     abilityType: "attention",
     abilityLabel: "注意力 / 抑制控制",
@@ -66,7 +69,7 @@ export const LEGACY_RESULT_KEYS = {
   SRT: { test: "srtTestResult", training: "srtTrainingResult" },
   PM: { test: "pmTestResult", training: "pmTrainingResult" },
   CBT: { test: "cbtTestResult", training: "cbtTrainingResult" },
-  SSG: { test: "ssgTestResult", training: "ssgTrainingResult" },
+  ARI: { test: "ariTestResult", training: "ariTrainingResult" },
   LB: { test: "lbTestResult", training: "lbTrainingResult" },
   DCCS: { test: "dccsTestResult", training: "dccsTrainingResult" },
 };
@@ -176,7 +179,7 @@ export const sanitizeForStorage = (value, fallbackNumber = 0) => {
 
 export const getCurrentChild = () => {
   if (typeof window === "undefined") return null;
-  const parsedChild = safeParse(window.localStorage?.getItem("currentChild"), null);
+  const parsedChild = safeParse(localStorage?.getItem("currentChild"), null);
   return isPlainObject(parsedChild) ? parsedChild : null;
 };
 
@@ -359,7 +362,51 @@ export const normalizeGameResult = ({
     },
 
     metrics: {
+      ...(normalizedGameId === "ARI" ? {
+        protocolVersion: raw.protocolVersion ?? null,
+        promptCount: raw.promptCount ?? null,
+        idleHintCount: raw.idleHintCount ?? null,
+        consecutiveErrorHintCount: raw.consecutiveErrorHintCount ?? null,
+        replayCount: raw.replayCount ?? null,
+        promptEvents: Array.isArray(raw.promptEvents) ? raw.promptEvents : null,
+        replayEvents: Array.isArray(raw.replayEvents) ? raw.replayEvents : null,
+        answerTimeLimit: raw.protocol?.answerTimeLimit ?? null,
+        interference: raw.protocol?.interference ?? null,
+      } : {}),
+      ...(normalizedGameId === "LB" ? {
+        ...safeObject(raw.metrics),
+        protocolVersion: raw.protocolVersion ?? null,
+        promptCount: raw.promptCount ?? null,
+        idleHintCount: raw.idleHintCount ?? null,
+        ruleErrorHintCount: raw.ruleErrorHintCount ?? null,
+        promptEvents: Array.isArray(raw.promptEvents) ? raw.promptEvents : null,
+        answerTimeLimit: raw.config?.answerTimeLimit ?? raw.protocol?.answerTimeLimit ?? null,
+      } : {}),
+      ...(normalizedGameId === "SRT" ? {
+        ...safeObject(raw.metrics),
+        rtStd: raw.rtStd ?? raw.scoring?.summary?.rtStd ?? null,
+        rtCV: raw.rtCV ?? raw.scoring?.summary?.rtCV ?? null,
+        promptCount: raw.promptCount ?? raw.scoring?.summary?.promptCount ?? null,
+        longAttentionMetrics: raw.longAttentionMetrics ?? raw.scoring?.summary?.longAttentionMetrics ?? null,
+        protocol: raw.protocol ?? null,
+      } : {}),
+      ...(normalizedGameId === "CBT" ? {
+        ...safeObject(raw.metrics),
+        promptCount: raw.promptCount ?? raw.scoring?.summary?.promptCount ?? null,
+        earlyClickCount: raw.earlyClickCount ?? raw.scoring?.summary?.earlyClickCount ?? null,
+        promptEvents: safeArray(raw.promptEvents),
+        earlyClickEvents: safeArray(raw.earlyClickEvents),
+        protocol: raw.protocol ?? null,
+      } : {}),
       reactionTimes: safeArray(raw?.reactionTimes),
+      ...(normalizedGameId === "PM" ? {
+        ...safeObject(raw.scoring?.summary),
+        ...safeObject(raw.metrics),
+        protocolVersion: raw.protocolVersion ?? null,
+        stimulusPolicy: raw.stimulusPolicy ?? null,
+        promptCount: raw.promptCount ?? raw.scoring?.summary?.promptCount ?? null,
+        possibleConfusionCount: raw.possibleConfusionCount ?? raw.scoring?.summary?.possibleConfusionCount ?? null,
+      } : {}),
       errorTypes: safeObject(
         raw?.errorTypes ?? raw?.errorAnalysis?.errorTypes ?? raw?.scoring?.errorTypes
       ),
@@ -424,7 +471,7 @@ export const saveUnifiedResult = ({
     visibleRoles,
   });
 
-  if (typeof window === "undefined") return normalized;
+  if (typeof window === "undefined" || isTemporaryGameTesting()) return normalized;
 
   const legacyKey = getLegacyResultKey(
     normalized?.game?.gameId,
@@ -444,7 +491,7 @@ export const saveUnifiedResult = ({
   let queued = false;
   try {
     const allResults = safeArray(
-      safeParse(window.localStorage?.getItem(ALL_RESULTS_KEY), [])
+      safeParse(localStorage?.getItem(ALL_RESULTS_KEY), [])
     );
     const attemptKeys = new Set(getAttemptKeys(rawResult));
     const sameScope = (item) => item?.game?.gameId === normalized.game.gameId
@@ -463,8 +510,17 @@ export const saveUnifiedResult = ({
       };
     }
     if (isPlainObject(rawResult)) savedResultObjects.set(rawResult, normalized);
+    if (normalized.session.mode === "training") {
+      try {
+        const achievement = recordAchievementResult(normalized);
+        normalized.achievement = achievement;
+        normalized.rawResult = { ...normalized.rawResult, achievementEligibility: achievement };
+      } catch (error) {
+        console.warn("徽章進度暫存失敗，訓練結果仍會保存：", error);
+      }
+    }
     const safeRawResult = sanitizeForStorage({
-      ...rawResult, resultId: normalized.resultId, behavioral: normalized.behavioral,
+      ...normalized.rawResult, resultId: normalized.resultId, behavioral: normalized.behavioral,
     });
     normalized.rawResult = safeRawResult;
 
@@ -487,13 +543,13 @@ export const saveUnifiedResult = ({
     queueGameResult(normalized);
     queued = true;
 
-    window.localStorage?.setItem(unifiedLatestKey, JSON.stringify(normalized));
-    window.sessionStorage?.setItem(unifiedLatestKey, JSON.stringify(normalized));
-    window.localStorage?.setItem(childScopedLatestKey, JSON.stringify(normalized));
-    window.sessionStorage?.setItem(childScopedLatestKey, JSON.stringify(normalized));
+    localStorage?.setItem(unifiedLatestKey, JSON.stringify(normalized));
+    sessionStorage?.setItem(unifiedLatestKey, JSON.stringify(normalized));
+    localStorage?.setItem(childScopedLatestKey, JSON.stringify(normalized));
+    sessionStorage?.setItem(childScopedLatestKey, JSON.stringify(normalized));
 
     if (saveLegacy) {
-      window.localStorage?.setItem(legacyKey, JSON.stringify(safeRawResult));
+      localStorage?.setItem(legacyKey, JSON.stringify(safeRawResult));
     }
 
     const nextResults = [normalized, ...allResults]
@@ -509,7 +565,7 @@ export const saveUnifiedResult = ({
       .sort((a, b) => getResultTimestamp(b) - getResultTimestamp(a))
       .slice(0, MAX_LOCAL_RESULTS);
 
-    window.localStorage?.setItem(ALL_RESULTS_KEY, JSON.stringify(nextResults));
+    localStorage?.setItem(ALL_RESULTS_KEY, JSON.stringify(nextResults));
 
     if (normalized?.session?.mode === "training") {
       completeActiveRecommendation(normalized).catch((recommendationError) => {
@@ -535,10 +591,10 @@ export const getUnifiedResult = ({ gameId, mode = "test", childId = null, fallba
     : null;
 
   const result =
-    (childKey ? safeParse(window.sessionStorage?.getItem(childKey), null) : null) ||
-    (childKey ? safeParse(window.localStorage?.getItem(childKey), null) : null) ||
-    safeParse(window.sessionStorage?.getItem(key), null) ||
-    safeParse(window.localStorage?.getItem(key), fallback);
+    (childKey ? safeParse(sessionStorage?.getItem(childKey), null) : null) ||
+    (childKey ? safeParse(localStorage?.getItem(childKey), null) : null) ||
+    safeParse(sessionStorage?.getItem(key), null) ||
+    safeParse(localStorage?.getItem(key), fallback);
 
   return sanitizeForStorage(result);
 };
@@ -546,7 +602,7 @@ export const getUnifiedResult = ({ gameId, mode = "test", childId = null, fallba
 export const getAllUnifiedResults = () => {
   if (typeof window === "undefined") return [];
 
-  return safeArray(safeParse(window.localStorage?.getItem(ALL_RESULTS_KEY), []))
+  return safeArray(safeParse(localStorage?.getItem(ALL_RESULTS_KEY), []))
     .map((item) => sanitizeForStorage(item))
     .filter((item) => item?.resultId)
     .sort((a, b) => getResultTimestamp(b) - getResultTimestamp(a))

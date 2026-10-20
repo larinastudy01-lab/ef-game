@@ -15,7 +15,7 @@ function summarizeMetric(rows, metric) {
 }
 
 export function taskSpecificMetricNames(rows, taskCode) {
-  const taskPrefix = ({ CBT: "cbt_", PM: "pm_", SRT: "srt_", SSG: "ssg_", LB: "lb_", DCCS: "dccs_" })[taskCode];
+  const taskPrefix = ({ CBT: "cbt_", PM: "pm_", SRT: "srt_", ARI: "ari_", LB: "lb_", DCCS: "dccs_" })[taskCode];
   if (!taskPrefix) return [];
   const metrics = new Set();
   rows.forEach((row) => {

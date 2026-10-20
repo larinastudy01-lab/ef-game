@@ -1,3 +1,5 @@
+import { useTrainingAchievementAssignment } from "../utils/useTrainingAchievementAssignment";
+import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/GamePage_DCCS.css";
@@ -62,12 +64,12 @@ const TRAINING_RESULTS_KEY = "ef_game_training_results";
 const getStoredCurrentChild = () => {
   if (typeof window === "undefined") return null;
 
-  const currentChild = safeParse(window.localStorage?.getItem("currentChild"), null);
+  const currentChild = safeParse(localStorage?.getItem("currentChild"), null);
   const currentChildId =
     currentChild?.childId ||
     currentChild?.id ||
     currentChild?.patientId ||
-    window.localStorage?.getItem("currentChildId") ||
+    localStorage?.getItem("currentChildId") ||
     null;
 
   if (!currentChildId) return currentChild || null;
@@ -1519,6 +1521,7 @@ function TrainingPage_DCCS() {
   }, []);
 
   const currentLevel = LEVEL_CONFIG[levelId] || LEVEL_CONFIG.colorIntro;
+  const achievementAssignment = useTrainingAchievementAssignment({ gameId: "DCCS", difficulty: initialLevelId, trainingLevel: trainingContext.trainingLevel, location });
 
   const currentTrial = useMemo(() => {
     return currentLevel.trials[trialIndex] || null;
@@ -1841,6 +1844,7 @@ function TrainingPage_DCCS() {
       );
 
       const resultWithStage = {
+        achievementAssignment, completed: nextLogs.length >= currentLevel.trials.length,
         ...finalResult,
         resultId: attemptIdRef.current,
         stars,
