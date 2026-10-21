@@ -26,6 +26,7 @@ import homeBackBtn from "../asset/home/back.webp";
 import homeAgainBtn from "../asset/home/again.webp";
 import changeImg from "../asset/home/change.webp";
 import mouseGuideImg from "../asset/mouse.webp";
+import "../styles/TestStepVideo.css";
 
 const SESSION_KEY = "LB_TRAINING_RESULT";
 const LOCAL_KEY = "lbTrainingResult";
@@ -2217,9 +2218,9 @@ export default function TrainingPage_LB() {
     return (
       <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
         <TrainingInlineStyle />
-        <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-video-panel game-start-card-artwork lb-video-card-artwork" aria-label="步驟說明動畫">
-            <div className="lb-video-frame">
+        <main className="lb-center-shell test-video-layout">
+          <section className="lb-soft-panel lb-video-panel game-start-card-artwork lb-video-card-artwork test-video-card" aria-label="步驟說明動畫">
+            <div className="lb-video-frame test-video-frame">
               <video
                 ref={stepVideoRef}
                 src={stepVideo}
@@ -2228,10 +2229,10 @@ export default function TrainingPage_LB() {
                 playsInline
                 controls
                 onEnded={handleStepVideoEnd}
-                className="lb-video"
+                className="lb-video test-video"
               />
             </div>
-            <div className="lb-video-actions"><div className="lb-guided-action lb-guided-skip">
+            <div className="lb-video-actions test-video-actions"><div className="lb-guided-action lb-guided-skip">
               <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleStepVideoEnd} aria-label="跳過步驟說明">
                 <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過步驟說明" draggable="false" />
               </button>
@@ -2282,9 +2283,9 @@ export default function TrainingPage_LB() {
     return (
       <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
         <TrainingInlineStyle />
-        <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-video-panel game-start-card-artwork lb-video-card-artwork" aria-label="結束動畫">
-            <div className="lb-video-frame">
+        <main className="lb-center-shell test-video-layout">
+          <section className="lb-soft-panel lb-video-panel game-start-card-artwork lb-video-card-artwork test-video-card" aria-label="結束動畫">
+            <div className="lb-video-frame test-video-frame">
               <video
                 ref={endingVideoRef}
                 src={endingVideo}
@@ -2293,14 +2294,21 @@ export default function TrainingPage_LB() {
                 playsInline
                 controls
                 onEnded={handleEndingVideoEnd}
-                className="lb-video"
+                className="lb-video test-video"
               />
             </div>
-            <div className="lb-guided-action lb-guided-skip">
-              <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleEndingVideoEnd} aria-label="跳過動畫">
-                <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過動畫" draggable="false" />
-              </button>
-              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
+            <div className="test-video-actions">
+              <div className="lb-guided-action lb-guided-skip">
+                <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleEndingVideoEnd} aria-label="跳過動畫">
+                  <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過動畫" draggable="false" />
+                </button>
+                <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" draggable="false" />
+              </div>
+              <div className="lb-guided-action lb-guided-next">
+                <button type="button" className="lb-forest-button lb-image-button lb-btn-next" onClick={handleEndingVideoEnd} aria-label="下一步">
+                  <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" draggable="false" />
+                </button>
+              </div>
             </div>
           </section>
         </main>

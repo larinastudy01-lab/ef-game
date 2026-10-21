@@ -1051,6 +1051,10 @@ npm run server
 
 API 最終篩選門檻 0.45、最多使用 6 份文件、單份文字上限 4000 字元、合計上限 18000 字元。搜尋腳本另使用 `RAG_MATCH_THRESHOLD`（預設 0.5）、`RAG_MATCH_COUNT`（預設 8），不會改變 API 常數，兩者命中數可能不同。
 
+批次回覆驗證已提供 **50 種模擬情境**，涵蓋六款遊戲、資料不足、比較限制、來源引用、故障降級、臨床安全與提示注入。執行 `npm run eval:rag` 可產生離線流程的 JSON／CSV 報告；`npm run eval:rag -- --mode=model` 以固定合成段落搭配真實模型評估回答（會產生 API 費用）。離線通過不代表模型回答正確，真實模型模式也保留人工審查。完整情境與判讀見 [RAG 回覆評估](docs/rag-evaluation.md)。
+
+家長端與醫療端的小助手可逐次選擇「本次問答自動寄至註冊信箱」，預設不寄送；勾選後會寄送該次問題、回答及來源，並顯示交寄狀態、提供失敗重試。後端使用 Resend，須另設 `RESEND_API_KEY` 與 `ASSISTANT_EMAIL_FROM`，收件人固定為已查證登入帳號的註冊信箱。見 [問答寄信設定與驗證](docs/assistant-email.md)。
+
 最後以有個案權限的醫療帳號選取測試紀錄並提問，核對回應 `ragUsed`、`sources`、`fallback` 及畫面來源。`ragUsed: false` 可能是無適合文獻或檢索失敗；`fallback: true`／備援提示需配合後端 log 判讀。單有回答不能證明已使用 RAG。驗證範例使用虛構個案。
 
 <a id="operations"></a>
@@ -1060,7 +1064,7 @@ API 最終篩選門檻 0.45、最多使用 6 份文件、單份文字上限 4000
 
 [GitHub Actions](.github/workflows/deploy-pages.yml) 在推送 `main` 或手動觸發時，使用 Node 20、`npm ci --legacy-peer-deps --no-audit --no-fund`，設定 `PUBLIC_URL=/ef-game`，建置並檢查 `build/`，複製 `index.html` 為 `404.html` 後發布 GitHub Pages。Repository Pages 需啟用 GitHub Actions。此流程不部署 Node API、schema 或知識庫，亦不依賴 `site/`。
 
-**醫療端目前固定請求同 origin 的 `/api/clinical-assistant`，沒有可設定的外部 API base URL。** 完整上線需在能反向代理的 HTTPS 網域提供前端，將 `/api/clinical-assistant` 轉送至 Node API，其他前端路由 fallback 到 `index.html`。部署在網域根目錄時也要調整 `PUBLIC_URL`。Node 使用 `npm run server`，另設 production 環境、後端金鑰與允許來源。
+**醫療端目前固定請求同 origin 的 `/api/clinical-assistant`，沒有可設定的外部 API base URL。** 完整上線需在能反向代理的 HTTPS 網域提供前端，將 `/api/clinical-assistant` 與問答寄信的 `/api/assistant-email` 轉送至 Node API，其他前端路由 fallback 到 `index.html`。部署在網域根目錄時也要調整 `PUBLIC_URL`。Node 使用 `npm run server`，另設 production 環境、後端金鑰與允許來源。
 
 純 GitHub Pages 不會執行開發 proxy；若保留 Pages，完整 AI 連線仍需程式及部署架構調整，現況只能使用可用的前端備援。設定 CORS 本身不會改變請求目的地。
 
@@ -1072,13 +1076,15 @@ API 最終篩選門檻 0.45、最多使用 6 份文件、單份文字上限 4000
 | --- | --- |
 | `npm run check:assets` | 資產引用 |
 | `npm test -- --watchAll=false` | Jest 測試 |
-| `npm run test:api` | 獨立 API 安全測試 |
+| `npm run test:api` | API 權限與問答寄信安全測試 |
+| `npm run test:rag` | 50 種離線 RAG 情境與評估器測試 |
+| `npm run eval:rag` | 產生 50 種情境的 JSON／CSV 流程報告 |
 | `npm run build` | 正式建置 |
 | `npm run check:deploy` | 建置後檢查容量、source map、LFS pointer 與禁止路徑 |
-| `npm run check` | 資產 → Jest → build → deploy；不含 `test:api` |
+| `npm run check` | 資產 → Jest → build → deploy；不含 `test:api`／`test:rag` |
 | `npm run sync:pages` | 舊版 Pages 複製工具；現有 workflow 不依賴此指令 |
 
-程式變更依 [維護指南](docs/maintenance-guide.md) 驗證，API 變更另跑 `test:api`。歷史測試數字不是目前版本的通過證明。純文件修改檢查連結、格式與指令，不需為此重建遠端資料庫。
+程式變更依 [維護指南](docs/maintenance-guide.md) 驗證，API 變更另跑 `test:api`，RAG 變更另跑 `test:rag`。歷史測試數字不是目前版本的通過證明。純文件修改檢查連結、格式與指令，不需為此重建遠端資料庫。
 
 ### 16.3 常見問題
 

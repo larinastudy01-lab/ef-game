@@ -5,6 +5,7 @@
   z-index: 4;
   pointer-events: none;
   opacity: 0;
+  transform-origin: 20% 10%;
   animation: hand-pointer-demonstration 1800ms ease-in-out both;
 }
 

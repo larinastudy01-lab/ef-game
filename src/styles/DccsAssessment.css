@@ -1,0 +1,63 @@
+.Dcss-page.Dccs-assessment-page { min-height: 100dvh; padding: 12px; }
+.dccs-assessment { position: relative; width: min(1360px, 100%, calc((100dvh - 24px) * 1360 / 989)); aspect-ratio: 1360 / 989; color: #56391f; font-family: inherit; isolation: isolate; }
+.dccs-narrator { position: absolute; inset: 0; pointer-events: none; }
+/* One proportional canvas and the same anchors in every rule and viewport.
+   Separate translate from transform so feedback never changes an anchor. */
+.dccs-narrator-slot { position: absolute; left: 13%; top: 19%; width: 13%; aspect-ratio: 1408 / 1126; translate: -50% -50%; display: grid; place-items: center; pointer-events: none; }
+.dccs-narrator[data-layout="center"] .dccs-narrator-slot { left: 50%; top: 50%; width: 72%; }
+.dccs-narrator[data-layout="above-boxes"] .dccs-narrator-slot { left: 50%; top: 36%; width: 54%; }
+.dccs-narrator-portrait { width: 100%; height: 100%; min-width: 0; min-height: 0; display: grid; grid-template-areas: "frame"; }
+.dccs-narrator-frame { grid-area: frame; display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; object-fit: contain; user-select: none; }
+.dccs-narrator-open { opacity: 0; }
+.dccs-narrator-closed { opacity: 1; }
+.dccs-narrator[data-speaking="true"] .dccs-narrator-frame { animation: dccs-narrator-mouth 560ms steps(1, end) infinite both; }
+.dccs-narrator[data-speaking="true"] .dccs-narrator-closed { animation-delay: -280ms; }
+.dccs-narrator.is-speaking .dccs-narrator-portrait { animation: dccs-guide-speaking .9s ease-in-out infinite; }
+.dccs-narrator.is-happy .dccs-narrator-portrait { animation: dccs-guide-happy 1.2s ease-in-out 2; }
+.dccs-narrator.is-encourage .dccs-narrator-portrait { animation: dccs-guide-encourage 1.2s ease-in-out 2; }
+.dccs-narrator.is-transition .dccs-narrator-portrait { animation: dccs-guide-encourage 1.8s ease-in-out 1; }
+.dccs-assessment[data-mode="formal"][data-phase="formal_question"] .dccs-narrator-portrait,
+.dccs-assessment[data-mode="formal"][data-phase="formal_question"] .dccs-narrator-frame,
+.dccs-assessment[data-mode="formal"][data-phase="formal_transition"] .dccs-narrator-portrait,
+.dccs-assessment[data-mode="formal"][data-phase="formal_transition"] .dccs-narrator-frame { animation: none; }
+.dccs-stimulus-stage { position: absolute; left: 50%; top: 43%; width: 30%; aspect-ratio: 1; translate: -50% -50%; display: grid; place-items: center; pointer-events: none; }
+.dccs-stimulus-stage.is-hidden { visibility: hidden; }
+.dccs-stimulus { width: 100%; height: 100%; display: grid; place-items: center; }
+.dccs-stimulus img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 8px 7px #33220f30); }
+.dccs-stimulus img.is-revealing { animation: dccs-stimulus-reveal var(--reveal-ms) ease-out both; }
+.dccs-stimulus img.is-bag-intro { animation: dccs-bag-intro 1.8s ease-in-out 1; }
+.dccs-stimulus.is-depositing { animation: dccs-deposit var(--deposit-ms) ease-in both; }
+.dccs-assessment-boxes { position: absolute; inset: 0; pointer-events: none; }
+.dccs-assessment-box { position: absolute; top: 82%; width: 32.5%; aspect-ratio: 319 / 131; min-height: 44px; translate: -50% -50%; display: grid; place-items: center; padding: 0; border: 0; background: transparent; cursor: pointer; pointer-events: auto; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.dccs-assessment-box[data-position="left"] { left: 27%; }
+.dccs-assessment-box[data-position="right"] { left: 73%; }
+.dccs-box-artwork { position: relative; display: block; width: 100%; pointer-events: none; }
+.dccs-box-artwork > img { display: block; width: 100%; height: auto; filter: drop-shadow(0 8px 7px #35241440); pointer-events: none; }
+/* This window stays inside the original label's paper inset. Its duplicate
+   source is scaled 1.12x, centered on the printed icon, and clipped to the
+   inset; all wooden framing comes from the untouched original image. */
+.dccs-box-reference { position: absolute; left: 50%; top: 59%; width: 25%; height: 47%; translate: -50% -50%; overflow: hidden; pointer-events: none; }
+.dccs-box-reference img { position: absolute; left: 50%; top: 50%; width: 448%; max-width: none; height: auto; translate: -50% -60%; pointer-events: none; }
+/* Practice points only to the correct box. Keep the hand on the wooden side,
+   clear of the printed reference. */
+.dccs-practice-hand { position: absolute; left: 70%; top: 58%; width: 25%; height: auto; pointer-events: none; user-select: none; transform-origin: 22% 20%; animation: dccs-hand-tap 1.6s ease-in-out infinite; }
+.dccs-assessment-box:disabled { cursor: default; opacity: 1; }
+.dccs-assessment-box.is-selected { animation: dccs-box-press var(--deposit-ms) ease-in-out; }
+.dccs-assessment-box:focus-visible { outline: 3px solid #705936; outline-offset: 5px; }
+.dccs-audio-fallback, .dccs-image-fallback { position: absolute; top: 53%; left: 10%; width: 80%; box-sizing: border-box; padding: 12px; border-radius: 16px; background: #fff6e8; color: #56391f; text-align: center; font-size: clamp(12px, 1.6vw, 19px); z-index: 4; }
+.dccs-audio-fallback button, .dccs-image-fallback button { margin: 6px; padding: 10px 18px; background: #f7e8bf; color: #51361d; border: 1px solid #987647; border-radius: 18px; cursor: pointer; font: inherit; }
+@keyframes dccs-stimulus-reveal { from { opacity: 0; transform: scale(.95); } to { opacity: 1; transform: scale(1); } }
+@keyframes dccs-deposit { from { transform: translate(0, 0) scale(1); opacity: 1; } 80% { opacity: .8; } to { transform: translate(var(--deposit-x, 0px), var(--deposit-y, 140px)) scale(.12); opacity: 0; } }
+@keyframes dccs-box-press { 0%, 100% { transform: scale(1); } 20% { transform: scale(.98); } }
+@keyframes dccs-hand-tap { 0%, 55%, 100% { transform: translate(3%, 4%); } 25% { transform: translate(0, 0) scale(.96); } }
+@keyframes dccs-guide-speaking { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+@keyframes dccs-narrator-mouth { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes dccs-guide-happy { 0%, 100% { transform: translateY(0); } 35% { transform: translateY(-7px); } }
+@keyframes dccs-guide-encourage { 0%, 100% { transform: rotate(0); } 35% { transform: rotate(-3deg); } 70% { transform: rotate(3deg); } }
+@keyframes dccs-bag-intro { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+@media (prefers-reduced-motion: reduce) {
+  .dccs-assessment *, .dccs-assessment *::before { animation: none !important; transition: none !important; }
+  .dccs-narrator[data-speaking="true"] .dccs-narrator-open { opacity: 1; }
+  .dccs-narrator[data-speaking="true"] .dccs-narrator-closed { opacity: 0; }
+  .dccs-stimulus.is-depositing { transform: translate(var(--deposit-x), var(--deposit-y)) scale(.12); opacity: 0; }
+}

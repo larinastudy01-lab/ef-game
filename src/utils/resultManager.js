@@ -362,6 +362,16 @@ export const normalizeGameResult = ({
     },
 
     metrics: {
+      ...(normalizedGameId === "DCCS" ? {
+        protocolVersion: raw.protocolVersion ?? null,
+        timeoutCount: raw.timeoutCount ?? null,
+        protocol: raw.protocol ?? null,
+        promptCount: raw.promptCount ?? null,
+        promptEvents: Array.isArray(raw.promptEvents) ? raw.promptEvents : null,
+        answerTimeLimitMs: raw.protocol?.answerTimeLimitMs ?? null,
+        reverseRuleTrials: raw.reverseRuleTrials ?? null,
+        windEvents: Array.isArray(raw.windEvents) ? raw.windEvents : null,
+      } : {}),
       ...(normalizedGameId === "ARI" ? {
         protocolVersion: raw.protocolVersion ?? null,
         promptCount: raw.promptCount ?? null,

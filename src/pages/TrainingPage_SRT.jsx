@@ -8,7 +8,7 @@ import normalImg from "../asset/SRT/training/acorn.webp";
 import goldenImg from "../asset/SRT/training/golden_acorn.webp";
 import rottenImg from "../asset/SRT/training/rotten_acorn.webp";
 import levelIcon from "../asset/SRT_icon.webp";
-import startAvatar from "../asset/SRT/bear.webp";
+import startAvatar from "../asset/SRT/SRT_icon.webp";
 import tutorialAvatar from "../asset/SRT/chicken.webp";
 import introVideo from "../asset/optimized/mp4/SRT_start.mp4";
 import tutorialVideo from "../asset/optimized/mp4/SRT_step.mp4";
@@ -43,6 +43,7 @@ import {
   pickSrtInterval,
   createSrtTargetBlock,
 } from "../utils/srtProtocol";
+import "../styles/TestStepVideo.css";
 
 const GAME_ID = "srt";
 const COMPLETED_LEVELS_STORAGE_KEY = "ef_game_completed_training_levels";
@@ -2073,7 +2074,6 @@ const TrainingPage_SRT = () => {
         <main className="srt-center-shell srt-start-shell">
           <section className="srt-soft-panel srt-start-panel game-start-card-artwork srt-opening-card-artwork" aria-label="訓練開始畫面">
             <div className="srt-game-title">幫小飛鼠弟弟接橡實</div>
-            <div aria-label="訓練難度">{config.label}</div>
             <div className="srt-start-content">
               <div className="srt-dialog-bubble srt-opening-bubble">
                 一起幫小飛鼠弟弟接橡實！
@@ -2124,9 +2124,9 @@ const TrainingPage_SRT = () => {
       )}
 
       {phase === "step" && (
-        <main className="srt-center-shell">
-          <section className="srt-soft-panel srt-video-panel game-start-card-artwork srt-video-card-artwork" aria-label="步驟教學影片">
-            <div className="srt-video-frame">
+        <main className="srt-center-shell test-video-layout">
+          <section className="srt-soft-panel srt-video-panel game-start-card-artwork srt-video-card-artwork test-video-card" aria-label="步驟教學影片">
+            <div className="srt-video-frame test-video-frame">
               <video
                 src={tutorialVideo}
                 autoPlay
@@ -2134,10 +2134,10 @@ const TrainingPage_SRT = () => {
                 playsInline
                 controls
                 onEnded={handleTutorialVideoEnd}
-                className="srt-video"
+                className="srt-video test-video"
               />
             </div>
-            <div className="srt-step-actions">
+            <div className="srt-step-actions test-video-actions">
               <div className="srt-guided-action srt-guided-skip">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={startTraining} aria-label="跳過動畫">
                   <img src={homeSkipBtn} width="532" height="177" loading="lazy" alt="跳過動畫" />
@@ -2274,9 +2274,9 @@ const TrainingPage_SRT = () => {
       )}
 
       {phase === "ending" && (
-        <main className="srt-center-shell">
-          <section className="srt-soft-panel srt-video-panel game-start-card-artwork srt-video-card-artwork" aria-label="結束動畫">
-            <div className="srt-video-frame">
+        <main className="srt-center-shell test-video-layout">
+          <section className="srt-soft-panel srt-video-panel game-start-card-artwork srt-video-card-artwork test-video-card" aria-label="結束動畫">
+            <div className="srt-video-frame test-video-frame">
               <video
                 src={endingVideo}
                 autoPlay
@@ -2284,14 +2284,21 @@ const TrainingPage_SRT = () => {
                 playsInline
                 controls
                 onEnded={handleEndingVideoEnd}
-                className="srt-video"
+                className="srt-video test-video"
               />
             </div>
-            <div className="srt-guided-action srt-guided-skip">
-              <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={handleEndingVideoEnd} aria-label="跳過動畫">
-                <img src={homeSkipBtn} width="532" height="177" loading="lazy" alt="跳過動畫" />
-              </button>
-              <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} width="156" height="156" loading="lazy" alt="" aria-hidden="true" />
+            <div className="test-video-actions">
+              <div className="srt-guided-action srt-guided-skip">
+                <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={handleEndingVideoEnd} aria-label="跳過動畫">
+                  <img src={homeSkipBtn} width="532" height="177" loading="lazy" alt="跳過動畫" />
+                </button>
+                <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} width="156" height="156" loading="lazy" alt="" aria-hidden="true" />
+              </div>
+              <div className="srt-guided-action srt-guided-next">
+                <button type="button" className="srt-forest-button srt-image-button srt-btn-next" onClick={handleEndingVideoEnd} aria-label="下一步">
+                  <img src={homeNextBtn} width="532" height="177" loading="lazy" alt="下一步" />
+                </button>
+              </div>
             </div>
           </section>
         </main>

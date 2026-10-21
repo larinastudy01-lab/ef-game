@@ -41,3 +41,17 @@ test("single and combined records survive an actual XLSX round trip", async () =
     expect(Boolean(restored.getWorksheet("比較與判讀"))).toBe(count > 1);
   }
 });
+
+test("DCCS exports actual mouse counts, time limits and reverse-rule trials", async () => {
+  const workbook = createRecordWorkbook({ patientName: "測試", age: 8, gender: "女", formatDate: (date) => date,
+    records: [{ id: "dccs", gameKey: "DCCS", type: "training", difficulty: "專業", promptCount: 0,
+      trials: [{ isCorrect: true, promptCount: 0, answerTimeLimitMs: 10000, isReverseRule: true }],
+      raw: { promptEvents: [], windEvents: [{ active: true, timestamp: 6000 }] } }] });
+  const restored = new ExcelJS.Workbook();
+  await restored.xlsx.load(await workbook.xlsx.writeBuffer());
+  expect(restored.getWorksheet("紀錄摘要").getCell("R2").value).toBe(0);
+  expect(restored.getWorksheet("逐題紀錄").getCell("G2").value).toBe(0);
+  expect(restored.getWorksheet("逐題紀錄").getCell("L2").value).toBe(10);
+  expect(restored.getWorksheet("逐題紀錄").getCell("M2").value).toBe(true);
+  expect(restored.getWorksheet("原始資料").getColumn(4).values).toContain('$["windEvents"][0]["timestamp"]');
+});

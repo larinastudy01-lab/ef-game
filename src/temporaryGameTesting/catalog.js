@@ -4,6 +4,8 @@ import { CBT_DIFFICULTY_ORDER, CBT_TRAINING_CONFIG } from "../utils/cbtProtocol"
 import { LB_DIFFICULTY_ORDER, LB_TRAINING_CONFIG } from "../utils/lbProtocol";
 import { ARI_DIFFICULTY_ORDER, ARI_TRAINING_CONFIG } from "../utils/ariProtocol";
 
+import { DCCS_DIFFICULTY_ORDER, DCCS_TRAINING_CONFIG } from "../utils/dccsTrainingProtocol";
+
 const protocolLevels = (order, config) => order.map((difficulty, index) => ({
   level: index + 1, difficulty, label: config[difficulty].label || config[difficulty].difficultyLabel,
 }));
@@ -20,6 +22,5 @@ export const GAME_TESTING_CATALOG = [
   { id: "LB", name: "幫助迷路的綿羊奶奶", description: "順序、顏色交替與規則切換", slug: "linking-balloons",
     levels: protocolLevels(LB_DIFFICULTY_ORDER, LB_TRAINING_CONFIG) },
   { id: "DCCS", name: "物品規則分類", description: "依顏色或種類分類，練習轉換規則", slug: "dccs",
-    levels: ["顏色入門", "顏色穩定", "種類入門", "種類穩定", "明確切換", "提早切換", "維持切換", "低干擾", "高干擾", "測驗挑戰"]
-      .map((label, index) => ({ level: index + 1, label })) },
+    levels: protocolLevels(DCCS_DIFFICULTY_ORDER, DCCS_TRAINING_CONFIG) },
 ];

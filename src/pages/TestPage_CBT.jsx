@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import stoneImg from "../asset/CBT/training/stone.webp";
+import stepStoneImg from "../asset/CBT/training/step.webp";
 import stoneShinyImg from "../asset/CBT/stone_shiny.webp";
 import personImg from "../asset/CBT/CBT_person.webp";
 import bgImg from "../asset/CBT/CBT_background.webp";
@@ -17,7 +18,6 @@ import homeResultBtn from "../asset/home/result.webp";
 import mouseGuideImg from "../asset/mouse.webp";
 
 import "../styles/GamePage_CBT.css";
-import "../styles/TestStepVideo.css";
 
 import { saveUnifiedResult } from "../utils/resultManager";
 import { useTestAttempt } from "../utils/useTestAttempt";
@@ -30,6 +30,8 @@ import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
 import { detectCBTErrorPattern } from "../ai/cbtTrainingAnalyzer";
 import { CBT_PROTOCOL_VERSION, CBT_ANSWER_TIME_SECONDS, CBT_MAX_SEQUENCE_LENGTH, CBT_MAX_STONES, createFixedCBTBlocks } from "../utils/cbtProtocol";
 import { CBTPhaseCue, useCbtStartCue } from "../components/CBTPhaseCue";
+import CBTPractice from "../components/CBTPractice";
+import "../styles/TestStepVideo.css";
 
 // 仍保留內部作答時間上限，但不在幼兒畫面顯示壓力式倒數。
 const ANSWER_TIME = CBT_ANSWER_TIME_SECONDS;
@@ -1063,15 +1065,9 @@ export default function TestPage_CBT() {
   const [earlyClickCount, setEarlyClickCount] = useState(0);
   useCbtStartCue(phase);
 
-  const isWarmup =
-    phase === "warmupShow" ||
-    phase === "warmupAnswer" ||
-    phase === "warmupFeedback";
-
   const currentSetting = useMemo(() => {
-    if (isWarmup) return { level: 2, blockCount: 5 };
     return getQuestionSetting(questionIndex, currentMemoryLengthRef.current);
-  }, [questionIndex, isWarmup]);
+  }, [questionIndex]);
 
   const blocks = boardPositions;
 
@@ -1703,58 +1699,6 @@ export default function TestPage_CBT() {
     }, WALK_ANIMATION_MS);
   }
 
-  function handleWarmupClick(index) {
-    if (phase !== "warmupAnswer") return;
-    if (isClickResolvingRef.current) return;
-
-    playClickSound();
-    setIdleHintActive(false);
-
-    if (userInputRef.current.length === 0 && !firstTapAtRef.current) {
-      firstTapAtRef.current = Date.now();
-      if (answerStartRef.current && idleBeforeFirstTapMsRef.current === null) {
-        idleBeforeFirstTapMsRef.current = Math.max(0, firstTapAtRef.current - answerStartRef.current);
-      }
-    }
-    tapTimestampsRef.current = [...tapTimestampsRef.current, Date.now()];
-
-    const currentInput = userInputRef.current;
-    const nextInput = [...currentInput, index];
-    const nextInputLength = nextInput.length;
-    const correctIndex = sequence[nextInputLength - 1];
-
-    if (index !== correctIndex) {
-      setWrongIndex(index);
-      setMessage("再看一次。");
-
-      triggerPersonWalk(index, {
-        onComplete: () => {
-          userInputRef.current = [];
-          setUserInput([]);
-          setSelectedIndex(null);
-          setWrongIndex(null);
-          setPersonIndex(null);
-          setShowStep(0);
-          setPhase("warmupShow");
-        },
-      });
-
-      return;
-    }
-
-    triggerPersonWalk(index, {
-      onComplete: () => {
-        userInputRef.current = nextInput;
-        setUserInput(nextInput);
-
-        if (nextInputLength === sequence.length) {
-          setMessage("做得好！");
-          setPhase("warmupFeedback");
-        }
-      },
-    });
-  }
-
   function handleBlockClick(index) {
     if (phase === "show") {
       const event = { type: "early_click", trialIndex: questionIndex + 1, stoneIndex: index,
@@ -1853,7 +1797,7 @@ export default function TestPage_CBT() {
 
 
   useEffect(() => {
-    if (phase !== "show" && phase !== "warmupShow") return;
+    if (phase !== "show") return;
     if (sequence.length === 0) return;
 
     if (showStep >= sequence.length) {
@@ -1864,24 +1808,20 @@ export default function TestPage_CBT() {
       userInputRef.current = [];
       setUserInput([]);
 
-      if (phase === "warmupShow") {
-        setPhase("warmupAnswer");
-      } else {
-        setTimeLeft(ANSWER_TIME);
-        currentRandomClicksRef.current = 0;
-        currentRepeatedClicksRef.current = 0;
-        accumulatedWalkingTimeRef.current = 0;
-        isClickResolvingRef.current = false;
-        firstTapAtRef.current = null;
-        tapTimestampsRef.current = [];
-        idleHintShownRef.current = false;
-        idleHintCountRef.current = 0;
-        idleBeforeFirstTapMsRef.current = null;
-        setIdleHintActive(false);
-        answerStartRef.current = Date.now();
-        answerDeadlineRef.current = answerStartRef.current + ANSWER_TIME * 1000;
-        setPhase("answer");
-      }
+      setTimeLeft(ANSWER_TIME);
+      currentRandomClicksRef.current = 0;
+      currentRepeatedClicksRef.current = 0;
+      accumulatedWalkingTimeRef.current = 0;
+      isClickResolvingRef.current = false;
+      firstTapAtRef.current = null;
+      tapTimestampsRef.current = [];
+      idleHintShownRef.current = false;
+      idleHintCountRef.current = 0;
+      idleBeforeFirstTapMsRef.current = null;
+      setIdleHintActive(false);
+      answerStartRef.current = Date.now();
+      answerDeadlineRef.current = answerStartRef.current + ANSWER_TIME * 1000;
+      setPhase("answer");
 
       return;
     }
@@ -1897,7 +1837,7 @@ export default function TestPage_CBT() {
       gapTimer = setManagedTimeout(() => {
         setShowStep((prev) => prev + 1);
       }, GAP_SPEED);
-    }, phase === "warmupShow" ? 1000 : SHOW_SPEED);
+    }, SHOW_SPEED);
 
     return () => {
       clearManagedTimeout(showTimer);
@@ -1994,7 +1934,6 @@ export default function TestPage_CBT() {
             imgAlt="開始遊戲"
             ariaLabel="開始遊戲"
             onClick={() => setPhase("tutorialVideo")}
-            showMouse
             variant="start"
           />
         </main>
@@ -2003,46 +1942,12 @@ export default function TestPage_CBT() {
       {phase === "tutorialVideo" && (
         <VideoOnlyPage
           videoSrc={tutorialVideo}
-          onDone={startFormalTest}
+          onDone={() => setPhase("practice")}
         />
       )}
 
-      {(phase === "warmupShow" || phase === "warmupAnswer") && (
-        <div className="cbt-card cbt-card--wide">
-          <CBTPhaseCue phase={phase} />
-          <CBTBoard
-            blocks={blocks}
-            phase={phase}
-            activeIndex={activeIndex}
-            selectedIndex={selectedIndex}
-            wrongIndex={wrongIndex}
-            personIndex={personIndex}
-            isWalking={isWalking}
-            idleHintActive={false}
-            onBlockClick={handleWarmupClick}
-            disabled={phase !== "warmupAnswer"}
-          />
-
-        </div>
-      )}
-
-      {phase === "warmupFeedback" && (
-        <div className="cbt-card cbt-card--small game-start-card-artwork cbt-feedback-card-artwork">
-          <h1 className="cbt-title">會了！</h1>
-
-          <div className="cbt-result-message">{message}</div>
-
-          <p className="cbt-text" style={{ marginTop: 18 }}>準備開始。</p>
-
-          <GuidedImageButton
-            imgSrc={homeStartBtn}
-            imgAlt="開始遊戲"
-            ariaLabel="開始正式測驗"
-            onClick={startFormalTest}
-            showMouse
-            variant="start"
-          />
-        </div>
+      {phase === "practice" && (
+        <CBTPractice Board={CBTBoard} blocks={blocks} onComplete={startFormalTest} />
       )}
 
 
@@ -2094,7 +1999,6 @@ export default function TestPage_CBT() {
             imgAlt="下一題"
             ariaLabel="進入下一題"
             onClick={() => startQuestion(questionIndex + 1)}
-            showMouse
             variant="next"
           />
         </div>
@@ -2137,7 +2041,6 @@ export default function TestPage_CBT() {
               imgAlt="回到森林"
               ariaLabel="回到森林"
               onClick={() => navigate(TEST_PAGE_ROUTE)}
-              showMouse
               variant="home"
             />
             <GuidedImageButton
@@ -2164,21 +2067,20 @@ export default function TestPage_CBT() {
 
 function VideoOnlyPage({ videoSrc, onDone, showNext = true }) {
   return (
-    <main className="cbt-video-only-card game-start-card-artwork cbt-video-card-artwork" aria-label="影片">
-      <p className="cbt-quiet-prompt">看完再點：先看完亮燈，聽到「可以開始點了」再照順序點石頭。</p>
-      <div className="cbt-video-wrapper test-step-video-frame">
+    <main className="cbt-video-only-card game-start-card-artwork cbt-video-card-artwork test-video-card" aria-label="影片">
+      <div className="cbt-video-wrapper test-step-video-frame test-video-frame">
         <video
           src={videoSrc}
           autoPlay
           muted
           playsInline
           controls
-          className="cbt-video test-step-video"
+          className="cbt-video test-step-video test-video"
           onEnded={onDone}
         />
       </div>
 
-      <div className="cbt-video-actions">
+      <div className="cbt-video-actions test-video-actions">
         <GuidedImageButton
           imgSrc={homeSkipBtn}
           imgAlt="跳過動畫"
@@ -2191,7 +2093,6 @@ function VideoOnlyPage({ videoSrc, onDone, showNext = true }) {
           imgAlt="下一步"
           ariaLabel="下一步"
           onClick={onDone}
-          showMouse
           variant="next"
         />}
       </div>
@@ -2444,6 +2345,9 @@ function CBTBoard({
   disabled,
   earlyClickCount = 0,
   promptCount = 0,
+  tapFeedback = null,
+  practiceHintIndex = null,
+  practiceSteppedIndices = [],
 }) {
   return (
     <div
@@ -2468,6 +2372,7 @@ function CBTBoard({
         const isGlowing = activeIndex === index;
         const isSelected = selectedIndex === index;
         const isWrong = wrongIndex === index;
+        const isStepped = practiceSteppedIndices.includes(index);
 
         return (
           <button
@@ -2488,7 +2393,8 @@ function CBTBoard({
             }}
           >
             <img
-              src={isGlowing ? stoneShinyImg : stoneImg}
+              key={tapFeedback?.index === index ? `tap-${tapFeedback.id}` : "stone"}
+              src={isGlowing ? stoneShinyImg : isStepped ? stepStoneImg : stoneImg}
               alt={`第 ${index + 1} 顆石頭`}
               width="360"
               height="203"
@@ -2499,12 +2405,19 @@ function CBTBoard({
                 isGlowing ? "is-glowing" : "",
                 isSelected ? "is-selected" : "",
                 isWrong ? "is-wrong" : "",
+                isStepped ? "is-practice-stepped" : "",
+                tapFeedback?.index === index ? "is-practice-tapped" : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
               style={{ width: STONE_SIZE, height: "auto" }}
               draggable="false"
             />
+            {tapFeedback?.index === index && <span key={tapFeedback.id} className="cbt-practice-ripple" aria-hidden="true" />}
+            {tapFeedback?.index === index && <span key={`landing-${tapFeedback.id}`} className="cbt-practice-landing-shadow" aria-hidden="true" />}
+            {phase === "WAIT_RESPONSE" && practiceHintIndex === index && <img
+              className="cbt-practice-stone-pointer" src={mouseGuideImg} alt="點石頭的小手提示"
+              width="1024" height="1024" draggable="false" />}
           </button>
         );
       })}

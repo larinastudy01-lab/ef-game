@@ -32,7 +32,9 @@
     "check:deploy": "node scripts/check-deployment.mjs",
     "check": "npm run check:assets && npm test -- --watchAll=false && npm run build && npm run check:deploy",
     "test": "react-scripts test",
-    "test:api": "node --test src/api/api-security.test.mjs",
+    "test:api": "node --test src/api/api-security.test.mjs src/api/assistant-email.test.mjs",
+    "test:rag": "node --test scripts/rag/evaluate.test.mjs",
+    "eval:rag": "node scripts/evaluate-rag.mjs",
     "eject": "react-scripts eject",
     "server": "node src/api/server.mjs"
   },

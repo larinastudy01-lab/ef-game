@@ -12,7 +12,12 @@ import {
 } from "../utils/dccsCardUtils";
 import { useNavigate } from "react-router-dom";
 import "../styles/GamePage_DCCS.css";
-import "../styles/TestStepVideo.css";
+import "../styles/DccsAssessment.css";
+import DccsAssessmentBoard from "../components/DccsAssessmentBoard";
+import { DCCS_ASSESSMENT_CONFIG as TIMING, DCCS_RULES, DCCS_BOX_REFERENCES } from "../config/dccsAssessmentConfig";
+import { buildDccsPracticeTrials, getDccsCorrectPosition, getDccsPreviousRulePosition, nextDccsPracticeProgress } from "../utils/dccsAssessmentProtocol";
+import { createDccsAudioPlayer } from "../utils/dccsAssessmentAudio";
+import { createBehavioralId } from "../analytics/trials/buildBehavioralHierarchy";
 
 import dccsBackgroundImg from "../asset/DCCS/DCCS_background.webp";
 import stepVideo from "../asset/mp4/DCCS_step.mp4";
@@ -33,8 +38,6 @@ import { useTestAttempt } from "../utils/useTestAttempt";
 import { calculateDccsScore } from "../utils/dccsScoring";
 
 import peacockImg from "../asset/DCCS/dccs_peacock.webp";
-import basketTopImg from "../asset/DCCS/box_left.webp";
-import basketBottomImg from "../asset/DCCS/box_right.webp";
 
 // 所有一般服飾與裝袋服飾統一由此資料檔提供。
 // 直接使用 dccsClothingData.js 實際存在的具名匯出，避免 Webpack 對不存在匯出的編譯錯誤。
@@ -45,6 +48,7 @@ import {
   colorLabels as clothingColorLabels,
   typeLabels as clothingTypeLabels,
 } from "../config/dccsClothingData";
+import "../styles/TestStepVideo.css";
 
 const RESULT_ROUTE = "/result-dccs";
 const TEST_PAGE_ROUTE = "/test-map";
@@ -67,7 +71,14 @@ const PHASE = {
   BAG_RULE: "bag_rule",
   BAG_COLOR_TEST: "bag_color_test",
   DUAL_RULE_TEST: "dual_rule_test",
-  RESULT: "result",
+  RESULT: "completed",
+  PRACTICE_INTRO: "practice_intro",
+  PRACTICE_QUESTION: "practice_question",
+  PRACTICE_FEEDBACK: "practice_feedback",
+  PRACTICE_PASSED: "practice_passed",
+  FORMAL_INTRO: "formal_intro",
+  FORMAL_QUESTION: "formal_question",
+  FORMAL_TRANSITION: "formal_transition",
 };
 
 const COLOR_PRIORITY = [
@@ -367,15 +378,18 @@ function makeTarget(card, matchBy) {
 
 function assignFixedBoxTargets(firstTarget, secondTarget, leftKey) {
   const targets = [firstTarget, secondTarget].filter(Boolean);
+  // Card normalization maps shirt -> tshirt. Use the same key for the fixed
+  // shirt box; otherwise both lookups can return targets[0].
+  const canonicalLeftKey = normalizeType(leftKey);
   return {
     // 程式沿用 top/bottom 欄位名稱；畫面上分別是 box_left / box_right。
-    topTarget: targets.find((target) => target.key === leftKey) || targets[0] || null,
+    topTarget: targets.find((target) => target.key === canonicalLeftKey) || targets[0] || null,
     bottomTarget:
-      targets.find((target) => target.key !== leftKey) || targets[1] || null,
+      targets.find((target) => target.key !== canonicalLeftKey) || targets[1] || null,
   };
 }
 
-function buildDccsTrialSets() {
+export function buildDccsTrialSets() {
   const availableColors = getAvailableValues("color", COLOR_PRIORITY);
   const availableTypes = getAvailableValues("type", TYPE_PRIORITY);
   const normalCards = allCards.filter((card) => card.normalImg);
@@ -769,158 +783,169 @@ function TestPage_DCCS() {
   const testAttempt = useTestAttempt({ gameId: "DCCS", route: "/test-dccs" });
 
   const [phase, setPhase] = useState(PHASE.START);
+  const [ruleIndex, setRuleIndex] = useState(0);
   const [trialIndex, setTrialIndex] = useState(0);
   const [feedback, setFeedback] = useState(null);
+  const [feedbackShown, setFeedbackShown] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState(null);
-  const [trialLogs, setTrialLogs] = useState([]);
-  const [isLocked, setIsLocked] = useState(false);
+  const [isLocked, setIsLocked] = useState(true);
+  const [assetsReady, setAssetsReady] = useState(false);
   const [pendingResult, setPendingResult] = useState(null);
-
+  const [speaking, setSpeaking] = useState(false);
+  const [audioFailed, setAudioFailed] = useState(false);
+  const [replayNonce, setReplayNonce] = useState(0);
   const trialStartTimeRef = useRef(null);
+  const presentedAtRef = useRef(null);
   const attemptIdRef = useRef(null);
-  const clickBehaviorRef = useRef({
-    randomClick: 0,
-    repeatedClick: 0,
-  });
-  const nextTrialTimerRef = useRef(null);
-  const trialStartRafRef = useRef(null);
-
-  const {
-    practiceTrials,
-    colorTestTrials,
-    typeTestTrials,
-    bagColorTestTrials,
-    dualRuleTestTrials,
-  } = useMemo(() => buildDccsTrialSets(), []);
-
-  const currentTrials = useMemo(() => {
-    switch (phase) {
-      case PHASE.PRACTICE:
-        return practiceTrials;
-      case PHASE.COLOR_TEST:
-        return colorTestTrials;
-      case PHASE.TYPE_TEST:
-        return typeTestTrials;
-      case PHASE.BAG_COLOR_TEST:
-        return bagColorTestTrials;
-      case PHASE.DUAL_RULE_TEST:
-        return dualRuleTestTrials;
-      default:
-        return [];
-    }
-  }, [
-    bagColorTestTrials,
-    colorTestTrials,
-    dualRuleTestTrials,
-    phase,
-    practiceTrials,
-    typeTestTrials,
-  ]);
-
-  const currentTrial = currentTrials[trialIndex];
-  const pageBackgroundStyle = useMemo(() => ({
-    backgroundImage: `
-      linear-gradient(rgba(255, 244, 206, 0.30), rgba(255, 244, 206, 0.30)),
-      url(${dccsBackgroundImg})
-    `,
-  }), []);
-  const dccsStyleElement = useMemo(
-    () => <style>{dccsTestPageCss}</style>,
-    []
-  );
-
-  const clearPendingTiming = useCallback(() => {
-    if (nextTrialTimerRef.current) {
-      window.clearTimeout(nextTrialTimerRef.current);
-      nextTrialTimerRef.current = null;
-    }
-
-    if (trialStartRafRef.current) {
-      window.cancelAnimationFrame(trialStartRafRef.current);
-      trialStartRafRef.current = null;
-    }
-  }, []);
-
-  const markTrialStartAfterPaint = useCallback(() => {
-    if (trialStartRafRef.current) {
-      window.cancelAnimationFrame(trialStartRafRef.current);
-    }
-
-    trialStartTimeRef.current = null;
-    trialStartRafRef.current = window.requestAnimationFrame(() => {
-      trialStartTimeRef.current = Date.now();
-      trialStartRafRef.current = null;
-    });
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      clearPendingTiming();
-    };
-  }, [clearPendingTiming]);
-
-  const resetDccsTest = () => {
-    clearPendingTiming();
-    setTrialIndex(0);
-    setFeedback(null);
-    setSelectedPosition(null);
-    setTrialLogs([]);
-    setIsLocked(false);
-    setPendingResult(null);
-    trialStartTimeRef.current = null;
-    clickBehaviorRef.current = { randomClick: 0, repeatedClick: 0 };
+  const sessionIdRef = useRef(null);
+  const lockedRef = useRef(true);
+  const finishedRef = useRef(false);
+  const videoDoneRef = useRef(false);
+  const pageActiveRef = useRef(true);
+  const formalLogsRef = useRef([]);
+  const practiceLogsRef = useRef([]);
+  const practiceProgressRef = useRef({});
+  const audioEventsRef = useRef([]);
+  const sceneActionsRef = useRef({});
+  const clickBehaviorRef = useRef({ randomClick: 0, repeatedClick: 0 });
+  const audioPlayer = useMemo(() => createDccsAudioPlayer(setSpeaking), []);
+  const trialSets = useMemo(() => buildDccsTrialSets(), []);
+  const { colorTestTrials, typeTestTrials, bagColorTestTrials } = trialSets;
+  const formalSets = useMemo(() => [colorTestTrials, typeTestTrials, bagColorTestTrials],
+    [colorTestTrials, typeTestTrials, bagColorTestTrials]);
+  const practiceSets = useMemo(() => formalSets.map((trials, index) =>
+    buildDccsPracticeTrials(trials, DCCS_RULES[index].id)), [formalSets]);
+  const rule = DCCS_RULES[ruleIndex];
+  const isPractice = phase.startsWith("practice_");
+  const currentTrials = isPractice ? practiceSets[ruleIndex] : formalSets[ruleIndex];
+  const currentTrial = currentTrials[isPractice ? trialIndex % currentTrials.length : trialIndex];
+  const presentationKey = `${isPractice ? "practice" : "formal"}-${rule.id}-${trialIndex}`;
+  const getProgress = () => practiceProgressRef.current[rule.id] || {
+    consecutiveCorrect: 0, attempts: 0, passed: false, voiceReplayCount: 0, runs: 1,
   };
+  const practiceSummary = () => DCCS_RULES.map(({ id }) => ({
+    practice_rule: id, ...(practiceProgressRef.current[id] || {
+      consecutiveCorrect: 0, attempts: 0, passed: false, voiceReplayCount: 0, runs: 1,
+    }),
+  }));
+  const checkpoint = (extra = {}) => testAttempt.checkpoint({
+    phase, rule_type: rule.id, trials: formalLogsRef.current,
+    practiceLogs: practiceLogsRef.current, practiceSummary: practiceSummary(),
+    audioEvents: audioEventsRef.current, ...extra,
+  });
+  const lock = () => { lockedRef.current = true; setIsLocked(true); trialStartTimeRef.current = null; };
+  const resetPresentation = () => {
+    lock(); setAssetsReady(false); setSelectedPosition(null); setFeedback(null); setFeedbackShown(false); setAudioFailed(false);
+  };
+  const pageBackgroundStyle = useMemo(() => ({
+    backgroundImage: `linear-gradient(rgba(255, 244, 206, 0.30), rgba(255, 244, 206, 0.30)), url(${dccsBackgroundImg})`,
+  }), []);
+  const dccsStyleElement = useMemo(() => <style>{dccsTestPageCss}</style>, []);
+  const onAssetsReady = useCallback(() => setAssetsReady(true), []);
 
   const handleStart = () => {
-    resetDccsTest();
-    attemptIdRef.current = testAttempt.begin(getStoredCurrentChild()).resultId;
+    audioPlayer.stop();
+    resetPresentation();
+    setRuleIndex(0); setTrialIndex(0); setPendingResult(null);
+    formalLogsRef.current = []; practiceLogsRef.current = []; practiceProgressRef.current = {};
+    audioEventsRef.current = []; finishedRef.current = false;
+    pageActiveRef.current = true;
+    videoDoneRef.current = false;
+    clickBehaviorRef.current = { randomClick: 0, repeatedClick: 0 };
+    const attempt = testAttempt.begin(getStoredCurrentChild()) || {};
+    attemptIdRef.current = attempt.resultId || createBehavioralId();
+    sessionIdRef.current = attempt.behavioral?.sessionId || attemptIdRef.current;
     setPhase(PHASE.VIDEO_STEP);
   };
-
-
-  const startTrialPhase = (nextPhase) => {
-    clearPendingTiming();
-    testAttempt.checkpoint({ phase: nextPhase });
-    setPhase(nextPhase);
-    setTrialIndex(0);
-    setFeedback(null);
-    setSelectedPosition(null);
-    setIsLocked(false);
-    markTrialStartAfterPaint();
-  };
-
   const goNextStaticPage = () => {
-    if (phase === PHASE.VIDEO_STEP) {
-      setPhase(PHASE.COLOR_RULE);
-      return;
-    }
-
-    if (phase === PHASE.COLOR_RULE) {
-      startTrialPhase(PHASE.COLOR_TEST);
-      return;
-    }
-
-    if (phase === PHASE.SWITCH_RULE) {
-      startTrialPhase(PHASE.TYPE_TEST);
-      return;
-    }
-
-    if (phase === PHASE.BAG_RULE) {
-      startTrialPhase(PHASE.BAG_COLOR_TEST);
+    if (phase === PHASE.VIDEO_STEP && !videoDoneRef.current) {
+      videoDoneRef.current = true;
+      resetPresentation(); setTrialIndex(0); setPhase(PHASE.PRACTICE_INTRO);
+      checkpoint({ phase: PHASE.PRACTICE_INTRO });
     }
   };
+  const getCorrectPosition = getDccsCorrectPosition;
 
-  const getCorrectPosition = (trial) => {
-    if (!trial) return null;
+  // Open responses only after assets load, the reveal finishes and two paints.
+  // Replays/rerenders do not reset formal RT. The synchronous ref closes the
+  // first-click race before React commits the disabled state.
+  useEffect(() => {
+    if (![PHASE.PRACTICE_QUESTION, PHASE.FORMAL_QUESTION].includes(phase) || !assetsReady) return;
+    let frame;
+    let cancelled = false;
+    lockedRef.current = true;
+    setIsLocked(true);
+    const timer = window.setTimeout(() => {
+      frame = window.requestAnimationFrame(() => {
+        frame = window.requestAnimationFrame(() => {
+          if (cancelled || !pageActiveRef.current) return;
+          trialStartTimeRef.current = performance.now();
+          presentedAtRef.current = new Date().toISOString();
+          lockedRef.current = false;
+          setIsLocked(false);
+        });
+      });
+    }, TIMING.revealMs);
+    return () => { cancelled = true; clearTimeout(timer); window.cancelAnimationFrame(frame); };
+  }, [phase, assetsReady, presentationKey]);
 
-    const matchBy = trial.matchBy || (trial.rule === "type" ? "type" : "color");
-    const correctKey = trial.card?.[matchBy];
+  useEffect(() => {
+    let cancelled = false;
+    const timers = new Set();
+    const later = (action, ms) => {
+      const timer = window.setTimeout(() => { timers.delete(timer); if (!cancelled && pageActiveRef.current) action(); }, ms);
+      timers.add(timer);
+    };
+    const actions = sceneActionsRef.current;
+    const play = (cue, next, minMs = 0, requireAcknowledgment = false) => {
+      let elapsed = minMs === 0;
+      let ended = false;
+      let advanced = false;
+      const advance = () => {
+        if (!cancelled && pageActiveRef.current && ended && elapsed && !advanced) { advanced = true; next?.(); }
+      };
+      if (minMs) later(() => { elapsed = true; advance(); }, minMs);
+      setAudioFailed(false);
+      audioPlayer.play(rule.id, cue, {
+        onEnded: () => { ended = true; advance(); },
+        onError: () => {
+          if (cancelled) return;
+          setAudioFailed(true);
+          actions.audioError(cue);
+          if (!requireAcknowledgment) { ended = true; advance(); }
+        },
+      });
+    };
+    if (phase === PHASE.PRACTICE_INTRO || phase === PHASE.FORMAL_INTRO) {
+      play(isPractice ? "intro" : "formal", () => setPhase(isPractice ? PHASE.PRACTICE_QUESTION : PHASE.FORMAL_QUESTION), 0, true);
+    } else if (phase === PHASE.PRACTICE_FEEDBACK) {
+      later(() => {
+        setFeedbackShown(true);
+        play(actions.feedbackCorrect ? "correct" : "retry", actions.nextPractice, TIMING.practiceFeedbackMs);
+      }, TIMING.depositMs);
+    } else if (phase === PHASE.PRACTICE_PASSED) {
+      play("passed", () => { actions.resetPresentation(); setTrialIndex(0); setPhase(PHASE.FORMAL_INTRO); }, TIMING.passedMs);
+    } else if (phase === PHASE.FORMAL_TRANSITION) {
+      later(actions.nextFormal, TIMING.formalTransitionMs);
+    }
+    return () => { cancelled = true; timers.forEach(clearTimeout); audioPlayer.stop(); };
+  }, [phase, rule.id, isPractice, replayNonce, audioPlayer]);
 
-    if (trial.topTarget?.key === correctKey) return "top";
-    if (trial.bottomTarget?.key === correctKey) return "bottom";
-
-    return null;
-  };
+  useEffect(() => {
+    const pageHide = () => {
+      pageActiveRef.current = false; lockedRef.current = true; audioPlayer.stop(); setPhase(PHASE.START);
+    };
+    // A restored document starts a new attempt; it never resumes/submits an old answer.
+    const pageShow = (event) => {
+      if (!event.persisted) return;
+      pageActiveRef.current = true;
+      testAttempt.interrupt("page_restored");
+      setPhase(PHASE.START);
+    };
+    window.addEventListener("pagehide", pageHide);
+    window.addEventListener("pageshow", pageShow);
+    return () => { audioPlayer.stop(); window.removeEventListener("pagehide", pageHide); window.removeEventListener("pageshow", pageShow); };
+  }, [audioPlayer, testAttempt]);
 
   const getOldRulePosition = (trial) => {
     if (!trial) return null;
@@ -1147,6 +1172,10 @@ function TestPage_DCCS() {
       ...performanceResult,
       ...errorResult,
       resultId: attemptIdRef.current,
+      session_id: sessionIdRef.current,
+      practiceLogs: practiceLogsRef.current,
+      practiceSummary: practiceSummary(),
+      audioEvents: audioEventsRef.current,
 
       task: "DCCS",
       gameId: "DCCS",
@@ -1260,6 +1289,9 @@ function TestPage_DCCS() {
   };
 
   const finishTest = (finalLogs) => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    audioPlayer.stop();
     const resultData = testAttempt.complete(buildResultData(finalLogs));
     saveSessionResult(resultData);
     setPendingResult(resultData);
@@ -1267,97 +1299,63 @@ function TestPage_DCCS() {
   };
 
   const goResultPage = () => {
-    const resultData = pendingResult || buildResultData(trialLogs);
-
-    // finishTest 已同步過統一紀錄；進入結果頁只更新本機備援，避免重複新增紀錄。
-    saveSessionResult(resultData, {
-      syncUnified: !pendingResult,
-    });
-
-    navigate(RESULT_ROUTE, {
-      state: resultData,
-      replace: true,
-    });
+    if (!pendingResult) return;
+    saveSessionResult(pendingResult, { syncUnified: false });
+    navigate(RESULT_ROUTE, { state: pendingResult, replace: true });
   };
 
-  const goNextTrial = (nextLogs) => {
-    const isLastTrial = trialIndex >= currentTrials.length - 1;
-
-    setFeedback(null);
-    setSelectedPosition(null);
-    setIsLocked(false);
-
-    if (!isLastTrial) {
-      setTrialIndex((prev) => prev + 1);
-      markTrialStartAfterPaint();
-      return;
-    }
-
-    if (phase === PHASE.PRACTICE) {
-      startTrialPhase(PHASE.COLOR_TEST);
-      return;
-    }
-
-    if (phase === PHASE.COLOR_TEST) {
-      setPhase(PHASE.SWITCH_RULE);
-      setTrialIndex(0);
-      trialStartTimeRef.current = null;
-      return;
-    }
-
-    if (phase === PHASE.TYPE_TEST) {
-      setPhase(PHASE.BAG_RULE);
-      setTrialIndex(0);
-      trialStartTimeRef.current = null;
-      return;
-    }
-
-    if (phase === PHASE.BAG_COLOR_TEST || phase === PHASE.DUAL_RULE_TEST) {
-      finishTest(nextLogs);
-    }
+  const nextFormal = () => {
+    resetPresentation();
+    if (trialIndex < currentTrials.length - 1) {
+      setTrialIndex((index) => index + 1); setPhase(PHASE.FORMAL_QUESTION);
+    } else if (ruleIndex < DCCS_RULES.length - 1) {
+      setRuleIndex((index) => index + 1); setTrialIndex(0); setPhase(PHASE.PRACTICE_INTRO);
+      checkpoint({ phase: PHASE.PRACTICE_INTRO, rule_type: DCCS_RULES[ruleIndex + 1].id });
+    } else finishTest(formalLogsRef.current);
+  };
+  const nextPractice = () => {
+    resetPresentation();
+    if (getProgress().passed) { setPhase(PHASE.PRACTICE_PASSED); return; }
+    setTrialIndex((index) => index + 1); setPhase(PHASE.PRACTICE_QUESTION);
   };
 
   const handleAnswer = (position) => {
-    if (!currentTrial) return;
-
-    if (isLocked) {
-      clickBehaviorRef.current.repeatedClick += 1;
-      return;
-    }
-
-    setIsLocked(true);
-    setSelectedPosition(position);
-
+    if (!currentTrial || ![PHASE.PRACTICE_QUESTION, PHASE.FORMAL_QUESTION].includes(phase)) return;
+    if (lockedRef.current || trialStartTimeRef.current === null) return;
+    const clickedAt = performance.now();
+    const reactionTime = Math.max(0, clickedAt - trialStartTimeRef.current);
+    lockedRef.current = true;
+    setIsLocked(true); setSelectedPosition(position); audioPlayer.stop();
     const now = Date.now();
-    const reactionTime = Math.max(0, now - (trialStartTimeRef.current || now));
-
     const correctPosition = getCorrectPosition(currentTrial);
     const oldRulePosition = getOldRulePosition(currentTrial);
-
     const isCorrect = position === correctPosition;
-    const isAfterRuleSwitch =
-      phase === PHASE.TYPE_TEST ||
-      phase === PHASE.BAG_COLOR_TEST ||
-      phase === PHASE.DUAL_RULE_TEST;
-    const isPerseverativeError =
-      isAfterRuleSwitch && !isCorrect && position === oldRulePosition;
-
-    const formalTrialNumber =
-      phase === PHASE.COLOR_TEST
-        ? trialIndex + 1
-        : phase === PHASE.TYPE_TEST
-        ? colorTestTrials.length + trialIndex + 1
-        : phase === PHASE.BAG_COLOR_TEST
-        ? colorTestTrials.length + typeTestTrials.length + trialIndex + 1
-        : phase === PHASE.DUAL_RULE_TEST
-        ? colorTestTrials.length + typeTestTrials.length + trialIndex + 1
-        : null;
-
+    if (isPractice) {
+      const progress = nextDccsPracticeProgress(getProgress(), isCorrect);
+      practiceProgressRef.current[rule.id] = progress;
+      practiceLogsRef.current = [...practiceLogsRef.current, {
+        session_id: sessionIdRef.current, task: "DCCS", mode: "practice",
+        practice_rule: rule.id, practice_trial_index: progress.attempts,
+        stimulus_id: currentTrial.card.id, selected_target: positionToLegacySide(position),
+        is_correct: isCorrect, consecutive_correct_after_trial: progress.consecutiveCorrect,
+        practice_attempt_count: progress.attempts, practice_passed: progress.passed,
+        voice_replay_count: progress.voiceReplayCount, practice_run: progress.runs,
+        presented_at: presentedAtRef.current, responded_at: new Date(now).toISOString(),
+      }];
+      checkpoint({ phase: PHASE.PRACTICE_FEEDBACK });
+      setFeedback({ type: isCorrect ? "correct" : "encourage" });
+      setPhase(PHASE.PRACTICE_FEEDBACK);
+      return;
+    }
+    const formalPhase = rule.formalPhase;
+    const displayedOldRulePosition = getDccsPreviousRulePosition(currentTrial, rule.id);
+    const isAfterRuleSwitch = ruleIndex > 0;
+    const isPerseverativeError = isAfterRuleSwitch && !isCorrect && position === oldRulePosition;
+    const formalTrialNumber = formalSets.slice(0, ruleIndex).reduce((count, trials) => count + trials.length, 0) + trialIndex + 1;
     const log = {
-      trialIndex:
-        phase === PHASE.PRACTICE ? trialIndex + 1 : formalTrialNumber,
+      trialIndex: formalTrialNumber,
 
-      phase,
+      phase: formalPhase,
       rule: currentTrial.rule,
       ruleStage: currentTrial.ruleStage || currentTrial.rule,
       matchBy: currentTrial.matchBy || currentTrial.rule,
@@ -1400,21 +1398,21 @@ function TestPage_DCCS() {
 
       imageVariant: currentTrial.imageVariant || "normal",
       isBagged: currentTrial.imageVariant === "bag",
-      isBagColorTrial: phase === PHASE.BAG_COLOR_TEST,
+      isBagColorTrial: formalPhase === PHASE.BAG_COLOR_TEST,
       isDualRuleTrial:
-        phase === PHASE.DUAL_RULE_TEST || Boolean(currentTrial.isDualRuleTrial),
+        formalPhase === PHASE.DUAL_RULE_TEST || Boolean(currentTrial.isDualRuleTrial),
       switchIndex:
-        phase === PHASE.TYPE_TEST
+        formalPhase === PHASE.TYPE_TEST
           ? 1
-          : phase === PHASE.BAG_COLOR_TEST || phase === PHASE.DUAL_RULE_TEST
+          : formalPhase === PHASE.BAG_COLOR_TEST || formalPhase === PHASE.DUAL_RULE_TEST
           ? 2
           : 0,
       switchDirection:
-        phase === PHASE.TYPE_TEST
+        formalPhase === PHASE.TYPE_TEST
           ? "color_to_type"
-          : phase === PHASE.BAG_COLOR_TEST
+          : formalPhase === PHASE.BAG_COLOR_TEST
           ? "type_to_color"
-          : phase === PHASE.DUAL_RULE_TEST
+          : formalPhase === PHASE.DUAL_RULE_TEST
           ? "conditional_dual_rule"
           : null,
 
@@ -1438,34 +1436,55 @@ function TestPage_DCCS() {
         ? null
         : "wrong_target",
       timestamp: now,
+      session_id: sessionIdRef.current,
+      task: "DCCS",
+      mode: "formal",
+      rule_type: rule.id,
+      trial_index: formalTrialNumber,
+      stimulus_id: currentTrial.card.id,
+      left_target_id: DCCS_BOX_REFERENCES.top.id,
+      right_target_id: DCCS_BOX_REFERENCES.bottom.id,
+      correct_target: positionToLegacySide(correctPosition),
+      selected_target: positionToLegacySide(position),
+      is_correct: isCorrect,
+      reaction_time_ms: reactionTime,
+      is_switch_trial: isAfterRuleSwitch,
+      // The new export describes the actual fixed box references. Legacy
+      // isPerseverativeError/errorType above remain intact for existing scoring.
+      error_type: isCorrect ? null : position === displayedOldRulePosition ? "perseverative" : "wrong_target",
+      error_type_basis: "displayed_box_references",
+      previous_rule_target: positionToLegacySide(displayedOldRulePosition),
+      presented_at: presentedAtRef.current,
+      responded_at: new Date(now).toISOString(),
     };
 
-    let nextLogs = trialLogs;
+    const nextLogs = [...formalLogsRef.current, log];
+    formalLogsRef.current = nextLogs;
+    checkpoint({ phase: PHASE.FORMAL_TRANSITION });
+    setFeedback(null); // formal UI never receives a correctness-dependent state
+    setPhase(PHASE.FORMAL_TRANSITION);
+  };
 
-    if (phase !== PHASE.PRACTICE) {
-      nextLogs = [...trialLogs, log];
-      testAttempt.checkpoint({ trials: nextLogs, phase });
-      setTrialLogs(nextLogs);
+  const replayVoice = () => {
+    if (!isPractice && !(phase === PHASE.FORMAL_INTRO && audioFailed)) return;
+    if (isPractice) {
+      practiceProgressRef.current[rule.id] = { ...getProgress(), voiceReplayCount: getProgress().voiceReplayCount + 1 };
+      checkpoint();
     }
-
-    if (phase === PHASE.PRACTICE) {
-      setFeedback(
-        isCorrect
-          ? { type: "correct", text: "好棒！" }
-          : { type: "wrong", text: "看顏色喔" }
-      );
-    } else {
-      setFeedback({ type: isCorrect ? "correct" : "wrong", text: "" });
-    }
-
-    if (nextTrialTimerRef.current) {
-      window.clearTimeout(nextTrialTimerRef.current);
-    }
-
-    nextTrialTimerRef.current = window.setTimeout(() => {
-      nextTrialTimerRef.current = null;
-      goNextTrial(nextLogs);
-    }, phase === PHASE.PRACTICE ? 900 : 600);
+    setReplayNonce((count) => count + 1);
+  };
+  const acknowledgeAudio = () => {
+    audioEventsRef.current = [...audioEventsRef.current, { rule: rule.id, phase, event: "manual_audio_fallback", at: new Date().toISOString() }];
+    checkpoint(); audioPlayer.stop(); setAudioFailed(false);
+    setPhase(isPractice ? PHASE.PRACTICE_QUESTION : PHASE.FORMAL_QUESTION);
+  };
+  sceneActionsRef.current = {
+    nextFormal, nextPractice, resetPresentation,
+    feedbackCorrect: feedback?.type === "correct",
+    audioError: (cue) => {
+      audioEventsRef.current = [...audioEventsRef.current, { rule: rule.id, phase, cue, event: "audio_unavailable", at: new Date().toISOString() }];
+      checkpoint();
+    },
   };
 
   const renderStartPage = () => {
@@ -1507,11 +1526,11 @@ function TestPage_DCCS() {
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
         {dccsStyleElement}
-        <main className="Dcss-center-shell Dcss-video-shell">
-          <section className="Dcss-soft-panel Dcss-video-card game-start-card-artwork dccs-video-card-artwork" aria-label={title}>
-            <div className="Dcss-video-frame test-step-video-frame">
+        <main className="Dcss-center-shell Dcss-video-shell test-video-layout">
+          <section className="Dcss-soft-panel Dcss-video-card game-start-card-artwork dccs-video-card-artwork test-video-card" aria-label={title}>
+            <div className="Dcss-video-frame test-step-video-frame test-video-frame">
               <video
-                className="Dcss-guide-video test-step-video"
+                className="Dcss-guide-video test-step-video test-video"
                 src={src}
                 autoPlay
                 muted
@@ -1522,7 +1541,7 @@ function TestPage_DCCS() {
               />
             </div>
 
-            <div className="Dcss-video-actions">
+            <div className="Dcss-video-actions test-video-actions">
               <div className="Dcss-guided-action Dcss-guided-skip">
               <button
                 type="button"
@@ -1552,280 +1571,15 @@ function TestPage_DCCS() {
     );
   };
 
-  const renderSwitchRule = () => {
-    const examples = typeTestTrials.slice(0, 2);
-
-    return (
-      <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
-        {dccsStyleElement}
-        <div className="Dcss-switch-card Dcss-picture-rule-card Dcss-rule-guide-centered game-start-card-artwork dccs-rule-card-artwork">
-
-          <div className="Dcss-rule-content Dcss-picture-rule-content">
-            <div className="Dcss-tag danger">換規則</div>
-            <h1 className="Dcss-switch-title">接下來改看衣服種類</h1>
-            <div className="Dcss-picture-rule-row">
-              {examples.map((example, index) => {
-                const isLeftExample = index === 0;
-                const correctTarget = isLeftExample
-                  ? example.topTarget
-                  : example.bottomTarget;
-
-                return (
-                  <div className="Dcss-mini-example" key={example.id}>
-                    <img
-                      src={getCardImage(example.card, "normal")}
-                      alt={`${example.card.colorText}${example.card.typeText}`}
-                      width="330"
-                      height="330"
-                      loading="lazy"
-                    />
-                    <span className="Dcss-big-arrow" aria-hidden="true">↓</span>
-                    <div className="Dcss-demo-target Dcss-demo-target-type">
-                      <img
-                        src={isLeftExample ? basketTopImg : basketBottomImg}
-                        alt={`${correctTarget?.label || "服飾"}籃子`}
-                        width="319"
-                        height="131"
-                        loading="lazy"
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="Dcss-guided-action Dcss-guided-rule">
-              <button
-                type="button"
-                className="Dcss-forest-button Dcss-image-button Dcss-btn-next"
-                onClick={goNextStaticPage}
-                aria-label="下一步"
-              >
-                <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" />
-              </button>
-              <img width={1024} height={1024} loading="lazy"
-                className="Dcss-mouse-guide Dcss-mouse-on-button"
-                src={mouseGuideImg}
-                alt="提示點擊"
-                aria-hidden="true"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderColorRule = () => {
-    const examples = practiceTrials.slice(0, 2);
-
-    return (
-      <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
-        {dccsStyleElement}
-        <div className="Dcss-switch-card Dcss-picture-rule-card Dcss-rule-guide-centered game-start-card-artwork dccs-rule-card-artwork">
-          <div className="Dcss-rule-content Dcss-picture-rule-content">
-            <div className="Dcss-tag">第一個規則</div>
-            <p className="Dcss-switch-description Dcss-rule-primary-instruction">把衣服放進相同顏色的籃子。</p>
-            <div className="Dcss-picture-rule-row">
-              {examples.map((example) => {
-                const correctPosition = getCorrectPosition(example);
-                const correctTarget = correctPosition === "top" ? example.topTarget : example.bottomTarget;
-                return (
-                  <div className="Dcss-mini-example" key={example.id}>
-                    <img src={getCardImage(example.card, "normal")} alt={`${example.card.colorText}${example.card.typeText}`} width="330" height="330" loading="lazy" />
-                    <span className="Dcss-big-arrow" aria-hidden="true">↓</span>
-                    <div className="Dcss-demo-target Dcss-demo-target-type">
-                      <img src={correctPosition === "top" ? basketTopImg : basketBottomImg} alt={`${correctTarget?.label || "顏色"}籃子`} width="319" height="131" loading="lazy" />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="Dcss-guided-action Dcss-guided-rule">
-              <button type="button" className="Dcss-forest-button Dcss-image-button Dcss-btn-next" onClick={goNextStaticPage} aria-label="開始顏色規則練習">
-                <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" />
-              </button>
-              <img width={1024} height={1024} loading="lazy" className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊下一步" aria-hidden="true" />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderBagRule = () => {
-    const examples = bagColorTestTrials.slice(0, 2);
-
-    return (
-      <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
-        {dccsStyleElement}
-        <div className="Dcss-switch-card Dcss-picture-rule-card Dcss-rule-guide-centered game-start-card-artwork dccs-rule-card-artwork">
-
-          <div className="Dcss-rule-content Dcss-picture-rule-content">
-            <div className="Dcss-tag danger">再換一次規則</div>
-            <h1 className="Dcss-switch-title">裝袋後，依衣服顏色分類</h1>
-            <div className="Dcss-picture-rule-row">
-              {examples.map((example) => {
-                const correctPosition = getCorrectPosition(example);
-                const correctTarget =
-                  correctPosition === "top"
-                    ? example.topTarget
-                    : example.bottomTarget;
-
-                return (
-                  <div className="Dcss-mini-example" key={example.id}>
-                    <img
-                      src={getCardImage(example.card, example.imageVariant)}
-                      alt={`${
-                        example.imageVariant === "bag" ? "裝袋的" : ""
-                      }${example.card.colorText}${example.card.typeText}`}
-                      className="Dcss-rule-bagged-cloth"
-                      width="330"
-                      height="330"
-                      loading="lazy"
-                    />
-                    <span className="Dcss-big-arrow" aria-hidden="true">↓</span>
-                    <div className="Dcss-demo-target Dcss-demo-target-type">
-                      <img
-                        src={correctPosition === "top" ? basketTopImg : basketBottomImg}
-                        alt={`${correctTarget?.label || "相同顏色"}籃子`}
-                        width="319"
-                        height="131"
-                        loading="lazy"
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {examples.length === 0 && (
-              <div className="Dcss-data-warning">
-                dccsClothingData.js 尚未提供 bagImg，請先加入裝袋服飾圖片。
-              </div>
-            )}
-
-            <div className="Dcss-guided-action Dcss-guided-rule">
-              <button
-                type="button"
-                className="Dcss-forest-button Dcss-image-button Dcss-btn-next"
-                onClick={goNextStaticPage}
-                aria-label="下一步"
-                disabled={examples.length === 0}
-              >
-                <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" />
-              </button>
-              {examples.length > 0 && (
-                <img width={1024} height={1024} loading="lazy"
-                  className="Dcss-mouse-guide Dcss-mouse-on-button"
-                  src={mouseGuideImg}
-                  alt="提示點擊"
-                  aria-hidden="true"
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const getRuleTitle = () => {
-    if (phase === PHASE.PRACTICE) return "看顏色";
-    if (phase === PHASE.COLOR_TEST) return "看顏色";
-    if (phase === PHASE.TYPE_TEST) return "看衣服種類";
-    if (phase === PHASE.BAG_COLOR_TEST) return "看袋子裡衣服的顏色";
-    if (phase === PHASE.DUAL_RULE_TEST) return "有袋看顏色，沒袋看種類";
-    return "";
-  };
-
-  const handleTrialAreaClick = (event) => {
-    if (!currentTrial || isLocked) return;
-
-    const clickedBasket = event.target.closest(".Dcss-basket-btn");
-    const clickedCloth = event.target.closest(".Dcss-cloth-card");
-
-    if (!clickedBasket && !clickedCloth) {
-      clickBehaviorRef.current.randomClick += 1;
-    }
-  };
-
-  const renderTrialPage = () => {
-    if (!currentTrial) return null;
-
-    return (
-      <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
-        {dccsStyleElement}
-        <div className="Dcss-test-shell Dcss-test-shell-visual Dcss-training-shell-visual">
-          <div
-            className="Dcss-main-area Dcss-main-area-bottom-baskets Dcss-main-area-visual Dcss-training-main-area-visual"
-            onClick={handleTrialAreaClick}
-          >
-            <div className="Dcss-play-row">
-              <div className="Dcss-card-stage Dcss-card-stage-visual">
-                <div
-                  className={`Dcss-cloth-card ${
-                    currentTrial.imageVariant === "bag"
-                      ? "Dcss-cloth-card-bagged"
-                      : ""
-                  } ${feedback ? feedback.type : ""}`}
-                  aria-label={getRuleTitle()}
-                >
-                  <img loading="lazy"
-                    src={getCardImage(
-                      currentTrial.card,
-                      currentTrial.imageVariant || "normal"
-                    )}
-                    alt={`${
-                      currentTrial.imageVariant === "bag" ? "裝袋的" : ""
-                    }${currentTrial.card.colorText}${currentTrial.card.typeText}`}
-                    width="330"
-                    height="330"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="Dcss-baskets-row Dcss-baskets-bottom Dcss-visual-baskets-bottom">
-              <button
-                type="button"
-                className={`Dcss-basket-btn Dcss-visual-basket-btn ${
-                  selectedPosition === "top" ? "selected" : ""
-                }`}
-                onClick={() => handleAnswer("top")}
-                disabled={isLocked}
-                aria-label={currentTrial.topTarget.label}
-              >
-                <div className="Dcss-basket-choice-image">
-                  <img loading="lazy" src={basketTopImg} alt="左側分類箱" width="319" height="131" />
-                </div>
-              </button>
-
-              <button
-                type="button"
-                className={`Dcss-basket-btn Dcss-visual-basket-btn ${
-                  selectedPosition === "bottom" ? "selected" : ""
-                }`}
-                onClick={() => handleAnswer("bottom")}
-                disabled={isLocked}
-                aria-label={currentTrial.bottomTarget.label}
-              >
-                <div className="Dcss-basket-choice-image">
-                  <img loading="lazy" src={basketBottomImg} alt="右側分類箱" width="319" height="131" />
-                </div>
-              </button>
-            </div>
-
-            {feedback && feedback.text && (
-              <div className={`Dcss-feedback ${feedback.type}`}>
-                {feedback.text}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
+  const renderTrialPage = () => (
+    <div className="Dcss-page Dcss-srt-like-page Dccs-assessment-page" style={pageBackgroundStyle}>
+      <DccsAssessmentBoard key={rule.id} rule={rule} ruleIndex={ruleIndex} phase={phase}
+        trial={currentTrial} presentationKey={presentationKey} onAssetsReady={onAssetsReady}
+        onAnswer={handleAnswer} locked={isLocked} selected={selectedPosition}
+        feedback={feedback} feedbackShown={feedbackShown}
+        speaking={speaking} audioFailed={audioFailed} onReplay={replayVoice} onContinue={acknowledgeAudio} />
+    </div>
+  );
 
   const getResultStars = () => {
     const stars = Number(pendingResult?.stars || pendingResult?.gameResult?.stars);
@@ -1898,12 +1652,6 @@ function TestPage_DCCS() {
       onDone: goNextStaticPage,
     });
   }
-
-  if (phase === PHASE.COLOR_RULE) return renderColorRule();
-
-  if (phase === PHASE.SWITCH_RULE) return renderSwitchRule();
-
-  if (phase === PHASE.BAG_RULE) return renderBagRule();
 
   if (phase === PHASE.RESULT) return renderResultPage();
 

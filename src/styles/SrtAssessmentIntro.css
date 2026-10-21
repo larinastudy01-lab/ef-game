@@ -1,0 +1,116 @@
+.srt-assessment-intro {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  min-height: 100svh;
+  box-sizing: border-box;
+  padding: 40px 24px;
+}
+
+.srt-intro-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.15fr);
+  align-items: center;
+  gap: clamp(24px, 5vw, 64px);
+  width: min(100%, 1280px);
+}
+
+.srt-intro-instructions {
+  padding: clamp(24px, 3vw, 40px);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 32px;
+  background: rgba(255, 253, 240, 0.96);
+  box-shadow: 0 12px 32px rgba(62, 73, 32, 0.18);
+  color: #4b351e;
+}
+
+.srt-intro-instructions h1 {
+  margin: 0 0 24px;
+  font-size: clamp(24px, 3vw, 34px);
+  line-height: 1.35;
+}
+
+.srt-intro-rules {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.srt-intro-rule {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 162px;
+  box-sizing: border-box;
+  padding: 14px 20px;
+  border: 3px solid transparent;
+  border-radius: 20px;
+  background: #f1eedf;
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+.srt-intro-rule .srt-rule-illustration {
+  --srt-rule-size: clamp(78px, 8vw, 96px);
+}
+
+.srt-intro-rule-go[aria-current="step"] {
+  border-color: #639b37;
+  background: #e4f2d2;
+}
+
+.srt-intro-rule-nogo[aria-current="step"] {
+  border-color: #b66b40;
+  background: #f9e6d6;
+}
+
+.srt-intro-prompt {
+  min-height: 3.2em;
+  margin: 24px 0 0;
+  font-size: clamp(18px, 2vw, 22px);
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.srt-intro-chicken {
+  display: grid;
+  width: 100%;
+  height: min(80svh, 780px);
+  object-fit: contain;
+  filter: drop-shadow(0 16px 12px rgba(71, 57, 20, 0.2));
+}
+
+.srt-intro-replay {
+  min-height: 52px;
+  margin-top: 12px;
+  padding: 12px 24px;
+  border: 2px solid #49762c;
+  border-radius: 16px;
+  background: #5d8e37;
+  color: #fff;
+  font: inherit;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.srt-intro-replay:hover { background: #49762c; }
+.srt-intro-replay:focus-visible { outline: 3px solid #9c5a23; outline-offset: 4px; }
+
+@media (max-width: 600px) {
+  .srt-assessment-intro { padding: 24px 16px; }
+  .srt-intro-layout { grid-template-columns: 1fr; gap: 12px; max-width: 420px; }
+  .srt-intro-instructions { padding: 24px; border-radius: 24px; }
+  .srt-intro-instructions h1 { margin-bottom: 16px; }
+  .srt-intro-rules { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .srt-intro-rule { min-height: 130px; padding: 12px 8px; }
+  .srt-intro-chicken { width: 100%; height: min(42svh, 360px); justify-self: center; }
+  .srt-intro-prompt { margin-top: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .srt-intro-rule { transition: none; }
+}

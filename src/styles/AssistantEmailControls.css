@@ -1,0 +1,46 @@
+.assistant-email-choice {
+  padding: 10px 14px;
+  color: #304537;
+  background: #f5f8f2;
+  border-top: 1px solid #dce5d7;
+  font-size: 14px;
+}
+.assistant-email-choice label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.assistant-email-choice input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  padding: 0;
+  margin: 2px 0 0;
+  accent-color: #38684a;
+}
+.assistant-email-choice p {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.assistant-email-status {
+  margin-top: 8px;
+  color: #526358;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.assistant-email-status.is-failed { color: #933d24; }
+.assistant-email-status button {
+  margin-left: 8px;
+  padding: 3px 8px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}

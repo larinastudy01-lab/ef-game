@@ -3,6 +3,7 @@ import assistIcon from "../asset/assist.webp";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import { AssistantEmailChoice, AssistantEmailStatus, useAssistantEmail } from "../components/AssistantEmailControls";
 import { dedupeClinicalRecords } from "../utils/resultIdentity";
 import { getResultCompletionStatus, isCompletedResult } from "../utils/resultCompletion";
 import { getSrtClinicalMetrics } from "../utils/srtClinicalMetrics";
@@ -10,6 +11,8 @@ import { getCbtClinicalMetrics } from "../utils/cbtClinicalMetrics";
 import { getPmClinicalMetrics } from "../utils/pmClinicalMetrics";
 import { getLbClinicalMetrics } from "../utils/lbClinicalMetrics";
 import { getAriClinicalMetrics } from "../utils/ariClinicalMetrics";
+import { getDccsClinicalMetrics } from "../utils/dccsClinicalMetrics";
+import { getDccsTrainingConfig, normalizeDccsTrainingDifficulty } from "../utils/dccsTrainingProtocol";
 import {
   AddPatientModal,
   ClinicianDashboardHeader,
@@ -663,6 +666,9 @@ function getTrialOutcome(trial = {}) {
 function buildTrialDataExplanation(trial = {}, record = null, index = 0) {
   const outcome = getTrialOutcome(trial);
   const rt = getTrialReactionTime(trial);
+  if (record?.gameKey === "DCCS" && trial.protocolVersion) {
+    return `第 ${trial.trialNumber} 題依${trial.rule === "type" ? "種類" : "顏色"}分類，作答上限 ${trial.answerTimeLimitMs / 1000} 秒，結果為「${outcome.label}」。實際 MOUSE 提醒 ${trial.promptCount ?? 0} 次。${trial.isReverseRule ? "作答時有風，採相反規則。" : "作答時採原本規則。"}提示出現時間、風效事件與正確分類箱保留於原始資料。`;
+  }
   if (record?.gameKey === "ARI" && trial.protocolVersion) {
     return `第 ${trial.trialIndex} 題聽到${trial.soundType === "cat" ? "貓叫" : "狗叫"}，正確選擇為${trial.expectedTarget === "cat" ? "貓咪" : "狗狗"}，作答上限 ${trial.answerTimeLimit / 1000} 秒，結果為「${outcome.label}」。實際 MOUSE 提醒 ${trial.promptCount ?? 0} 次（等待提示 ${trial.idleHintCount ?? 0} 次、連錯提示 ${trial.consecutiveErrorHintCount ?? 0} 次），聲音重播 ${trial.replayCount ?? 0} 次。${trial.interference ? "本題含沙鈴干擾。" : ""}提醒與重播事件保留於原始資料。`;
   }
@@ -725,6 +731,7 @@ function ClinicianDashboard() {
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantQuestion, setAssistantQuestion] = useState("");
   const [assistantLoading, setAssistantLoading] = useState(false);
+  const assistantEmail = useAssistantEmail(selectedPatientId);
   const [selectedTrialIndex, setSelectedTrialIndex] = useState(null);
   const [assistantMessages, setAssistantMessages] = useState([
     {
@@ -1116,8 +1123,10 @@ function ClinicianDashboard() {
       ...(gameKey === "PM" ? getPmClinicalMetrics(item) : {}),
       ...(gameKey === "LB" ? getLbClinicalMetrics(item) : {}),
       ...(gameKey === "ARI" ? getAriClinicalMetrics(item) : {}),
+      ...(gameKey === "DCCS" ? getDccsClinicalMetrics(item) : {}),
       duration: firstNumber(item.duration, item.duration_seconds, item.durationSeconds, item.total_time, item.totalTime, summary.duration, clinician.duration),
-      difficulty: level,
+      difficulty: gameKey === "DCCS" && normalizeDccsTrainingDifficulty(level, null)
+        ? getDccsTrainingConfig(level).label : level,
       status: isCompletedResult(item) ? item.status || item.finishReason || item.reason || "已完成" : "測驗中斷",
       completedLevel: firstDefined(item.completed_level, item.level_completed, item.completedLevel, item.stage, summary.completedLevel, "-"),
       raw: item,
@@ -2113,7 +2122,9 @@ function ClinicianDashboard() {
     const question = String(presetQuestion || assistantQuestion).trim();
     if (!question || assistantLoading) return;
 
-    const userMessage = { id: `user-${Date.now()}`, role: "user", content: question };
+    const emailChoice = assistantEmail.takeChoice();
+
+    const userMessage = { id: `user-${emailChoice.requestId}`, role: "user", content: question };
     setAssistantMessages((previous) => [...previous, userMessage]);
     setAssistantQuestion("");
     setAssistantLoading(true);
@@ -2121,7 +2132,7 @@ function ClinicianDashboard() {
     try {
       const result = await generateAssistantAnswer(question);
       const answerMessage = {
-        id: `assistant-${Date.now()}-${Math.random()}`,
+        id: `assistant-${emailChoice.requestId}`,
         role: "assistant",
         content: String(result?.answer || "目前無法產生回覆。"),
         sources: result?.sources || [],
@@ -2129,6 +2140,10 @@ function ClinicianDashboard() {
         fallback: Boolean(result?.fallback),
       };
       setAssistantMessages((previous) => [...previous, answerMessage]);
+      assistantEmail.deliver(emailChoice, {
+        messageId: answerMessage.id, question, answer: answerMessage.content,
+        sources: answerMessage.sources, fallback: answerMessage.fallback,
+      });
     } catch (error) {
       console.error("AI 助手回答失敗：", error);
       setAssistantMessages((previous) => [
@@ -2651,6 +2666,11 @@ function ClinicianDashboard() {
                             <InfoItem label="錯誤題數" value={selectedRecord.wrong ?? selectedRecord.errors ?? "-"} />
                             <InfoItem label="逾時題數" value={selectedRecord.timeout ?? "-"} />
                             <InfoItem label="平均反應時間" value={selectedRecord.avgRt ? `${selectedRecord.avgRt} ms` : "-"} />
+                            {selectedRecord.gameKey === "DCCS" && <>
+                              <InfoItem label="實際 MOUSE 提醒次數" value={selectedRecord.promptCount != null ? `${selectedRecord.promptCount} 次` : "未記錄"} />
+                              <InfoItem label="每題作答上限" value={selectedRecord.answerTimeLimitMs != null ? `${selectedRecord.answerTimeLimitMs / 1000} 秒` : "未記錄"} />
+                              <InfoItem label="反向規則作答題數" value={selectedRecord.reverseRuleTrials != null ? `${selectedRecord.reverseRuleTrials} 題` : "未記錄"} />
+                            </>}
                             {selectedRecord.gameKey === "SRT" && <>
                               <InfoItem label="反應時間標準差" value={selectedRecord.rtStd != null ? `${selectedRecord.rtStd} ms` : "資料不足"} />
                               <InfoItem label="反應時間變異係數" value={selectedRecord.rtCV ?? "資料不足"} />
@@ -2998,6 +3018,7 @@ function ClinicianDashboard() {
               </div>
             )}
 
+            <AssistantEmailChoice controller={assistantEmail} disabled={assistantLoading} />
             <div style={assistantQuickRowStyle}>
               {selectedTrial && <button onClick={() => sendAssistantQuestion("請解釋這張圖片與此 trial 紀錄")} style={assistantChipStyle}>解釋目前圖片</button>}
               {selectedTrial && <button onClick={() => sendAssistantQuestion("為什麼這一題會得到目前的判定？")} style={assistantChipStyle}>說明判定原因</button>}
@@ -3020,6 +3041,7 @@ function ClinicianDashboard() {
                   )}
                   <div style={message.role === "user" ? assistantUserBubbleStyle : assistantAiBubbleStyle}>
                     <div>{message.content}</div>
+                    <AssistantEmailStatus delivery={assistantEmail.deliveries[message.id]} onRetry={() => assistantEmail.retry(message.id)} />
                     {message.role === "assistant" && message.sources?.length > 0 && (
                       <div style={assistantSourcesStyle}>
                         <div style={assistantSourcesHeaderStyle}>專業資料來源</div>
@@ -3088,6 +3110,7 @@ function ClinicianDashboard() {
                 placeholder={selectedTrial ? "詢問目前圖片、trial 欄位或判定原因…" : "詢問個案近期表現、特定遊戲趨勢或家長說明…"}
                 style={assistantTextareaStyle}
                 rows={2}
+                maxLength={8000}
               />
               <button
                 onClick={() => sendAssistantQuestion()}

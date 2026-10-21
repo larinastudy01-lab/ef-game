@@ -28,6 +28,7 @@ import { CBT_TRAINING_CONFIG, CBT_DIFFICULTY_ORDER, normalizeCBTDifficulty,
   CBT_TRAINING_STONE_SIZE,
   createFixedCBTBlocks, createVariableCBTBlocks } from "../utils/cbtProtocol";
 import { CBTPhaseCue, CBTEnvironment, useCbtStartCue } from "../components/CBTPhaseCue";
+import "../styles/TestStepVideo.css";
 
 const SHOW_SPEED = 1000;
 const GAP_SPEED = 260;
@@ -2450,6 +2451,7 @@ export default function TrainingPage_CBT() {
       {phase === "stepVideo" && (
         <VideoOnlyPage
           videoSrc={stepVideo}
+          stepEndLayout
           explainRule
           onDone={startWarmup}
         />
@@ -2541,6 +2543,7 @@ export default function TrainingPage_CBT() {
           videoSrc={introVideo}
           onDone={() => goResultPage(historyRef.current, false)}
           showNext={false}
+          stepEndLayout
         />
       )}
 
@@ -2596,23 +2599,23 @@ export default function TrainingPage_CBT() {
   );
 }
 
-function VideoOnlyPage({ videoSrc, onDone, showNext = true, explainRule = false }) {
+function VideoOnlyPage({ videoSrc, onDone, showNext = true, explainRule = false, stepEndLayout = false }) {
   return (
-    <main className="cbt-video-only-card game-start-card-artwork cbt-video-card-artwork" aria-label="影片">
+    <main className={`cbt-video-only-card game-start-card-artwork cbt-video-card-artwork ${stepEndLayout ? "test-video-card" : ""}`} aria-label="影片">
       {explainRule && <p className="cbt-quiet-prompt">看完再點：先看完亮燈，聽到「可以開始點了」再照順序點石頭。</p>}
-      <div className="cbt-video-wrapper">
+      <div className="cbt-video-wrapper test-video-frame">
         <video
           src={videoSrc}
           autoPlay
           muted
           playsInline
           controls
-          className="cbt-video"
+          className="cbt-video test-video"
           onEnded={onDone}
         />
       </div>
 
-      <div className="cbt-video-actions">
+      <div className="cbt-video-actions test-video-actions">
         <GuidedImageButton
           imgSrc={homeSkipBtn}
           imgAlt="跳過動畫"
@@ -2620,7 +2623,7 @@ function VideoOnlyPage({ videoSrc, onDone, showNext = true, explainRule = false 
           onClick={onDone}
           variant="skip"
         />
-        {showNext && <GuidedImageButton
+        {(showNext || stepEndLayout) && <GuidedImageButton
           imgSrc={homeNextBtn}
           imgAlt="下一步"
           ariaLabel="下一步"

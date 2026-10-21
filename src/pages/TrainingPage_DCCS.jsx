@@ -1,6 +1,6 @@
 import { useTrainingAchievementAssignment } from "../utils/useTrainingAchievementAssignment";
 import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/GamePage_DCCS.css";
 
@@ -48,6 +48,12 @@ import {
 
 import redHatImg from "../asset/DCCS/red hat.webp";
 import blueShirtImg from "../asset/DCCS/blue shirt.webp";
+import "../styles/TestStepVideo.css";
+import { DCCS_DIFFICULTY_ORDER, DCCS_TRAINING_CONFIG, DCCS_TRAINING_PROTOCOL_VERSION,
+  getDccsTrainingConfig, normalizeDccsTrainingDifficulty, getDccsTrainingCorrectPosition,
+  getDccsWindState } from "../utils/dccsTrainingProtocol";
+import DccsWindEffect from "../components/DccsWindEffect";
+import "../styles/DccsTrainingProtocol.css";
 
 const MENU_ROUTE = "/game-menu";
 const RESULT_ROUTE = "/result-dccs";
@@ -96,20 +102,19 @@ const getRouteTrainingContext = (location) => {
   const stageFromQuery = searchParams.get("stage");
   const state = location.state || {};
 
-  const trainingLevel = clampNumber(
-    state.trainingLevel ?? levelFromQuery,
-    1,
-    10
+  const difficulty = normalizeDccsTrainingDifficulty(
+    state.difficulty ?? searchParams.get("difficulty") ?? state.trainingLevel ?? levelFromQuery
   );
+  const trainingLevel = DCCS_DIFFICULTY_ORDER.indexOf(difficulty) + 1;
 
   return {
-    trainingLevel,
+    trainingLevel, difficulty,
     trainingStageId: state.trainingStageId || stageFromQuery || `${getTodayKey()}-dccs-L${trainingLevel}`,
     trainingOrder: state.trainingOrder || trainingLevel,
-    trainingTotal: state.trainingTotal || 10,
+    trainingTotal: DCCS_DIFFICULTY_ORDER.length,
     todayKey: state.todayKey || getTodayKey(),
-    difficultyLabel: state.difficultyLabel || `第 ${trainingLevel} 關`,
-    fromMap: Boolean(state.trainingStageId || stageFromQuery || levelFromQuery),
+    difficultyLabel: getDccsTrainingConfig(difficulty).label,
+    fromMap: Boolean(state.trainingStageId || state.fromTrainingMap || stageFromQuery || levelFromQuery),
   };
 };
 
@@ -192,59 +197,7 @@ const getDccsTestProfile = () => {
   };
 };
 
-const DCCS_DIFFICULTY_ORDER = [
-  "colorIntro",
-  "colorStable",
-  "typeIntro",
-  "typeStable",
-  "switchClear",
-  "switchEarly",
-  "switchMaintain",
-  "lowInterference",
-  "highInterference",
-  "testLike",
-];
-
-const SINGLE_RULE_LEVEL_IDS = new Set([
-  "colorIntro",
-  "colorStable",
-  "typeIntro",
-  "typeStable",
-]);
-
-const getDifficultyForTrainingLevel = (trainingLevel, testProfile) => {
-  const safeLevel = clampNumber(trainingLevel, 1, DCCS_DIFFICULTY_ORDER.length);
-  const baseIndex = safeLevel - 1;
-  const shiftedIndex = clampNumber(
-    baseIndex + (testProfile?.baselineShift || 0),
-    0,
-    DCCS_DIFFICULTY_ORDER.length - 1
-  );
-
-  // 保留訓練關卡的基本節奏：
-  // 第 1-2 關以顏色規則為主，第 3-4 關以種類規則為主。
-  // 第 7 關後逐步增加切換與干擾，避免前面關卡跳太快。
-  if (safeLevel <= 2) {
-    return DCCS_DIFFICULTY_ORDER[Math.min(shiftedIndex, 2)];
-  }
-
-  if (safeLevel <= 4) {
-    return DCCS_DIFFICULTY_ORDER[Math.min(Math.max(shiftedIndex, 1), 5)];
-  }
-
-  if (safeLevel >= 7) {
-    return DCCS_DIFFICULTY_ORDER[Math.max(shiftedIndex, 6)];
-  }
-
-  return DCCS_DIFFICULTY_ORDER[shiftedIndex];
-};
-
-const getLevelCategory = (levelId) => {
-  if (SINGLE_RULE_LEVEL_IDS.has(levelId)) return "singleRule";
-  if (levelId === "lowInterference" || levelId === "highInterference") return "interference";
-  if (levelId === "testLike") return "testLike";
-  return "switch";
-};
+const getLevelCategory = (levelId) => getDccsTrainingConfig(levelId).category;
 
 const mergeJsonObject = (key, patch) => {
   const previous = safeParse(localStorage.getItem(key), {});
@@ -607,14 +560,15 @@ function repeatCardsToCount(cards, count) {
 
 function getDccsErrorTypes(logs = []) {
   const incorrectLogs = logs.filter((log) => !log.isCorrect);
+  const timeout = incorrectLogs.filter((log) => log.isTimeout).length;
   const ruleSwitchError = logs.filter((log) => log.isOldRuleInterference).length;
 
   return {
     miss: 0,
     randomClick: 0,
-    wrongTarget: Math.max(incorrectLogs.length - ruleSwitchError, 0),
+    wrongTarget: Math.max(incorrectLogs.length - ruleSwitchError - timeout, 0),
     repeatedClick: 0,
-    timeout: 0,
+    timeout,
     sequenceError: 0,
     ruleSwitchError,
   };
@@ -780,8 +734,8 @@ function buildDccsTrainingResult({ logs, levelId, currentLevel }) {
     difficulty: levelId,
     trainingDifficulty: levelId,
     difficultyLevel: levelId,
-    difficultyLabel: scoring.difficultyLabel || currentLevel.label,
-    difficultyTitle: scoring.difficultyTitle || currentLevel.title,
+    difficultyLabel: currentLevel.label,
+    difficultyTitle: currentLevel.title,
     levelLabel: currentLevel.label,
     levelCategory: getLevelCategory(levelId),
 
@@ -816,6 +770,7 @@ function buildDccsTrainingResult({ logs, levelId, currentLevel }) {
     correctCount: scoring.correctCount,
     correctTrials: scoring.correctCount,
     incorrectTrials: Math.max(0, scoring.totalTrials - scoring.correctCount),
+    timeoutCount: scoring.timeoutCount,
 
     accuracy: scoring.accuracyPercent,
     accuracyRatio: scoring.accuracy,
@@ -1238,196 +1193,10 @@ const createLevelConfig = (config) => ({
   trials: buildLevelTrials(config),
 });
 
-const LEVEL_CONFIG = {
-  colorIntro: createLevelConfig({
-    id: "colorIntro",
-    label: "第 1 關",
-    tag: "顏色入門",
-    emoji: "1",
-    title: "先看顏色",
-    description: "依照衣服的顏色，把衣服放到相同顏色的籃子。",
-    helper: "看顏色，選一樣顏色的籃子。",
-    childGoal: "練習看顏色",
-    parentGoal: "建立顏色分類規則",
-    ruleSequence: ["color"],
-    totalTrials: 6,
-    feedbackMode: "full",
-    hintPolicy: "always",
-    showSwitchGuide: false,
-    showBagGuide: false,
-  }),
-  colorStable: createLevelConfig({
-    id: "colorStable",
-    label: "第 2 關",
-    tag: "顏色穩定",
-    emoji: "2",
-    title: "穩定看顏色",
-    description: "連續練習顏色分類，減少提示。",
-    helper: "先看顏色，再選籃子。",
-    childGoal: "穩定依顏色分類",
-    parentGoal: "觀察顏色規則維持能力",
-    ruleSequence: ["color"],
-    totalTrials: 8,
-    feedbackMode: "normal",
-    hintPolicy: "always",
-    showSwitchGuide: false,
-    showBagGuide: false,
-  }),
-  typeIntro: createLevelConfig({
-    id: "typeIntro",
-    label: "第 3 關",
-    tag: "衣服入門",
-    emoji: "3",
-    title: "改看衣服種類",
-    description: "不看顏色，依照衣服種類放到對應籃子。",
-    helper: "看衣服種類，選一樣種類的籃子。",
-    childGoal: "練習看衣服種類",
-    parentGoal: "建立種類分類規則",
-    ruleSequence: ["type"],
-    totalTrials: 6,
-    feedbackMode: "full",
-    hintPolicy: "always",
-    showSwitchGuide: false,
-    showBagGuide: false,
-  }),
-  typeStable: createLevelConfig({
-    id: "typeStable",
-    label: "第 4 關",
-    tag: "衣服穩定",
-    emoji: "4",
-    title: "穩定看衣服種類",
-    description: "連續練習種類分類，保持同一個規則。",
-    helper: "只看衣服種類，不被顏色影響。",
-    childGoal: "穩定依種類分類",
-    parentGoal: "觀察種類規則維持能力",
-    ruleSequence: ["type"],
-    totalTrials: 8,
-    feedbackMode: "normal",
-    hintPolicy: "always",
-    showSwitchGuide: false,
-    showBagGuide: false,
-  }),
-  switchClear: createLevelConfig({
-    id: "switchClear",
-    label: "第 5 關",
-    tag: "清楚切換",
-    emoji: "5",
-    title: "從顏色切到衣服種類",
-    description: "前半段看顏色，後半段改看衣服種類。",
-    helper: "規則改變時，跟著新規則選籃子。",
-    childGoal: "練習規則切換",
-    parentGoal: "觀察第一次規則轉換",
-    ruleSequence: ["color", "type"],
-    switchPoint: 4,
-    totalTrials: 8,
-    feedbackMode: "guided",
-    hintPolicy: "always",
-    showSwitchGuide: true,
-    showBagGuide: false,
-    interferenceRate: 0.2,
-  }),
-  switchEarly: createLevelConfig({
-    id: "switchEarly",
-    label: "第 6 關",
-    tag: "提早切換",
-    emoji: "6",
-    title: "更快改規則",
-    description: "較早遇到規則切換，練習快速調整。",
-    helper: "聽到換規則後，立刻改看衣服種類。",
-    childGoal: "加快切換反應",
-    parentGoal: "觀察切換後錯誤修正",
-    ruleSequence: ["color", "type"],
-    switchPoint: 3,
-    totalTrials: 10,
-    feedbackMode: "guided",
-    hintPolicy: "afterWrong",
-    showSwitchGuide: true,
-    showBagGuide: false,
-    interferenceRate: 0.35,
-  }),
-  switchMaintain: createLevelConfig({
-    id: "switchMaintain",
-    label: "第 7 關",
-    tag: "切換維持",
-    emoji: "7",
-    title: "切換後保持新規則",
-    description: "切換後持續使用新規則，避免回到舊規則。",
-    helper: "換規則後，要一直照新規則做。",
-    childGoal: "維持新規則",
-    parentGoal: "觀察保留舊規則的干擾",
-    ruleSequence: ["color", "type"],
-    switchPoint: 4,
-    totalTrials: 12,
-    feedbackMode: "simple",
-    hintPolicy: "afterWrong",
-    showSwitchGuide: true,
-    showBagGuide: false,
-    interferenceRate: 0.5,
-  }),
-  lowInterference: createLevelConfig({
-    id: "lowInterference",
-    label: "第 8 關",
-    tag: "低干擾",
-    emoji: "8",
-    title: "加入袋子顏色",
-    description: "先看顏色，再看衣服種類，最後看袋子的顏色。",
-    helper: "裝進袋子後，要看袋子的顏色。",
-    childGoal: "練習多規則切換",
-    parentGoal: "觀察多階段規則調整",
-    ruleSequence: ["color", "type", "dualRule"],
-    firstSwitchPoint: 4,
-    secondSwitchPoint: 8,
-    totalTrials: 12,
-    feedbackMode: "simple",
-    hintPolicy: "afterWrong",
-    showSwitchGuide: true,
-    showBagGuide: true,
-    interferenceRate: 0.45,
-    bagInterferenceRate: 0.45,
-  }),
-  highInterference: createLevelConfig({
-    id: "highInterference",
-    label: "第 9 關",
-    tag: "高干擾",
-    emoji: "9",
-    title: "更強的規則干擾",
-    description: "袋子顏色可能和衣服種類互相干擾，要抓住目前規則。",
-    helper: "想清楚現在要看哪一個規則。",
-    childGoal: "抗干擾切換",
-    parentGoal: "觀察高干擾下的彈性控制",
-    ruleSequence: ["color", "type", "dualRule"],
-    firstSwitchPoint: 4,
-    secondSwitchPoint: 9,
-    totalTrials: 14,
-    feedbackMode: "resultOnly",
-    hintPolicy: "afterTwoWrong",
-    showSwitchGuide: true,
-    showBagGuide: true,
-    interferenceRate: 0.65,
-    bagInterferenceRate: 0.7,
-  }),
-  testLike: createLevelConfig({
-    id: "testLike",
-    label: "第 10 關",
-    tag: "接近測驗",
-    emoji: "10",
-    title: "綜合挑戰",
-    description: "完整練習顏色、衣服種類與袋子顏色的規則切換。",
-    helper: "看清楚目前規則再作答。",
-    childGoal: "完成綜合挑戰",
-    parentGoal: "觀察接近測驗情境的表現",
-    ruleSequence: ["color", "type", "dualRule"],
-    firstSwitchPoint: 5,
-    secondSwitchPoint: 10,
-    totalTrials: 15,
-    feedbackMode: "resultOnly",
-    hintPolicy: "none",
-    showSwitchGuide: false,
-    showBagGuide: false,
-    interferenceRate: 0.75,
-    bagInterferenceRate: 0.8,
-  }),
-};
+export const DCCS_TRAINING_LEVELS = Object.fromEntries(DCCS_DIFFICULTY_ORDER.map((id) => [
+  id, createLevelConfig(DCCS_TRAINING_CONFIG[id]),
+]));
+const LEVEL_CONFIG = DCCS_TRAINING_LEVELS;
 
 const DCCS_TRAINING_TOUCH_STYLE_ID = "dccs-training-touch-fix";
 const DCCS_TRAINING_PAGE_STYLE_ID = "dccs-training-page-style";
@@ -1451,8 +1220,8 @@ function TrainingPage_DCCS() {
   const trainingContext = useMemo(() => getRouteTrainingContext(location), [location]);
   const testProfile = useMemo(() => getDccsTestProfile(), []);
   const initialLevelId = useMemo(
-    () => getDifficultyForTrainingLevel(trainingContext.trainingLevel, testProfile),
-    [trainingContext.trainingLevel, testProfile]
+    () => trainingContext.difficulty,
+    [trainingContext.difficulty]
   );
 
   const [phase, setPhase] = useState(PHASE.START);
@@ -1463,11 +1232,22 @@ function TrainingPage_DCCS() {
   const [isLocked, setIsLocked] = useState(false);
   const [logs, setLogs] = useState([]);
   const [finalResult, setFinalResult] = useState(null);
+  const [hintVisible, setHintVisible] = useState(false);
+  const [windActive, setWindActive] = useState(false);
 
   const trialStartTimeRef = useRef(null);
   const attemptIdRef = useRef(null);
   const nextTrialTimerRef = useRef(null);
   const trialStartRafRef = useRef(null);
+  const hintTimerRef = useRef(null);
+  const answerTimerRef = useRef(null);
+  const answerLockRef = useRef(true);
+  const answerHandlerRef = useRef(null);
+  const trialPromptEventsRef = useRef([]);
+  const promptEventsRef = useRef([]);
+  const windEpochRef = useRef(null);
+  const windElapsedRef = useRef(0);
+  const windEventsRef = useRef([]);
 
   const pageBackgroundStyle = useMemo(() => ({
     backgroundImage: `
@@ -1476,7 +1256,7 @@ function TrainingPage_DCCS() {
     `,
   }), []);
 
-  const clearPendingTiming = () => {
+  const clearPendingTiming = useCallback(() => {
     if (nextTrialTimerRef.current) {
       window.clearTimeout(nextTrialTimerRef.current);
       nextTrialTimerRef.current = null;
@@ -1486,19 +1266,11 @@ function TrainingPage_DCCS() {
       window.cancelAnimationFrame(trialStartRafRef.current);
       trialStartRafRef.current = null;
     }
-  };
-
-  const markTrialStartAfterPaint = () => {
-    if (trialStartRafRef.current) {
-      window.cancelAnimationFrame(trialStartRafRef.current);
-    }
-
-    trialStartTimeRef.current = null;
-    trialStartRafRef.current = window.requestAnimationFrame(() => {
-      trialStartTimeRef.current = Date.now();
-      trialStartRafRef.current = null;
-    });
-  };
+    window.clearTimeout(hintTimerRef.current);
+    window.clearTimeout(answerTimerRef.current);
+    hintTimerRef.current = null;
+    answerTimerRef.current = null;
+  }, []);
 
   useEffect(() => {
     if (typeof document !== "undefined" && !document.getElementById(DCCS_TRAINING_TOUCH_STYLE_ID)) {
@@ -1518,14 +1290,76 @@ function TrainingPage_DCCS() {
     return () => {
       clearPendingTiming();
     };
-  }, []);
+  }, [clearPendingTiming]);
 
-  const currentLevel = LEVEL_CONFIG[levelId] || LEVEL_CONFIG.colorIntro;
+  const currentLevel = LEVEL_CONFIG[levelId] || LEVEL_CONFIG.beginner;
   const achievementAssignment = useTrainingAchievementAssignment({ gameId: "DCCS", difficulty: initialLevelId, trainingLevel: trainingContext.trainingLevel, location });
 
   const currentTrial = useMemo(() => {
     return currentLevel.trials[trialIndex] || null;
   }, [currentLevel, trialIndex]);
+
+  useEffect(() => {
+    if (phase !== PHASE.PLAYING || isLocked || !currentTrial) return;
+    setHintVisible(false);
+    answerLockRef.current = true;
+    trialStartTimeRef.current = null;
+    trialPromptEventsRef.current = [];
+    trialStartRafRef.current = window.requestAnimationFrame(() => {
+      trialStartRafRef.current = null;
+      trialStartTimeRef.current = Date.now();
+      answerLockRef.current = false;
+      if (currentLevel.hintDelayMs != null) {
+        hintTimerRef.current = window.setTimeout(() => {
+          if (answerLockRef.current) return;
+          const event = {
+            trialNumber: trialIndex + 1, trialId: currentTrial.id, reason: "idle", type: "mouse",
+            timestamp: Date.now(), elapsedMs: Date.now() - trialStartTimeRef.current,
+            correctSide: getDccsTrainingCorrectPosition(currentTrial),
+          };
+          trialPromptEventsRef.current.push(event);
+          promptEventsRef.current.push(event);
+          setHintVisible(true);
+        }, currentLevel.hintDelayMs);
+      }
+      answerTimerRef.current = window.setTimeout(() => answerHandlerRef.current(null), currentLevel.answerTimeLimitMs);
+    });
+    return () => {
+      answerLockRef.current = true;
+      window.cancelAnimationFrame(trialStartRafRef.current);
+      trialStartRafRef.current = null;
+      window.clearTimeout(hintTimerRef.current);
+      window.clearTimeout(answerTimerRef.current);
+    };
+  }, [phase, trialIndex, currentTrial, currentLevel, isLocked]);
+
+  useEffect(() => {
+    setWindActive(false);
+    windEpochRef.current = null;
+    if (phase !== PHASE.PLAYING || !currentLevel.windEnabled) return;
+    // Pause the wind clock during rule explanations; resume the same cycle.
+    const epoch = Date.now() - windElapsedRef.current;
+    windEpochRef.current = epoch;
+    let timer;
+    let previous = false;
+    const update = () => {
+      const now = Date.now();
+      const wind = getDccsWindState(now - epoch, currentLevel);
+      if (wind.active !== previous) {
+        windEventsRef.current.push({ active: wind.active, timestamp: now, elapsedMs: now - epoch });
+        previous = wind.active;
+      }
+      setWindActive(wind.active);
+      timer = window.setTimeout(update, wind.nextChangeMs);
+    };
+    update();
+    return () => {
+      window.clearTimeout(timer);
+      windElapsedRef.current = Date.now() - epoch;
+      windEpochRef.current = null;
+      if (previous) windEventsRef.current.push({ active: false, timestamp: Date.now(), reason: "phase_end" });
+    };
+  }, [phase, currentLevel]);
 
   const handleStart = () => {
     clearPendingTiming();
@@ -1555,20 +1389,9 @@ function TrainingPage_DCCS() {
     setFeedback(null);
     setSelectedPosition(null);
     setIsLocked(false);
-    markTrialStartAfterPaint();
   };
 
-  const getCorrectPosition = (trial) => {
-    if (!trial) return null;
-
-    const matchBy = trial.matchBy || (trial.rule === "type" ? "type" : "color");
-    const correctKey = trial.card?.[matchBy];
-
-    if (trial.topTarget?.key === correctKey) return "top";
-    if (trial.bottomTarget?.key === correctKey) return "bottom";
-
-    return null;
-  };
+  const getCorrectPosition = (trial) => getDccsTrainingCorrectPosition(trial);
 
   const getOldRulePosition = (trial) => {
     if (!trial) return null;
@@ -1662,20 +1485,26 @@ function TrainingPage_DCCS() {
   };
 
   const handleAnswer = (position) => {
-    if (!currentTrial || isLocked) return;
+    if (!currentTrial || answerLockRef.current || trialStartTimeRef.current == null) return;
 
+    answerLockRef.current = true;
     setIsLocked(true);
+    setHintVisible(false);
     setSelectedPosition(position);
 
     const now = Date.now();
-    const reactionTime = Math.max(0, now - (trialStartTimeRef.current || now));
-    const correctPosition = getCorrectPosition(currentTrial);
+    const reactionTime = Math.max(0, now - trialStartTimeRef.current);
+    const isTimeout = position == null || reactionTime >= currentLevel.answerTimeLimitMs;
+    if (isTimeout) position = null;
+    const answerWindActive = windEpochRef.current != null && getDccsWindState(now - windEpochRef.current, currentLevel).active;
+    const correctPosition = getDccsTrainingCorrectPosition(currentTrial, answerWindActive);
     const oldRulePosition = getOldRulePosition(currentTrial);
+    clearPendingTiming();
 
     const isCorrect = position === correctPosition;
     const isOldRuleInterference =
       currentTrial.isInterferenceTrial &&
-      !isCorrect &&
+      !isCorrect && !isTimeout && !answerWindActive &&
       position === oldRulePosition;
 
     const nextLog = {
@@ -1715,6 +1544,19 @@ function TrainingPage_DCCS() {
       cardTypeText: currentTrial.card.typeText,
       userAnswerSide: position,
       correctSide: correctPosition,
+      normalCorrectSide: getCorrectPosition(currentTrial),
+      windActive: answerWindActive,
+      isReverseRule: answerWindActive,
+      protocolVersion: DCCS_TRAINING_PROTOCOL_VERSION,
+      answerTimeLimitMs: currentLevel.answerTimeLimitMs,
+      hintDelayMs: currentLevel.hintDelayMs,
+      isTimeout, timeout: isTimeout,
+      result: isTimeout ? "timeout" : isCorrect ? "correct" : "wrong",
+      promptCount: trialPromptEventsRef.current.length,
+      hintCount: trialPromptEventsRef.current.length,
+      hintShown: trialPromptEventsRef.current.length > 0,
+      promptEvents: [...trialPromptEventsRef.current],
+      stimulusOnsetAt: trialStartTimeRef.current,
       oldRuleSide: oldRulePosition,
       topTargetKey: currentTrial.topTarget?.key || null,
       topTargetColor: currentTrial.topTarget?.colorKey || null,
@@ -1734,7 +1576,7 @@ function TrainingPage_DCCS() {
       isOldRuleInterference,
       isPerseverativeError: isOldRuleInterference,
       oldRuleError: isOldRuleInterference,
-      errorType: isOldRuleInterference
+      errorType: isTimeout ? "timeout" : isOldRuleInterference
         ? "perseverative"
         : isCorrect
         ? null
@@ -1742,7 +1584,7 @@ function TrainingPage_DCCS() {
       reactionTime,
       responseTime: reactionTime,
       attemptCount: 1,
-      wrongTapCount: 0,
+      wrongTapCount: isCorrect || isTimeout ? 0 : 1,
       isFirstTry: true,
       timestamp: now,
     };
@@ -1760,7 +1602,7 @@ function TrainingPage_DCCS() {
       setFeedback({
         type: "wrong",
         title: isOldRuleInterference ? "還在用舊規則" : "再想一下",
-        text: getWrongFeedbackText({
+        text: isTimeout ? "" : getWrongFeedbackText({
           isOldRuleInterference,
           rule: currentTrial.rule,
           ruleStage: currentTrial.ruleStage,
@@ -1777,6 +1619,7 @@ function TrainingPage_DCCS() {
       goNextTrial(nextLogs);
     }, isCorrect ? 850 : 1150);
   };
+  answerHandlerRef.current = handleAnswer;
 
   const saveTrainingResult = (resultWithStage, stars) => {
     try {
@@ -1846,13 +1689,24 @@ function TrainingPage_DCCS() {
       const resultWithStage = {
         achievementAssignment, completed: nextLogs.length >= currentLevel.trials.length,
         ...finalResult,
+        protocolVersion: DCCS_TRAINING_PROTOCOL_VERSION,
+        protocol: { version: DCCS_TRAINING_PROTOCOL_VERSION, answerTimeLimitMs: currentLevel.answerTimeLimitMs,
+          hintDelayMs: currentLevel.hintDelayMs, ruleSequence: currentLevel.ruleSequence,
+          windEnabled: Boolean(currentLevel.windEnabled), windCalmMs: currentLevel.windCalmMs ?? null,
+          windDurationMs: currentLevel.windDurationMs ?? null },
+        promptCount: promptEventsRef.current.length,
+        hintCount: promptEventsRef.current.length,
+        promptEvents: [...promptEventsRef.current],
+        windEvents: [...windEventsRef.current,
+          ...(windActive ? [{ active: false, timestamp: Date.now(), reason: "session_end" }] : [])],
+        reverseRuleTrials: nextLogs.filter((log) => log.isReverseRule).length,
         resultId: attemptIdRef.current,
         stars,
         trainingLevel: trainingContext.trainingLevel,
         trainingStageId: trainingContext.trainingStageId,
         trainingOrder: trainingContext.trainingOrder,
         trainingTotal: trainingContext.trainingTotal,
-        testBasedDifficulty: testProfile.hasTestResult,
+        testBasedDifficulty: false,
         sourceTestProfile: testProfile,
         nextRecommendedDccsLevel,
         nextRecommendedDifficulty: finalResult.recommendedDifficulty,
@@ -1887,7 +1741,6 @@ function TrainingPage_DCCS() {
     }
 
     setTrialIndex(nextIndex);
-    markTrialStartAfterPaint();
   };
 
   const continueAfterSwitchRule = () => {
@@ -1896,7 +1749,6 @@ function TrainingPage_DCCS() {
     setFeedback(null);
     setSelectedPosition(null);
     setIsLocked(false);
-    markTrialStartAfterPaint();
   };
 
   const restartTraining = () => {
@@ -1909,6 +1761,13 @@ function TrainingPage_DCCS() {
     setFeedback(null);
     setSelectedPosition(null);
     setIsLocked(false);
+    setHintVisible(false);
+    setWindActive(false);
+    promptEventsRef.current = [];
+    trialPromptEventsRef.current = [];
+    windEventsRef.current = [];
+    windElapsedRef.current = 0;
+    answerLockRef.current = true;
     trialStartTimeRef.current = null;
   };
 
@@ -1971,11 +1830,11 @@ function TrainingPage_DCCS() {
   const renderVideoPage = ({ src, title, buttonText, onDone, showNext = true }) => {
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
-        <main className="Dcss-center-shell Dcss-video-shell">
-          <section className="Dcss-soft-panel Dcss-video-card game-start-card-artwork dccs-video-card-artwork" aria-label={title}>
-            <div className="Dcss-video-frame">
+        <main className={`Dcss-center-shell Dcss-video-shell ${phase !== PHASE.VIDEO_INTRO ? "test-video-layout" : ""}`}>
+          <section className={`Dcss-soft-panel Dcss-video-card game-start-card-artwork dccs-video-card-artwork ${phase !== PHASE.VIDEO_INTRO ? "test-video-card" : ""}`} aria-label={title}>
+            <div className="Dcss-video-frame test-video-frame">
               <video
-                className="Dcss-guide-video"
+                className="Dcss-guide-video test-video"
                 src={src}
                 autoPlay
                 muted
@@ -1986,7 +1845,7 @@ function TrainingPage_DCCS() {
               />
             </div>
 
-            <div className="Dcss-video-actions">
+            <div className="Dcss-video-actions test-video-actions">
               <div className="Dcss-guided-action Dcss-guided-skip">
               <button
                 type="button"
@@ -1998,7 +1857,7 @@ function TrainingPage_DCCS() {
               </button>
               <img width={1024} height={1024} loading="lazy" className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="點擊提示" aria-hidden="true" />
               </div>
-              {showNext && <div className="Dcss-guided-action Dcss-guided-next">
+              {(showNext || phase === PHASE.END_VIDEO) && <div className="Dcss-guided-action Dcss-guided-next">
                 <button
                   type="button"
                   className="Dcss-forest-button Dcss-image-button Dcss-btn-next"
@@ -2072,6 +1931,8 @@ function TrainingPage_DCCS() {
         <div className="Dcss-switch-card Dcss-picture-rule-card Dcss-rule-guide-centered game-start-card-artwork dccs-rule-card-artwork">
           <div className="Dcss-rule-content Dcss-picture-rule-content">
             <div className="Dcss-tag">本關規則</div>
+            <p>{currentLevel.label} · 每題 {currentLevel.answerTimeLimitMs / 1000} 秒</p>
+            {currentLevel.windEnabled && <p>風來時選相反的分類箱，風停後恢復原本規則。</p>}
             {isTypeRule && <h1 className="Dcss-switch-title">看衣服種類</h1>}
             <p className={`Dcss-switch-description${isTypeRule ? "" : " Dcss-rule-primary-instruction"}`}>
               {isTypeRule ? "不看顏色，把衣服放進相同種類的籃子。" : "把衣服放進相同顏色的籃子。"}
@@ -2116,13 +1977,13 @@ function TrainingPage_DCCS() {
 
           <div className="Dcss-rule-content Dcss-picture-rule-content">
             <div className="Dcss-tag danger">再換一次規則</div>
-            <h1 className="Dcss-switch-title">衣服裝袋後，改看袋子的顏色</h1>
+            <h1 className="Dcss-switch-title">先看衣服有沒有裝袋</h1>
             <p className="Dcss-switch-description">
-              不看衣服種類，也不看原本衣服的顏色；請看袋子的顏色。
+              有透明袋子時，看袋內衣服的顏色；沒有袋子時，看衣服種類。
             </p>
 
             <div className="Dcss-picture-rule-row">
-              {examples.map((example, index) => {
+              {examples.map((example) => {
                 const correctPosition = getCorrectPosition(example);
                 const correctTarget =
                   correctPosition === "top"
@@ -2133,7 +1994,7 @@ function TrainingPage_DCCS() {
                   <div className="Dcss-mini-example" key={example.id}>
                     <img
                       src={getCardImage(example.card, example.imageVariant)}
-                      alt={`裝袋的${example.card.colorText}${example.card.typeText}`}
+                      alt={`${example.imageVariant === "bag" ? "裝袋的" : ""}${example.card.colorText}${example.card.typeText}`}
                       className="Dcss-rule-bagged-cloth"
                       width="330"
                       height="330"
@@ -2142,7 +2003,7 @@ function TrainingPage_DCCS() {
                     <span className="Dcss-big-arrow" aria-hidden="true">↓</span>
                     <div className="Dcss-demo-target Dcss-demo-target-type">
                       <img
-                        src={index % 2 === 0 ? basketTopImg : basketBottomImg}
+                        src={correctPosition === "top" ? basketTopImg : basketBottomImg}
                         alt={`${correctTarget?.label || "正確顏色"}籃子`}
                         width="319"
                         height="131"
@@ -2312,15 +2173,21 @@ function TrainingPage_DCCS() {
   if (!currentTrial) return null;
 
   return (
-    <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
+    <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}
+      data-testid="dccs-training" data-difficulty={levelId} data-trial={trialIndex + 1} data-rule={currentTrial.ruleStage}
+      data-wind-active={windActive}>
+      {windActive && <DccsWindEffect />}
       <div className="Dcss-test-shell Dcss-test-shell-visual Dcss-training-shell Dcss-training-shell-visual">
         <div className="Dcss-top-bar Dcss-top-bar-compact">
           <div className="Dcss-top-spacer" aria-hidden="true" />
 
           <div className="Dcss-progress-pill">
-            練習 {trialIndex + 1} / {currentLevel.trials.length}
+            {currentLevel.label} · 練習 {trialIndex + 1} / {currentLevel.trials.length} · 每題 {currentLevel.answerTimeLimitMs / 1000} 秒
           </div>
         </div>
+        {currentLevel.windEnabled && <div className="dccs-training-rule-status" role="status">
+          {windActive ? "風來了，選相反的分類箱" : "按照原本規則分類"}
+        </div>}
 
         <div className="Dcss-main-area Dcss-main-area-bottom-baskets Dcss-main-area-visual Dcss-training-main-area Dcss-training-main-area-visual">
           <div className="Dcss-play-row">
@@ -2354,6 +2221,7 @@ function TrainingPage_DCCS() {
                 selectedPosition === "top" ? "selected" : ""
               }`}
               onClick={() => handleAnswer("top")}
+              aria-label="左側分類箱"
               disabled={isLocked}
             >
               <div className="Dcss-basket-choice-label">
@@ -2362,6 +2230,9 @@ function TrainingPage_DCCS() {
               <div className="Dcss-basket-choice-image">
                 <img loading="lazy" src={basketTopImg} alt="左側分類箱" width="319" height="131" />
               </div>
+              {hintVisible && getCorrectPosition(currentTrial) === "top" && <img
+                className="dccs-training-answer-hint" data-testid="dccs-training-mouse"
+                src={mouseGuideImg} alt="MOUSE 提示點擊正確分類箱" />}
             </button>
 
             <button
@@ -2370,6 +2241,7 @@ function TrainingPage_DCCS() {
                 selectedPosition === "bottom" ? "selected" : ""
               }`}
               onClick={() => handleAnswer("bottom")}
+              aria-label="右側分類箱"
               disabled={isLocked}
             >
               <div className="Dcss-basket-choice-label">
@@ -2378,6 +2250,9 @@ function TrainingPage_DCCS() {
               <div className="Dcss-basket-choice-image">
                 <img loading="lazy" src={basketBottomImg} alt="右側分類箱" width="319" height="131" />
               </div>
+              {hintVisible && getCorrectPosition(currentTrial) === "bottom" && <img
+                className="dccs-training-answer-hint" data-testid="dccs-training-mouse"
+                src={mouseGuideImg} alt="MOUSE 提示點擊正確分類箱" />}
             </button>
           </div>
 
@@ -3128,7 +3003,7 @@ const dccsTrainingPageCss = `
 }
 
 .Dcss-round-icon::after {
-  content: "??;
+  content: "";
   position: absolute;
   right: 4px;
   bottom: 2px;

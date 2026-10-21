@@ -1,32 +1,237 @@
-.test-step-video-frame {
-  width: min(86vw, 960px) !important;
-  height: auto !important;
+/* Only STEP / END cards opt in. Intro movies and gameplay keep their layout.
+   Specificity also overrides the older page-local !important rules. */
+body :is(div, main):has(> .test-video-card),
+body :is(div, main):has(> .test-video-layout) {
+  width: 100% !important;
+  max-width: none !important;
+  height: 100dvh !important;
   min-height: 0 !important;
-  aspect-ratio: 16 / 9;
+  margin: 0 !important;
   padding: 0 !important;
-  margin-inline: auto;
-  border-radius: 28px !important;
-  overflow: hidden;
-  background: #000 !important;
   box-sizing: border-box;
 }
 
-video.test-step-video {
-  display: block;
+body .test-video-layout,
+body :is(div, main):has(> .test-video-card) {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: max(16px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left)) !important;
+}
+
+body .game-start-card-artwork.test-video-card {
+  --video-button-width: 220px;
+  --video-button-height: 100px;
+  --video-button-gap: 80px;
+  --video-layout-gap: 20px;
+  --video-prompt-space: 0px;
+  --video-artwork-corner: 100px;
+  container-type: size;
+  position: relative !important;
+  display: flex !important;
+  flex: none !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: var(--video-layout-gap) !important;
+  width: min(1440px, 100%) !important;
+  max-width: 1440px !important;
+  height: min(850px, 100%) !important;
+  max-height: 850px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 48px 64px 32px !important;
+  box-sizing: border-box !important;
+  border: 0 !important;
+  border-radius: 48px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  isolation: isolate;
+}
+
+/* Nine-slice the existing artwork: the cream center and straight edges grow,
+   while the rounded corners, leaves and flowers retain their shape. */
+body .game-start-card-artwork.test-video-card::before {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  inset: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  border: 0 solid transparent !important;
+  border-image: url("../asset/home/gamecard.webp") 130 fill /
+    var(--video-artwork-corner) / 0 stretch !important;
+  border-radius: inherit;
+  background: none !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 12px 20px rgba(77, 65, 35, 0.18)) !important;
+  transform: none !important;
+  pointer-events: none;
+  z-index: -1 !important;
+}
+
+body .game-start-card-artwork.test-video-card > .test-video-frame {
+  /* Container units measure the card after padding. Reserve the controls
+     and CBT's existing caption before fitting the 16:9 frame. */
+  flex: none !important;
+  width: min(1280px, 100cqw,
+    calc((100cqh - var(--video-button-height) - var(--video-layout-gap) - var(--video-prompt-space)) * 16 / 9)) !important;
+  max-width: 1280px !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  aspect-ratio: 16 / 9 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  border: 4px solid #8BC8E8 !important;
+  border-radius: 24px !important;
+  background: #eaf1df !important;
+  box-shadow: 0 6px 14px rgba(83, 119, 72, 0.12) !important;
+  overflow: hidden !important;
+}
+
+body .game-start-card-artwork.test-video-card > .test-video-frame > video.test-video {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  aspect-ratio: auto !important;
+  object-fit: contain !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #eaf1df !important;
+}
+
+body .game-start-card-artwork.test-video-card > .test-video-actions {
+  position: relative !important;
+  inset: auto !important;
+  display: flex !important;
+  flex: none !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: var(--video-button-gap) !important;
+  width: 100% !important;
+  height: var(--video-button-height) !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  transform: none !important;
+}
+
+body .test-video-card .test-video-actions > div {
+  position: relative !important;
+  inset: auto !important;
+  display: flex !important;
+  flex: none !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: auto !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  transform: none !important;
+}
+
+body .game-start-card-artwork.test-video-card .test-video-actions button:has(> img) {
+  position: relative !important;
+  inset: auto !important;
+  display: block !important;
+  flex: none !important;
+  width: min(var(--video-button-width), calc((100cqw - var(--video-button-gap)) / 2)) !important;
+  height: var(--video-button-height) !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+  transform: none !important;
+  transition: transform 180ms ease !important;
+}
+
+body .game-start-card-artwork.test-video-card .test-video-actions button > img {
+  display: block !important;
   width: 100% !important;
   height: 100% !important;
   max-width: none !important;
   max-height: none !important;
-  aspect-ratio: 16 / 9 !important;
   object-fit: contain !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: #000;
+  pointer-events: none;
 }
 
-@media (max-width: 680px) {
-  .test-step-video-frame {
-    width: 100% !important;
-    border-radius: 20px !important;
+body .game-start-card-artwork.test-video-card .test-video-actions button:hover:not(:disabled) {
+  transform: scale(1.05) !important;
+}
+
+body .game-start-card-artwork.test-video-card .test-video-actions button:active:not(:disabled) {
+  transform: scale(0.96) !important;
+}
+
+body .game-start-card-artwork.test-video-card .test-video-actions button:focus-visible {
+  outline: 3px solid #597d48 !important;
+  outline-offset: 4px;
+}
+
+body .test-video-card .test-video-actions [class*="mouse-on-button"] {
+  width: clamp(36px, 4vw, 64px) !important;
+  height: auto !important;
+  right: -8px !important;
+  bottom: -8px !important;
+  pointer-events: none;
+}
+
+body .game-start-card-artwork.test-video-card:has(> .cbt-quiet-prompt) {
+  --video-prompt-space: calc(48px + var(--video-layout-gap));
+}
+
+body .test-video-card > .cbt-quiet-prompt {
+  flex: none;
+  max-width: 100%;
+  max-height: 48px;
+  margin: 0;
+  font-size: clamp(14px, 1.6vw, 18px);
+  line-height: 1.3;
+}
+
+@media (max-width: 1024px) {
+  body .game-start-card-artwork.test-video-card {
+    width: min(94vw, 100%) !important;
+    padding-inline: 40px !important;
+  }
+}
+
+@media (max-width: 680px), (max-height: 600px) {
+  body .game-start-card-artwork.test-video-card {
+    --video-button-width: 160px;
+    --video-button-height: 76px;
+    --video-button-gap: 24px;
+    --video-layout-gap: 12px;
+    --video-artwork-corner: 70px;
+    padding: 36px 24px 24px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  body .game-start-card-artwork.test-video-card {
+    padding-inline: 8px !important;
   }
 }

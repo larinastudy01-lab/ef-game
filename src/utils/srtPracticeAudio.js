@@ -12,9 +12,9 @@ export function waitForSrtPractice(ms, signal) {
 }
 
 // Each cue finishes (or fails and is stopped) before the next cue/trial begins.
-export function playSrtPracticeCue(event, config, signal) {
-  if (signal.aborted || !config.audio.enabled) return Promise.resolve("skipped");
-  const src = config.audio.events[event];
+export function playSrtCue(event, audioConfig, signal) {
+  if (signal.aborted || !audioConfig.enabled) return Promise.resolve("skipped");
+  const src = audioConfig.events[event];
   if (!src) return Promise.resolve("missing");
   return new Promise((resolve) => {
     let audio;
@@ -33,7 +33,7 @@ export function playSrtPracticeCue(event, config, signal) {
     const ended = () => finish("ended");
     const failed = () => finish("failed");
     const aborted = () => finish("aborted");
-    const timer = setTimeout(() => finish("timeout"), config.audio.maxWaitMs);
+    const timer = setTimeout(() => finish("timeout"), audioConfig.maxWaitMs);
     audio.addEventListener("ended", ended);
     audio.addEventListener("error", failed);
     signal.addEventListener("abort", aborted, { once: true });

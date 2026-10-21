@@ -32,6 +32,7 @@ import catSound from "../asset/ARI/cat.mp3";
 import dogSound from "../asset/ARI/dog.mp3";
 import replayIcon from "../asset/voice.webp";
 import interferenceSound from "../asset/ARI/voice.mp3";
+import "../styles/TestStepVideo.css";
 
 const RESULT_ROUTE = "/result-ari";
 const FOREST_ROUTE = "/game-menu";
@@ -928,17 +929,29 @@ export default function TrainingPage_ARI() {
     return (
       <div className="ari-page ari-page--soft" style={{ "--ari-bg": `url(${asset.background})` }}>
         <style>{ariInlineCss}</style>
-        <main className="ari-center-shell">
-          <section className="ari-soft-panel ari-video-panel game-start-card-artwork ari-video-card-artwork" aria-label="遊戲影片">
-            <div className="ari-video-frame">
-              <video className="ari-video" src={videoSrc} autoPlay muted playsInline controls preload="metadata" onEnded={onEnded}>你的瀏覽器不支援影片播放。</video>
+        <main className={`ari-center-shell ${!isIntro ? "test-video-layout" : ""}`}>
+          <section className={`ari-soft-panel ari-video-panel game-start-card-artwork ari-video-card-artwork ${!isIntro ? "test-video-card" : ""}`} aria-label="遊戲影片">
+            <div className="ari-video-frame test-video-frame">
+              <video className="ari-video test-video" src={videoSrc} autoPlay muted playsInline controls preload="metadata" onEnded={onEnded}>你的瀏覽器不支援影片播放。</video>
             </div>
-            <div className="ari-guided-action ari-guided-next">
+            {isIntro ? <div className="ari-guided-action ari-guided-next">
               <button type="button" className={`ari-forest-button ari-image-button ${actionButtonClass}`} onClick={onAction} aria-label={actionLabel}>
                 <img loading="lazy" src={actionImage} alt={actionLabel} draggable="false" />
               </button>
               <img loading="lazy" className="ari-mouse-guide ari-mouse-on-button" src={asset.mouseGuideImg} alt="" aria-hidden="true" draggable="false" />
-            </div>
+            </div> : <div className="test-video-actions">
+              <div className="ari-guided-action ari-guided-skip">
+                <button type="button" className="ari-forest-button ari-image-button ari-btn-skip" onClick={onAction} aria-label="跳過動畫">
+                  <img loading="lazy" src={asset.homeSkipBtn} alt="跳過動畫" draggable="false" />
+                </button>
+              </div>
+              <div className="ari-guided-action ari-guided-next">
+                <button type="button" className="ari-forest-button ari-image-button ari-btn-next" onClick={onAction} aria-label="下一步">
+                  <img loading="lazy" src={asset.homeNextBtn} alt="下一步" draggable="false" />
+                </button>
+                <img loading="lazy" className="ari-mouse-guide ari-mouse-on-button" src={asset.mouseGuideImg} alt="" aria-hidden="true" draggable="false" />
+              </div>
+            </div>}
           </section>
         </main>
       </div>

@@ -7,6 +7,7 @@ import backIcon from "../asset/home/back.webp";
 import resetIcon from "../asset/home/remove.webp";
 import { getResultsByPatientFromCloud } from "../lib/database";
 import { supabase } from "../lib/supabaseClient";
+import { AssistantEmailChoice, AssistantEmailStatus, useAssistantEmail } from "../components/AssistantEmailControls";
 import { resetTestRecords } from "../utils/resetTestRecords";
 import "../styles/ResultPage_PA.css";
 
@@ -795,6 +796,7 @@ const ResultPage_PA = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
+  const assistantEmail = useAssistantEmail(currentChildId);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [applyMessage, setApplyMessage] = useState("");
   const [selectedHistoryRecord, setSelectedHistoryRecord] = useState(null);
@@ -909,6 +911,9 @@ const ResultPage_PA = () => {
       const trimmedQuestion = String(questionText || "").trim();
       if (!trimmedQuestion) return;
 
+      const emailChoice = assistantEmail.takeChoice();
+      const messageId = `assistant-${emailChoice.requestId}`;
+
       const replyText = buildAssistantReply({
         message: trimmedQuestion,
         result,
@@ -921,13 +926,14 @@ const ResultPage_PA = () => {
 
       setChatMessages((messages) => [
         ...messages,
-        { id: `user-${Date.now()}`, role: "user", text: trimmedQuestion },
-        { id: `assistant-${Date.now() + 1}`, role: "assistant", text: replyText },
+        { id: `user-${emailChoice.requestId}`, role: "user", text: trimmedQuestion },
+        { id: messageId, role: "assistant", text: replyText },
       ]);
+      assistantEmail.deliver(emailChoice, { messageId, question: trimmedQuestion, answer: replyText });
       setSelectedQuestion(assistantQuestions.find((item) => item.question === trimmedQuestion)?.id || selectedQuestion);
       setChatInput("");
     },
-    [assistantQuestions, childName, gameInfo, result, selectedQuestion, selectedTermInfo, warningInfo],
+    [assistantQuestions, assistantEmail, childName, gameInfo, result, selectedQuestion, selectedTermInfo, warningInfo],
   );
 
   const handleChatSubmit = (event) => {
@@ -1449,6 +1455,7 @@ const ResultPage_PA = () => {
               {chatMessages.map((message) => (
                 <div key={message.id} className={`chat-message ${message.role}`}>
                   <p>{message.text}</p>
+                  <AssistantEmailStatus delivery={assistantEmail.deliveries[message.id]} onRetry={() => assistantEmail.retry(message.id)} />
                 </div>
               ))}
             </div>
@@ -1481,6 +1488,7 @@ const ResultPage_PA = () => {
             </div>
           </div>
 
+          <AssistantEmailChoice controller={assistantEmail} />
           <form className="chat-input-row" onSubmit={handleChatSubmit}>
             <input
               type="text"
@@ -1488,6 +1496,7 @@ const ResultPage_PA = () => {
               onChange={(event) => setChatInput(event.target.value)}
               placeholder="輸入問題，例如：下次怎麼練？"
               aria-label="輸入想問 AI 小助手的問題"
+              maxLength={8000}
             />
             <button type="submit">送出</button>
             <button type="button" className="voice-control-button" onClick={isSpeaking ? stopAssistantVoice : speakAssistantAnswer}>

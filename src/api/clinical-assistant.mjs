@@ -5,9 +5,12 @@ import {
   env,
 } from "@huggingface/transformers";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let openai = null;
+
+async function createModelResponse(request) {
+  openai ||= new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return openai.responses.create(request);
+}
 
 env.cacheDir =
   process.env.HUGGINGFACE_CACHE_DIR ||
@@ -204,6 +207,10 @@ function safeString(
 }
 
 function safeNumber(value) {
+  if (value === null || value === undefined || String(value).trim() === "") {
+    return null;
+  }
+
   const number = Number(value);
 
   return Number.isFinite(number)
@@ -212,6 +219,10 @@ function safeNumber(value) {
 }
 
 function safeInteger(value) {
+  if (value === null || value === undefined || String(value).trim() === "") {
+    return null;
+  }
+
   const number = Number(value);
 
   return Number.isInteger(number)
@@ -995,7 +1006,11 @@ async function searchKnowledgeBase({
     return [];
   }
 
-  const documents = data
+  return prepareKnowledgeDocuments(data);
+}
+
+export function prepareKnowledgeDocuments(data) {
+  const documents = (Array.isArray(data) ? data : [])
     .map(
       sanitizeKnowledgeDocument
     )
@@ -1258,9 +1273,20 @@ function getSafeErrorMessage(
   return "無法完成 AI 回答。";
 }
 
-export default async function handler(
+// Dependencies are supplied only by local evaluation code, never by request data.
+export function createClinicalAssistantHandler({
+  retrieveKnowledge = searchKnowledgeBase,
+  createResponse = createModelResponse,
+  isConfigured = () => Boolean(process.env.OPENAI_API_KEY),
+} = {}) {
+  const dependencies = { retrieveKnowledge, createResponse, isConfigured };
+  return (req, res) => handler(req, res, dependencies);
+}
+
+async function handler(
   req,
-  res
+  res,
+  { retrieveKnowledge, createResponse, isConfigured }
 ) {
   if (req.method === "OPTIONS") {
     return res
@@ -1291,7 +1317,7 @@ export default async function handler(
    * 因此這裡仍需要檢查。
    */
   if (
-    !process.env.OPENAI_API_KEY
+    !isConfigured()
   ) {
     console.error(
       "缺少 OPENAI_API_KEY 環境變數。"
@@ -1375,7 +1401,7 @@ export default async function handler(
 
     try {
       ragDocuments =
-        await searchKnowledgeBase({
+        await retrieveKnowledge({
           question,
           context,
         });
@@ -1403,7 +1429,7 @@ export default async function handler(
       );
 
     const response =
-      await openai.responses.create(
+      await createResponse(
         {
           model:
             process.env
@@ -1504,3 +1530,5 @@ export default async function handler(
       });
   }
 }
+
+export default createClinicalAssistantHandler();

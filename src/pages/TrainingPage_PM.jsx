@@ -28,6 +28,7 @@ import homeSkipBtn from "../asset/home/skip.webp";
 import homeStartBtn from "../asset/home/start.webp";
 import homeNextBtn from "../asset/home/next.webp";
 import homeSendBtn from "../asset/home/send.webp";
+import "../styles/TestStepVideo.css";
 
 const ALL_ITEMS = PM_ITEMS;
 // Catalog contains all 29 categorized stimuli; the background is excluded.
@@ -1010,7 +1011,7 @@ export default function TrainingPage_PM() {
         }
       `}</style>
       <div style={styles.overlay}>
-        <div style={styles.container}>
+        <div className={["stepVideo", "endingVideo"].includes(phase) ? "test-video-layout" : undefined} style={styles.container}>
           {phase === "rules" && (
             <div className="game-start-card-artwork pm-opening-card-artwork" style={styles.startPanel}>
               <div style={styles.gameTitle}>圖片記憶任務・{currentConfig.shortLabel}</div>
@@ -1059,9 +1060,9 @@ export default function TrainingPage_PM() {
           )}
 
           {phase === "stepVideo" && (
-            <div className="game-start-card-artwork pm-video-card-artwork" style={styles.videoPanel}>
-              <div style={styles.videoFrame}>
-                <video
+            <div className="game-start-card-artwork pm-video-card-artwork test-video-card" style={styles.videoPanel}>
+              <div className="test-video-frame" style={styles.videoFrame}>
+                <video className="test-video"
                   src={stepVideo}
                   style={styles.video}
                   autoPlay
@@ -1072,7 +1073,7 @@ export default function TrainingPage_PM() {
                 />
               </div>
 
-              <div style={styles.videoActions}>
+              <div className="test-video-actions" style={styles.videoActions}>
                 {renderImageButton({
                   src: homeSkipBtn,
                   alt: "跳過動畫",
@@ -1176,9 +1177,9 @@ export default function TrainingPage_PM() {
           )}
 
           {phase === "endingVideo" && (
-            <div className="game-start-card-artwork pm-video-card-artwork" style={{ ...styles.videoPanel, outline: "none" }}>
-              <div style={styles.videoFrame}>
-                <video
+            <div className="game-start-card-artwork pm-video-card-artwork test-video-card" style={{ ...styles.videoPanel, outline: "none" }}>
+              <div className="test-video-frame" style={styles.videoFrame}>
+                <video className="test-video"
                   src={endingVideo}
                   style={styles.video}
                   autoPlay
@@ -1189,15 +1190,25 @@ export default function TrainingPage_PM() {
                 />
               </div>
 
-              {renderImageButton({
-                src: homeSkipBtn,
-                alt: "跳過動畫",
-                variant: "skip",
-                onClick: () => {
-                  playClick();
-                  handleEndingVideoEnd();
-                },
-              })}
+              <div className="test-video-actions">
+                {renderImageButton({
+                  src: homeSkipBtn,
+                  alt: "跳過動畫",
+                  variant: "skip",
+                  onClick: () => {
+                    playClick();
+                    handleEndingVideoEnd();
+                  },
+                })}
+                {renderImageButton({
+                  src: homeNextBtn,
+                  alt: "下一步",
+                  onClick: () => {
+                    playClick();
+                    handleEndingVideoEnd();
+                  },
+                })}
+              </div>
             </div>
           )}
 

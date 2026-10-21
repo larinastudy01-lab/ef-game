@@ -32,6 +32,14 @@
 }
 .srt-practice-target img { display: block; width: 100%; height: auto; pointer-events: none; }
 .srt-practice-target[data-visible="false"] { outline: none; }
+.srt-practice-rule-example {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  pointer-events: none;
+}
 .srt-practice-response-feedback {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -47,25 +55,7 @@
   pointer-events: none;
 }
 .srt-practice-response-feedback.is-gentle { background: #fff7dc; }
-.srt-practice-feedback {
-  position: absolute;
-  top: 47%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 112px;
-  height: 112px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  font-size: 76px;
-  background: rgba(247, 255, 226, 0.9);
-  color: #5c8b38;
-  pointer-events: none;
-  animation: srt-practice-feedback-in 450ms ease-out both;
-}
-.srt-practice-feedback.is-gentle { font-size: 60px; background: rgba(255, 247, 220, 0.92); }
-.srt-practice-page[data-feedback-animation="false"] .srt-practice-feedback { animation: none; }
-.srt-practice-actions, .srt-practice-assistance {
+.srt-practice-assistance {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -91,11 +81,4 @@
   color: #4a652e;
   font: inherit;
   cursor: pointer;
-}
-@keyframes srt-practice-feedback-in {
-  from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
-  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .srt-practice-feedback { animation: none; }
 }

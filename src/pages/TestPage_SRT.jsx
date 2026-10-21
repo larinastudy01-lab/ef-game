@@ -1,7 +1,6 @@
 import { gameLocalStorage as localStorage } from "../temporaryGameTesting/runtime";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "../styles/TestStepVideo.css";
 
 import bgImg from "../asset/SRT/SRT_background.webp";
 import normalImg from "../asset/SRT/training/acorn.webp";
@@ -18,22 +17,33 @@ import mouseImg from "../asset/mouse.webp";
 
 import SrtResultPage from "./ResultPage_SRT";
 import SrtTestTutorial from "../components/SrtTestTutorial";
+import SrtRuleIllustration from "../components/SrtRuleIllustration";
+import SrtNarrator from "../components/SrtNarrator";
 import { calculateSrtScore } from "../utils/srtScoring";
 import { saveUnifiedResult } from "../utils/resultManager";
 import { useTestAttempt } from "../utils/useTestAttempt";
 import { SRT_TEST_PROTOCOL_VERSION, SRT_ITEM_SIZE, SRT_TEST_INTERVALS, SRT_TEST_VISIBLE_TIME, SRT_TEST_TYPE_BLOCK, pickSrtInterval } from "../utils/srtProtocol";
+import { SRT_ASSESSMENT_INTRO_CUES, SRT_AUDIO_CONFIG } from "../config/srtAudioConfig";
+import { playSrtCue } from "../utils/srtPracticeAudio";
+import "../styles/SrtAssessmentIntro.css";
 
 import { createGameResult } from "../ai/gameResultTemplate";
 import { analyzePerformance } from "../ai/performanceAnalyzer";
 import { analyzeErrors } from "../ai/errorAnalyzer";
 import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
+import "../styles/TestStepVideo.css";
 
 const TEST_DURATION_MS = 480000; // 8 分鐘正式測驗
 const MAX_TRIALS = Math.ceil(TEST_DURATION_MS / Math.min(...SRT_TEST_INTERVALS)) + 1;
 const ITEM_VISIBLE_TIME = SRT_TEST_VISIBLE_TIME;
 const ITEM_SIZE = SRT_ITEM_SIZE;
 const TEST_PAGE_ROUTE = "/test-map";
+const INTRO_PROMPTS = {
+  ruleGo: "看到好的橡實，就快快點！",
+  ruleNoGo: "看到壞掉的橡實，千萬不要點喔！",
+  beforeTrial: "準備好了嗎？看仔細，開始囉！",
+};
 
 const targetTypes = {
   normal: {
@@ -67,6 +77,9 @@ const TestPage_SRT = () => {
   const [showDetailedResult, setShowDetailedResult] = useState(false);
   const [idleFlashId, setIdleFlashId] = useState(null);
   const [finalResult, setFinalResult] = useState(null);
+  const [assessmentAudioError, setAssessmentAudioError] = useState(false);
+  const [assessmentIntroCue, setAssessmentIntroCue] = useState(null);
+  const [completionNarrating, setCompletionNarrating] = useState(false);
 
   const phaseRef = useRef("start");
   const trialRecordsRef = useRef([]);
@@ -100,6 +113,7 @@ const TestPage_SRT = () => {
   const idleFlashTimeoutRef = useRef(null);
   const spawnAnimationFrameRef = useRef(null);
   const tutorialVideoRef = useRef(null);
+  const assessmentAudioRef = useRef(null);
 
   const pauseVideo = (videoRef) => {
     const video = videoRef.current;
@@ -140,6 +154,7 @@ const TestPage_SRT = () => {
     return () => {
       clearAllTimers();
       pauseAllVideos();
+      assessmentAudioRef.current?.abort();
     };
     // Cleanup must run only on unmount; video refs always expose their latest nodes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -566,6 +581,12 @@ const TestPage_SRT = () => {
     saveResultToLocalStorage(resultPayload, childProfile.childId);
     setFinalResult(resultPayload);
     setGamePhase("result");
+    const audioController = new AbortController();
+    assessmentAudioRef.current = audioController;
+    setCompletionNarrating(true);
+    void playSrtCue("assessmentComplete", SRT_AUDIO_CONFIG, audioController.signal).then(() => {
+      if (!audioController.signal.aborted) setCompletionNarrating(false);
+    });
 
     try {
       await saveUnifiedResult({
@@ -609,13 +630,29 @@ const TestPage_SRT = () => {
     };
   };
 
-  const startTest = () => {
+  const startTest = async () => {
+    if (!["tutorial", "assessmentIntro"].includes(phaseRef.current) || assessmentAudioRef.current) return;
     const childProfile = getCurrentChildProfile();
     if (!childProfile?.childId) {
       navigate("/child-select", { replace: true });
       return;
     }
 
+    const controller = new AbortController();
+    assessmentAudioRef.current = controller;
+    setAssessmentAudioError(false);
+    setGamePhase("assessmentIntro");
+    for (const event of SRT_ASSESSMENT_INTRO_CUES) {
+      setAssessmentIntroCue(event);
+      const outcome = await playSrtCue(event, SRT_AUDIO_CONFIG, controller.signal);
+      if (controller.signal.aborted) return;
+      if (outcome !== "ended") {
+        assessmentAudioRef.current = null;
+        setAssessmentAudioError(true);
+        return;
+      }
+    }
+    assessmentAudioRef.current = null;
     resetTest();
     testStartedAtRef.current = Date.now();
     testAttempt.begin(childProfile);
@@ -952,9 +989,9 @@ const TestPage_SRT = () => {
       )}
 
       {phase === "step" && (
-        <main className="srt-center-shell">
-          <section className="srt-soft-panel srt-video-panel game-start-card-artwork srt-video-card-artwork" aria-label="步驟教學影片">
-            <div className="srt-video-frame test-step-video-frame">
+        <main className="srt-center-shell test-video-layout">
+          <section className="srt-soft-panel srt-video-panel game-start-card-artwork srt-video-card-artwork test-video-card" aria-label="步驟教學影片">
+            <div className="srt-video-frame test-step-video-frame test-video-frame">
               <video
                 ref={tutorialVideoRef}
                 src={tutorialVideo}
@@ -963,10 +1000,10 @@ const TestPage_SRT = () => {
                 playsInline
                 controls
                 onEnded={handleTutorialVideoEnd}
-                className="srt-video test-step-video"
+                className="srt-video test-step-video test-video"
               />
             </div>
-            <div className="srt-step-actions">
+            <div className="srt-step-actions test-video-actions">
               <div className="srt-guided-action srt-guided-skip">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={handleTutorialVideoEnd} aria-label="跳過動畫">
                   <img src={homeSkipBtn} width="532" height="177" loading="lazy" alt="跳過動畫" />
@@ -987,6 +1024,29 @@ const TestPage_SRT = () => {
         <SrtTestTutorial onReady={startTest} onExit={() => navigate(TEST_PAGE_ROUTE)}
           childId={getCurrentChildId()} getPosition={getRandomPosition}
           assessmentTiming={{ responseWindowMs: ITEM_VISIBLE_TIME, stimulusIntervalsMs: SRT_TEST_INTERVALS }} />
+      )}
+
+      {phase === "assessmentIntro" && (
+        <main className="srt-assessment-intro">
+          <section className="srt-intro-layout" aria-label="測驗準備">
+            <div className="srt-intro-instructions">
+              <h1>記住兩個小規則</h1>
+              <ol className="srt-intro-rules" aria-label="橡實規則">
+                <li className="srt-intro-rule srt-intro-rule-go" aria-current={!assessmentAudioError && assessmentIntroCue === "ruleGo" ? "step" : undefined}>
+                  <SrtRuleIllustration targetType="normal" animate={!assessmentAudioError && assessmentIntroCue === "ruleGo"} />
+                </li>
+                <li className="srt-intro-rule srt-intro-rule-nogo" aria-current={!assessmentAudioError && assessmentIntroCue === "ruleNoGo" ? "step" : undefined}>
+                  <SrtRuleIllustration targetType="rotten" />
+                </li>
+              </ol>
+              <p className="srt-intro-prompt" role="status">
+                {assessmentAudioError ? "再聽一次，準備好就開始囉！" : INTRO_PROMPTS[assessmentIntroCue]}
+              </p>
+              {assessmentAudioError && <button type="button" className="srt-intro-replay" onClick={startTest}>重新播放語音</button>}
+            </div>
+            <SrtNarrator className="srt-intro-chicken" event={assessmentIntroCue} speaking={!assessmentAudioError} alt="小雞陪你記住規則" />
+          </section>
+        </main>
       )}
 
       {phase === "playing" && (
@@ -1020,10 +1080,13 @@ const TestPage_SRT = () => {
               ))}
             </div>
 
-            <div className="srt-start-content srt-result-content">
+            <div className={`srt-start-content srt-result-content ${completionNarrating ? "has-narrator" : ""}`}>
               <div className="srt-dialog-bubble">完成了！你有很認真看森林喔。</div>
-              <div className="srt-round-icon srt-result-icon">
-                <img src={levelIcon} width="340" height="340" loading="lazy" alt="SRT 關卡圖示" />
+              <div className="srt-result-narrator-column">
+                <div className="srt-round-icon srt-result-icon">
+                  <img src={levelIcon} width="340" height="340" loading="lazy" alt="SRT 關卡圖示" />
+                </div>
+                {completionNarrating && <SrtNarrator event="assessmentComplete" />}
               </div>
             </div>
 
@@ -1034,7 +1097,11 @@ const TestPage_SRT = () => {
                 </button>
                 <img className="srt-mouse-guide srt-mouse-on-button" src={mouseImg} width="156" height="156" loading="lazy" alt="" aria-hidden="true" />
               </div>
-              <button type="button" className="srt-forest-button srt-image-button srt-btn-detail" onClick={() => setShowDetailedResult(true)} aria-label="詳細結果">
+              <button type="button" className="srt-forest-button srt-image-button srt-btn-detail" onClick={() => {
+                assessmentAudioRef.current?.abort();
+                setCompletionNarrating(false);
+                setShowDetailedResult(true);
+              }} aria-label="詳細結果">
                 <img src={homeResultBtn} width="532" height="177" loading="lazy" alt="查看詳細結果" />
               </button>
             </div>

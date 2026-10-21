@@ -1,0 +1,164 @@
+.pm-practice {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  --pm-action-height: clamp(88px, 17dvh, 138px);
+  grid-template-rows: minmax(0, 1fr) auto;
+  color: #674529;
+  touch-action: manipulation;
+}
+.pm-practice::before {
+  content: "";
+  position: absolute;
+  inset: -24px;
+  z-index: -1;
+  backdrop-filter: blur(4px);
+  background: rgba(255, 252, 225, 0.08);
+  pointer-events: none;
+}
+.pm-practice[data-phase="memorize"] { grid-template-rows: minmax(0, 1fr) 0; }
+.pm-practice-board { position: relative; width: 100%; min-height: 0; }
+.pm-practice-scene {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, .95fr);
+  gap: clamp(10px, 1.5vw, 20px);
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+.pm-practice-scene[data-narrator-layout="center"] { grid-template-columns: minmax(0, 1fr); }
+/* Keep this pane reserved even while silent: replay and reminders must never
+   move the child's pictures. Answer buttons stay outside both panes. */
+.pm-practice-narrator-slot {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.pm-narrator {
+  display: grid;
+  grid-template-areas: "frame";
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  pointer-events: none;
+}
+.pm-narrator-frame {
+  grid-area: frame;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  object-fit: contain;
+}
+.pm-narrator-open { opacity: 0; }
+.pm-narrator-closed { opacity: 1; }
+.pm-narrator[data-speaking="true"] .pm-narrator-frame { animation: pmNarratorMouth 560ms steps(1, end) infinite both; }
+.pm-narrator[data-speaking="true"] .pm-narrator-closed { animation-delay: -280ms; }
+@keyframes pmNarratorMouth { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+.pm-practice-item {
+  border: 4px solid #e7c985;
+  border-radius: 50%;
+  background: #fff3cf;
+  box-shadow: 0 7px 14px rgba(77, 53, 30, 0.13), inset 0 -4px 0 rgba(233, 179, 91, 0.12);
+  box-sizing: border-box;
+}
+.pm-practice-item {
+  position: absolute;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 200ms ease, border-color 200ms ease, background-color 200ms ease, box-shadow 200ms ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+button.pm-practice-item { cursor: pointer; }
+button.pm-practice-item:disabled { cursor: default; opacity: 1; }
+.pm-practice-item img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.pm-practice-item[aria-pressed="true"] {
+  border-color: #79b94b;
+  background-color: #e7f5d4;
+  transform: scale(1.05);
+  box-shadow: 0 7px 14px rgba(80, 112, 58, 0.16), 0 0 0 7px rgba(139, 216, 86, 0.2);
+}
+.pm-practice button:focus-visible { outline: 3px solid #46782b; outline-offset: 5px; }
+.pm-practice-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 10px 16px max(22px, env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+}
+.pm-practice[data-phase="memorize"] .pm-practice-footer { padding: 0; }
+.pm-practice-image-button {
+  display: block;
+  flex: 0 0 auto;
+  width: min(268px, 70vw);
+  height: var(--pm-action-height);
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  transition: filter 200ms ease, transform 200ms ease;
+}
+.pm-practice-image-button img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; filter: drop-shadow(0 5px 5px rgba(74, 48, 16, 0.18)); }
+.pm-practice-image-button:disabled { filter: brightness(0.65); cursor: default; }
+.pm-practice-image-button:active:not(:disabled) { transform: scale(0.97); }
+.pm-practice-start-button { position: relative; }
+.pm-practice-start-button .pm-practice-start-guide {
+  position: absolute;
+  right: 20%;
+  bottom: 24%;
+  width: min(clamp(44px, 5vw, 64px), calc(var(--pm-action-height) * .65));
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+  transform-origin: 20% 12%;
+  filter: drop-shadow(0 3px 4px rgba(74, 48, 16, .18));
+  animation: pmPracticeStartTap 1400ms ease-in-out infinite;
+}
+@keyframes pmPracticeStartTap {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  45% { transform: translate(-3px, -3px) scale(1.04); }
+  60% { transform: translate(-1px, -1px) scale(.88); }
+  78% { transform: translate(0, 0) scale(1); }
+}
+.pm-practice[data-feedback="correct"] .pm-narrator { animation: pmPracticeGlow 1100ms ease both; }
+@keyframes pmPracticeGlow { 0%, 100% { filter: none; } 50% { filter: drop-shadow(0 0 18px rgba(118, 180, 70, .45)); } }
+.pm-practice-complete {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  justify-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0 12px;
+  box-sizing: border-box;
+  text-align: center;
+  animation: pmPracticeSuccess 1100ms ease both;
+}
+@keyframes pmPracticeSuccess { 0% { opacity: 0; scale: 0.94; } 55% { opacity: 1; scale: 1.04; } 100% { opacity: 1; scale: 1; } }
+@media (max-width: 900px) and (orientation: portrait) {
+  .pm-practice-scene[data-narrator-layout="beside"] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, .95fr);
+  }
+}
+@media (max-height: 560px) { .pm-practice { --pm-action-height: 80px; } }
+@media (prefers-reduced-motion: reduce) {
+  .pm-practice-item { transition: none; }
+  .pm-practice-complete, .pm-practice[data-feedback="correct"] .pm-narrator { animation: none; }
+  .pm-narrator[data-speaking="true"] .pm-narrator-frame { animation: none; }
+  .pm-practice-start-button .pm-practice-start-guide { animation: none; }
+}

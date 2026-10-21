@@ -1,4 +1,173 @@
-/* These additions are scoped to practice; the formal LB board keeps its CSS. */
+/* Practice keeps its companion area; formal answers reclaim the whole board. */
+.lb-playing-panel {
+  --lb-action-width: min(clamp(128px, 13vw, 188px), calc((100vw - 64px) / 2));
+  --lb-footer-space: calc(var(--lb-action-width) * .625 + clamp(14px, 2.4vh, 28px) + 20px);
+}
+
+.lb-with-voice-guide,
+.lb-result-with-guide {
+  --lb-guide-width: min(26vw, 380px, calc((100dvh - 140px) * 1.25));
+}
+
+.lb-with-voice-guide[data-mode="practiceMode1"] {
+  --lb-guide-width: min(34vw, 480px, calc((100dvh - 140px) * 1.25));
+}
+
+.lb-with-voice-guide[data-mode="practiceMode2"] {
+  --lb-guide-width: min(28vw, 420px, calc((100dvh - 140px) * 1.25));
+}
+
+.lb-playing-panel.lb-with-voice-guide .lb-play-board {
+  left: calc(var(--lb-guide-width) + 24px);
+  bottom: var(--lb-footer-space);
+}
+
+.lb-playing-panel .lb-game-footer > .lb-action-button {
+  width: var(--lb-action-width);
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  aspect-ratio: 8 / 5;
+  flex: 0 0 auto;
+  display: block;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  line-height: 0;
+  pointer-events: auto;
+}
+
+.lb-action-art {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.lb-playing-panel .lb-action-art img {
+  position: absolute;
+  max-height: none;
+  object-fit: fill;
+  filter: none;
+}
+
+/* Normalize each asset's transparent padding to the same visible 8:5 frame.
+   delete: 286x237, artwork bounds (10,47)-(272,214).
+   send:   322x236, artwork bounds (9,17)-(304,215). */
+.lb-playing-panel .lb-action-art-delete img {
+  width: 109.1603%;
+  height: 141.9162%;
+  left: -3.8168%;
+  top: -28.1437%;
+}
+
+.lb-playing-panel .lb-action-art-send img {
+  width: 109.1525%;
+  height: 119.1919%;
+  left: -3.0508%;
+  top: -8.5859%;
+}
+
+.lb-voice-companion {
+  pointer-events: none;
+}
+
+.lb-with-voice-guide > .lb-voice-companion {
+  position: absolute;
+  left: 0;
+  top: 24px;
+  bottom: 100px;
+  width: var(--lb-guide-width);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lb-chicken-sprite {
+  display: grid;
+  grid-template-areas: "chicken";
+  width: 100%;
+  aspect-ratio: 1408 / 1125;
+  filter: drop-shadow(0 5px 8px rgba(83, 61, 22, .2));
+  animation: lbCompanionSpeaking 900ms ease-in-out infinite;
+}
+
+.lb-chicken-sprite img {
+  grid-area: chicken;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.lb-chicken-mouth-open {
+  animation: lbChickenMouthOpen 1080ms steps(1, end) infinite;
+}
+
+.lb-chicken-mouth-closed {
+  opacity: 0;
+  animation: lbChickenMouthClosed 1080ms steps(1, end) infinite;
+}
+
+.lb-with-voice-guide .lb-play-board[hidden],
+.lb-with-voice-guide .lb-game-footer[hidden] {
+  display: none;
+}
+
+.lb-with-voice-guide > .lb-voice-companion.is-centered {
+  inset: 24px;
+  width: auto;
+}
+
+.lb-voice-companion.is-centered .lb-chicken-sprite {
+  width: min(88vw, calc((100dvh - 80px) * 1.25), 960px);
+}
+
+.lb-center-shell.lb-result-with-guide {
+  width: min(96vw, 1320px);
+  display: grid;
+  grid-template-columns: minmax(0, .36fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(12px, 2vw, 28px);
+}
+
+.lb-result-with-guide > .lb-soft-panel {
+  min-width: 0;
+  width: 100%;
+}
+
+.lb-playing-panel .lb-doorplate.is-voice-highlighted {
+  opacity: 1;
+  z-index: 4;
+  filter: brightness(1.22) drop-shadow(0 0 9px #fff5a5) drop-shadow(0 0 20px #ffd33c);
+  animation: lbSpokenDoorplate 900ms ease-in-out infinite;
+}
+
+@keyframes lbCompanionSpeaking {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-4px) rotate(2deg); }
+}
+
+@keyframes lbChickenMouthOpen {
+  0%, 38%, 74% { opacity: 1; }
+  20%, 58%, 92%, 100% { opacity: 0; }
+}
+
+@keyframes lbChickenMouthClosed {
+  0%, 38%, 74% { opacity: 0; }
+  20%, 58%, 92%, 100% { opacity: 1; }
+}
+
+@keyframes lbSpokenDoorplate {
+  0%, 100% { transform: translate(-50%, -50%) scale(1.04); }
+  50% { transform: translate(-50%, -50%) scale(1.1); }
+}
+
+/* Practice keeps its smaller doorplates and existing hand demonstration. */
 .lb-playing-panel.lb-practice-panel .lb-doorplate {
   width: min(clamp(54px, 7.8vw, 104px), calc((100vw - 100px) / 5.3), calc((100dvh - 168px) / 4.5));
   height: min(clamp(54px, 7.8vw, 104px), calc((100vw - 100px) / 5.3), calc((100dvh - 168px) / 4.5));
@@ -30,7 +199,51 @@
   45% { transform: translate(-12%, -12%) scale(.78); }
 }
 
+@media (max-width: 600px) and (orientation: portrait) {
+  .lb-playing-panel.lb-with-voice-guide {
+    --lb-guide-height: min(24dvh, 220px);
+  }
+
+  .lb-playing-panel.lb-with-voice-guide .lb-play-board {
+    left: 12px;
+    top: calc(var(--lb-guide-height) + 24px);
+  }
+
+  .lb-with-voice-guide > .lb-voice-companion:not(.is-centered) {
+    inset: 8px 12px auto;
+    width: auto;
+    height: var(--lb-guide-height);
+  }
+
+  .lb-with-voice-guide > .lb-voice-companion:not(.is-centered) .lb-chicken-sprite {
+    width: min(72vw, calc(var(--lb-guide-height) * 1.25));
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .lb-chicken-sprite,
+  .lb-chicken-sprite img,
+  .lb-playing-panel .lb-doorplate.is-voice-highlighted { animation: none; }
   .lb-practice-mouse { transition: none; }
   .lb-practice-mouse.is-clicking { animation: none; }
+}
+
+/* Override both the desktop sidebar and portrait header after formal speech. */
+.lb-playing-panel.lb-with-voice-guide.lb-formal-fullscreen .lb-play-board {
+  inset: 24px 24px var(--lb-footer-space);
+}
+
+.lb-formal-fullscreen > .lb-voice-companion {
+  display: none;
+}
+
+.lb-playing-panel.lb-formal-fullscreen .lb-doorplate {
+  --lb-formal-plate-size: min(clamp(52px, 7.8vw, 104px), calc((100vw - 64px) / 6), calc((100dvh - var(--lb-footer-space) - 64px) / 4.6));
+  width: var(--lb-formal-plate-size);
+  height: var(--lb-formal-plate-size);
+}
+
+.lb-playing-panel.lb-formal-fullscreen .lb-map-home {
+  width: min(clamp(86px, 12vw, 188px), 24%);
+  max-height: 26%;
 }

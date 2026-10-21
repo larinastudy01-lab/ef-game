@@ -1,5 +1,5 @@
 import { SRT_PRACTICE_CONFIG } from "../config/srtPracticeConfig";
-import { playSrtPracticeCue } from "./srtPracticeAudio";
+import { playSrtCue } from "./srtPracticeAudio";
 
 let audio;
 beforeEach(() => {
@@ -14,7 +14,7 @@ afterEach(() => { jest.restoreAllMocks(); jest.useRealTimers(); });
 test.each(["ended", "error", "timeout", "rejection", "abort"])("audio %s always releases the practice flow and cleans up", async (event) => {
   const controller = new AbortController();
   if (event === "rejection") audio.play.mockRejectedValue(new Error("autoplay blocked"));
-  const completion = playSrtPracticeCue("beforeTrial", SRT_PRACTICE_CONFIG, controller.signal);
+  const completion = playSrtCue("beforeTrial", SRT_PRACTICE_CONFIG.audio, controller.signal);
   if (event === "ended" || event === "error") audio.dispatchEvent(new Event(event));
   if (event === "timeout") jest.advanceTimersByTime(SRT_PRACTICE_CONFIG.audio.maxWaitMs);
   if (event === "abort") controller.abort();

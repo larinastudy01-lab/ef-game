@@ -6,11 +6,11 @@ import {
 
 const timing = { responseWindowMs: 500, stimulusIntervalsMs: [1000, 3000] };
 
-test("practice uses a one-second display and response window followed by a half-second blank", () => {
-  expect(SRT_PRACTICE_CONFIG.responseWindowMs).toBe(1000);
-  expect(SRT_PRACTICE_CONFIG.interStimulusIntervalMs).toBe(1500);
+test("practice uses a two-second display and response window followed by a half-second blank", () => {
+  expect(SRT_PRACTICE_CONFIG.responseWindowMs).toBe(2000);
+  expect(SRT_PRACTICE_CONFIG.interStimulusIntervalMs).toBe(2500);
   expect(resolveSrtPracticeConfig({}, timing)).toMatchObject({
-    stimulusDurationMs: 1000, responseWindowMs: 1000, stimulusIntervalsMs: [1500],
+    stimulusDurationMs: 2000, responseWindowMs: 2000, stimulusIntervalsMs: [2500],
     timingSource: { responseWindowMs: "practice_config", interStimulusIntervalMs: "practice_config" },
   });
   expect(resolveSrtPracticeConfig({ stimulusDurationMs: 500, responseWindowMs: 1200, interStimulusIntervalMs: 2000 })).toMatchObject({

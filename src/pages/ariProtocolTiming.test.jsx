@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom";
 import TrainingARI from "./TrainingPage_ARI";
 import TestARI from "./TestPage_ARI";
+import { ARI_PRACTICE_AUDIO as cues } from "../utils/ariPracticeAudio";
 import { saveUnifiedResult } from "../utils/resultManager";
 import { useTestAttempt } from "../utils/useTestAttempt";
 
@@ -174,16 +175,25 @@ async function startAssessment() {
   renderPage(<TestARI />, "/test-ari");
   fireEvent.click(screen.getByRole("button", { name: "進入遊戲" }));
   fireEvent.click(screen.getByRole("button", { name: "下一步" }));
-  await act(async () => audios.at(-1).onended()); // Your turn.
+  for (const cue of [cues.intro, cues.dogRule, cues.catRule]) {
+    expect(audios.at(-1).src).toBe(cue);
+    await act(async () => audios.at(-1).onended());
+  }
   for (let index = 0; index < 2; index += 1) {
     await act(async () => audios.at(-1).onended()); // Question prompt.
     await act(async () => audios.at(-1).onended()); // Animal stimulus.
     await act(async () => audios.at(-1).onended()); // Answer prompt.
     fireEvent.click(animal(oppositeOfSound()));
     await act(async () => jest.advanceTimersByTime(1000));
+    expect(audios.at(-1).src).toBe(cues.correct);
+    await act(async () => audios.at(-1).onended()); // Correct answer feedback.
   }
   await act(async () => audios.at(-1).onended()); // Completion prompt.
   fireEvent.click(screen.getByRole("button", { name: "開始挑戰" }));
+  expect(attempt.begin).not.toHaveBeenCalled();
+  expect(audios.at(-1).src).toBe(cues.assessmentStart);
+  await act(async () => audios.at(-1).onended()); // Reminder before timing starts.
+  expect(attempt.begin).toHaveBeenCalledTimes(1);
   advance(500);
 }
 
@@ -202,6 +212,27 @@ test("assessment retains twenty trials and five seconds, without replay, hints o
   }
   expect(attempt.complete).toHaveBeenCalledTimes(1);
   expect(attempt.complete.mock.calls[0][0]).toMatchObject({ totalTrials: 20, replayCount: 0, promptCount: 0, protocol: { answerTimeLimit: 5000, allowReplay: false } });
+  expect(audios.at(-1).src).toBe(cues.assessmentComplete);
+  expect(screen.getByRole("region", { name: "測驗結果" })).toBeInTheDocument();
+  const narrator = screen.getByTestId("ari-narrator");
+  expect(narrator.closest(".ari-result-with-narrator")).toBeInTheDocument();
+  expect(narrator.querySelector(".ari-narrator-open")).toHaveAttribute("src", "chicken.webp");
+  expect(narrator.querySelector(".ari-narrator-closed")).toHaveAttribute("src", "chicken01.webp");
+  act(() => audios.at(-1).onplaying());
+  expect(narrator).toHaveAttribute("data-speaking", "true");
+  const failedCompletion = audios.at(-1);
+  await act(async () => failedCompletion.onerror());
+  expect(narrator).toHaveAttribute("data-speaking", "false");
+  expect(failedCompletion.pause).toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "重新播放完成語音" }));
+  expect(audios.at(-1).src).toBe(cues.assessmentComplete);
+  act(() => audios.at(-1).onplaying());
+  expect(narrator).toHaveAttribute("data-speaking", "true");
+  await act(async () => audios.at(-1).onended());
+  expect(narrator).toHaveAttribute("data-speaking", "false");
+  expect(attempt.complete).toHaveBeenCalledTimes(1);
+  expect(saveUnifiedResult).toHaveBeenCalledTimes(1);
+  expect(jest.getTimerCount()).toBe(0);
 });
 
 test("assessment audio errors interrupt the attempt and never offer a replay", async () => {

@@ -47,6 +47,7 @@ export function createClinicalAuthMiddleware({ supabase, allowedRoles = DEFAULT_
       if (!roleSet.has(role)) return res.status(403).json({ error: "此帳號沒有使用臨床 AI 的權限。" });
 
       req.auth = { userId: user.id, role };
+      req.authEmail = typeof user.email === "string" ? user.email : null;
       return next();
     } catch (error) {
       console.error("Clinical API authentication failed:", error?.message || error);

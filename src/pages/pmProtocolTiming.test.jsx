@@ -8,6 +8,8 @@ import { useTestAttempt } from "../utils/useTestAttempt";
 
 jest.mock("../utils/resultManager", () => ({ saveUnifiedResult: jest.fn() }));
 jest.mock("../utils/useTestAttempt", () => ({ useTestAttempt: jest.fn() }));
+// Practice has its own flow tests; these tests exercise the formal clock.
+jest.mock("../components/PMPractice", () => ({ onComplete }) => <button onClick={onComplete}>完成試玩</button>);
 
 const advance = (milliseconds) => act(() => jest.advanceTimersByTime(milliseconds));
 const stage = () => screen.getByTestId("pm-stage");
@@ -64,6 +66,7 @@ function startAssessment() {
   renderPage(<TestPagePM />, "/test-picture-memory");
   fireEvent.click(screen.getByRole("button", { name: "進入遊戲" }));
   fireEvent.click(screen.getByRole("button", { name: "跳過動畫" }));
+  fireEvent.click(screen.getByRole("button", { name: "完成試玩" }));
   expect(stage()).toHaveAttribute("data-phase", "memorize");
 }
 
@@ -140,15 +143,16 @@ test.each([
   expect(trials.every((trial) => trial.motionMode === "none" && trial.adaptiveOffset === 0)).toBe(true);
 });
 
-test("formal assessment holds viewing at five seconds across all fourteen trials and never exceeds seven objects", () => {
+test("formal assessment holds viewing at five seconds across twelve trials, with loads two through seven and no practice prompts", () => {
   startAssessment();
-  const counts = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7];
+  const counts = [2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7];
   counts.forEach((count) => {
     expect(stage()).toHaveAttribute("data-memory-count", String(count));
     expect(stage()).toHaveAttribute("data-show-time", "5");
     expect(stage()).toHaveAttribute("data-answer-limit", "15");
     const targets = observe(5, true);
     expect(screen.queryByTestId("pm-idle-hint")).not.toBeInTheDocument();
+    expect(screen.queryByAltText("示範點擊")).not.toBeInTheDocument();
     advance(300);
     submitIds(targets);
     expect(stage()).toHaveAttribute("data-phase", "feedback");
@@ -246,7 +250,7 @@ test("assessment timeout is fifteen seconds even after a late object selection",
   startAssessment();
   const targets = observe(5);
   advance(14900);
-  fireEvent.click(option(targets[0]));
+  targets.forEach((id) => fireEvent.click(option(id)));
   advance(99);
   expect(recordedAssessmentTrials()).toHaveLength(0);
   advance(1);
@@ -341,10 +345,6 @@ test("training preserves a blocked selection at the limit without changing answe
 
 test("assessment preserves a blocked selection at the limit without changing answers or counting a confusion error", () => {
   startAssessment();
-  for (let trial = 0; trial < 2; trial += 1) {
-    submitIds(observe(5));
-    nextAssessmentRound();
-  }
   const targets = observe(5);
   expect(targets).toHaveLength(2);
   targets.forEach((id) => fireEvent.click(option(id)));
@@ -355,13 +355,13 @@ test("assessment preserves a blocked selection at the limit without changing ans
   expect(options().filter((button) => button.getAttribute("aria-pressed") === "true")
     .map((button) => button.dataset.itemId).sort()).toEqual([...targets].sort());
   fireEvent.click(screen.getByRole("button", { name: "放進小籃子" }));
-  const third = recordedAssessmentTrials().find((trial) => trial.trialNumber === 3);
-  expect(third).toMatchObject({ isCorrect: true, selectedIds: targets, wrongTapCount: 0, possibleConfusionCount: 0 });
-  expect(third.confusionAnalysis.errors).toEqual([]);
-  expect(third.tapLogs).toHaveLength(3);
-  expect(third.tapLogs[2]).toMatchObject({
+  const first = recordedAssessmentTrials().find((trial) => trial.trialNumber === 1);
+  expect(first).toMatchObject({ isCorrect: true, selectedIds: targets, wrongTapCount: 0, possibleConfusionCount: 0 });
+  expect(first.confusionAnalysis.errors).toEqual([]);
+  expect(first.tapLogs).toHaveLength(3);
+  expect(first.tapLogs[2]).toMatchObject({
     itemId: blockedId, timestamp: 125, action: "blocked_select", reason: "selection_limit",
     isCorrectItem: false, selectedCountAfter: 2,
   });
-  expect(third.clickLogs).toEqual(third.tapLogs);
+  expect(first.clickLogs).toEqual(first.tapLogs);
 });

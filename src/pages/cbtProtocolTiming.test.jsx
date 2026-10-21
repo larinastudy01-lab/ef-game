@@ -80,8 +80,28 @@ function startTraining(difficulty) {
 function startAssessment() {
   renderPage(<TestPageCBT />, "/test-cbt");
   fireEvent.click(screen.getByRole("button", { name: "開始遊戲" }));
-  expect(screen.getByText(/先看完亮燈.*再.*點石頭/)).toBeInTheDocument();
+  expect(document.querySelector("video")).toHaveAttribute("src", "CBT_step.mp4");
+  expect(screen.queryByText(/看完再點/)).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "跳過動畫" }));
+  // Assessment practice has its own narration/timing and never records trials.
+  const endPracticeVoice = () => fireEvent.ended(window.HTMLMediaElement.prototype.play.mock.instances.at(-1));
+  for (let round = 0; round < 2; round += 1) {
+    endPracticeVoice();
+    const first = stones().indexOf(activeStone());
+    advance(1000);
+    advance(500);
+    const second = stones().indexOf(activeStone());
+    advance(1000);
+    endPracticeVoice();
+    fireEvent.click(stones()[first]);
+    advance(300);
+    fireEvent.click(stones()[second]);
+    advance(300);
+    endPracticeVoice();
+  }
+  expect(attempt.begin).not.toHaveBeenCalled();
+  expect(attempt.checkpoint).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "開始正式評測" }));
   for (let second = 0; second < 5; second += 1) advance(1000);
 }
 

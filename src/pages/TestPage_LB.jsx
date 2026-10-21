@@ -3,13 +3,14 @@ import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage 
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "../styles/TestStepVideo.css";
 import { getLBDoorplateImage } from "../utils/lbDoorplateAssets";
 import calculateLBScore from "../utils/lbScoring";
 import { saveUnifiedResult } from "../utils/resultManager";
 import { useTestAttempt } from "../utils/useTestAttempt";
 import { LB_MODES, LB_PRACTICE_STAGES, buildLBPracticeItems } from "../utils/lbPracticeProtocol";
 import useLBPracticeFlow from "../utils/useLBPracticeFlow";
+import { playLBFormalCue } from "../utils/lbPracticeAudio";
+import { getLBVoiceHighlightKey } from "../utils/lbVoiceGuide";
 import "../styles/LBPractice.css";
 
 import backgroundImg from "../asset/LB/LB_background.webp";
@@ -25,6 +26,9 @@ import homeResultBtn from "../asset/home/result.webp";
 import homeSendBtn from "../asset/home/send.webp";
 import homeDeleteBtn from "../asset/home/delete.webp";
 import mouseGuideImg from "../asset/mouse.webp";
+import chickenImg from "../asset/chicken.webp";
+import chickenClosedImg from "../asset/chicken01.webp";
+import "../styles/TestStepVideo.css";
 
 const RESULT_ROUTE = "/result-lb";
 const SESSION_KEY = "LB_RESULT";
@@ -80,81 +84,28 @@ function toPercentPosition(x, y) {
   return { left: `${x}%`, top: `${y}%` };
 }
 
-const ROUTE_POSITIONS = {
-  forward: {
-    // 依照正確順序由左到右微幅 S 型排列，送出後連線不會互相交叉。
-    route: [
-      toPercentPosition(12, 66),
-      toPercentPosition(22, 52),
-      toPercentPosition(32, 64),
-      toPercentPosition(42, 50),
-      toPercentPosition(52, 62),
-      toPercentPosition(62, 48),
-      toPercentPosition(72, 60),
-      toPercentPosition(80, 46),
-      toPercentPosition(87, 34),
-      toPercentPosition(91, 52),
-    ],
-    distractors: [],
-  },
-  "red-blue": {
-    // 正確路線：紅1 → 藍2 → 紅3 → 藍4……一路靠近小屋，不交叉。
-    route: [
-      toPercentPosition(12, 66),
-      toPercentPosition(22, 53),
-      toPercentPosition(32, 65),
-      toPercentPosition(42, 52),
-      toPercentPosition(52, 64),
-      toPercentPosition(62, 51),
-      toPercentPosition(72, 62),
-      toPercentPosition(80, 48),
-      toPercentPosition(87, 36),
-      toPercentPosition(91, 54),
-    ],
-    // 干擾門牌放在路線上下方，避免跟正確路線擠在同一條線上。
-    distractors: [
-      toPercentPosition(10, 31),
-      toPercentPosition(21, 30),
-      toPercentPosition(33, 34),
-      toPercentPosition(45, 30),
-      toPercentPosition(57, 34),
-      toPercentPosition(69, 31),
-      toPercentPosition(78, 72),
-      toPercentPosition(65, 76),
-      toPercentPosition(49, 75),
-      toPercentPosition(30, 76),
-    ],
-  },
+const FORMAL_SLOTS = {
+  // Spread signs across the board while reserving the lower right for the house.
+  forward: [[10, 16], [47, 12], [86, 15], [27, 38], [66, 36],
+    [10, 60], [46, 61], [88, 58], [25, 84], [60, 84]],
+  "red-blue": [[9, 12], [29, 14], [49, 10], [69, 14], [89, 12],
+    [9, 35], [25, 37], [41, 34], [57, 37], [73, 34], [89, 37],
+    [9, 59], [25, 61], [41, 58], [57, 61], [73, 59], [89, 60],
+    [9, 84], [27, 83], [45, 84]],
 };
 
 function buildStageItems(stage) {
-  const layout = ROUTE_POSITIONS[stage.id] || { route: [], distractors: [] };
-  const positionByKey = new Map();
-
-  stage.sequence.forEach((key, index) => {
-    if (layout.route[index]) positionByKey.set(key, layout.route[index]);
-  });
-
-  let distractorIndex = 0;
-  return stage.items.map((item, index) => {
-    const fallbackPosition = {
-      left: `${12 + (index % 5) * 18}%`,
-      top: `${18 + Math.floor(index / 5) * 24}%`,
-    };
-
-    if (!positionByKey.has(item.key)) {
-      positionByKey.set(
-        item.key,
-        layout.distractors[distractorIndex] || layout.route[index] || fallbackPosition
-      );
-      distractorIndex += 1;
-    }
-
-    return {
-      ...item,
-      position: positionByKey.get(item.key) || fallbackPosition,
-    };
-  });
+  const slots = FORMAL_SLOTS[stage.id];
+  const shuffled = [...stage.items];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const other = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[other]] = [shuffled[other], shuffled[index]];
+  }
+  // useMemo holds this assignment through speech, selection, undo and review.
+  return shuffled.map((item, index) => ({
+    ...item,
+    position: toPercentPosition(...slots[index]),
+  }));
 }
 
 function nowISO() {
@@ -350,7 +301,7 @@ function createResultPayload({ trials, stageRecords, startedAt, completed }) {
   };
 }
 
-function DoorplateButton({ item, disabled, completed, visited, isWrong, isCorrect, onClick }) {
+function DoorplateButton({ item, disabled, completed, visited, isWrong, isCorrect, highlighted, onClick }) {
   return (
     <button
       type="button"
@@ -361,6 +312,7 @@ function DoorplateButton({ item, disabled, completed, visited, isWrong, isCorrec
         visited ? "is-visited" : "",
         isWrong ? "is-wrong" : "",
         isCorrect ? "is-correct" : "",
+        highlighted ? "is-voice-highlighted" : "",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -382,8 +334,20 @@ function DoorplateButton({ item, disabled, completed, visited, isWrong, isCorrec
         alt={`${item.color} ${item.number}`}
         draggable="false"
       />
-      {completed && <b className="lb-select-order">✓</b>}
     </button>
+  );
+}
+
+function LBVoiceCompanion({ visible, hasVisuals = true }) {
+  return (
+    <aside className={`lb-voice-companion${hasVisuals ? "" : " is-centered"}`} aria-label="語音說明區">
+      {visible && (
+        <span className="lb-chicken-sprite">
+          <img className="lb-chicken-mouth-open" src={chickenImg} alt="小雞正在說明" draggable="false" />
+          <img className="lb-chicken-mouth-closed" src={chickenClosedImg} alt="" aria-hidden="true" draggable="false" />
+        </span>
+      )}
+    </aside>
   );
 }
 
@@ -405,6 +369,8 @@ function TestPageLB() {
   const [walkerStepIndex, setWalkerStepIndex] = useState(-1);
   const [walkerEnteringHome, setWalkerEnteringHome] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [formalReadyStage, setFormalReadyStage] = useState(null);
+  const [voicePlayback, setVoicePlayback] = useState(null);
   const [resultPayload, setResultPayload] = useState(null);
 
   const startedAtRef = useRef(nowISO());
@@ -422,12 +388,39 @@ function TestPageLB() {
     ? buildLBPracticeItems(currentStage)
     : buildStageItems(currentStage), [currentStage, isPractice]);
   const stageDone = completedKeys.length === currentStage.sequence.length;
+  const voiceHighlightKey = getLBVoiceHighlightKey(voicePlayback, currentStage);
+  // General introductions need no cards; specific rules keep their examples visible.
+  const speechOnly = isPractice && ["intro", "transition"].includes(voicePlayback?.event);
 
   useEffect(() => {
-    if (phase === "playing" && mode === LB_MODES.formalMode) {
+    if (mode !== LB_MODES.formalMode) return undefined;
+    if (phase !== "playing" && phase !== "result") return undefined;
+    const controller = new AbortController();
+    const { signal } = controller;
+    if (phase === "result") {
+      playLBFormalCue("complete", signal, setVoicePlayback);
+    } else {
+      const introduce = async () => {
+        await playLBFormalCue(stageIndex === 0 ? "rule1" : "rule2", signal, setVoicePlayback);
+        if (signal.aborted) return;
+        // Rule speech is outside the child's response time for both stages.
+        stageStartedAtRef.current = Date.now();
+        if (stageIndex === 0) {
+          startedAtRef.current = nowISO();
+          testAttempt.begin();
+        }
+        setFormalReadyStage(stageIndex);
+      };
+      introduce();
+    }
+    return () => controller.abort();
+  }, [phase, mode, stageIndex, testAttempt]);
+
+  useEffect(() => {
+    if (phase === "playing" && mode === LB_MODES.formalMode && formalReadyStage === stageIndex) {
       testAttempt.checkpoint({ currentStage: { stageIndex, selectedKeys: completedKeys, selectionLogs: selectionLogsRef.current } });
     }
-  }, [phase, mode, stageIndex, completedKeys, testAttempt]);
+  }, [phase, mode, stageIndex, completedKeys, testAttempt, formalReadyStage]);
 
   const pauseVideo = useCallback((videoRef) => {
     const video = videoRef.current;
@@ -494,6 +487,7 @@ function TestPageLB() {
     setWalkerStepIndex(-1);
     setWalkerEnteringHome(false);
     setIsLocked(false);
+    setFormalReadyStage(null);
     setResultPayload(null);
   };
 
@@ -520,14 +514,13 @@ function TestPageLB() {
     setWalkerStepIndex(-1);
     setWalkerEnteringHome(false);
     setIsLocked(false);
+    setFormalReadyStage(null);
     stageStartedAtRef.current = Date.now();
     selectionLogsRef.current = [];
 
   };
 
   const startGame = () => {
-    startedAtRef.current = nowISO();
-    testAttempt.begin();
     setMode(LB_MODES.formalMode);
     resetStageState(0);
     setTrials([]);
@@ -538,6 +531,7 @@ function TestPageLB() {
   const practice = useLBPracticeFlow({
     stage: phase === "playing" ? practiceStage : null,
     displayItems,
+    onPlayback: setVoicePlayback,
     onRetry: () => {
       setRouteKeys([]);
       setRouteVisible(false);
@@ -555,11 +549,18 @@ function TestPageLB() {
       }
     },
   });
-  const controlsLocked = isLocked || (isPractice && practice.status !== "answering");
+  const controlsLocked = isLocked || (isPractice
+    ? practice.status !== "answering"
+    : formalReadyStage !== stageIndex);
 
   const handleNumberClick = (item) => {
     if (phase !== "playing" || controlsLocked || routeVisible || finishedRef.current) return;
-    if (isPractice) practice.registerActivity();
+    if (isPractice) {
+      practice.registerActivity();
+      if (!completedKeys.includes(item.key) && completedKeys.length < currentStage.sequence.length) {
+        practice.checkSelection(item, completedKeys.length);
+      }
+    }
 
     setCompletedKeys((previous) => {
       if (previous.includes(item.key)) {
@@ -843,12 +844,12 @@ function TestPageLB() {
     return (
       <div className="lb-simple-page lb-srt-skin">
         <LBResetStyle />
-        <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-video-panel game-start-card-artwork lb-video-card-artwork" aria-label="前導教學影片">
-            <div className="lb-video-frame test-step-video-frame">
-              <video ref={tutorialVideoRef} src={tutorialVideo} autoPlay muted playsInline controls onEnded={handleTutorialVideoEnd} className="lb-video test-step-video" />
+        <main className="lb-center-shell test-video-layout">
+          <section className="lb-soft-panel lb-video-panel game-start-card-artwork lb-video-card-artwork test-video-card" aria-label="前導教學影片">
+            <div className="lb-video-frame test-step-video-frame test-video-frame">
+              <video ref={tutorialVideoRef} src={tutorialVideo} autoPlay muted playsInline controls onEnded={handleTutorialVideoEnd} className="lb-video test-step-video test-video" />
             </div>
-            <div className="lb-video-actions">
+            <div className="lb-video-actions test-video-actions">
               <div className="lb-guided-action lb-guided-skip">
                 <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleTutorialVideoEnd} aria-label="跳過前導教學">
                   <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過前導教學" />
@@ -871,7 +872,8 @@ function TestPageLB() {
     return (
       <div className="lb-simple-page lb-srt-skin">
         <LBResetStyle />
-        <main className="lb-center-shell lb-result-shell">
+        <main className="lb-center-shell lb-result-shell lb-result-with-guide">
+          <LBVoiceCompanion visible={Boolean(voicePlayback)} />
           <section className="lb-soft-panel lb-result-panel game-result-card-artwork lb-summary-card-artwork" aria-label="測驗結果">
             <div className="lb-cute-stars" aria-label={`${resultStars} 顆星`}>
               {[1, 2, 3].map((star) => (
@@ -904,9 +906,14 @@ function TestPageLB() {
   return (
     <div className="lb-simple-page lb-srt-skin">
       <LBResetStyle />
-      <main className={`lb-game-card lb-playing-panel${isPractice ? " lb-practice-panel" : ""}`}
+      <main className={[
+        "lb-game-card lb-playing-panel lb-with-voice-guide",
+        isPractice && "lb-practice-panel",
+        !isPractice && formalReadyStage === stageIndex && "lb-formal-fullscreen",
+      ].filter(Boolean).join(" ")}
         data-mode={mode} data-practice-status={isPractice ? practice.status : undefined}>
-        <section className="lb-play-board" onClick={handleBlankClick} aria-label={isPractice ? currentStage.title : "正式測驗"}>
+        <LBVoiceCompanion visible={Boolean(voicePlayback)} hasVisuals={!speechOnly} />
+        <section className="lb-play-board" hidden={speechOnly} onClick={handleBlankClick} aria-label={isPractice ? currentStage.title : "正式測驗"}>
           <img width={1024} height={1024} loading="lazy" className="lb-map-home" src={homeImg} alt="綿羊奶奶的房子" draggable="false" />
           {routeVisible && walkerStepIndex >= 0 && routeKeys.length > 0 && (() => {
             const activeKey = routeKeys[Math.min(walkerStepIndex, routeKeys.length - 1)];
@@ -935,6 +942,7 @@ function TestPageLB() {
               visited={routeVisible && routeKeys.indexOf(item.key) <= walkerStepIndex && routeKeys.includes(item.key)}
               isWrong={wrongKey === item.key}
               isCorrect={correctKey === item.key}
+              highlighted={item.key === voiceHighlightKey || (isPractice && item.key === practice.mouse?.key)}
               onClick={handleNumberClick}
             />
           ))}
@@ -945,31 +953,35 @@ function TestPageLB() {
           )}
         </section>
 
-        <footer className="lb-game-footer">
+        <footer className="lb-game-footer" hidden={speechOnly}>
           <button
             type="button"
-            className="lb-undo-button"
+            className="lb-undo-button lb-action-button"
             onClick={handleUndoLastSelection}
             disabled={completedKeys.length === 0 || controlsLocked}
             aria-label="退回上一個門牌"
           >
-            <img
-              width={1024}
-              height={341}
-              loading="lazy"
-              src={homeDeleteBtn}
-              alt="退回上一個門牌"
-              draggable="false"
-            />
+            <span className="lb-action-art lb-action-art-delete">
+              <img
+                width={286}
+                height={237}
+                loading="lazy"
+                src={homeDeleteBtn}
+                alt="退回上一個門牌"
+                draggable="false"
+              />
+            </span>
           </button>
           <button
             type="button"
-            className="lb-submit-button"
+            className="lb-submit-button lb-action-button"
             onClick={handleSubmitStage}
             disabled={!stageDone || controlsLocked}
             aria-label="送出答案"
           >
-            <img width={1024} height={341} loading="lazy" src={homeSendBtn} alt="送出答案" draggable="false" />
+            <span className="lb-action-art lb-action-art-send">
+              <img width={322} height={236} loading="lazy" src={homeSendBtn} alt="送出答案" draggable="false" />
+            </span>
           </button>
         </footer>
       </main>
@@ -1593,22 +1605,6 @@ function LBResetStyle() {
         stroke-width: 6.4;
       }
 
-      .lb-select-order {
-        position: absolute;
-        right: -7px;
-        top: -8px;
-        width: 25px;
-        height: 25px;
-        display: grid;
-        place-items: center;
-        border-radius: 50%;
-        border: 3px solid #fff;
-        background: #79b84a;
-        color: #fff;
-        font-size: 14px;
-        box-shadow: 0 3px 8px rgba(49, 92, 32, .28);
-      }
-
       @keyframes lbDrawRoute {
         from { stroke-dashoffset: 45; opacity: 0; }
         to { stroke-dashoffset: 0; opacity: 1; }
@@ -1742,14 +1738,16 @@ function LBResetStyle() {
 
       .lb-doorplate:hover:not(:disabled) {
         transform: translate(-50%, -50%) scale(1.055);
-        filter: brightness(1.06) drop-shadow(0 0 12px rgba(255, 226, 94, 0.48));
+        filter: brightness(1.04);
       }
 
-      .lb-doorplate.is-completed {
-        opacity: 0.86;
+      .lb-doorplate.is-completed,
+      .lb-doorplate.is-completed:hover:not(:disabled) {
+        opacity: 1;
         filter:
-          brightness(1.08)
-          drop-shadow(0 0 14px rgba(255, 221, 86, 0.70));
+          brightness(1.18)
+          drop-shadow(0 0 10px rgba(255, 247, 176, 0.95))
+          drop-shadow(0 0 22px rgba(255, 205, 53, 0.90));
       }
 
       .lb-doorplate.is-correct {

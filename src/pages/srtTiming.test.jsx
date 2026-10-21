@@ -9,7 +9,11 @@ import { useTestAttempt } from "../utils/useTestAttempt";
 jest.mock("../utils/resultManager", () => ({ saveUnifiedResult: jest.fn() }));
 jest.mock("../utils/useTestAttempt", () => ({ useTestAttempt: jest.fn() }));
 // These regression tests isolate the existing assessment/training timers.
-// The real practice gate is covered in srtPractice.test.jsx.
+// The real audio gate is covered in srtPractice and srtAssessmentAudio tests.
+jest.mock("../config/srtAudioConfig", () => ({
+  ...jest.requireActual("../config/srtAudioConfig"),
+  SRT_ASSESSMENT_INTRO_CUES: [],
+}));
 jest.mock("../components/SrtTestTutorial", () => ({
   __esModule: true,
   default: ({ onReady }) => <section aria-label="SRT 試玩"><button onClick={onReady}>通過試玩</button></section>,

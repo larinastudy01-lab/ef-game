@@ -1,7 +1,6 @@
 import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "../styles/TestStepVideo.css";
 
 import { analyzePerformance } from "../ai/performanceAnalyzer";
 import { analyzeErrors } from "../ai/errorAnalyzer";
@@ -12,6 +11,7 @@ import { useTestAttempt } from "../utils/useTestAttempt";
 import { calculatePMScore } from "../utils/pmScoring";
 import { PM_ITEMS, PM_ITEM_BY_ID, buildPMQuestion, analyzePMConfusions } from "../utils/pmItems";
 import { PM_PROTOCOL_VERSION, PM_ANSWER_TIME_SECONDS, PM_TEST_SHOW_TIME, getPMRecommendedDifficulty } from "../utils/pmProtocol";
+import PMPractice from "../components/PMPractice";
 
 // ===== 圖片 =====
 import rabbitAvatar from "../asset/avatar/rabbit.webp";
@@ -25,19 +25,18 @@ import homeBackBtn from "../asset/home/back.webp";
 import homeResultBtn from "../asset/home/result.webp";
 import homeNextBtn from "../asset/home/next.webp";
 import homeSendBtn from "../asset/home/send.webp";
-import mouseGuideImg from "../asset/mouse.webp";
+import "../styles/TestStepVideo.css";
 
 const TEST_PAGE_ROUTE = "/test-map";
 
 
 // Catalog contains all 29 categorized stimuli; the background is excluded.
 
-// PM 完整測驗：7 個記憶跨度，每個跨度 2 題，最多 12 選。
+// PM 完整測驗：記憶負荷 2～7，每個跨度 2 題，共 12 題，最多 12 選。
 const FULL_TEST_SHOW_TIME = PM_TEST_SHOW_TIME;
 
 
 const LEVELS = [
-  { level: 1, memoryCount: 1, showTime: FULL_TEST_SHOW_TIME, answerTime: PM_ANSWER_TIME_SECONDS },
   { level: 2, memoryCount: 2, showTime: FULL_TEST_SHOW_TIME, answerTime: PM_ANSWER_TIME_SECONDS },
   { level: 3, memoryCount: 3, showTime: FULL_TEST_SHOW_TIME, answerTime: PM_ANSWER_TIME_SECONDS },
   { level: 4, memoryCount: 4, showTime: FULL_TEST_SHOW_TIME, answerTime: PM_ANSWER_TIME_SECONDS },
@@ -301,9 +300,10 @@ export default function TestPage_PM() {
   const resultIdRef = useRef(null);
   const videoTransitioningRef = useRef(false);
   const finishingRef = useRef(false);
+  const formalStartedRef = useRef(false);
 
   const [phase, setPhase] = useState("rules");
-  // rules -> stepVideo -> memorize -> answer -> feedback -> result
+  // rules -> stepVideo -> practice -> memorize -> answer -> feedback -> result
 
   const [currentLevelIndex, setCurrentLevelIndex] = useState(0);
   const [currentMemorizeItems, setCurrentMemorizeItems] = useState([]);
@@ -426,9 +426,9 @@ export default function TestPage_PM() {
     hasSavedUnifiedResultRef.current = false;
     finishingRef.current = false;
     videoTransitioningRef.current = false;
-    testStartedAtRef.current = new Date().toISOString();
+    formalStartedRef.current = false;
+    testStartedAtRef.current = null;
     resultIdRef.current = null;
-    resultIdRef.current = testAttempt.begin().resultId;
     resetRuntimeRefs();
     setCurrentLevelIndex(0);
     setCurrentMemorizeItems([]);
@@ -438,12 +438,17 @@ export default function TestPage_PM() {
   };
 
   const handleStepVideoEnd = () => {
-    if (videoTransitioningRef.current) return;
+    if (phase !== "stepVideo" || videoTransitioningRef.current) return;
     videoTransitioningRef.current = true;
+    setPhase("practice");
+  };
+
+  const handleAssessmentStart = () => {
+    if (phase !== "practice" || formalStartedRef.current) return;
+    formalStartedRef.current = true;
+    testStartedAtRef.current = new Date().toISOString();
+    resultIdRef.current = testAttempt.begin().resultId;
     setupLevel(TEST_TRIALS[0]);
-    requestAnimationFrame(() => {
-      videoTransitioningRef.current = false;
-    });
   };
 
   const trackRandomClick = () => {
@@ -904,11 +909,6 @@ export default function TestPage_PM() {
   return (
     <div style={styles.page(bgImage)} data-testid="pm-stage" data-phase={phase} data-memory-count={currentLevel?.memoryCount} data-show-time={currentLevel?.showTime} data-answer-limit={PM_ANSWER_TIME_SECONDS}>
       <style>{`
-        @keyframes pmMouseTap {
-          0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.92; }
-          45% { transform: translate(-10px, -9px) scale(1.08); opacity: 1; }
-          62% { transform: translate(-4px, -4px) scale(0.96); opacity: 1; }
-        }
         button[aria-label="進入遊戲"]:hover:not(:disabled),
         button[aria-label="跳過動畫"]:hover:not(:disabled),
         button[aria-label="下一步"]:hover:not(:disabled),
@@ -937,7 +937,7 @@ export default function TestPage_PM() {
         }
       `}</style>
       <div style={styles.overlay}>
-        <div style={styles.container}>
+        <div className={phase === "stepVideo" ? "test-video-layout" : undefined} style={styles.container}>
           {phase === "rules" && (
             <div className="game-start-card-artwork pm-opening-card-artwork" style={styles.startPanel}>
               <div style={styles.gameTitle}>找出兔子妹妹遺失的物品</div>
@@ -951,22 +951,21 @@ export default function TestPage_PM() {
                 </div>
               </div>
 
-              <div style={styles.guidedAction}>
+              <div className="test-video-actions" style={styles.guidedAction}>
                 <button type="button" style={styles.imageButton} onClick={handleStart} aria-label="進入遊戲">
                   <img width={1024} height={341} src={homeStartBtn} alt="進入遊戲" style={styles.imageButtonImg} />
                 </button>
-                <img width={1024} height={1024} loading="lazy" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
               </div>
             </div>
           )}
 
 
           {phase === "stepVideo" && (
-            <div className="game-start-card-artwork pm-video-card-artwork" style={styles.videoPanel}>
-              <div className="test-step-video-frame" style={styles.videoFrame}>
+            <div className="game-start-card-artwork pm-video-card-artwork test-video-card" style={styles.videoPanel}>
+              <div className="test-step-video-frame test-video-frame" style={styles.videoFrame}>
                 <video
                   src={stepVideo}
-                  className="test-step-video"
+                  className="test-step-video test-video"
                   style={styles.video}
                   autoPlay
                   muted
@@ -976,17 +975,18 @@ export default function TestPage_PM() {
                 />
               </div>
 
-              <div style={styles.guidedAction}>
+              <div className="test-video-actions" style={styles.guidedAction}>
                 <button type="button" style={{ ...styles.imageButton, ...styles.skipImageButton }} onClick={handleStepVideoEnd} aria-label="跳過動畫">
                   <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過動畫" style={styles.imageButtonImg} />
                 </button>
                 <button type="button" style={styles.imageButton} onClick={handleStepVideoEnd} aria-label="下一步">
                   <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" style={styles.imageButtonImg} />
                 </button>
-                <img width={1024} height={1024} loading="lazy" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" style={{ ...styles.mouseGuide, ...styles.mouseOnButton }} />
               </div>
             </div>
           )}
+
+          {phase === "practice" && <PMPractice onComplete={handleAssessmentStart} />}
 
           {phase === "memorize" && currentLevel && (
             <div style={styles.card}>
@@ -1702,24 +1702,6 @@ const styles = {
 
   sendImageButton: {
     marginTop: "6px",
-  },
-
-  mouseGuide: {
-    position: "absolute",
-    width: "clamp(48px, 5.2vw, 78px)",
-    height: "auto",
-    zIndex: 8,
-    pointerEvents: "none",
-    userSelect: "none",
-    WebkitUserDrag: "none",
-    filter: "drop-shadow(0 8px 8px rgba(58, 38, 14, 0.24))",
-    animation: "pmMouseTap 1.15s ease-in-out infinite",
-  },
-
-  mouseOnButton: {
-    right: "-18px",
-    bottom: "-18px",
-    transformOrigin: "18% 18%",
   },
 
   mainButton: {

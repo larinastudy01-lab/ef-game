@@ -1,3 +1,4 @@
+import { DCCS_DIFFICULTY_ORDER, DCCS_TRAINING_CONFIG, normalizeDccsTrainingDifficulty as normalizeTrainingDifficulty } from "../utils/dccsTrainingProtocol";
 // src/ai/dccsTrainingAnalyzer.js
 
 /**
@@ -5,7 +6,7 @@
  * Dimensional Change Card Sort Training Analyzer
  *
  * 功能：
- * 1. 支援 DCCS 十階訓練難度。
+ * 1. 支援 DCCS 五級訓練難度。
  * 2. 分析規則理解、規則切換、干擾抑制與固著錯誤。
  * 3. 分析反應時間、切換成本、作答穩定度與疲勞。
  * 4. 根據目前表現建議升級、維持或降級。
@@ -14,110 +15,9 @@
  * 7. 提供兒童端、家長端與醫療端可直接使用的分析結果。
  */
 
-const DCCS_DIFFICULTY_ORDER = [
-  "colorIntro",
-  "colorStable",
-  "typeIntro",
-  "typeStable",
-  "switchClear",
-  "switchEarly",
-  "switchMaintain",
-  "lowInterference",
-  "highInterference",
-  "testLike",
-];
-
-const DCCS_DIFFICULTY_INFO = {
-  colorIntro: {
-    level: 1,
-    label: "第 1 階",
-    title: "看顏色",
-    category: "singleRule",
-    focus: "colorRule",
-    minimumTrials: 3,
-  },
-
-  colorStable: {
-    level: 2,
-    label: "第 2 階",
-    title: "顏色穩定",
-    category: "singleRule",
-    focus: "colorRule",
-    minimumTrials: 4,
-  },
-
-  typeIntro: {
-    level: 3,
-    label: "第 3 階",
-    title: "看衣服",
-    category: "singleRule",
-    focus: "typeRule",
-    minimumTrials: 3,
-  },
-
-  typeStable: {
-    level: 4,
-    label: "第 4 階",
-    title: "衣服穩定",
-    category: "singleRule",
-    focus: "typeRule",
-    minimumTrials: 4,
-  },
-
-  switchClear: {
-    level: 5,
-    label: "第 5 階",
-    title: "明確換規則",
-    category: "switch",
-    focus: "ruleSwitch",
-    minimumTrials: 4,
-  },
-
-  switchEarly: {
-    level: 6,
-    label: "第 6 階",
-    title: "提前換規則",
-    category: "switch",
-    focus: "ruleSwitch",
-    minimumTrials: 4,
-  },
-
-  switchMaintain: {
-    level: 7,
-    label: "第 7 階",
-    title: "切換後維持",
-    category: "switch",
-    focus: "ruleMaintain",
-    minimumTrials: 5,
-  },
-
-  lowInterference: {
-    level: 8,
-    label: "第 8 階",
-    title: "少量干擾",
-    category: "interference",
-    focus: "inhibition",
-    minimumTrials: 5,
-  },
-
-  highInterference: {
-    level: 9,
-    label: "第 9 階",
-    title: "高干擾",
-    category: "interference",
-    focus: "inhibition",
-    minimumTrials: 5,
-  },
-
-  testLike: {
-    level: 10,
-    label: "第 10 階",
-    title: "接近測驗",
-    category: "testLike",
-    focus: "testReadiness",
-    minimumTrials: 6,
-  },
-};
+const DCCS_DIFFICULTY_INFO = Object.fromEntries(DCCS_DIFFICULTY_ORDER.map((id, index) => [id, {
+  ...DCCS_TRAINING_CONFIG[id], level: index + 1,
+}]));
 
 /* -------------------------------------------------------------------------- */
 /* 基礎工具                                                                    */
@@ -218,68 +118,7 @@ function filterValidReactionTimes(values = []) {
 /* -------------------------------------------------------------------------- */
 
 function normalizeDifficulty(difficulty) {
-  if (isFiniteNumber(difficulty)) {
-    const index = clamp(
-      Math.round(difficulty) - 1,
-      0,
-      DCCS_DIFFICULTY_ORDER.length - 1
-    );
-
-    return DCCS_DIFFICULTY_ORDER[index];
-  }
-
-  const key =
-    typeof difficulty === "string"
-      ? difficulty.trim()
-      : "";
-
-  const map = {
-    easy: "colorIntro",
-    normal: "switchClear",
-    medium: "switchClear",
-    hard: "highInterference",
-
-    easyIntro: "colorIntro",
-    easyPlus: "colorStable",
-    switchIntro: "switchClear",
-    switchPlus: "switchMaintain",
-    interference: "highInterference",
-
-    colorIntro: "colorIntro",
-    colorStable: "colorStable",
-    typeIntro: "typeIntro",
-    typeStable: "typeStable",
-    switchClear: "switchClear",
-    switchEarly: "switchEarly",
-    switchMaintain: "switchMaintain",
-    lowInterference: "lowInterference",
-    highInterference: "highInterference",
-    testLike: "testLike",
-
-    color_intro: "colorIntro",
-    color_stable: "colorStable",
-    type_intro: "typeIntro",
-    type_stable: "typeStable",
-    switch_clear: "switchClear",
-    switch_early: "switchEarly",
-    switch_maintain: "switchMaintain",
-    low_interference: "lowInterference",
-    high_interference: "highInterference",
-    test_like: "testLike",
-
-    level1: "colorIntro",
-    level2: "colorStable",
-    level3: "typeIntro",
-    level4: "typeStable",
-    level5: "switchClear",
-    level6: "switchEarly",
-    level7: "switchMaintain",
-    level8: "lowInterference",
-    level9: "highInterference",
-    level10: "testLike",
-  };
-
-  return map[key] || "switchClear";
+  return normalizeTrainingDifficulty(difficulty, "medium");
 }
 
 function getDifficultyIndex(difficulty) {
@@ -294,7 +133,7 @@ function getDifficultyInfo(difficulty) {
 
   return (
     DCCS_DIFFICULTY_INFO[normalized] ||
-    DCCS_DIFFICULTY_INFO.switchClear
+    DCCS_DIFFICULTY_INFO.medium
   );
 }
 

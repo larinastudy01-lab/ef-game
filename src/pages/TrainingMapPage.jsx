@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/TrainingMapPage.css";
 import { ARI_DIFFICULTY_ORDER, getAriTrainingConfig, normalizeAriDifficulty } from "../utils/ariProtocol";
+import { DCCS_DIFFICULTY_ORDER, getDccsTrainingConfig } from "../utils/dccsTrainingProtocol";
 
 const ABILITY_AREAS = {
   memory: {
@@ -132,7 +133,7 @@ const getGameStats = (gameId) => {
       stars: 0,
       accuracy: 0,
       warningLevel: "none",
-      recommendedDifficulty: gameId === "ARI" ? "beginner" : "easy",
+      recommendedDifficulty: ["ARI", "DCCS"].includes(gameId) ? "beginner" : "easy",
       errorTypes: {},
       fatigueLevel: "low",
       hasRecord: false,
@@ -161,7 +162,7 @@ const getAbilityRecommendation = (abilityId) => {
   if (noRecordGame) {
     return {
       gameId: noRecordGame.gameId,
-      difficulty: "easy",
+      difficulty: ["ARI", "DCCS"].includes(noRecordGame.gameId) ? "beginner" : "easy",
       reason: "這個關卡還沒有練習紀錄，皮皮建議先從簡單開始熟悉規則。",
     };
   }
@@ -318,7 +319,7 @@ const TrainingMapPage = () => {
 
           <div className="pipi-recommend-info">
             <span>建議難度</span>
-            <strong>{recommendation.gameId === "ARI" ? getAriTrainingConfig(recommendation.difficulty).label : translateDifficulty(recommendation.difficulty)}</strong>
+            <strong>{recommendation.gameId === "ARI" ? getAriTrainingConfig(recommendation.difficulty).label : recommendation.gameId === "DCCS" ? getDccsTrainingConfig(recommendation.difficulty).label : translateDifficulty(recommendation.difficulty)}</strong>
           </div>
 
           <button
@@ -395,6 +396,11 @@ const DifficultyDialog = ({ gameId, onClose, onStart }) => {
   const difficulties = gameId === "ARI" ? ARI_DIFFICULTY_ORDER.map((key, index) => {
     const config = getAriTrainingConfig(key);
     return { id: key, label: config.label, unlockText: `每題 ${config.answerTimeLimit / 1000} 秒${config.allowReplay ? " · 可重播" : ""}${config.interference ? " · 沙鈴干擾" : ""}`, unlocked: index < 2 || (index === 2 ? unlocked.normal : unlocked.hard) };
+  }) : gameId === "DCCS" ? DCCS_DIFFICULTY_ORDER.map((key, index) => {
+    const config = getDccsTrainingConfig(key);
+    return { id: key, label: config.label,
+      unlockText: `每題 ${config.answerTimeLimitMs / 1000} 秒 · ${config.hintDelayMs ? "3 秒 MOUSE 提示" : "無提示"}${config.windEnabled ? " · 風來時相反規則" : ""}`,
+      unlocked: index < 2 || (index === 2 ? unlocked.normal : unlocked.hard) };
   }) : DIFFICULTIES;
 
   return (

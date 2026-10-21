@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
+import { ASSISTANT_EMAIL_ROLES, createAssistantEmailHandler } from "./assistant-email.mjs";
 import {
   createClinicalAuthMiddleware,
   createCorsOptions,
@@ -31,6 +32,12 @@ const rateLimit = createRateLimiter({
   max: readPositiveInteger(process.env.CLINICAL_API_RATE_MAX, 20),
 });
 const clinicalCors = cors(createCorsOptions(allowedOrigins));
+const requireAssistantUser = createClinicalAuthMiddleware({ supabase: authClient, allowedRoles: ASSISTANT_EMAIL_ROLES });
+const emailRateLimit = createRateLimiter({
+  windowMs: 60_000,
+  max: readPositiveInteger(process.env.ASSISTANT_EMAIL_RATE_MAX, 10),
+});
+const assistantEmailHandler = createAssistantEmailHandler();
 
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
@@ -61,6 +68,8 @@ app.options("/api/clinical-assistant", clinicalCors);
 app.options("/clinical-assistant", clinicalCors);
 app.post("/api/clinical-assistant", ...secureClinicalRoute);
 app.post("/clinical-assistant", ...secureClinicalRoute);
+app.options("/api/assistant-email", clinicalCors);
+app.post("/api/assistant-email", clinicalCors, requireAssistantUser, emailRateLimit, assistantEmailHandler);
 
 app.use((error, req, res, next) => {
   if (error?.type === "entity.too.large") return res.status(413).json({ error: "請求資料過大。" });

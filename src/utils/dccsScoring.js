@@ -1,3 +1,4 @@
+import { DCCS_DIFFICULTY_ORDER, DCCS_TRAINING_CONFIG } from "./dccsTrainingProtocol";
 // src/utils/dccsScoring.js
 
 /**
@@ -6,7 +7,7 @@
  *
  * 支援：
  * 1. 正式測驗模式
- * 2. 十階訓練模式
+ * 2. 五級訓練模式（相容舊版紀錄）
  * 3. TestPage_DCCS / TrainingPage_DCCS 不同欄位格式
  * 4. 顏色規則、種類規則、切換後表現、干擾抑制
  * 5. 固著錯誤、第一次答對率、反應時間與穩定度
@@ -16,19 +17,6 @@
 
 const DEFAULT_STABILITY_SCORE = 55;
 const DEFAULT_MISSING_RT_SCORE = 55;
-
-const DCCS_DIFFICULTY_ORDER = [
-  "colorIntro",
-  "colorStable",
-  "typeIntro",
-  "typeStable",
-  "switchClear",
-  "switchEarly",
-  "switchMaintain",
-  "lowInterference",
-  "highInterference",
-  "testLike",
-];
 
 const DCCS_LEVEL_SCORING = {
   colorIntro: {
@@ -193,6 +181,15 @@ const DCCS_LEVEL_SCORING = {
   },
 };
 
+// Retain legacy scoring configurations for saved sessions.
+const scoringTemplates = { beginner: "colorIntro", easy: "switchClear", medium: "switchMaintain", hard: "switchMaintain", expert: "highInterference" };
+DCCS_DIFFICULTY_ORDER.forEach((id, index) => {
+  const protocol = DCCS_TRAINING_CONFIG[id];
+  DCCS_LEVEL_SCORING[id] = { ...DCCS_LEVEL_SCORING[scoringTemplates[id]],
+    level: index + 1, label: protocol.label, title: protocol.title,
+    category: protocol.category, abilityFocus: protocol.focus, minimumTrials: protocol.minimumTrials };
+});
+
 /* -------------------------------------------------------------------------- */
 /* 基礎工具                                                                    */
 /* -------------------------------------------------------------------------- */
@@ -322,6 +319,7 @@ function getCoefficientOfVariation(values = []) {
 /* -------------------------------------------------------------------------- */
 
 function normalizeDifficulty(difficulty) {
+  if (DCCS_DIFFICULTY_ORDER.includes(difficulty)) return difficulty;
   if (isFiniteNumber(difficulty)) {
     const index = clamp(
       Math.round(difficulty) - 1,

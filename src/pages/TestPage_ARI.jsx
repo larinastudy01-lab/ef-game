@@ -2,7 +2,6 @@ import { gameLocalStorage as localStorage } from "../temporaryGameTesting/runtim
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/GamePage_ARI.css";
-import "../styles/TestStepVideo.css";
 
 import { analyzePerformance } from "../ai/performanceAnalyzer";
 import { analyzeErrors } from "../ai/errorAnalyzer";
@@ -13,6 +12,8 @@ import { useTestAttempt } from "../utils/useTestAttempt";
 import { calculateAriScore } from "../utils/ariScoring";
 import { ARI_ASSESSMENT_CONFIG } from "../utils/ariProtocol";
 import AriPractice from "../components/AriPractice";
+import AriNarrator from "../components/AriNarrator";
+import { ARI_PRACTICE_AUDIO, playAriPracticeAudio } from "../utils/ariPracticeAudio";
 
 import backgroundImg from "../asset/ARI/ARI_background.webp";
 import stepVideo from "../asset/optimized/mp4/ARI_step.mp4";
@@ -28,6 +29,7 @@ import catImg from "../asset/ARI/cat.webp";
 import dogImg from "../asset/ARI/dog.webp";
 import catSound from "../asset/ARI/cat.mp3";
 import dogSound from "../asset/ARI/dog.mp3";
+import "../styles/TestStepVideo.css";
 
 const RESULT_ROUTE = "/result-ari";
 const TEST_PAGE_ROUTE = "/test-map";
@@ -187,6 +189,9 @@ export default function TestPage_ARI() {
   const [audioError, setAudioError] = useState(false);
   const [trialRecords, setTrialRecords] = useState([]);
   const [pendingResult, setPendingResult] = useState(null);
+  const [resultAudioIssue, setResultAudioIssue] = useState(false);
+  const [resultAudioRetry, setResultAudioRetry] = useState(0);
+  const [resultSpeaking, setResultSpeaking] = useState(false);
 
   const timeoutRefs = useRef([]);
   const audioRef = useRef(null);
@@ -230,6 +235,19 @@ export default function TestPage_ARI() {
   }, [stopAudio]);
 
   useEffect(() => () => clearCurrentTimer(), [clearCurrentTimer]);
+
+  useEffect(() => {
+    if (phase !== "result") return undefined;
+    const controller = new AbortController();
+    setResultAudioIssue(false);
+    setResultSpeaking(false);
+    playAriPracticeAudio(ARI_PRACTICE_AUDIO.assessmentComplete, controller.signal, (playing) => {
+      if (!controller.signal.aborted) setResultSpeaking(playing);
+    }).catch(() => {
+      if (!controller.signal.aborted) setResultAudioIssue(true);
+    });
+    return () => controller.abort();
+  }, [phase, resultAudioRetry]);
 
   function resetTestState() {
     clearCurrentTimer();
@@ -650,14 +668,14 @@ export default function TestPage_ARI() {
     return (
       <div className="ari-page ari-page--soft" style={{ "--ari-bg": `url(${asset.background})` }}>
         <style>{ariInlineCss}</style>
-        <main className="ari-center-shell">
-          <section className="ari-soft-panel ari-video-panel game-start-card-artwork ari-video-card-artwork" aria-label="步驟教學影片">
-            <div className="ari-video-frame test-step-video-frame">
-              <video className="ari-video test-step-video" src={asset.stepVideo} autoPlay muted playsInline controls preload="metadata" onEnded={() => setPhase("practice")}>
+        <main className="ari-center-shell test-video-layout">
+          <section className="ari-soft-panel ari-video-panel game-start-card-artwork ari-video-card-artwork test-video-card" aria-label="步驟教學影片">
+            <div className="ari-video-frame test-step-video-frame test-video-frame">
+              <video className="ari-video test-step-video test-video" src={asset.stepVideo} autoPlay muted playsInline controls preload="metadata" onEnded={() => setPhase("practice")}>
                 你的瀏覽器不支援影片播放。
               </video>
             </div>
-            <div className="ari-step-actions">
+            <div className="ari-step-actions test-video-actions">
               <div className="ari-guided-action ari-guided-skip">
                 <button type="button" className="ari-forest-button ari-image-button ari-btn-skip" onClick={() => setPhase("practice")} aria-label="跳過動畫">
                   <img loading="lazy" src={asset.homeSkipBtn} alt="跳過動畫" draggable="false" />
@@ -685,11 +703,12 @@ export default function TestPage_ARI() {
             <div className="ari-cute-stars" aria-label={`${resultStars} 顆星`}>
               {[1,2,3].map((star) => <span key={star} className={`ari-cute-star ${star <= resultStars ? "is-on" : ""}`}>★</span>)}
             </div>
-            <div className="ari-start-content ari-result-content">
+            <div className="ari-start-content ari-result-content ari-result-with-narrator">
               <div className="ari-dialog-bubble">測驗完成！你有仔細聽聲音並選出相反的動物。</div>
-              <div className="ari-round-icon ari-result-icon"><img src={asset.startAvatar} alt="狐狸角色" draggable="false" /></div>
+              <AriNarrator event="assessmentComplete" speaking={resultSpeaking} />
             </div>
             <div className="ari-result-actions">
+              {resultAudioIssue && <button type="button" className="ari-forest-button" onClick={() => setResultAudioRetry((value) => value + 1)}>重新播放完成語音</button>}
               <div className="ari-guided-action ari-guided-result-main">
                 <button type="button" className="ari-forest-button ari-image-button ari-btn-home" onClick={() => navigate(TEST_PAGE_ROUTE)} aria-label="回到森林">
                   <img loading="lazy" src={asset.homeBackBtn} alt="回到森林" draggable="false" />
@@ -714,7 +733,7 @@ export default function TestPage_ARI() {
       <style>{ariInlineCss}</style>
       <div className="ari-container">
         <div className="ari-stage" onPointerDownCapture={handleStagePointerDown} data-testid="ari-assessment-stage" data-trial={trialIndex + 1} data-can-answer={canAnswer}>
-          <div className="ari-listen-status" aria-live="polite">
+          <div className={audioError ? "ari-listen-status" : "ari-assessment-status"} aria-live="polite">
             {audioError ? "聲音未能播放，本次評測已中斷，請返回測驗地圖重新開始。" : isPreparingSound ? "請準備聽聲音" : canAnswer ? "請選擇相反的動物" : "請稍候"}
           </div>
           <div className="ari-animal-choice-row" aria-label="選擇動物">
@@ -2022,6 +2041,18 @@ const ariInlineCss = `
   width: min(96vw, 1180px);
   height: min(88vh, 760px);
   overflow: visible;
+}
+
+.ari-assessment-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .ari-listen-status {
