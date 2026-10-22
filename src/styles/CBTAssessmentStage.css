@@ -1,0 +1,41 @@
+/* Symmetric side panes keep the enlarged board centered when the narrator appears. */
+.cbt-page .cbt-test-card.cbt-card {
+  width: min(96vw, 1440px) !important;
+  max-width: 1440px;
+  min-height: 0;
+  overflow: auto;
+  transform: none;
+}
+.cbt-assessment-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, min(var(--cbt-assessment-board-width), 86%)) minmax(0, 1fr);
+  align-items: stretch;
+  gap: clamp(8px, 1vw, 16px);
+  width: 100%;
+  padding-block: 16px;
+  box-sizing: border-box;
+}
+.cbt-assessment-board-frame { grid-column: 2; width: min(100%, var(--cbt-assessment-board-width)); margin: 0 auto; position: relative; min-width: 0; }
+.cbt-assessment-stage .cbt-board {
+  width: var(--cbt-assessment-board-width);
+  max-width: none;
+  margin: 0 !important;
+  translate: none;
+  transform: scale(var(--cbt-assessment-board-scale));
+  transform-origin: top left;
+}
+/* The shared image uses a -16% artwork offset. Cancel that offset here so
+   the visible stones, as well as their click targets, share the board center. */
+.cbt-assessment-stage .cbt-stone { translate: 16% 16%; }
+.cbt-assessment-narrator-slot { grid-column: 3; position: relative; min-width: 0; min-height: 0; overflow: hidden; pointer-events: none; }
+.cbt-assessment-audio-retry { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 24px; background: transparent; cursor: pointer; pointer-events: auto; animation: cbt-practice-audio-retry 1.4s ease-in-out infinite; }
+.cbt-assessment-audio-retry:focus-visible { outline: 3px solid #fff4bc; outline-offset: -4px; }
+@media (max-width: 700px) {
+  .cbt-assessment-stage { grid-template-columns: minmax(0, 1fr); }
+  .cbt-assessment-narrator-slot { grid-column: 1; grid-row: 1; height: clamp(160px, 28svh, 280px); }
+  .cbt-assessment-board-frame { grid-column: 1; grid-row: 2; }
+  .cbt-assessment-stage::after { content: ""; grid-column: 1; grid-row: 3; height: clamp(160px, 28svh, 280px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cbt-assessment-audio-retry { animation: none; }
+}

@@ -7,14 +7,14 @@ import passed from "../asset/voice/你學會了！準備開始挑戰吧！.mp3";
 // Exact imports let the bundler resolve punctuation and encode asset URLs.
 export const CBT_PRACTICE_AUDIO = { intro, answer, correct, retry, passed };
 
-export function createCBTPracticeAudioPlayer() {
+export function createCBTPracticeAudioPlayer(clips = CBT_PRACTICE_AUDIO) {
   let cleanup = null;
   return {
     stop() { cleanup?.(); },
     play(cue, { onEnded, onPlaying, onWaiting, onBlocked }) {
       this.stop();
       let audio;
-      try { audio = new Audio(CBT_PRACTICE_AUDIO[cue]); }
+      try { audio = new Audio(clips[cue]); }
       catch { onBlocked("error"); return; }
       let stopped = false;
       let watchdog;

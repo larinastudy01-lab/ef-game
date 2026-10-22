@@ -14,7 +14,7 @@ import { PM_PROTOCOL_VERSION, PM_ANSWER_TIME_SECONDS, PM_TEST_SHOW_TIME, getPMRe
 import PMPractice from "../components/PMPractice";
 
 // ===== 圖片 =====
-import rabbitAvatar from "../asset/avatar/rabbit.webp";
+import rabbitAvatar from "../asset/PM_icon.webp";
 
 // ===== 背景 / 前導影片 / 結束影片 =====
 import bgImage from "../asset/PM/PM_background.webp";
@@ -1251,7 +1251,7 @@ const styles = {
     justifyContent: "center",
     overflow: "hidden",
     boxSizing: "border-box",
-    padding: "14px",
+    padding: 0,
     boxShadow: "0 12px 0 rgba(50, 114, 169, 0.16), 0 16px 22px rgba(44, 83, 139, 0.18)",
   },
 
@@ -1260,7 +1260,8 @@ const styles = {
     height: "100%",
     maxWidth: "100%",
     maxHeight: "100%",
-    objectFit: "contain",
+    objectFit: "cover",
+    transform: "scale(1.2) translateX(1.5%)",
     borderRadius: "999px",
     display: "block",
     pointerEvents: "none",

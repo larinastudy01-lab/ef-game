@@ -37,7 +37,7 @@ import { saveUnifiedResult } from "../utils/resultManager";
 import { useTestAttempt } from "../utils/useTestAttempt";
 import { calculateDccsScore } from "../utils/dccsScoring";
 
-import peacockImg from "../asset/DCCS/dccs_peacock.webp";
+import peacockImg from "../asset/DCCS_icon.webp";
 
 // 所有一般服飾與裝袋服飾統一由此資料檔提供。
 // 直接使用 dccsClothingData.js 實際存在的具名匯出，避免 Webpack 對不存在匯出的編譯錯誤。
@@ -1771,13 +1771,14 @@ const dccsTestPageCss = `
   justify-content: center;
   overflow: hidden;
   box-sizing: border-box;
-  padding: 8px;
+  padding: 0;
 }
 
 .Dcss-round-icon img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
+  transform: scale(1.2) translateY(5%);
   display: block;
 }
 
@@ -2389,7 +2390,7 @@ const dccsTestPageCss = `
   background: linear-gradient(180deg, #82d9ff, #48aee8);
   border: 5px solid rgba(255,255,255,0.92);
   outline: 3px solid rgba(72, 157, 207, 0.65);
-  padding: 14px;
+  padding: 0;
   box-shadow: 0 10px 0 rgba(42, 112, 165, 0.20), 0 18px 24px rgba(53, 91, 123, 0.18);
 }
 

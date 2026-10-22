@@ -164,7 +164,7 @@ export default function CBTPractice({ Board, blocks, onComplete }) {
           style={{ height: 455 * boardScale, "--cbt-practice-board-scale": boardScale }}>
           {!completed && <Board blocks={blocks} phase={phase} activeIndex={activeIndex} selectedIndex={null}
             wrongIndex={null} personIndex={null} isWalking={false} tapFeedback={tapFeedback} practiceHintIndex={practiceHintIndex}
-            practiceSteppedIndices={steppedIndices}
+            steppedIndices={steppedIndices}
             onBlockClick={handleTap} disabled={phase !== "WAIT_RESPONSE"} />}
         </div>
         <aside className="cbt-practice-narrator-slot" aria-label="旁白角色區">

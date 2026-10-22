@@ -9,7 +9,7 @@ import personImg from "../asset/CBT/CBT_person.webp";
 import bgImg from "../asset/CBT/CBT_background.webp";
 import tutorialVideo from "../asset/optimized/mp4/CBT_step.mp4";
 import clickSoundFile from "../asset/Click.mp3";
-import startAvatar from "../asset/avatar/deer.webp";
+import startAvatar from "../asset/CBT_icon.webp";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
 import homeNextBtn from "../asset/home/next.webp";
@@ -29,8 +29,9 @@ import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
 import { detectCBTErrorPattern } from "../ai/cbtTrainingAnalyzer";
 import { CBT_PROTOCOL_VERSION, CBT_ANSWER_TIME_SECONDS, CBT_MAX_SEQUENCE_LENGTH, CBT_MAX_STONES, createFixedCBTBlocks } from "../utils/cbtProtocol";
-import { CBTPhaseCue, useCbtStartCue } from "../components/CBTPhaseCue";
+import CBTAssessmentStage from "../components/CBTAssessmentStage";
 import CBTPractice from "../components/CBTPractice";
+import { CBT_ASSESSMENT_LAYOUT, createCBTAssessmentBlocks } from "../utils/cbtAssessmentLayout";
 import "../styles/TestStepVideo.css";
 
 // 仍保留內部作答時間上限，但不在幼兒畫面顯示壓力式倒數。
@@ -52,7 +53,6 @@ const STONE_SIZE = 250;
 const PERSON_OFFSET_Y = 76;
 const WALK_ANIMATION_MS = 260;
 
-const COUNTDOWN_SECONDS = 5;
 
 function createSequence(questionIndex, previousLastStone = null, forcedMemoryLength = null) {
   const setting = getQuestionSetting(questionIndex, forcedMemoryLength);
@@ -181,7 +181,7 @@ const cbtSrtLikeCss = `
   width: 148px;
   height: 148px;
   border-radius: 50%;
-  padding: 9px;
+  padding: 0;
   border: 7px solid #69c6e8;
   background: radial-gradient(circle, #fff1bb 0%, #f6d78c 100%);
   box-shadow: 0 10px 0 rgba(90, 112, 92, 0.2), 0 10px 22px rgba(73, 54, 20, 0.2);
@@ -192,7 +192,7 @@ const cbtSrtLikeCss = `
 .cbt-round-avatar img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   border-radius: 50%;
 }
 
@@ -507,7 +507,7 @@ const cbtSrtLikeCss = `
   outline-offset: -12px;
   overflow: hidden;
   box-sizing: border-box;
-  padding: 14px;
+  padding: 0;
   box-shadow: 0 12px 0 rgba(50, 114, 169, 0.16), 0 16px 22px rgba(44, 83, 139, 0.18);
 }
 
@@ -516,7 +516,7 @@ const cbtSrtLikeCss = `
   height: 100%;
   max-width: 100%;
   max-height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   border-radius: 999px;
   display: block;
   pointer-events: none;
@@ -725,7 +725,7 @@ const cbtSrtLikeCss = `
   outline-offset: -12px;
   overflow: hidden;
   box-sizing: border-box;
-  padding: 14px;
+  padding: 0;
   box-shadow: 0 12px 0 rgba(50, 114, 169, 0.16), 0 16px 22px rgba(44, 83, 139, 0.18);
 }
 
@@ -735,7 +735,8 @@ const cbtSrtLikeCss = `
   height: 100%;
   max-width: 100%;
   max-height: 100%;
-  object-fit: contain;
+  object-fit: cover;
+  transform: scale(1.2) translate(1%, 0.5%);
   border-radius: 999px;
   display: block;
   pointer-events: none;
@@ -1011,10 +1012,10 @@ export default function TestPage_CBT() {
   const testAttempt = useTestAttempt({ gameId: "CBT", route: "/test-cbt" });
 
   const [phase, setPhase] = useState("story");
-  const [countdownLeft, setCountdownLeft] = useState(COUNTDOWN_SECONDS);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [sequence, setSequence] = useState([]);
   const [, setUserInput] = useState([]);
+  const [formalSteppedIndices, setFormalSteppedIndices] = useState([]);
 
   const [timeLeft, setTimeLeft] = useState(ANSWER_TIME);
 
@@ -1025,10 +1026,11 @@ export default function TestPage_CBT() {
 
   const [personIndex, setPersonIndex] = useState(null);
   const [isWalking, setIsWalking] = useState(false);
-  const [message, setMessage] = useState("");
+  const [, setMessage] = useState("");
   const [idleHintActive, setIdleHintActive] = useState(false);
 
-  const [boardPositions, setBoardPositions] = useState(() => createFixedCBTBlocks());
+  const [boardPositions, setBoardPositions] = useState(() => createCBTAssessmentBlocks());
+  const practiceBlocks = useMemo(() => createFixedCBTBlocks(), []);
   const [finalResult, setFinalResult] = useState(null);
 
   const clickAudioRef = useRef(null);
@@ -1063,7 +1065,6 @@ export default function TestPage_CBT() {
   const promptEventsRef = useRef([]);
   const currentPromptEventsRef = useRef([]);
   const [earlyClickCount, setEarlyClickCount] = useState(0);
-  useCbtStartCue(phase);
 
   const currentSetting = useMemo(() => {
     return getQuestionSetting(questionIndex, currentMemoryLengthRef.current);
@@ -1196,6 +1197,7 @@ export default function TestPage_CBT() {
     idleBeforeFirstTapMsRef.current = null;
 
     setQuestionIndex(0);
+    setFormalSteppedIndices([]);
     setSequence([]);
     setUserInput([]);
     setTimeLeft(ANSWER_TIME);
@@ -1207,11 +1209,10 @@ export default function TestPage_CBT() {
     setIsWalking(false);
     setMessage("");
     setIdleHintActive(false);
-    setCountdownLeft(COUNTDOWN_SECONDS);
     lastShownStoneRef.current = null;
     pendingFinalHistoryRef.current = null;
     resultSavedRef.current = false;
-    setBoardPositions(createFixedCBTBlocks());
+    setBoardPositions(createCBTAssessmentBlocks());
     earlyClickEventsRef.current = [];
     currentEarlyClickEventsRef.current = [];
     promptEventsRef.current = [];
@@ -1224,8 +1225,7 @@ export default function TestPage_CBT() {
   function startFormalTest() {
     resetTestData();
     testAttempt.begin();
-    setCountdownLeft(COUNTDOWN_SECONDS);
-    setPhase("countdown");
+    startQuestion(0);
   }
 
   function startQuestion(targetIndex) {
@@ -1234,6 +1234,7 @@ export default function TestPage_CBT() {
     lastShownStoneRef.current = newSequence[newSequence.length - 1];
 
     setQuestionIndex(targetIndex);
+    setFormalSteppedIndices([]);
     setSequence(newSequence);
     userInputRef.current = [];
     accumulatedWalkingTimeRef.current = 0;
@@ -1270,6 +1271,13 @@ export default function TestPage_CBT() {
     const correctedReactionTime = rawReactionTime - accumulatedWalkingTimeRef.current;
 
     return Math.max(0, Math.round(correctedReactionTime));
+  }
+
+  function openFormalResponse() {
+    if (phase !== "answerCue" || endedRef.current || trialLockedRef.current) return;
+    answerStartRef.current = Date.now();
+    answerDeadlineRef.current = answerStartRef.current + ANSWER_TIME * 1000;
+    setPhase("answer");
   }
 
   function recordTrial({ correct, input, errorType }) {
@@ -1717,6 +1725,7 @@ export default function TestPage_CBT() {
     if (trialLockedRef.current || Date.now() >= answerDeadlineRef.current) return;
     if (isClickResolvingRef.current) return;
 
+    setFormalSteppedIndices((previous) => previous.includes(index) ? previous : [...previous, index]);
     playClickSound();
     setIdleHintActive(false);
 
@@ -1819,9 +1828,9 @@ export default function TestPage_CBT() {
       idleHintCountRef.current = 0;
       idleBeforeFirstTapMsRef.current = null;
       setIdleHintActive(false);
-      answerStartRef.current = Date.now();
-      answerDeadlineRef.current = answerStartRef.current + ANSWER_TIME * 1000;
-      setPhase("answer");
+      answerStartRef.current = null;
+      answerDeadlineRef.current = null;
+      setPhase("answerCue");
 
       return;
     }
@@ -1892,23 +1901,6 @@ export default function TestPage_CBT() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, questionIndex]);
 
-  useEffect(() => {
-    if (phase !== "countdown") return;
-
-    if (countdownLeft <= 0) {
-      startQuestion(0);
-      return;
-    }
-
-    const timer = setManagedTimeout(() => {
-      setCountdownLeft((prev) => prev - 1);
-    }, 1000);
-
-    return () => clearManagedTimeout(timer);
-    // Countdown transition should only react to phase and countdownLeft changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, countdownLeft]);
-
   return (
     <div
       className="cbt-page"
@@ -1947,29 +1939,17 @@ export default function TestPage_CBT() {
       )}
 
       {phase === "practice" && (
-        <CBTPractice Board={CBTBoard} blocks={blocks} onComplete={startFormalTest} />
+        <CBTPractice Board={CBTBoard} blocks={practiceBlocks} onComplete={startFormalTest} />
       )}
 
 
-      {phase === "countdown" && (
-        <div className="cbt-card cbt-card--small game-start-card-artwork cbt-countdown-card-artwork">
-          <h1 className="cbt-title">準備</h1>
-          <div
-            className="cbt-result-message"
-            style={{ fontSize: 72, lineHeight: 1, margin: "20px 0" }}
-          >
-            {countdownLeft}
-          </div>
-          <p className="cbt-text">先看完亮燈，聽到「可以開始點了」再照順序點。</p>
-        </div>
-      )}
-
-      {(phase === "show" || phase === "answer") && (
+      {(phase === "show" || phase === "answerCue" || phase === "answer") && (
         <div className="cbt-card cbt-card--wide cbt-test-card">
-          <CBTPhaseCue phase={phase} />
-
+          <CBTAssessmentStage cue={phase === "answerCue"} onCueComplete={openFormalResponse}>
           <CBTBoard
             blocks={blocks}
+            layout={CBT_ASSESSMENT_LAYOUT}
+            showPerson={false}
             phase={phase}
             activeIndex={activeIndex}
             selectedIndex={selectedIndex}
@@ -1977,23 +1957,23 @@ export default function TestPage_CBT() {
             personIndex={personIndex}
             isWalking={isWalking}
             idleHintActive={idleHintActive}
+            steppedIndices={formalSteppedIndices}
             onBlockClick={handleBlockClick}
             onBoardClick={() => {
               if (phase === "show") { handleBlockClick(null); return; }
               currentRandomClicksRef.current += 1;
               setMessage("點亮過的石頭。");
             }}
-            disabled={endedRef.current || trialLockedRef.current}
+            disabled={phase === "answerCue" || endedRef.current || trialLockedRef.current}
             earlyClickCount={earlyClickCount}
             promptCount={currentPromptEventsRef.current.length}
           />
+          </CBTAssessmentStage>
         </div>
       )}
 
       {phase === "next" && (
         <div className="cbt-card cbt-card--small game-start-card-artwork cbt-feedback-card-artwork cbt-icon-only-feedback">
-          <h1 className="cbt-title">對了！</h1>
-          <div className="cbt-result-message">{message}</div>
           <GuidedImageButton
             imgSrc={homeNextBtn}
             imgAlt="下一題"
@@ -2347,7 +2327,9 @@ function CBTBoard({
   promptCount = 0,
   tapFeedback = null,
   practiceHintIndex = null,
-  practiceSteppedIndices = [],
+  steppedIndices = [],
+  showPerson = true,
+  layout = { width: BOARD_WIDTH, height: BOARD_HEIGHT, stoneSize: STONE_SIZE },
 }) {
   return (
     <div
@@ -2357,8 +2339,8 @@ function CBTBoard({
       data-prompt-count={promptCount}
       data-early-click-count={earlyClickCount}
       style={{
-        width: BOARD_WIDTH,
-        height: BOARD_HEIGHT,
+        width: layout.width,
+        height: layout.height,
         marginTop: 4,
       }}
       onClick={(event) => {
@@ -2372,7 +2354,7 @@ function CBTBoard({
         const isGlowing = activeIndex === index;
         const isSelected = selectedIndex === index;
         const isWrong = wrongIndex === index;
-        const isStepped = practiceSteppedIndices.includes(index);
+        const isStepped = steppedIndices.includes(index);
 
         return (
           <button
@@ -2383,8 +2365,8 @@ function CBTBoard({
             style={{
               top: block.top,
               left: block.left,
-              width: STONE_SIZE,
-              height: Math.round(STONE_SIZE * 203 / 360),
+              width: layout.stoneSize,
+              height: Math.round(layout.stoneSize * 203 / 360),
             }}
             disabled={disabled}
             onClick={(event) => {
@@ -2405,12 +2387,12 @@ function CBTBoard({
                 isGlowing ? "is-glowing" : "",
                 isSelected ? "is-selected" : "",
                 isWrong ? "is-wrong" : "",
-                isStepped ? "is-practice-stepped" : "",
+                isStepped ? "is-stepped" : "",
                 tapFeedback?.index === index ? "is-practice-tapped" : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
-              style={{ width: STONE_SIZE, height: "auto" }}
+              style={{ width: layout.stoneSize, height: "auto" }}
               draggable="false"
             />
             {tapFeedback?.index === index && <span key={tapFeedback.id} className="cbt-practice-ripple" aria-hidden="true" />}
@@ -2422,7 +2404,7 @@ function CBTBoard({
         );
       })}
 
-      {(phase === "answer" || phase === "warmupAnswer") &&
+      {showPerson && (phase === "answer" || phase === "warmupAnswer") &&
         personIndex !== null && (
           <img
             src={personImg}

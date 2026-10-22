@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { MemoryRouter } from "react-router-dom";
 import TestPageCBT from "./TestPage_CBT";
 import { CBT_PRACTICE_AUDIO as cues } from "../utils/cbtPracticeAudio";
+import { CBT_ASSESSMENT_ANSWER_AUDIO as assessmentVoice } from "../components/CBTAssessmentStage";
 import { useTestAttempt } from "../utils/useTestAttempt";
 import { saveUnifiedResult } from "../utils/resultManager";
 
@@ -99,6 +100,26 @@ function pass() {
   expect(second).not.toEqual(first);
   answer(second);
   phase("PASSED");
+}
+
+function enterAssessment() {
+  const view = start();
+  pass();
+  endVoice(cues.passed);
+  fireEvent.click(screen.getByRole("button", { name: "開始正式評測" }));
+  expect(board()).toHaveAttribute("data-phase", "show");
+  return view;
+}
+
+function showAssessmentSequence() {
+  const sequence = [lit()];
+  advance(800);
+  advance(260);
+  sequence.push(lit());
+  advance(800);
+  advance(260);
+  expect(board()).toHaveAttribute("data-phase", "answerCue");
+  return sequence;
 }
 
 test.each(["ended", "跳過動畫", "下一步"])("STEP %s enters practice directly with the existing assets and grid", (entry) => {
@@ -377,7 +398,7 @@ test.each(["NotAllowedError", "NetworkError"])("a %s offers an explicit click to
   showSequence();
 });
 
-test("the passed button enters the original five-second countdown and records only formal trials", () => {
+test("the passed button starts formal stones immediately and records only formal trials", () => {
   start();
   pass();
   endVoice(cues.passed);
@@ -387,16 +408,14 @@ test("the passed button enters the original five-second countdown and records on
   expect(attempt.begin).toHaveBeenCalledTimes(1);
   expect(screen.queryByTestId("cbt-practice")).toBeNull();
   expect(document.querySelector('img[src="mouse.webp"]')).toBeNull();
-  for (let second = 0; second < 5; second += 1) advance(1000);
+  expect(screen.queryByText("準備")).toBeNull();
+  expect(screen.queryByText("可以開始點了！")).toBeNull();
   expect(board()).toHaveAttribute("data-phase", "show");
-  const sequence = [lit()];
-  advance(800);
-  advance(260);
-  sequence.push(lit());
-  advance(800);
-  advance(260);
+  const sequence = showAssessmentSequence();
+  expect(current().src).toBe(assessmentVoice);
+  endVoice(assessmentVoice);
   expect(board()).toHaveAttribute("data-phase", "answer");
-  expect(audios.find((audio) => audio.src === "start.mp3").play).toHaveBeenCalledTimes(1);
+  expect(audios.some((audio) => audio.src === "start.mp3")).toBe(false);
   answer(sequence);
   advance(1000);
   expect(document.querySelector('img[src="mouse.webp"]')).toBeNull();
@@ -404,6 +423,100 @@ test("the passed button enters the original five-second countdown and records on
   expect(trials).toHaveLength(1);
   expect(trials[0].trialIndex).toBe(1);
   expect(audios.filter((audio) => Object.values(cues).includes(audio.src))).toHaveLength(6);
+});
+
+test("formal narration uses the voice folder, shows a chicken without text, then starts a full fifteen seconds", () => {
+  enterAssessment();
+  const layout = stones().map((stone) => stone.getAttribute("style"));
+  showAssessmentSequence();
+  expect(current().src).toBe("換你開始點囉.mp3");
+  expect(screen.getByTestId("cbt-assessment-stage").textContent).toBe("");
+  expect(board().querySelector(".is-glowing")).toBeNull();
+  expect(stones().every((stone) => stone.disabled)).toBe(true);
+  expect(narrator().closest(".cbt-assessment-narrator-slot")).toBeInTheDocument();
+  act(() => current().onplaying());
+  expect(narrator()).toHaveAttribute("data-speaking", "true");
+  fireEvent.click(stones()[0]);
+  advance(8000);
+  expect(board()).toHaveAttribute("data-phase", "answerCue");
+  expect(attempt.checkpoint).not.toHaveBeenCalled();
+  endVoice(assessmentVoice);
+  expect(narrator()).toBeNull();
+  expect(stones().map((stone) => stone.getAttribute("style"))).toEqual(layout);
+  expect(stones().every((stone) => !stone.disabled)).toBe(true);
+  advance(14999);
+  expect(board()).toHaveAttribute("data-phase", "answer");
+  advance(1);
+  const trials = attempt.checkpoint.mock.calls.flatMap(([payload]) => payload.trials || []);
+  expect(trials).toHaveLength(1);
+  expect(trials[0]).toMatchObject({ timeout: true, userSequence: [], answerTime: 15000, responseElapsedMs: 15000 });
+});
+
+test.each([true, false])("formal taps use step.webp for both correct=%s outcomes and clear footprints next question", (correct) => {
+  enterAssessment();
+  const footprints = () => board().querySelectorAll('img[src="step.webp"]');
+  fireEvent.click(stones()[0]);
+  expect(footprints()).toHaveLength(0);
+  const sequence = showAssessmentSequence();
+  endVoice(assessmentVoice);
+  const layout = stones().map((stone) => stone.getAttribute("style"));
+  const imageAt = (index) => within(stones()[index]).getByAltText(`第 ${index + 1} 顆石頭`);
+  const targets = stones().map(({ style }) => ({
+    left: parseFloat(style.left), top: parseFloat(style.top),
+    width: parseFloat(style.width), height: parseFloat(style.height),
+  }));
+  expect(targets.every(({ width }) => width > 250)).toBe(true);
+  expect(targets[1].left - targets[0].left - targets[0].width).toBeGreaterThan(0);
+  expect(targets[3].top - targets[0].top - targets[0].height).toBeGreaterThan(4);
+  expect((targets[0].left + targets[2].left) / 2).toBe(parseFloat(board().style.width) / 2);
+  expect((targets[0].top + targets[6].top) / 2).toBe(parseFloat(board().style.height) / 2);
+  fireEvent.click(stones()[sequence[0]]);
+  expect(imageAt(sequence[0])).toHaveAttribute("src", "step.webp");
+  expect(board().querySelector(".cbt-person")).toBeNull();
+  advance(260);
+  const second = correct ? sequence[1] : stones().findIndex((_, index) => !sequence.includes(index));
+  fireEvent.click(stones()[second]);
+  expect(imageAt(sequence[0])).toHaveAttribute("src", "step.webp");
+  expect(imageAt(second)).toHaveAttribute("src", "step.webp");
+  expect(footprints()).toHaveLength(2);
+  expect(board().querySelector(".cbt-person")).toBeNull();
+  expect(stones().map((stone) => stone.getAttribute("style"))).toEqual(layout);
+  advance(700);
+  const trials = attempt.checkpoint.mock.calls.flatMap(([payload]) => payload.trials || []);
+  expect(trials).toHaveLength(1);
+  expect(trials[0]).toMatchObject({ correct, userSequence: [sequence[0], second], earlyClickCount: 1 });
+  fireEvent.click(screen.getByRole("button", { name: "進入下一題" }));
+  expect(board()).toHaveAttribute("data-phase", "show");
+  expect(footprints()).toHaveLength(0);
+});
+
+test("blocked formal narration retries through the chicken without opening the answer timer", async () => {
+  enterAssessment();
+  nextPlayError = { name: "NotAllowedError" };
+  showAssessmentSequence();
+  await act(async () => {});
+  const stopped = current();
+  expect(stopped.onended).toBeNull();
+  advance(20000);
+  expect(board()).toHaveAttribute("data-phase", "answerCue");
+  expect(attempt.checkpoint).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "播放作答提示" }));
+  endVoice(assessmentVoice);
+  expect(board()).toHaveAttribute("data-phase", "answer");
+});
+
+test("leaving formal narration stops audio and makes its old completion callback inert", () => {
+  const view = enterAssessment();
+  showAssessmentSequence();
+  const media = current();
+  const staleEnd = media.onended;
+  view.unmount();
+  act(() => staleEnd());
+  advance(30000);
+  expect(media.pause).toHaveBeenCalled();
+  expect(media.onended).toBeNull();
+  expect(jest.getTimerCount()).toBe(0);
+  expect(attempt.checkpoint).not.toHaveBeenCalled();
 });
 
 test.each(["INTRO", "SHOW_SEQUENCE", "YOUR_TURN", "WAIT_RESPONSE", "LANDING", "FEEDBACK", "PASSED"])("leaving %s clears every audio callback and timer", (target) => {

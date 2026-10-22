@@ -1328,19 +1328,8 @@ const testPageCss = `
   justify-content: center;
   overflow: hidden;
   box-sizing: border-box;
-  padding: 14px;
+  padding: 0;
   box-shadow: 0 10px 0 rgba(42, 112, 165, 0.20), 0 18px 24px rgba(53, 91, 123, 0.18);
-}
-
-.srt-round-icon::after {
-  content: "★";
-  position: absolute;
-  right: 4px;
-  bottom: 2px;
-  color: #ffd948;
-  font-size: 36px;
-  -webkit-text-stroke: 2px #e29b21;
-  text-shadow: 0 3px 0 rgba(139, 96, 20, 0.14);
 }
 
 .srt-round-icon img {
@@ -1348,7 +1337,7 @@ const testPageCss = `
   height: 100%;
   max-width: 100%;
   max-height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   border-radius: 50%;
   display: block;
 }
@@ -1922,7 +1911,11 @@ const testPageCss = `
 .srt-result-icon {
   width: 170px;
   height: 170px;
-  padding: 13px;
+  padding: 0;
+}
+
+.srt-result-icon img {
+  transform: scale(1.2);
 }
 
 .srt-result-actions {
@@ -2237,7 +2230,7 @@ const testPageCss = `
   .srt-result-icon {
     width: 138px;
     height: 138px;
-    padding: 10px;
+    padding: 0;
   }
 
   .srt-video-panel,
@@ -2339,7 +2332,7 @@ const testPageCss = `
   .srt-result-icon {
     width: 114px;
     height: 114px;
-    padding: 9px;
+    padding: 0;
   }
 
   .srt-forest-button {

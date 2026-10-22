@@ -18,7 +18,7 @@ const glowingStones = () => stones().filter((stone) =>
   within(stone).getByAltText(/^第 \d+ 顆石頭$/).getAttribute("src") === "stone_shiny.webp");
 const activeStone = () => glowingStones()[0];
 const playedSounds = () => window.HTMLMediaElement.prototype.play.mock.instances
-  .map((media) => media.src.split("/").pop());
+  .map((media) => decodeURIComponent(media.src.split("/").pop()));
 let attempt;
 
 beforeEach(() => {
@@ -53,6 +53,10 @@ function playSequence(showMilliseconds) {
     sequence.push(stones().indexOf(target));
     advance(showMilliseconds);
     advance(260);
+  }
+  if (board()?.dataset.phase === "answerCue") {
+    expect(stones().every((stone) => stone.disabled)).toBe(true);
+    fireEvent.ended(window.HTMLMediaElement.prototype.play.mock.instances.at(-1));
   }
   expect(board()).toHaveAttribute("data-phase", expect.stringMatching(/Answer$|^answer$/));
   return sequence;
@@ -102,7 +106,8 @@ function startAssessment() {
   expect(attempt.begin).not.toHaveBeenCalled();
   expect(attempt.checkpoint).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "開始正式評測" }));
-  for (let second = 0; second < 5; second += 1) advance(1000);
+  expect(board()).toHaveAttribute("data-phase", "show");
+  expect(screen.queryByText("準備")).toBeNull();
 }
 
 function nextTrainingRound() {
@@ -224,8 +229,9 @@ test.each(["training", "assessment"])("%s records early taps silently and announ
   expect(window.HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
   expect(screen.queryByTestId("cbt-ready-cue")).not.toBeInTheDocument();
   playSequence(800);
-  expect(screen.getByTestId("cbt-ready-cue")).toHaveTextContent("可以開始點了");
-  expect(playedSounds()).toEqual(["start.mp3"]);
+  if (mode === "training") expect(screen.getByTestId("cbt-ready-cue")).toHaveTextContent("可以開始點了");
+  else expect(screen.queryByTestId("cbt-ready-cue")).toBeNull();
+  expect(playedSounds()).toEqual([mode === "training" ? "start.mp3" : "換你開始點囉.mp3"]);
   expect(board()).toHaveAttribute("data-early-click-count", "1");
 });
 

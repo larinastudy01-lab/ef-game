@@ -17,7 +17,7 @@ import { ARI_PRACTICE_AUDIO, playAriPracticeAudio } from "../utils/ariPracticeAu
 
 import backgroundImg from "../asset/ARI/ARI_background.webp";
 import stepVideo from "../asset/optimized/mp4/ARI_step.mp4";
-import startAvatar from "../asset/avatar/fox.webp";
+import startAvatar from "../asset/ARI_icon.webp";
 import homeStartBtn from "../asset/home/start.webp";
 import homeNextBtn from "../asset/home/next.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
@@ -948,19 +948,8 @@ const ariInlineCss = `
   justify-content: center;
   overflow: hidden;
   box-sizing: border-box;
-  padding: 14px;
+  padding: 0;
   box-shadow: 0 10px 0 rgba(42, 112, 165, 0.20), 0 18px 24px rgba(53, 91, 123, 0.18);
-}
-
-.ari-round-icon::after {
-  content: "★";
-  position: absolute;
-  right: 4px;
-  bottom: 2px;
-  color: #ffd948;
-  font-size: 36px;
-  -webkit-text-stroke: 2px #e29b21;
-  text-shadow: 0 3px 0 rgba(139, 96, 20, 0.14);
 }
 
 .ari-round-icon img {
@@ -968,7 +957,8 @@ const ariInlineCss = `
   height: 100%;
   max-width: 100%;
   max-height: 100%;
-  object-fit: contain;
+  object-fit: cover;
+  transform: scale(1.2) translate(2%, 5%);
   border-radius: 50%;
   display: block;
 }
@@ -1539,7 +1529,7 @@ const ariInlineCss = `
 .ari-result-icon {
   width: 170px;
   height: 170px;
-  padding: 13px;
+  padding: 0;
 }
 
 .ari-result-actions {
@@ -1854,7 +1844,7 @@ const ariInlineCss = `
   .ari-result-icon {
     width: 138px;
     height: 138px;
-    padding: 10px;
+    padding: 0;
   }
 
   .ari-video-panel,
@@ -1956,7 +1946,7 @@ const ariInlineCss = `
   .ari-result-icon {
     width: 114px;
     height: 114px;
-    padding: 9px;
+    padding: 0;
   }
 
   .ari-forest-button {
