@@ -52,13 +52,21 @@ function startTest() {
   fireEvent.click(screen.getByRole("button", { name: "通過試玩" }));
 }
 
-test.each(["ended", "跳過動畫", "下一步"])("assessment waits for the practice gate after %s", (action) => {
-  const { container } = render(<MemoryRouter><TestPageSRT /></MemoryRouter>);
+test.each(["01", "02"].flatMap((version) => ["ended", "跳過動畫", "下一步"].map((action) => [version, action])))("assessment %s uses SRT_step and waits for practice after %s", (version, action) => {
+  if (version === "02") localStorage.setItem("srtTestLastVersion_child-srt", "01");
+  render(<MemoryRouter><TestPageSRT /></MemoryRouter>);
   localStorage.setItem("srtTestResult_child-srt", JSON.stringify({ score: 42 }));
-  expect(screen.getByAltText("小松鼠頭像").getAttribute("src")).toBe("SRT_icon.webp");
+  expect(screen.getByAltText("本次收集的水果").getAttribute("src")).toBe(version === "01" ? "Grape_good.webp" : "Apple_good.webp");
   fireEvent.click(screen.getByRole("button", { name: "進入遊戲" }));
-  if (action === "ended") fireEvent.ended(container.querySelector("video"));
+  expect(screen.getByRole("region", { name: "步驟教學影片" })).toBeInTheDocument();
+  const video = screen.getByLabelText("SRT 步驟教學影片");
+  expect(video).toHaveAttribute("src", "SRT_step.mp4");
+  expect(video).toHaveAttribute("autoplay");
+  expect(screen.queryByRole("img", { name: /用手指點擊/ })).not.toBeInTheDocument();
+  video.pause = jest.fn();
+  if (action === "ended") fireEvent.ended(video);
   else fireEvent.click(screen.getByRole("button", { name: action }));
+  expect(video.pause).toHaveBeenCalledTimes(1);
 
   expect(screen.getByRole("region", { name: "SRT 試玩" })).toBeInTheDocument();
   expect(screen.queryByTestId("srt-game-area")).not.toBeInTheDocument();
@@ -82,15 +90,15 @@ test.each([0, 0.25, 0.99])("assessment presents only the two requested stimuli a
     const stimulus = acorn();
     expect(stimulus).toBeInTheDocument();
     stimulusTypes.push(stimulus.getAttribute("alt"));
-    expect(stimulus.getAttribute("src")).toBe(stimulus.getAttribute("alt") === "壞橡實" ? "rotten_acorn.webp" : "acorn.webp");
+    expect(stimulus.getAttribute("src")).toBe(stimulus.getAttribute("alt") === "壞葡萄" ? "Grape_bad.webp" : "Grape_good.webp");
     // Never advance the next onset just because the response window expires.
     advance(500);
     expect(acorn()).toBeNull();
   }
-  expect(stimulusTypes.filter((type) => type === "普通橡實")).toHaveLength(9);
-  expect(stimulusTypes.filter((type) => type === "壞橡實")).toHaveLength(3);
+  expect(stimulusTypes.filter((type) => type === "好葡萄")).toHaveLength(9);
+  expect(stimulusTypes.filter((type) => type === "壞葡萄")).toHaveLength(3);
   for (let index = 0; index < stimulusTypes.length; index += 4) {
-    expect(stimulusTypes.slice(index, index + 4).filter((type) => type === "壞橡實")).toHaveLength(1);
+    expect(stimulusTypes.slice(index, index + 4).filter((type) => type === "壞葡萄")).toHaveLength(1);
   }
   const records = useTestAttempt().checkpoint.mock.calls.at(-1)[0].trials;
   expect(records).toHaveLength(12);
@@ -128,7 +136,8 @@ test.each([0, 0.99])("assessment random %s keeps 500ms stimuli and finishes at e
     maxTrials: 481,
     completionReason: "time_up",
     protocol: {
-      version: "2.1.0", visibleTimeMs: 500, stimulusIntervalsMs: [1000, 3000],
+      version: "2.2.0", testVersion: "01", stimulusSetId: "test01", stimulusName: "葡萄",
+      visibleTimeMs: 500, stimulusIntervalsMs: [1000, 3000],
       normalRate: 0.75, rottenRate: 0.25, targetToNonTargetRatio: [3, 1],
     },
   });
@@ -232,4 +241,29 @@ test("assessment records clicks during the empty gap", () => {
   expect(useTestAttempt().checkpoint).toHaveBeenLastCalledWith(expect.objectContaining({
     behaviorRecords: [expect.objectContaining({ targetType: "background", falseClickCount: 1 })],
   }));
+});
+
+test("formal starts alternate 01 → 02 → 01 across visits, while training leaves the sequence alone", () => {
+  const attempt = useTestAttempt();
+  for (const [version, good, bad, name] of [
+    ["01", "Grape_good.webp", "Grape_bad.webp", "葡萄"],
+    ["02", "Apple_good.webp", "Apple_bad.webp", "蘋果"],
+    ["01", "Grape_good.webp", "Grape_bad.webp", "葡萄"],
+  ]) {
+    startTest();
+    expect(localStorage.getItem("srtTestLastVersion_child-srt")).toBe(version);
+    expect(attempt.checkpoint).toHaveBeenLastCalledWith({ testVersion: version, stimulusSetId: `test${version}`, stimulusName: name });
+    for (let index = 0; index < 4; index += 1) {
+      advance(3020);
+      expect(acorn()).toHaveAttribute("src", index === 3 ? bad : good);
+      fireEvent.click(acorn());
+    }
+    expect(attempt.checkpoint.mock.calls.at(-1)[0].trials.every((trial) => trial.testVersion === version)).toBe(true);
+    cleanup(); // Leaving an already-started assessment still consumes its version.
+    startTraining("medium");
+    advance(1020);
+    expect(acorn()).toHaveAttribute("src", "acorn.webp");
+    expect(localStorage.getItem("srtTestLastVersion_child-srt")).toBe(version);
+    cleanup();
+  }
 });

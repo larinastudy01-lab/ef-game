@@ -1,0 +1,239 @@
+{
+  "version": "p0c-offline-preflight-1",
+  "observedAt": "2026-10-23T07:51:02.226Z",
+  "status": "BLOCKED",
+  "writesAttempted": 0,
+  "httpRequestsAttempted": 0,
+  "node": "v24.15.0",
+  "runtimes": {
+    "docker": {
+      "available": false,
+      "version": null
+    },
+    "supabase": {
+      "available": false,
+      "version": null
+    },
+    "psql": {
+      "available": false,
+      "version": null
+    },
+    "podman": {
+      "available": false,
+      "version": null
+    }
+  },
+  "resourceGate": "BLOCKED",
+  "actualDatabaseVersions": {
+    "postgres": null,
+    "postgrest": null,
+    "auth": null
+  },
+  "localTemplateDatabaseMajor": 17,
+  "templateStarted": false,
+  "templateCliValidated": false,
+  "reasons": [
+    "LOCAL_STACK_PREREQUISITES_UNAVAILABLE",
+    "ISOLATED_RESOURCE_AND_CREDENTIAL_EVIDENCE_NOT_ACCEPTED",
+    "SERVER_AUTH_MIGRATION_AND_REAL_INTEGRATION_EXECUTION_REQUIRED"
+  ],
+  "note": "Offline probes are not proof of a running or isolated database. This tool never reports overall P0-C PASS.",
+  "cases": [
+    {
+      "id": "P0B-I01",
+      "purpose": "LB: full write, exact raw readback and duplicate submission",
+      "expected": "One main/session/task, exact unique raw and current derivations; repeated submission retains IDs/content",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I02",
+      "purpose": "PM: full write, exact raw readback and duplicate submission",
+      "expected": "One main/session/task, exact unique raw and current derivations; repeated submission retains IDs/content",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I03",
+      "purpose": "CBT: real schema accepts the current task code",
+      "expected": "Main, task, raw and derived rows written; raw answer and summary unchanged",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I04",
+      "purpose": "SRT: real schema accepts the current task code",
+      "expected": "Main, task, raw and derived rows written; raw answer and summary unchanged",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I05",
+      "purpose": "ARI: real schema accepts the current task code",
+      "expected": "Main, task, raw and derived rows written; raw answer and summary unchanged",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I06",
+      "purpose": "DCCS: real schema accepts the current task code",
+      "expected": "Main, task, raw and derived rows written; raw answer and summary unchanged",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I07",
+      "purpose": "game_results: one interrupted request stays pending and a new client retries",
+      "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I08",
+      "purpose": "behavioral_sessions: one interrupted request stays pending and a new client retries",
+      "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I09",
+      "purpose": "behavioral_task_sessions: one interrupted request stays pending and a new client retries",
+      "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I10",
+      "purpose": "behavioral_trials: one interrupted request stays pending and a new client retries",
+      "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I11",
+      "purpose": "behavioral_trial_derivations: one interrupted request stays pending and a new client retries",
+      "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I12",
+      "purpose": "lost raw insert acknowledgement retries without duplicate IDs or source keys",
+      "expected": "Retry converges to 20 original raw rows and 20 current derived rows",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I13",
+      "purpose": "existing session plus partial trial checkpoint fills remaining trials",
+      "expected": "Existing seven IDs/content retained, thirteen rows added",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I14",
+      "purpose": "real unique constraint rejects duplicate source key and leaves raw answers intact",
+      "expected": "23505 and no raw changes",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I15",
+      "purpose": "anonymous/other guardian cannot read or attach a raw trial to this session",
+      "expected": "No foreign rows visible; insertion denied; original dataset unchanged",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I16",
+      "purpose": "guardian cannot rewrite a saved raw answer through PostgREST",
+      "expected": "Stored acquisition data unchanged",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I17",
+      "purpose": "existing session survives a later main-result failure and can retry",
+      "expected": "Previous hierarchy retained and retry completes",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I18",
+      "purpose": "full main payload with only seven committed trials stays pending and fills the remaining thirteen",
+      "expected": "Main remains pending until exact twenty-row readback succeeds; existing seven rows unchanged",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I19",
+      "purpose": "final main acknowledgement failure keeps research data and retries the final status safely",
+      "expected": "Research retained, main pending, retry verifies full data before status acknowledgement",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I20",
+      "purpose": "two simultaneous sync clients converge after retry without duplicate trials",
+      "expected": "At least one succeeds; conflicts retry to one exact dataset",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I21",
+      "purpose": "legacy SSG remains readable without conversion to ARI",
+      "expected": "Raw stored/read code stays SSG",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I22",
+      "purpose": "ART: unrecognized task code still fails the real CHECK",
+      "expected": "23514; hierarchy never falsely acknowledged",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I23",
+      "purpose": "INVALID_TASK: unrecognized task code still fails the real CHECK",
+      "expected": "23514; hierarchy never falsely acknowledged",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I24",
+      "purpose": "unrelated nonnegative trial-count constraint remains enforced",
+      "expected": "23514; original dataset unchanged",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I25",
+      "purpose": "authorized researcher reads the complete hierarchy while an unauthorized clinician cannot",
+      "expected": "Authorized positive read on all six tables; unauthorized client sees no case rows",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I26",
+      "purpose": "own participant cannot be attached to another patient raw trial through a derivation",
+      "expected": "Both INSERT and UPDATE fail 42501, not an unrelated unique violation",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I27",
+      "purpose": "reviewed isolated repair is repeatable and retains old derivation versions and main status",
+      "expected": "Verified count/IDs/content, old version retained, historical main payload/status unchanged",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "P0B-I28",
+      "purpose": "an owned participant cannot link a different patient main result through a session",
+      "expected": "INSERT/UPDATE fail 42501, not a duplicate source-result constraint",
+      "actual": "No isolated database execution in this offline preflight",
+      "status": "BLOCKED"
+    }
+  ]
+}

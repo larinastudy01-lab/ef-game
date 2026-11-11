@@ -1,18 +1,15 @@
-import { gameLocalStorage as localStorage } from "../temporaryGameTesting/runtime";
+import { gameLocalStorage as localStorage, getGameTestingVersion } from "../temporaryGameTesting/runtime";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import bgImg from "../asset/SRT/SRT_background.webp";
-import normalImg from "../asset/SRT/training/acorn.webp";
-import rottenImg from "../asset/SRT/training/rotten_acorn.webp";
-import levelIcon from "../asset/SRT_icon.webp";
-import startAvatar from "../asset/SRT/SRT_icon.webp";
 import tutorialVideo from "../asset/optimized/mp4/SRT_step.mp4";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
 import homeNextBtn from "../asset/home/next.webp";
 import homeBackBtn from "../asset/home/back.webp";
 import homeResultBtn from "../asset/home/result.webp";
+import homeAgainBtn from "../asset/home/again.webp";
 import mouseImg from "../asset/mouse.webp";
 
 import SrtResultPage from "./ResultPage_SRT";
@@ -23,7 +20,9 @@ import { calculateSrtScore } from "../utils/srtScoring";
 import { saveUnifiedResult } from "../utils/resultManager";
 import { useTestAttempt } from "../utils/useTestAttempt";
 import { SRT_TEST_PROTOCOL_VERSION, SRT_ITEM_SIZE, SRT_TEST_INTERVALS, SRT_TEST_VISIBLE_TIME, SRT_TEST_TYPE_BLOCK, pickSrtInterval } from "../utils/srtProtocol";
-import { SRT_ASSESSMENT_INTRO_CUES, SRT_AUDIO_CONFIG } from "../config/srtAudioConfig";
+import { SRT_ASSESSMENT_INTRO_CUES } from "../config/srtAudioConfig";
+import { getSrtAssessmentVersion, SRT_ASSESSMENT_VERSIONS } from "../config/srtAssessmentConfig";
+import { getNextSrtTestVersion, markSrtTestVersionUsed } from "../utils/srtAssessmentVersion";
 import { playSrtCue } from "../utils/srtPracticeAudio";
 import "../styles/SrtAssessmentIntro.css";
 
@@ -39,35 +38,11 @@ const MAX_TRIALS = Math.ceil(TEST_DURATION_MS / Math.min(...SRT_TEST_INTERVALS))
 const ITEM_VISIBLE_TIME = SRT_TEST_VISIBLE_TIME;
 const ITEM_SIZE = SRT_ITEM_SIZE;
 const TEST_PAGE_ROUTE = "/test-map";
-const INTRO_PROMPTS = {
-  ruleGo: "看到好的橡實，就快快點！",
-  ruleNoGo: "看到壞掉的橡實，千萬不要點喔！",
-  beforeTrial: "準備好了嗎？看仔細，開始囉！",
-};
-
-const targetTypes = {
-  normal: {
-    key: "normal",
-    label: "普通橡實",
-    img: normalImg,
-    intrinsicWidth: 151,
-    intrinsicHeight: 194,
-    shouldClick: true,
-    score: 3,
-  },
-  rotten: {
-    key: "rotten",
-    label: "壞橡實",
-    img: rottenImg,
-    intrinsicWidth: 166,
-    intrinsicHeight: 201,
-    shouldClick: false,
-    score: -3,
-  },
-};
 
 const TestPage_SRT = () => {
   const navigate = useNavigate();
+  const { search } = useLocation();
+  const testingVersion = getGameTestingVersion(search, Object.keys(SRT_ASSESSMENT_VERSIONS));
   const testAttempt = useTestAttempt({ gameId: "SRT", route: "/test-srt" });
 
   const [phase, setPhase] = useState("start");
@@ -112,22 +87,16 @@ const TestPage_SRT = () => {
   const idleCheckRef = useRef(null);
   const idleFlashTimeoutRef = useRef(null);
   const spawnAnimationFrameRef = useRef(null);
-  const tutorialVideoRef = useRef(null);
   const assessmentAudioRef = useRef(null);
+  const tutorialVideoRef = useRef(null);
 
-  const pauseVideo = (videoRef) => {
-    const video = videoRef.current;
-    if (video && !video.paused) {
-      video.pause();
-    }
-  };
-
-  const pauseAllVideos = () => {
-    pauseVideo(tutorialVideoRef);
-  };
+  useEffect(() => {
+    const video = tutorialVideoRef.current;
+    // Retain the node so leaving STEP or unmounting also stops a detached video.
+    return () => video?.pause();
+  }, [phase]);
 
   const setGamePhase = (nextPhase) => {
-    pauseAllVideos();
     phaseRef.current = nextPhase;
     setPhase(nextPhase);
   };
@@ -153,10 +122,9 @@ const TestPage_SRT = () => {
   useEffect(() => {
     return () => {
       clearAllTimers();
-      pauseAllVideos();
       assessmentAudioRef.current?.abort();
     };
-    // Cleanup must run only on unmount; video refs always expose their latest nodes.
+    // Cleanup must run only on unmount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -201,6 +169,8 @@ const TestPage_SRT = () => {
     const targetItem = currentItemRef.current;
     const nextRecords = [...trialRecordsRef.current, {
       ...record,
+      testVersion: assessment.testVersion,
+      stimulusSetId: assessment.stimulusSetId,
       stimulusOnsetMs: targetItem?.stimulusOnsetMs ?? null,
       stimulusIntervalMs: targetItem?.stimulusIntervalMs ?? null,
       nextStimulusIntervalMs: targetItem?.nextStimulusIntervalMs ?? null,
@@ -285,6 +255,7 @@ const TestPage_SRT = () => {
   };
 
   const handleStart = () => {
+    setAssessment(getSrtAssessmentVersion(testingVersion || getNextSrtTestVersion(getCurrentChildId())));
     resetRuntimeState();
     setFinalResult(null);
     setShowDetailedResult(false);
@@ -320,6 +291,18 @@ const TestPage_SRT = () => {
   };
 
   const getCurrentChildId = () => getCurrentChildProfile()?.childId || null;
+
+  const [assessment, setAssessment] = useState(() =>
+    getSrtAssessmentVersion(testingVersion || getNextSrtTestVersion(getCurrentChildId())));
+  const assessmentMetadata = {
+    testVersion: assessment.testVersion,
+    stimulusSetId: assessment.stimulusSetId,
+    stimulusName: assessment.stimulusName,
+  };
+  const targetTypes = Object.fromEntries(Object.entries(assessment.stimuli).map(([key, stimulus]) => [key, {
+    ...stimulus, key, intrinsicWidth: stimulus.width, intrinsicHeight: stimulus.height,
+    shouldClick: key === "normal", score: key === "normal" ? 3 : -3,
+  }]));
 
   const getResultStorageKey = (childId = getCurrentChildId()) =>
     childId ? `srtTestResult_${childId}` : null;
@@ -515,8 +498,10 @@ const TestPage_SRT = () => {
     const resultPayload = testAttempt.complete({
       resultId,
       schemaVersion: "1.0.0",
+      ...assessmentMetadata,
       protocol: {
         version: SRT_TEST_PROTOCOL_VERSION,
+        ...assessmentMetadata,
         intervalDefinition: "stimulus_onset_to_onset",
         stimulusIntervalsMs: SRT_TEST_INTERVALS,
         visibleTimeMs: ITEM_VISIBLE_TIME,
@@ -529,7 +514,7 @@ const TestPage_SRT = () => {
       taskName: "Simple Reaction Time",
       taskCode: "SRT",
       gameId: "SRT",
-      gameName: "橡實反應任務",
+      gameName: `${assessment.stimulusName}反應任務`,
       abilityType: "inhibition",
       abilityLabel: "抑制控制",
       mode: "test",
@@ -584,7 +569,7 @@ const TestPage_SRT = () => {
     const audioController = new AbortController();
     assessmentAudioRef.current = audioController;
     setCompletionNarrating(true);
-    void playSrtCue("assessmentComplete", SRT_AUDIO_CONFIG, audioController.signal).then(() => {
+    void playSrtCue("assessmentComplete", assessment.audio, audioController.signal).then(() => {
       if (!audioController.signal.aborted) setCompletionNarrating(false);
     });
 
@@ -644,7 +629,7 @@ const TestPage_SRT = () => {
     setGamePhase("assessmentIntro");
     for (const event of SRT_ASSESSMENT_INTRO_CUES) {
       setAssessmentIntroCue(event);
-      const outcome = await playSrtCue(event, SRT_AUDIO_CONFIG, controller.signal);
+      const outcome = await playSrtCue(event, assessment.audio, controller.signal);
       if (controller.signal.aborted) return;
       if (outcome !== "ended") {
         assessmentAudioRef.current = null;
@@ -653,9 +638,11 @@ const TestPage_SRT = () => {
       }
     }
     assessmentAudioRef.current = null;
+    markSrtTestVersionUsed(childProfile.childId, assessment.testVersion);
     resetTest();
     testStartedAtRef.current = Date.now();
     testAttempt.begin(childProfile);
+    testAttempt.checkpoint(assessmentMetadata);
     setShowDetailedResult(false);
 
     setGamePhase("playing");
@@ -879,7 +866,7 @@ const TestPage_SRT = () => {
     clearCurrentPrompt();
 
     if (effectTimeoutRef.current) clearTimeout(effectTimeoutRef.current);
-    effectTimeoutRef.current = setTimeout(() => setEffect(null), 360);
+    effectTimeoutRef.current = setTimeout(() => setEffect(null), 220);
 
   };
 
@@ -890,6 +877,7 @@ const TestPage_SRT = () => {
 
     if (!currentItemRef.current) {
       behaviorRecordsRef.current.push({
+        ...assessmentMetadata,
         trialIndex: `BG-${behaviorRecordsRef.current.length + 1}`,
         targetType: "background",
         trainingAction: "backgroundClick",
@@ -959,6 +947,8 @@ const TestPage_SRT = () => {
   return (
     <div
       className="srt-test-page"
+      data-test-version={assessment.testVersion}
+      data-stimulus-set={assessment.stimulusSetId}
       style={{
         backgroundImage: `
           linear-gradient(rgba(255,255,255,0.22), rgba(255,255,255,0.22)),
@@ -971,16 +961,16 @@ const TestPage_SRT = () => {
       {phase === "start" && (
         <main className="srt-center-shell srt-start-shell">
           <section className="srt-soft-panel srt-start-panel game-start-card-artwork srt-opening-card-artwork" aria-label="開始畫面">
-            <div className="srt-game-title">幫小松鼠撿橡實</div>
+            <div className="srt-game-title">一起收集{assessment.stimulusName}</div>
             <div className="srt-start-content">
-              <div className="srt-dialog-bubble srt-opening-bubble">小松鼠想請你一起找橡實。</div>
+              <div className="srt-dialog-bubble srt-opening-bubble">一起來收集{assessment.stimulusName}吧！</div>
               <div className="srt-round-icon srt-start-avatar">
-                <img src={startAvatar} width="340" height="340" alt="小松鼠頭像" />
+                <img src={assessment.stimuli.normal.img} width={assessment.stimuli.normal.width} height={assessment.stimuli.normal.height} alt="本次收集的水果" />
               </div>
             </div>
             <div className="srt-guided-action srt-guided-start">
               <button type="button" className="srt-forest-button srt-image-button srt-btn-start" onClick={handleStart} aria-label="進入遊戲">
-                <img src={homeStartBtn} width="532" height="177" alt="進入遊戲" />
+                <img src={homeStartBtn} width="271" height="166" alt="進入遊戲" />
               </button>
               <img loading="lazy" className="srt-mouse-guide srt-mouse-on-button" src={mouseImg} width="156" height="156" alt="" aria-hidden="true" />
             </div>
@@ -995,6 +985,7 @@ const TestPage_SRT = () => {
               <video
                 ref={tutorialVideoRef}
                 src={tutorialVideo}
+                aria-label="SRT 步驟教學影片"
                 autoPlay
                 muted
                 playsInline
@@ -1006,12 +997,12 @@ const TestPage_SRT = () => {
             <div className="srt-step-actions test-video-actions">
               <div className="srt-guided-action srt-guided-skip">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={handleTutorialVideoEnd} aria-label="跳過動畫">
-                  <img src={homeSkipBtn} width="532" height="177" loading="lazy" alt="跳過動畫" />
+                  <img src={homeSkipBtn} width="400" height="269" loading="lazy" alt="跳過動畫" />
                 </button>
               </div>
               <div className="srt-guided-action srt-guided-next">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-next" onClick={handleTutorialVideoEnd} aria-label="下一步">
-                  <img src={homeNextBtn} width="532" height="177" loading="lazy" alt="下一步" />
+                  <img src={homeNextBtn} width="325" height="236" loading="lazy" alt="下一步" />
                 </button>
                 <img className="srt-mouse-guide srt-mouse-on-button" src={mouseImg} width="156" height="156" loading="lazy" alt="" aria-hidden="true" />
               </div>
@@ -1023,6 +1014,7 @@ const TestPage_SRT = () => {
       {phase === "tutorial" && (
         <SrtTestTutorial onReady={startTest} onExit={() => navigate(TEST_PAGE_ROUTE)}
           childId={getCurrentChildId()} getPosition={getRandomPosition}
+          config={{ ...assessmentMetadata, stimuli: assessment.stimuli, audio: assessment.audio }}
           assessmentTiming={{ responseWindowMs: ITEM_VISIBLE_TIME, stimulusIntervalsMs: SRT_TEST_INTERVALS }} />
       )}
 
@@ -1031,18 +1023,23 @@ const TestPage_SRT = () => {
           <section className="srt-intro-layout" aria-label="測驗準備">
             <div className="srt-intro-instructions">
               <h1>記住兩個小規則</h1>
-              <ol className="srt-intro-rules" aria-label="橡實規則">
+              <ol className="srt-intro-rules" aria-label={`${assessment.stimulusName}規則`}>
                 <li className="srt-intro-rule srt-intro-rule-go" aria-current={!assessmentAudioError && assessmentIntroCue === "ruleGo" ? "step" : undefined}>
-                  <SrtRuleIllustration targetType="normal" animate={!assessmentAudioError && assessmentIntroCue === "ruleGo"} />
+                  <SrtRuleIllustration targetType="normal" stimulus={assessment.stimuli.normal} animate={!assessmentAudioError && assessmentIntroCue === "ruleGo"} />
                 </li>
                 <li className="srt-intro-rule srt-intro-rule-nogo" aria-current={!assessmentAudioError && assessmentIntroCue === "ruleNoGo" ? "step" : undefined}>
-                  <SrtRuleIllustration targetType="rotten" />
+                  <SrtRuleIllustration targetType="rotten" stimulus={assessment.stimuli.rotten} />
                 </li>
               </ol>
               <p className="srt-intro-prompt" role="status">
-                {assessmentAudioError ? "再聽一次，準備好就開始囉！" : INTRO_PROMPTS[assessmentIntroCue]}
+                {assessmentAudioError ? "再聽一次，準備好就開始囉！" : assessment.prompts[assessmentIntroCue]}
               </p>
-              {assessmentAudioError && <button type="button" className="srt-intro-replay" onClick={startTest}>重新播放語音</button>}
+              {assessmentAudioError && (
+                <button type="button" className="srt-intro-replay" onClick={startTest} aria-label="重新播放語音">
+                  <img src={homeAgainBtn} width="330" height="282" alt="" />
+                  <span>重新播放語音</span>
+                </button>
+              )}
             </div>
             <SrtNarrator className="srt-intro-chicken" event={assessmentIntroCue} speaking={!assessmentAudioError} alt="小雞陪你記住規則" />
           </section>
@@ -1054,10 +1051,10 @@ const TestPage_SRT = () => {
           <div data-testid="srt-game-area" className={`srt-test-game-area ${idleFlashId ? "srt-idle-flash" : ""}`} onClick={handleGameAreaClick}>
             {item && (
               <img loading="lazy"
-                src={item.img || normalImg}
-                width={item.intrinsicWidth || 151}
-                height={item.intrinsicHeight || 194}
-                alt={item.label || "橡實"}
+                src={item.img}
+                width={item.intrinsicWidth}
+                height={item.intrinsicHeight}
+                alt={item.label}
                 draggable={false}
                 className="srt-test-item"
                 data-testid="srt-stimulus"
@@ -1084,7 +1081,7 @@ const TestPage_SRT = () => {
               <div className="srt-dialog-bubble">完成了！你有很認真看森林喔。</div>
               <div className="srt-result-narrator-column">
                 <div className="srt-round-icon srt-result-icon">
-                  <img src={levelIcon} width="340" height="340" loading="lazy" alt="SRT 關卡圖示" />
+                  <img src={assessment.stimuli.normal.img} width={assessment.stimuli.normal.width} height={assessment.stimuli.normal.height} loading="lazy" alt="SRT 關卡圖示" />
                 </div>
                 {completionNarrating && <SrtNarrator event="assessmentComplete" />}
               </div>
@@ -1093,7 +1090,7 @@ const TestPage_SRT = () => {
             <div className="srt-result-actions">
               <div className="srt-guided-action srt-guided-result-main">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-home" onClick={() => navigate(TEST_PAGE_ROUTE)} aria-label="回到森林">
-                  <img src={homeBackBtn} width="532" height="177" loading="lazy" alt="回到森林" />
+                  <img src={homeBackBtn} width="288" height="282" loading="lazy" alt="回到森林" />
                 </button>
                 <img className="srt-mouse-guide srt-mouse-on-button" src={mouseImg} width="156" height="156" loading="lazy" alt="" aria-hidden="true" />
               </div>
@@ -1102,7 +1099,7 @@ const TestPage_SRT = () => {
                 setCompletionNarrating(false);
                 setShowDetailedResult(true);
               }} aria-label="詳細結果">
-                <img src={homeResultBtn} width="532" height="177" loading="lazy" alt="查看詳細結果" />
+                <img src={homeResultBtn} width="305" height="236" loading="lazy" alt="查看詳細結果" />
               </button>
             </div>
           </section>
@@ -1118,7 +1115,7 @@ const TestPage_SRT = () => {
           trialRecords={storedResult?.records ?? trialRecords}
           totalSpawn={storedResult?.totalTrials ?? (trialRecords.length || MAX_TRIALS)}
           missCount={missCount}
-          summaryData={storedResult?.summary ?? {}}
+          summaryData={{ ...storedResult, ...storedResult?.summary }}
           starResult={storedResult?.scoring ?? null}
           scoring={storedResult?.scoring ?? null}
           aiAnalysis={storedResult?.aiAnalysis ?? null}
@@ -1806,7 +1803,6 @@ const testPageCss = `
 
 .srt-test-item:hover {
   transform: translate(-50%, -50%) scale(1.04);
-  filter: drop-shadow(0 13px 15px rgba(79, 57, 20, 0.28)) brightness(1.06);
 }
 
 .srt-test-item:active {
@@ -1820,30 +1816,25 @@ const testPageCss = `
 
 .srt-test-effect {
   position: absolute;
-  width: 78px;
-  height: 78px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: 5;
-  border: 5px solid rgba(255, 236, 94, 0.92);
-  background: rgba(255, 245, 158, 0.18);
-  box-shadow: 0 0 22px rgba(255, 204, 48, 0.55);
-  animation: srt-test-effect-pop 0.42s ease-out forwards;
+  border: 2px solid rgba(255, 240, 173, 0.8);
+  background: rgba(255, 245, 199, 0.12);
+  animation: srt-test-effect-pop 0.22s ease-out forwards;
 }
 
 .srt-test-effect.is-penalty {
-  background:
-    radial-gradient(circle, rgba(255, 255, 255, 0.86) 0 10%, rgba(255, 138, 120, 0.72) 11% 35%, rgba(255, 70, 50, 0.16) 60%, rgba(255, 70, 50, 0) 72%);
-  box-shadow:
-    0 0 0 7px rgba(255, 108, 87, 0.16),
-    0 0 24px rgba(255, 96, 70, 0.52),
-    0 0 44px rgba(209, 58, 38, 0.26);
+  border-color: rgba(232, 157, 141, 0.8);
+  background: rgba(232, 157, 141, 0.12);
 }
 
 @keyframes srt-test-effect-pop {
-  from { transform: translate(-50%, -50%) scale(0.7); opacity: 0.95; }
-  to { transform: translate(-50%, -50%) scale(1.45); opacity: 0; }
+  from { transform: translate(-50%, -50%) scale(0.9); opacity: 0.8; }
+  to { transform: translate(-50%, -50%) scale(1.12); opacity: 0; }
 }
 
 .srt-result-panel {
@@ -1983,30 +1974,19 @@ const testPageCss = `
     drop-shadow(0 5px 2px rgba(118, 76, 23, 0.18))
     drop-shadow(0 0 15px rgba(255, 219, 75, 0.62))
     drop-shadow(0 0 32px rgba(255, 184, 28, 0.34));
-  animation: srt-test-item-pop 0.28s cubic-bezier(0.19, 1.34, 0.32, 1) both;
+  animation: srt-test-item-pop 0.28s cubic-bezier(0.19, 1.34, 0.32, 1);
   transition:
-    transform 0.18s cubic-bezier(0.2, 1.25, 0.38, 1),
-    filter 0.18s ease;
+    transform 0.1s ease-out,
+    filter 0.1s ease-out;
   will-change: transform, filter;
 }
 
 .srt-test-item:hover {
-  transform: translate(-50%, -50%) scale(1.075) rotate(-1.5deg);
-  filter:
-    drop-shadow(0 17px 16px rgba(54, 38, 15, 0.38))
-    drop-shadow(0 6px 2px rgba(118, 76, 23, 0.20))
-    drop-shadow(0 0 19px rgba(255, 230, 97, 0.78))
-    drop-shadow(0 0 42px rgba(255, 190, 34, 0.48))
-    brightness(1.08)
-    saturate(1.06);
+  transform: translate(-50%, -50%) scale(1.025);
 }
 
 .srt-test-item:active {
-  transform: translate(-50%, -50%) scale(0.9) rotate(1.5deg);
-  filter:
-    drop-shadow(0 8px 8px rgba(54, 38, 15, 0.30))
-    drop-shadow(0 0 18px rgba(255, 218, 72, 0.58))
-    brightness(1.12);
+  transform: translate(-50%, -50%) scale(0.97);
 }
 
 @keyframes srt-test-item-pop {
@@ -2024,68 +2004,6 @@ const testPageCss = `
   100% {
     transform: translate(-50%, -50%) scale(1) rotate(0deg);
     opacity: 1;
-  }
-}
-
-.srt-test-effect {
-  width: 86px;
-  height: 86px;
-  border: 0;
-  background:
-    radial-gradient(circle, rgba(255, 255, 255, 0.92) 0 10%, rgba(255, 243, 128, 0.86) 11% 24%, rgba(255, 191, 44, 0.40) 25% 47%, rgba(255, 156, 20, 0.00) 70%),
-    conic-gradient(from 14deg, rgba(255,255,255,0), rgba(255,247,153,0.78), rgba(255,184,28,0.18), rgba(255,255,255,0));
-  box-shadow:
-    0 0 0 7px rgba(255, 238, 123, 0.20),
-    0 0 22px rgba(255, 218, 67, 0.86),
-    0 0 48px rgba(255, 178, 28, 0.55),
-    inset 0 0 18px rgba(255, 255, 255, 0.74);
-  mix-blend-mode: screen;
-  animation: srt-test-effect-pop 0.54s cubic-bezier(0.12, 1.55, 0.38, 1) forwards;
-  will-change: transform, opacity, filter;
-}
-
-.srt-test-effect::before,
-.srt-test-effect::after {
-  content: "";
-  position: absolute;
-  inset: -12px;
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.srt-test-effect::before {
-  border: 4px solid rgba(255, 245, 145, 0.70);
-  box-shadow:
-    0 0 18px rgba(255, 234, 95, 0.72),
-    inset 0 0 12px rgba(255, 255, 255, 0.50);
-}
-
-.srt-test-effect::after {
-  inset: 10px;
-  background:
-    radial-gradient(circle, rgba(255,255,255,0.86), rgba(255,229,85,0.48) 44%, transparent 70%);
-  filter: blur(1px);
-}
-
-@keyframes srt-test-effect-pop {
-  0% {
-    transform: translate(-50%, -50%) scale(0.28);
-    opacity: 0;
-    filter: blur(0) saturate(1.05);
-  }
-  18% {
-    transform: translate(-50%, -50%) scale(1.08);
-    opacity: 1;
-    filter: blur(0) saturate(1.22);
-  }
-  52% {
-    transform: translate(-50%, -50%) scale(1.62);
-    opacity: 0.78;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(2.15);
-    opacity: 0;
-    filter: blur(2px) saturate(1.15);
   }
 }
 
@@ -2139,12 +2057,16 @@ const testPageCss = `
 
 @media (prefers-reduced-motion: reduce) {
   .srt-test-item,
-  .srt-test-effect,
   .srt-image-button,
   .srt-image-button:hover:not(:disabled) {
     animation-duration: 0.01ms;
     animation-iteration-count: 1;
     transition-duration: 0.01ms;
+  }
+
+  .srt-test-effect {
+    animation: none;
+    opacity: 0.8;
   }
 }
 

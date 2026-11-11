@@ -1,20 +1,12 @@
-import intro from "../asset/voice/仔細聽喔！這次要找跟聲音不一樣的動物！.mp3";
-import dogRule from "../asset/voice/聽到狗狗的叫聲，就要點貓咪！.mp3";
-import catRule from "../asset/voice/聽到貓咪的叫聲，就要點狗狗！.mp3";
 import question from "../asset/voice/小耳朵準備好！聽一聽，再點相反的動物！.mp3";
 import answer from "../asset/voice/點擊你的答案.mp3";
 import correct from "../asset/voice/太棒了！你有找到正確的動物喔！.mp3";
 import wrong from "../asset/voice/哎呀！要點另一隻動物.mp3";
 import retry from "../asset/voice/沒關係，重新找另一隻動物！.mp3";
 import complete from "../asset/voice/太棒了！你學會找相反的動物了！.mp3";
-import assessmentStart from "../asset/voice/記得喔！聽到聲音，要點另一隻動物！.mp3";
-import assessmentComplete from "../asset/voice/完成囉！你真的很努力！.mp3";
-import cat from "../asset/ARI/cat.mp3";
-import dog from "../asset/ARI/dog.mp3";
 
 export const ARI_PRACTICE_AUDIO = {
-  intro, dogRule, catRule, question, answer, correct, wrong, retry, complete,
-  assessmentStart, assessmentComplete, cat, dog,
+  question, answer, correct, wrong, retry, complete,
 };
 
 // Resolve only after ended. A blocked/missing/stalled recording is retried by

@@ -1,0 +1,268 @@
+{
+  "observedAt": "2026-10-23T06:58:41.987531+00:00",
+  "readOnly": true,
+  "rls": {
+    "game_results": true,
+    "behavioral_trials": true,
+    "behavioral_sessions": true,
+    "research_participants": true,
+    "behavioral_task_sessions": true,
+    "behavioral_trial_derivations": true
+  },
+  "checks": [
+    {
+      "name": "behavioral_task_sessions_check",
+      "table": "behavioral_task_sessions",
+      "validated": true,
+      "definition": "CHECK ((correct_trials <= total_trials))"
+    },
+    {
+      "name": "behavioral_task_sessions_check1",
+      "table": "behavioral_task_sessions",
+      "validated": true,
+      "definition": "CHECK ((incorrect_trials <= total_trials))"
+    },
+    {
+      "name": "behavioral_task_sessions_check2",
+      "table": "behavioral_task_sessions",
+      "validated": true,
+      "definition": "CHECK (((completed_at IS NULL) OR (started_at IS NULL) OR (completed_at >= started_at)))"
+    },
+    {
+      "name": "behavioral_task_sessions_completion_status_check",
+      "table": "behavioral_task_sessions",
+      "validated": true,
+      "definition": "CHECK ((completion_status = ANY (ARRAY['in_progress'::text, 'completed'::text, 'interrupted'::text, 'abandoned'::text])))"
+    },
+    {
+      "name": "behavioral_task_sessions_correct_trials_check",
+      "table": "behavioral_task_sessions",
+      "validated": true,
+      "definition": "CHECK ((correct_trials >= 0))"
+    },
+    {
+      "name": "behavioral_task_sessions_incorrect_trials_check",
+      "table": "behavioral_task_sessions",
+      "validated": true,
+      "definition": "CHECK ((incorrect_trials >= 0))"
+    },
+    {
+      "name": "behavioral_task_sessions_mean_reaction_time_ms_check",
+      "table": "behavioral_task_sessions",
+      "validated": true,
+      "definition": "CHECK (((mean_reaction_time_ms IS NULL) OR (mean_reaction_time_ms >= (0)::numeric)))"
+    },
+    {
+      "name": "behavioral_task_sessions_pkey",
+      "table": "behavioral_task_sessions",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "behavioral_task_sessions_session_id_fkey",
+      "table": "behavioral_task_sessions",
+      "validated": true,
+      "definition": "FOREIGN KEY (session_id) REFERENCES behavioral_sessions(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "behavioral_task_sessions_session_id_task_order_index_key",
+      "table": "behavioral_task_sessions",
+      "validated": true,
+      "definition": "UNIQUE (session_id, task_order_index)"
+    },
+    {
+      "name": "behavioral_task_sessions_task_code_check",
+      "table": "behavioral_task_sessions",
+      "validated": true,
+      "definition": "CHECK ((task_code = ANY (ARRAY['CBT'::text, 'PM'::text, 'SRT'::text, 'SSG'::text, 'LB'::text, 'DCCS'::text])))"
+    },
+    {
+      "name": "behavioral_task_sessions_task_order_index_check",
+      "table": "behavioral_task_sessions",
+      "validated": true,
+      "definition": "CHECK ((task_order_index > 0))"
+    },
+    {
+      "name": "behavioral_task_sessions_total_trials_check",
+      "table": "behavioral_task_sessions",
+      "validated": true,
+      "definition": "CHECK ((total_trials >= 0))"
+    },
+    {
+      "name": "behavioral_trial_derivations_check",
+      "table": "behavioral_trial_derivations",
+      "validated": true,
+      "definition": "CHECK (((NOT valid_trial) OR (cardinality(exclusion_reasons) = 0)))"
+    },
+    {
+      "name": "behavioral_trial_derivations_participant_id_fkey",
+      "table": "behavioral_trial_derivations",
+      "validated": true,
+      "definition": "FOREIGN KEY (participant_id) REFERENCES research_participants(id) ON DELETE RESTRICT"
+    },
+    {
+      "name": "behavioral_trial_derivations_pkey",
+      "table": "behavioral_trial_derivations",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "behavioral_trial_derivations_reaction_time_ms_check",
+      "table": "behavioral_trial_derivations",
+      "validated": true,
+      "definition": "CHECK (((reaction_time_ms IS NULL) OR (reaction_time_ms >= (0)::numeric)))"
+    },
+    {
+      "name": "behavioral_trial_derivations_task_code_check",
+      "table": "behavioral_trial_derivations",
+      "validated": true,
+      "definition": "CHECK ((task_code = ANY (ARRAY['CBT'::text, 'PM'::text, 'SRT'::text, 'SSG'::text, 'LB'::text, 'DCCS'::text])))"
+    },
+    {
+      "name": "behavioral_trial_derivations_trial_id_fkey",
+      "table": "behavioral_trial_derivations",
+      "validated": true,
+      "definition": "FOREIGN KEY (trial_id) REFERENCES behavioral_trials(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "behavioral_trial_derivations_trial_id_processing_version_key",
+      "table": "behavioral_trial_derivations",
+      "validated": true,
+      "definition": "UNIQUE (trial_id, processing_version)"
+    }
+  ],
+  "policies": [
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "behavioral_sessions",
+      "permissive": "PERMISSIVE",
+      "policyname": "behavioral_sessions_insert_guardian",
+      "schemaname": "public",
+      "with_check": "can_write_research_participant(participant_id)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "can_read_research_participant(participant_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "behavioral_sessions",
+      "permissive": "PERMISSIVE",
+      "policyname": "behavioral_sessions_select_related",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "can_write_research_participant(participant_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "behavioral_sessions",
+      "permissive": "PERMISSIVE",
+      "policyname": "behavioral_sessions_update_guardian",
+      "schemaname": "public",
+      "with_check": "can_write_research_participant(participant_id)"
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "behavioral_task_sessions",
+      "permissive": "PERMISSIVE",
+      "policyname": "task_sessions_insert_guardian",
+      "schemaname": "public",
+      "with_check": "(EXISTS ( SELECT 1\n   FROM behavioral_sessions s\n  WHERE ((s.id = behavioral_task_sessions.session_id) AND can_write_research_participant(s.participant_id))))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(EXISTS ( SELECT 1\n   FROM behavioral_sessions s\n  WHERE ((s.id = behavioral_task_sessions.session_id) AND can_read_research_participant(s.participant_id))))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "behavioral_task_sessions",
+      "permissive": "PERMISSIVE",
+      "policyname": "task_sessions_select_related",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(EXISTS ( SELECT 1\n   FROM behavioral_sessions s\n  WHERE ((s.id = behavioral_task_sessions.session_id) AND can_write_research_participant(s.participant_id))))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "behavioral_task_sessions",
+      "permissive": "PERMISSIVE",
+      "policyname": "task_sessions_update_guardian",
+      "schemaname": "public",
+      "with_check": "(EXISTS ( SELECT 1\n   FROM behavioral_sessions s\n  WHERE ((s.id = behavioral_task_sessions.session_id) AND can_write_research_participant(s.participant_id))))"
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "behavioral_trial_derivations",
+      "permissive": "PERMISSIVE",
+      "policyname": "derivations_insert_guardian",
+      "schemaname": "public",
+      "with_check": "can_write_research_participant(participant_id)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "can_read_research_participant(participant_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "behavioral_trial_derivations",
+      "permissive": "PERMISSIVE",
+      "policyname": "derivations_select_related",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "can_write_research_participant(participant_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "behavioral_trial_derivations",
+      "permissive": "PERMISSIVE",
+      "policyname": "derivations_update_guardian",
+      "schemaname": "public",
+      "with_check": "can_write_research_participant(participant_id)"
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "behavioral_trials",
+      "permissive": "PERMISSIVE",
+      "policyname": "trials_insert_guardian",
+      "schemaname": "public",
+      "with_check": "(EXISTS ( SELECT 1\n   FROM (behavioral_task_sessions ts\n     JOIN behavioral_sessions s ON ((s.id = ts.session_id)))\n  WHERE ((ts.id = behavioral_trials.task_session_id) AND can_write_research_participant(s.participant_id))))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(EXISTS ( SELECT 1\n   FROM (behavioral_task_sessions ts\n     JOIN behavioral_sessions s ON ((s.id = ts.session_id)))\n  WHERE ((ts.id = behavioral_trials.task_session_id) AND can_read_research_participant(s.participant_id))))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "behavioral_trials",
+      "permissive": "PERMISSIVE",
+      "policyname": "trials_select_related",
+      "schemaname": "public",
+      "with_check": null
+    }
+  ]
+}

@@ -7,6 +7,7 @@ import TrainingPage, { DCCS_TRAINING_LEVELS } from "./TrainingPage_DCCS";
 import { DCCS_DIFFICULTY_ORDER, getDccsTrainingCorrectPosition } from "../utils/dccsTrainingProtocol";
 import { saveUnifiedResult } from "../utils/resultManager";
 import { getDccsClinicalMetrics } from "../utils/dccsClinicalMetrics";
+import { DCCS_TRAINING_AUDIO } from "../utils/dccsTrainingAudio";
 
 jest.mock("../utils/resultManager", () => ({ createResultId: jest.fn(() => "dccs-training-attempt"), saveUnifiedResult: jest.fn() }));
 jest.mock("../utils/useTrainingAchievementAssignment", () => ({ useTrainingAchievementAssignment: jest.fn(() => null) }));
@@ -15,22 +16,50 @@ const board = () => screen.getByTestId("dccs-training");
 const sideButton = (side) => screen.getByRole("button", { name: side === "top" ? "左側分類箱" : "右側分類箱" });
 const mouse = () => screen.queryByTestId("dccs-training-mouse");
 const result = () => saveUnifiedResult.mock.calls.at(-1)[0].rawResult;
+let audios;
+let utterances;
+const narrator = () => screen.getByTestId("dccs-training-narrator");
+function finishNarration() {
+  act(() => {
+    let pending;
+    let guard = 0;
+    while ((pending = [...audios, ...utterances].find((clip) => clip.onended || clip.onend)) && guard++ < 10) {
+      (pending.onended || pending.onend)();
+    }
+  });
+}
 
 beforeEach(() => {
   jest.useFakeTimers(); jest.setSystemTime(new Date("2026-10-21T00:00:00Z"));
   jest.clearAllMocks(); localStorage.clear(); sessionStorage.clear();
+  audios = []; utterances = [];
+  jest.spyOn(global, "Audio").mockImplementation((src) => {
+    const audio = { src, duration: 5, play: jest.fn().mockResolvedValue(), pause: jest.fn() };
+    audios.push(audio); return audio;
+  });
+  Object.defineProperty(window, "SpeechSynthesisUtterance", { configurable: true,
+    value: jest.fn().mockImplementation((text) => ({ text })) });
+  Object.defineProperty(window, "speechSynthesis", { configurable: true, value: {
+    getVoices: () => [{ lang: "zh-TW" }], cancel: jest.fn(),
+    speak: jest.fn((utterance) => utterances.push(utterance)),
+  } });
   jest.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => window.setTimeout(() => callback(performance.now()), 16));
   jest.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => window.clearTimeout(id));
 });
 afterEach(() => { cleanup(); jest.restoreAllMocks(); jest.useRealTimers(); });
 
-function start(difficulty, strict = false, state = {}) {
+function openRule(difficulty, strict = false, state = {}) {
   const page = <MemoryRouter initialEntries={[{ pathname: "/training-dccs", search: `?difficulty=${difficulty}`, state }]}
     future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><TrainingPage /></MemoryRouter>;
   const view = render(strict ? <StrictMode>{page}</StrictMode> : page);
   fireEvent.click(screen.getByRole("button", { name: "開始遊戲" }));
   fireEvent.click(screen.getByRole("button", { name: "跳過" }));
   fireEvent.click(screen.getByRole("button", { name: "跳過" }));
+  return view;
+}
+function start(difficulty, strict = false, state = {}) {
+  const view = openRule(difficulty, strict, state);
+  finishNarration();
   // Guides do not consume answer time or emit answer hints.
   advance(20000);
   fireEvent.click(screen.getByRole("button", { name: "開始本關" }));
@@ -46,7 +75,10 @@ function correctAnswer(difficulty) {
 function settle() {
   advance(1200);
   const next = screen.queryByRole("button", { name: "繼續" });
-  if (next && !screen.queryByTestId("dccs-training")) fireEvent.click(next);
+  if (next && !screen.queryByTestId("dccs-training")) {
+    finishNarration();
+    fireEvent.click(next);
+  }
   advance(20);
 }
 function complete(difficulty) {
@@ -136,4 +168,130 @@ test.each(["beginner", "expert"])("leaving %s during an active trial clears hint
   expect(jest.getTimerCount()).toBe(0);
   advance(20000);
   expect(saveUnifiedResult).not.toHaveBeenCalled();
+});
+
+test("rule narration has no text, follows actual playback, and gates the full answer deadline", () => {
+  openRule("beginner");
+  const rule = screen.getByTestId("dccs-training-rule");
+  expect(rule.textContent).toBe("");
+  expect(narrator().querySelector(".dccs-training-narrator-open")).toHaveAttribute("src", "chicken.webp");
+  expect(narrator().querySelector(".dccs-training-narrator-closed")).toHaveAttribute("src", "chicken01.webp");
+  const next = screen.getByRole("button", { name: "開始本關" });
+  expect(next).toBeDisabled();
+  const audio = audios.at(-1);
+  expect(audio.src).toBe(DCCS_TRAINING_AUDIO.color[0].src);
+  expect(narrator()).toHaveAttribute("data-speaking", "false");
+  act(() => audio.onplaying());
+  expect(narrator()).toHaveAttribute("data-speaking", "true");
+  act(() => audio.onwaiting());
+  expect(narrator()).toHaveAttribute("data-speaking", "false");
+  act(() => audio.onplaying());
+  act(() => audio.onpause());
+  expect(narrator()).toHaveAttribute("data-speaking", "false");
+  advance(5000);
+  expect(screen.queryByTestId("dccs-training")).toBeNull();
+  expect(mouse()).toBeNull();
+  finishNarration();
+  expect(next).toBeEnabled();
+  fireEvent.click(next); advance(20);
+  expect(board().textContent).toBe("");
+  advance(14980); expect(sideButton("top")).toBeEnabled();
+  advance(20); expect(sideButton("top")).toBeDisabled();
+});
+
+test("every type and bag transition uses a text-free chicken and finishes its entire queue", () => {
+  start("medium");
+  for (let i = 0; i < 4; i++) { correctAnswer("medium"); advance(850); advance(20); }
+  expect(screen.getByTestId("dccs-training-rule")).toHaveAttribute("data-rule", "type");
+  expect(screen.getByTestId("dccs-training-rule").textContent).toBe("");
+  expect(audios.at(-1).src).toBe(DCCS_TRAINING_AUDIO.type[0].src);
+  act(() => audios.at(-1).onended());
+  expect(audios.at(-1).src).toBe(DCCS_TRAINING_AUDIO.type[1].src);
+  expect(screen.getByRole("button", { name: "繼續" })).toBeDisabled();
+  finishNarration();
+  fireEvent.click(screen.getByRole("button", { name: "繼續" })); advance(20);
+  for (let i = 0; i < 4; i++) { correctAnswer("medium"); advance(850); advance(20); }
+  expect(screen.getByTestId("dccs-training-rule")).toHaveAttribute("data-rule", "bag");
+  expect(screen.getByTestId("dccs-training-rule").textContent).toBe("");
+  act(() => audios.at(-1).onended());
+  act(() => audios.at(-1).onended());
+  const utterance = utterances.at(-1);
+  expect(utterance.text).toContain("沒有透明袋子時");
+  expect(utterance.lang).toBe("zh-TW");
+  expect(screen.getByRole("button", { name: "繼續" })).toBeDisabled();
+  act(() => utterance.onstart());
+  expect(narrator()).toHaveAttribute("data-speaking", "true");
+  act(() => utterance.onpause());
+  expect(narrator()).toHaveAttribute("data-speaking", "false");
+  finishNarration();
+  fireEvent.click(screen.getByRole("button", { name: "繼續" })); advance(20);
+  expect(board()).toHaveAttribute("data-trial", "9");
+  complete("medium");
+});
+
+test("a failed recording requires icon retry and stale playback cannot unlock a replay", async () => {
+  openRule("beginner");
+  const first = audios.at(-1);
+  const staleEnded = first.onended;
+  const stalePlaying = first.onplaying;
+  act(() => first.onerror());
+  expect(narrator()).toHaveAttribute("data-speaking", "false");
+  expect(screen.getByRole("button", { name: "開始本關" })).toBeDisabled();
+  expect(screen.getByTestId("dccs-training-rule").textContent).toBe("");
+  fireEvent.click(screen.getByRole("button", { name: "重試規則語音" }));
+  act(() => { stalePlaying(); staleEnded(); });
+  expect(narrator()).toHaveAttribute("data-speaking", "false");
+  expect(screen.getByRole("button", { name: "開始本關" })).toBeDisabled();
+  finishNarration();
+  expect(screen.getByRole("button", { name: "開始本關" })).toBeEnabled();
+  global.Audio.mockImplementationOnce(() => ({ pause: jest.fn(), play: () => Promise.reject(new Error("autoplay")) }));
+  fireEvent.click(screen.getByRole("button", { name: "重聽規則" }));
+  await act(async () => { await Promise.resolve(); });
+  expect(screen.getByRole("button", { name: "開始本關" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "重試規則語音" })).toBeEnabled();
+});
+
+test("wind announcements use the chicken, replace pending speech, and do not restart the answer clock", () => {
+  start("expert");
+  expect(utterances[0].text).toContain("風吹來的時候");
+  advance(6480);
+  const reverse = utterances.at(-1);
+  expect(reverse.text).toBe("風來了，選另一個籃子。");
+  act(() => reverse.onstart());
+  expect(narrator()).toHaveAttribute("data-speaking", "true");
+  const staleEnd = reverse.onend;
+  // The existing ten-second deadline keeps running during the announcement.
+  advance(3500); expect(sideButton("top")).toBeEnabled();
+  advance(20); expect(sideButton("top")).toBeDisabled();
+  advance(2000);
+  expect(utterances.at(-1).text).toBe("風停了，照原本的規則分類。");
+  expect(reverse.onend).toBeNull();
+  act(() => staleEnd());
+  expect(narrator()).toHaveAttribute("data-cue", "windRestore");
+  expect(board().textContent).toBe("");
+});
+
+test("unmount during a synthesized rule cancels speech and every late callback", () => {
+  const view = openRule("expert", true);
+  act(() => audios.at(-1).onended());
+  const utterance = utterances.at(-1);
+  const staleEnd = utterance.onend;
+  view.unmount();
+  expect(window.speechSynthesis.cancel).toHaveBeenCalled();
+  expect(utterance.onend).toBeNull();
+  expect(jest.getTimerCount()).toBe(0);
+  act(() => staleEnd());
+  expect(saveUnifiedResult).not.toHaveBeenCalled();
+});
+
+test("finishing the narrated game still shows the result and supports replay", () => {
+  start("beginner"); complete("beginner");
+  fireEvent.click(screen.getByRole("button", { name: "跳過說明" }));
+  expect(screen.getByRole("region", { name: "練習結果" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "再玩一次" }));
+  fireEvent.click(screen.getByRole("button", { name: "開始遊戲" }));
+  fireEvent.click(screen.getByRole("button", { name: "跳過" }));
+  fireEvent.click(screen.getByRole("button", { name: "跳過" }));
+  expect(screen.getByRole("button", { name: "開始本關" })).toBeDisabled();
+  expect(narrator()).toHaveAttribute("data-cue", "color");
 });

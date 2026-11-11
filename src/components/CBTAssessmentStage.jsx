@@ -7,15 +7,13 @@ import "../styles/CBTPractice.css";
 import "../styles/CBTAssessmentStage.css";
 
 export const CBT_ASSESSMENT_ANSWER_AUDIO = answerVoice;
-const clips = { answer: answerVoice };
-
-export default function CBTAssessmentStage({ children, cue, onCueComplete }) {
+export default function CBTAssessmentStage({ children, cue, onCueComplete, answerAudio = answerVoice, layout = CBT_ASSESSMENT_LAYOUT }) {
   const frameRef = useRef(null);
   const completeRef = useRef(onCueComplete);
   completeRef.current = onCueComplete;
   const [scale, setScale] = useState(1);
   const [voiceState, setVoiceState] = useState("idle");
-  const audio = useMemo(() => createCBTPracticeAudioPlayer(clips), []);
+  const audio = useMemo(() => createCBTPracticeAudioPlayer({ answer: answerAudio }), [answerAudio]);
   const play = useCallback(() => {
     setVoiceState("loading");
     audio.play("answer", {
@@ -29,7 +27,7 @@ export default function CBTAssessmentStage({ children, cue, onCueComplete }) {
   useEffect(() => {
     const frame = frameRef.current;
     const resize = () => setScale(Math.min(1,
-      (frame.clientWidth || CBT_ASSESSMENT_LAYOUT.width) / CBT_ASSESSMENT_LAYOUT.width));
+      (frame.clientWidth || layout.width) / layout.width));
     resize();
     if (typeof ResizeObserver !== "undefined") {
       const observer = new ResizeObserver(resize);
@@ -38,7 +36,7 @@ export default function CBTAssessmentStage({ children, cue, onCueComplete }) {
     }
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
-  }, []);
+  }, [layout.width]);
 
   useEffect(() => {
     if (cue) play();
@@ -47,9 +45,9 @@ export default function CBTAssessmentStage({ children, cue, onCueComplete }) {
 
   const blocked = voiceState === "blocked" || voiceState === "error";
   return <div className="cbt-assessment-stage" data-testid="cbt-assessment-stage"
-    style={{ "--cbt-assessment-board-width": `${CBT_ASSESSMENT_LAYOUT.width}px` }}>
+    style={{ "--cbt-assessment-board-width": `${layout.width}px` }}>
     <div className="cbt-assessment-board-frame" ref={frameRef}
-      style={{ height: CBT_ASSESSMENT_LAYOUT.height * scale, "--cbt-assessment-board-scale": scale }}>{children}</div>
+      style={{ height: layout.height * scale, "--cbt-assessment-board-scale": scale }}>{children}</div>
     <aside className="cbt-assessment-narrator-slot" aria-label="旁白角色區">
       {cue && (blocked ? <button type="button" className="cbt-assessment-audio-retry"
         aria-label="播放作答提示" title="點一下小雞播放提示" onClick={play}>

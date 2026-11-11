@@ -30,11 +30,11 @@ function LayoutContent({ tools, activeTool, children }) {
     <div className="studio-desktop-sidebar" aria-hidden={drawer ? true : undefined}><ResearchSidebar tools={tools} activeTool={activeTool} collapsed={collapsed} onToggle={toggleSidebar} onSecondary={secondary}/></div>
     <div className="studio-workspace" aria-hidden={drawer ? true : undefined}><ResearchHeader tool={tool} quality={quality} loading={data.loading} onMenu={() => setDrawer("navigation")} onQuality={() => setDrawer("quality")}/>
       <div className="studio-content-wrap"><ResearchFilterBar/>
-        <div className="studio-scope-caption"><span><ResearchIcon name="info" size={14}/> {participantLabel(data.selectedParticipant, labels)} · {data.selectedTask === "ALL" ? "全部現行任務" : researchTaskLabel(data.selectedTask)}</span><span>研究與教育用途 · 不作臨床診斷</span></div>
+        <div className="studio-scope-caption"><span><ResearchIcon name="info" size={14}/> {participantLabel(data.selectedParticipant, labels)} · {data.selectedTask === "ALL" ? "全部現行任務" : researchTaskLabel(data.selectedTask)}</span></div>
         {data.excludedCount > 0 && <p className="studio-excluded-note">已排除 {data.excludedCount} 筆非現行任務紀錄；原始資料保留。</p>}
         {data.notices.length > 0 && <ResearchNotice tone="warning">{data.notices.join(" ")}</ResearchNotice>}
         <div id="research-studio-content" tabIndex={-1} className="studio-content">{children}</div>
-        <footer className="studio-footer"><span>蒐秘密 Research Studio</span><span>觀察關聯、模型預測與模擬回饋均不代表因果效果。</span></footer>
+        <footer className="studio-footer"><span>蒐秘密 Research Studio</span></footer>
       </div>
     </div>
     {drawer === "navigation" && <ResearchDrawer title="研究導覽" onClose={closeDrawer}><ResearchSidebar tools={tools} activeTool={activeTool} onSelect={closeDrawer} onSecondary={secondary} mobile/></ResearchDrawer>}
@@ -43,7 +43,13 @@ function LayoutContent({ tools, activeTool, children }) {
       <h3>既有排除原因</h3><dl className="studio-detail-list">{Object.entries(rows.reduce((counts, row) => { Object.entries(row.exclusion_reason_counts || {}).forEach(([reason, count]) => { counts[reason] = (counts[reason] || 0) + Number(count); }); return counts; }, {})).map(([reason, count]) => <div key={reason}><dt>{reason}</dt><dd>{count} 題次</dd></div>)}</dl>
       <ResearchNotice>非現行任務紀錄：{data.excludedCount} 筆。這是研究入口的任務範圍排除，與題次品質排除分開計數。</ResearchNotice><p>缺失欄位保持「—」。未施測不視為錯誤作答；各指標可用樣本數可能不同。</p></ResearchDrawer>}
     {drawer === "games" && <ResearchDrawer title="遊戲規則與收集資料" onClose={closeDrawer}><ResearchTaskGuide/></ResearchDrawer>}
-    {drawer === "methods" && <ResearchDrawer title="研究方法與指標說明" onClose={closeDrawer}><h3>資料到研究解讀</h3><p>原始題次 → 清理與特徵 → 統計與個人趨勢 → 模型解釋 → 推薦歷程。完整 UUID 可於參與者識別詳情查看，匯出仍使用原本研究代碼。</p><h3>指標與比較</h3><p>正確率與錯誤率顯示百分比；RT 與 RT SD 顯示毫秒；正確率變化使用百分點。個人基準只作同任務與條件的描述性比較，不是常模或臨床正常範圍。</p><h3>模型與模擬</h3><p>觀察模型沿用至少 20 位具有預測目標的參與者條件。資料準備進度只反映人數，不是預測準確率。既有模型以前 30% 題次預測同任務後 70% 的行為表現。</p><p>策略模擬使用既有 Reward 與原本演算法；回饋不等於幼兒訓練成效。尚無 24 小時疾病風險或臨床危急值監測。</p><h3>顯示代碼</h3><p>P 編號只作介面識別，對應關係保留於本機瀏覽器；不改變既有匿名化、權限與研究資料。清除瀏覽器儲存或更換裝置時，應以 UUID 核對。</p><h3>資料匯出</h3><p>研究總覽保留原有 CSV／JSON 與版本清單；研究統計仍提供原有 4 份 CSV。介面排序及搜尋只改變可見順序，不改寫輸出。</p></ResearchDrawer>}
+    {drawer === "methods" && <ResearchDrawer title="研究方法與指標說明" onClose={closeDrawer}>
+      <h3>資料與匯出</h3><p>逐題作答資料每列是一筆原始採集紀錄；場次摘要使用清理後的指標。欄位說明包含來源、單位與作業代碼對照，完整原始檔與版本另列於進階下載。</p>
+      <h3>指標與缺漏</h3><p>正確率以百分比呈現，反應時間以毫秒呈現。空白或「—」表示未記錄；缺漏不補成 0。統計中的有效場次數與參與者人數分開計算。</p>
+      <h3>比較與模型</h3><p>個人趨勢依相同作業、測驗／訓練及難度條件比較。模型以前 30% 題次預測後 70% 表現，至少需要 20 位具有預測目標的參與者。</p>
+      <p>箱型圖呈現分布與統計離群標記，不作常態性判定。描述性變化、模型預測與模擬回饋不能用於診斷或推論訓練因果效果。</p>
+      <h3>參與者代碼</h3><p>P 編號對應本機瀏覽器；匯出保留原本研究 UUID。更換裝置或清除瀏覽器儲存後，請以 UUID 核對。</p>
+    </ResearchDrawer>}
   </div>;
 }
 
@@ -73,7 +79,7 @@ export function ResearchFilterBar() {
   return <section className="studio-filter-bar" aria-label="共用分析範圍"><button className="studio-filter-toggle" type="button" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}><ResearchIcon name="adaptive"/>分析範圍 {expanded ? "收合" : "展開"}</button>
     <div className="studio-filter-body" hidden={!expanded}><label>研究參與者<select aria-label="匿名參與者" value={data.selectedParticipant} disabled={data.loading} onChange={(event) => data.setSelectedParticipant(event.target.value)}>{!data.participants.length && <option value="">尚無參與者</option>}<option value="ALL">全部參與者</option>{data.participants.map((id) => <option key={id} value={id}>{participantLabel(id, labels)}</option>)}</select></label>
       <label>研究任務<select aria-label="任務" value={data.selectedTask} onChange={(event) => data.setSelectedTask(event.target.value)}><option value="ALL">全部現行任務</option>{RESEARCH_TASKS.map((task) => <option key={task} value={task}>{researchTaskLabel(task)}</option>)}</select></label>
-      <div className="studio-filter-note"><span>跨功能保留範圍</span><small>AI 以所選任務的全體資料建模；個別解釋依參與者篩選。</small></div><button type="button" className="studio-refresh" disabled={data.loading} onClick={data.refresh}><ResearchIcon name="refresh" size={16}/>重新整理資料</button>
+      <button type="button" className="studio-refresh" disabled={data.loading} onClick={data.refresh}><ResearchIcon name="refresh" size={16}/>重新整理資料</button>
     </div>{data.selectedParticipant && data.selectedParticipant !== "ALL" && <details className="studio-id-details"><summary>參與者識別詳情</summary><ParticipantLabel id={data.selectedParticipant}/><code>{data.selectedParticipant}</code><small>顯示編號對應本機瀏覽器；研究 UUID 與匯出保持原值。</small></details>}
   </section>;
 }

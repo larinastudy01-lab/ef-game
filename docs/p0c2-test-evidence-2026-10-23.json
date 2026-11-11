@@ -1,0 +1,897 @@
+{
+  "generatedAt": "2026-10-23T13:07:16.143Z",
+  "overall": "BLOCKED",
+  "databaseVerification": "PASS",
+  "qualityScore": 56,
+  "environment": {
+    "kind": "local-native-isolated",
+    "host": "127.0.0.1",
+    "database": "p0c2_isolated_cabffaaa4591",
+    "systemIdentifier": "7699777475111413860",
+    "ports": {
+      "postgres": 55432,
+      "gateway": 55321,
+      "postgrest": 55398,
+      "auth": 55399
+    },
+    "postgres": "17.11",
+    "postgrest": "16.5",
+    "auth": "2.197.0 + Windows listener adaptation",
+    "node": "v24.15.0",
+    "storageAPIEnabled": false,
+    "syntheticOnly": true,
+    "servicesCurrentlyRunning": false
+  },
+  "original28": {
+    "startedAt": "2026-10-23T08:53:01.842Z",
+    "finishedAt": "2026-10-23T08:54:07.289Z",
+    "exitCode": 0,
+    "pass": 28,
+    "fail": 0,
+    "blocked": 0,
+    "firstAttempt": {
+      "startedAt": "2026-10-23T08:49:38.824Z",
+      "finishedAt": "2026-10-23T08:51:48.133Z",
+      "pass": 27,
+      "failures": [
+        {
+          "id": "P0B-I14",
+          "actual": "\n\t\t\n[Error [ERR_TEST_FAILURE]: Expected values to be strictly equal:\n\n'23502' !== '23505'\n] {\n  code: 'ERR_TEST_FAILURE',\n  failureType: 'testCodeFailure',\n  cause: AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n  \n  '23502' !== '23505'\n  \n      at TestContext.<anonymous> (C:\\01_數位專題\\ef-game\\scripts\\p0\\isolated-integration.test.cjs:138:10)\n      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n      at async Test.run (node:internal/test_runner/test:1208:7)\n      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {\n    generatedMessage: true,\n    code: 'ERR_ASSERTION',\n    actual: '23502',\n    expected: '23505',\n    operator: 'strictEqual',\n    diff: 'simple'\n  }\n}\n\t\t\n\t"
+        }
+      ]
+    },
+    "results": [
+      {
+        "id": "P0B-I01",
+        "purpose": "LB: full write, exact raw readback and duplicate submission",
+        "expected": "One main/session/task, exact unique raw and current derivations; repeated submission retains IDs/content",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I02",
+        "purpose": "PM: full write, exact raw readback and duplicate submission",
+        "expected": "One main/session/task, exact unique raw and current derivations; repeated submission retains IDs/content",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I03",
+        "purpose": "CBT: real schema accepts the current task code",
+        "expected": "Main, task, raw and derived rows written; raw answer and summary unchanged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I04",
+        "purpose": "SRT: real schema accepts the current task code",
+        "expected": "Main, task, raw and derived rows written; raw answer and summary unchanged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I05",
+        "purpose": "ARI: real schema accepts the current task code",
+        "expected": "Main, task, raw and derived rows written; raw answer and summary unchanged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I06",
+        "purpose": "DCCS: real schema accepts the current task code",
+        "expected": "Main, task, raw and derived rows written; raw answer and summary unchanged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I07",
+        "purpose": "game_results: one interrupted request stays pending and a new client retries",
+        "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I08",
+        "purpose": "behavioral_sessions: one interrupted request stays pending and a new client retries",
+        "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I09",
+        "purpose": "behavioral_task_sessions: one interrupted request stays pending and a new client retries",
+        "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I10",
+        "purpose": "behavioral_trials: one interrupted request stays pending and a new client retries",
+        "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I11",
+        "purpose": "behavioral_trial_derivations: one interrupted request stays pending and a new client retries",
+        "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I12",
+        "purpose": "lost raw insert acknowledgement retries without duplicate IDs or source keys",
+        "expected": "Retry converges to 20 original raw rows and 20 current derived rows",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I13",
+        "purpose": "existing session plus partial trial checkpoint fills remaining trials",
+        "expected": "Existing seven IDs/content retained, thirteen rows added",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I14",
+        "purpose": "real unique constraint rejects duplicate source key and leaves raw answers intact",
+        "expected": "23505 and no raw changes",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I15",
+        "purpose": "anonymous/other guardian cannot read or attach a raw trial to this session",
+        "expected": "No foreign rows visible; insertion denied; original dataset unchanged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I16",
+        "purpose": "guardian cannot rewrite a saved raw answer through PostgREST",
+        "expected": "Stored acquisition data unchanged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I17",
+        "purpose": "existing session survives a later main-result failure and can retry",
+        "expected": "Previous hierarchy retained and retry completes",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I18",
+        "purpose": "full main payload with only seven committed trials stays pending and fills the remaining thirteen",
+        "expected": "Main remains pending until exact twenty-row readback succeeds; existing seven rows unchanged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I19",
+        "purpose": "final main acknowledgement failure keeps research data and retries the final status safely",
+        "expected": "Research retained, main pending, retry verifies full data before status acknowledgement",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I20",
+        "purpose": "two simultaneous sync clients converge after retry without duplicate trials",
+        "expected": "At least one succeeds; conflicts retry to one exact dataset",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I21",
+        "purpose": "legacy SSG remains readable without conversion to ARI",
+        "expected": "Raw stored/read code stays SSG",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I22",
+        "purpose": "ART: unrecognized task code still fails the real CHECK",
+        "expected": "23514; hierarchy never falsely acknowledged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I23",
+        "purpose": "INVALID_TASK: unrecognized task code still fails the real CHECK",
+        "expected": "23514; hierarchy never falsely acknowledged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I24",
+        "purpose": "unrelated nonnegative trial-count constraint remains enforced",
+        "expected": "23514; original dataset unchanged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I25",
+        "purpose": "authorized researcher reads the complete hierarchy while an unauthorized clinician cannot",
+        "expected": "Authorized positive read on all six tables; unauthorized client sees no case rows",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I26",
+        "purpose": "own participant cannot be attached to another patient raw trial through a derivation",
+        "expected": "Both INSERT and UPDATE fail 42501, not an unrelated unique violation",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I27",
+        "purpose": "reviewed isolated repair is repeatable and retains old derivation versions and main status",
+        "expected": "Verified count/IDs/content, old version retained, historical main payload/status unchanged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      },
+      {
+        "id": "P0B-I28",
+        "purpose": "an owned participant cannot link a different patient main result through a session",
+        "expected": "INSERT/UPDATE fail 42501, not a duplicate source-result constraint",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c2\\original-28-attempt2.junit.xml"
+      }
+    ]
+  },
+  "additional34": {
+    "pass": 34,
+    "results": [
+      {
+        "id": "P0C2-M01",
+        "status": "PASS",
+        "operation": "Ordinary Auth JWT/PostgREST ARI sync before migration",
+        "actual": "23514; main/source retained, hierarchy not acknowledged"
+      },
+      {
+        "id": "P0C2-M02",
+        "status": "PASS",
+        "operation": "Exact forward draft on real PostgreSQL",
+        "actual": "Both CHECKs expanded; other constraints/policies/RLS/triggers unchanged"
+      },
+      {
+        "id": "P0C2-M03",
+        "status": "PASS",
+        "operation": "Forward repeat",
+        "actual": "Same catalog, no source data changes"
+      },
+      {
+        "id": "P0C2-M04",
+        "status": "PASS",
+        "operation": "Rollback before ARI CHECK-bound rows exist",
+        "actual": "Exact legacy catalog restored; retained main/session not deleted"
+      },
+      {
+        "id": "P0C2-M05",
+        "status": "PASS",
+        "operation": "Forward then retry original ARI source",
+        "actual": "4 original raw rows verified; main/raw history unchanged except sync metadata"
+      },
+      {
+        "id": "P0C2-M06",
+        "status": "PASS",
+        "operation": "Rollback with ARI rows retained",
+        "actual": "Safely refused; expanded CHECK and all data retained"
+      },
+      {
+        "id": "P0C2-M07",
+        "status": "PASS",
+        "operation": "Direct ordinary-user task insertion: null",
+        "actual": "23502"
+      },
+      {
+        "id": "P0C2-M08",
+        "status": "PASS",
+        "operation": "Direct ordinary-user task insertion: ART",
+        "actual": "23514"
+      },
+      {
+        "id": "P0C2-M09",
+        "status": "PASS",
+        "operation": "Direct ordinary-user task insertion: INVALID_TASK",
+        "actual": "23514"
+      },
+      {
+        "id": "P0C2-M10",
+        "status": "PASS",
+        "operation": "Exact restrictive binding drafts 02/03",
+        "actual": "Applied to isolated DB only; real cross-binding tests I26/I28 still required"
+      },
+      {
+        "id": "P0C2-H01",
+        "purpose": "A + falsely synced: dryRun is read-only, repair, then verified acknowledgement",
+        "status": "PASS",
+        "actual": "dryRun 0 writes; 20 exact original IDs/order/raw/derived verified twice; main unchanged by repair, acknowledged only by final normal sync"
+      },
+      {
+        "id": "P0C2-H02",
+        "purpose": "E: already complete repair remains idempotent and keeps old derivations",
+        "status": "PASS",
+        "actual": "Complete source and UUIDs retained; inactive old processing version preserved; no additional raw rows"
+      },
+      {
+        "id": "P0C2-H03",
+        "purpose": "Partial raw checkpoint repairs exactly the missing 13 of 20",
+        "status": "PASS",
+        "actual": "7 committed raw rows/IDs/content retained, 13 filled; 20 exact current derivations"
+      },
+      {
+        "id": "P0C2-H04",
+        "purpose": "C: LB ambiguous/unmapped source refuses automatic repair",
+        "status": "PASS",
+        "actual": "Automatic repair refused; original operations/code retained; no guessed mapping or trial invention"
+      },
+      {
+        "id": "P0C2-H05",
+        "purpose": "C: SSG ambiguous/unmapped source refuses automatic repair",
+        "status": "PASS",
+        "actual": "Automatic repair refused; original operations/code retained; no guessed mapping or trial invention"
+      },
+      {
+        "id": "P0C2-H06",
+        "purpose": "C: DPT ambiguous/unmapped source refuses automatic repair",
+        "status": "PASS",
+        "actual": "Automatic repair refused; original operations/code retained; no guessed mapping or trial invention"
+      },
+      {
+        "id": "P0C2-H07",
+        "purpose": "D: insufficient source never invents missing trials",
+        "status": "PASS",
+        "actual": "Declared12/raw0 refused; raw0 retained"
+      },
+      {
+        "id": "P0C2-H08",
+        "purpose": "Conflicting source content is rejected without overwriting raw/main",
+        "status": "PASS",
+        "actual": "Conflicting source rejected; acquisition history and previous verified source unchanged"
+      },
+      {
+        "id": "P0C2-H09",
+        "purpose": "PM timeout/cancellation/planned status survives real DB roundtrip",
+        "status": "PASS",
+        "actual": "14 raw slots, 12 administered, 3 timeout =25%; 2 planned excluded; raw and all derived fields exact"
+      },
+      {
+        "id": "P0C2-H10",
+        "purpose": "CBT early-stop and unadministered slots remain distinct",
+        "status": "PASS",
+        "actual": "2 administered +2 planned preserved; no invented response for planned slots; earlyStop retained"
+      },
+      {
+        "id": "P0C2-H11",
+        "purpose": "B: migrated synthetic ARI history repair is repeatable",
+        "status": "PASS",
+        "actual": "ARI 4 original rows/IDs/code retained across repeated reviewed repair; main unchanged"
+      },
+      {
+        "id": "P0C2-H12",
+        "purpose": "Revocation removes same-JWT and fresh-client access across six tables",
+        "status": "PASS",
+        "actual": "Same JWT and fresh client denied all six hierarchy tables after guardian RPC; raw insert denied42501"
+      },
+      {
+        "id": "P0C2-X01",
+        "purpose": "Unambiguous old LB source keys/UUIDs stay unchanged during repair",
+        "status": "PASS",
+        "actual": "3 legacy keys/UUIDs/raw unchanged; current derivations reference retained UUIDs plus canonical provenance; repeated repair adds no raw"
+      },
+      {
+        "id": "P0C2-X02",
+        "purpose": "Separate research persona gets guardian approval; actual research fallback is read-only",
+        "status": "PASS",
+        "actual": "Independent ordinary clinician-backed research persona: denied before grant, approved by real guardian RPC, actual database.js reader restores20 from7 without writes, same JWT denied after revoke; 12 read-only HTTP requests"
+      },
+      {
+        "id": "P0C2-X03",
+        "purpose": "PM real roundtrip denominator 12/0; planned 0",
+        "status": "PASS",
+        "actual": {
+          "rawCount": 12,
+          "administered": 12,
+          "timeouts": 0,
+          "rate": 0,
+          "status": "available",
+          "otherExclusion": false
+        }
+      },
+      {
+        "id": "P0C2-X04",
+        "purpose": "PM real roundtrip denominator 12/12; planned 0",
+        "status": "PASS",
+        "actual": {
+          "rawCount": 12,
+          "administered": 12,
+          "timeouts": 12,
+          "rate": 1,
+          "status": "available",
+          "otherExclusion": false
+        }
+      },
+      {
+        "id": "P0C2-X05",
+        "purpose": "PM real roundtrip denominator 6/2; planned 0",
+        "status": "PASS",
+        "actual": {
+          "rawCount": 6,
+          "administered": 6,
+          "timeouts": 2,
+          "rate": 0.3333333333333333,
+          "status": "available",
+          "otherExclusion": false
+        }
+      },
+      {
+        "id": "P0C2-X06",
+        "purpose": "PM real roundtrip denominator 0/0; planned 2",
+        "status": "PASS",
+        "actual": {
+          "rawCount": 2,
+          "administered": 0,
+          "timeouts": 0,
+          "rate": null,
+          "status": "not_calculable_no_administered_trials",
+          "otherExclusion": false
+        }
+      },
+      {
+        "id": "P0C2-X07",
+        "purpose": "PM real roundtrip denominator 6/2; planned 0",
+        "status": "PASS",
+        "actual": {
+          "rawCount": 6,
+          "administered": 6,
+          "timeouts": 2,
+          "rate": 0.3333333333333333,
+          "status": "available",
+          "otherExclusion": true
+        }
+      },
+      {
+        "id": "P0C2-G01",
+        "status": "PASS",
+        "actual": "OS-terminated child after actual raw commit;20 raw/0 derivations; durable intent retained",
+        "terminated": {
+          "code": 1,
+          "signal": null,
+          "pid": 2484
+        }
+      },
+      {
+        "id": "P0C2-G02",
+        "status": "PASS",
+        "actual": "New repair-batch process resumed same reviewed plan;20 exact raw/UUID/content and20 current derivations; main unchanged",
+        "resumed": {
+          "code": 0,
+          "signal": null,
+          "pid": 32316
+        }
+      },
+      {
+        "id": "P0C2-G03",
+        "status": "PASS",
+        "actual": "Two independent repair processes plus final retry converge; source/IDs unchanged; no duplicate raw/current derivations",
+        "parallel": [
+          {
+            "code": 1,
+            "signal": null,
+            "pid": 27984
+          },
+          {
+            "code": 0,
+            "signal": null,
+            "pid": 42756
+          }
+        ],
+        "final": {
+          "code": 0,
+          "signal": null,
+          "pid": 28096
+        }
+      },
+      {
+        "id": "P0C2-R01",
+        "status": "PASS",
+        "executedAt": "2026-10-23T09:11:31.436Z",
+        "database": "p0c2_isolated_cabffaaa4591",
+        "actual": "Rollback reproduces42501 for fresh ordinary-user UPSERT RETURNING; forward succeeds and repeats same UUID; existing visibility unchanged for two guardians, two clinicians and anonymous; no RLS disabling or data rewrites"
+      },
+      {
+        "id": "P0C2-R02",
+        "status": "PASS",
+        "executedAt": "2026-10-23T09:13:52.231Z",
+        "actual": "Changed JWT role to service_role without re-signing; both real Auth and PostgREST rejected it",
+        "responses": [
+          {
+            "route": "/auth/v1/user",
+            "status": 403,
+            "errorCode": 403
+          },
+          {
+            "route": "/rest/v1/game_results?select=id",
+            "status": 401,
+            "errorCode": "PGRST301"
+          }
+        ],
+        "tokenLogged": false
+      }
+    ]
+  },
+  "regression": {
+    "suites": 85,
+    "tests": 656,
+    "snapshots": 4,
+    "seconds": 254.426,
+    "toolsPassed": 44
+  },
+  "equivalence": {
+    "baseline": "8ef96ff4100533907bd4c2549a0c018b0553f345",
+    "protectedFileCount": 871,
+    "unexpectedChangedFiles": []
+  },
+  "production": {
+    "writes": 0,
+    "migrations": 0,
+    "historyRepairs": 0,
+    "deployments": 0,
+    "pushes": 0,
+    "environmentEdits": 0,
+    "latestReadOnlyVerification": "BLOCKED: connector OAuth refresh failed before query",
+    "historicalSnapshotIsCurrent": false
+  },
+  "browser": {
+    "status": "BLOCKED",
+    "reason": "CUA inventory had no browsers; getBrowser returned No browser is available",
+    "physicalNetworkTested": false,
+    "storageContract": "localStorage efGameResultOutbox; no IndexedDB implementation added"
+  },
+  "cleanup": {
+    "status": "PASS",
+    "completedAt": "2026-10-23T09:16:20.951Z",
+    "servicesStopped": true,
+    "syntheticClusterRemoved": true,
+    "privateJunctionRemoved": true,
+    "toolsAndEvidenceRetained": true,
+    "counts": {
+      "main": 101,
+      "raw": 1144,
+      "currentDerivations": 1137,
+      "allDerivations": 1140,
+      "authUsers": 5,
+      "foreignMain": 0,
+      "foreignAuth": 0,
+      "foreignPatients": 0,
+      "rawSha256": "8b139d16f9df1f4d382d742315ffa11f9d52f1f1235df38cbbd6074ac42c9fdc",
+      "constraints": 117
+    }
+  },
+  "schemaSources": {
+    "executedAt": "2026-10-23T08:40:04.940Z",
+    "database": "p0c2_isolated_cabffaaa4591",
+    "sources": [
+      {
+        "source": "supabase/storage@v1.84.19/0002-storage-schema.sql",
+        "sha256": "c638dbaccf8829122fc2e05148bcb82596baf288cd497bed7a2cdaa5a4d99e09"
+      },
+      {
+        "source": "supabase/storage@v1.84.19/0003-pathtoken-column.sql",
+        "sha256": "db57ad79bd7ecf1ea6a8099b38bf376886d6b2181ba65b9e9c0556ed245dea8b"
+      },
+      {
+        "source": "supabase/storage@v1.84.19/0004-add-migrations-rls.sql",
+        "sha256": "05b32aad858e4644202e6ac43413cfee30e61d7e9ad51c42b082cfb21235c7bd"
+      },
+      {
+        "source": "supabase/storage@v1.84.19/0007-add-rls-to-buckets.sql",
+        "sha256": "c87aa8ea3c6509171728880538cc26e7233896a8f927af3bc5b351a1706610e3"
+      },
+      {
+        "source": "supabase/storage@v1.84.19/0008-add-public-to-buckets.sql",
+        "sha256": "1d881092aea62e83493f1a9c4cb4f101f3035a08d62be84a7e7970ee0c6f0f48"
+      },
+      {
+        "source": "supabase/storage@v1.84.19/0013-add-bucket-custom-limits.sql",
+        "sha256": "07d0b1e8299b70eeeda0841969772aecdbd0788eda9dbada7806afdc8ed9d06e"
+      },
+      {
+        "source": "supabase/storage@v1.84.19/0014-use-bytes-for-max-size.sql",
+        "sha256": "9e34ab4fc380e1cdd4748bcac368cd628c247962bdd58f8311a44f1b29e918ec"
+      },
+      {
+        "source": "supabase/rebuild/01_CREATE_AUTH_PATIENTS_RESULTS.sql",
+        "sha256": "1786c658bcd6f351dcae27665b01a82d0711547d3016a9c87a948465822b6595"
+      },
+      {
+        "source": "supabase/rebuild/03_CREATE_NOTES_REMINDERS.sql",
+        "sha256": "5896cdffe4c10876088123ba574cde5bafff772081d1d3670ee724667fe69694"
+      },
+      {
+        "source": "supabase/rebuild/04_CREATE_RESEARCH_RECOMMENDATION.sql",
+        "sha256": "6aee717fad691fe64380f1adae802a166c4c8fef6fc06a3580ef20194a476e68"
+      },
+      {
+        "source": "supabase/rebuild/07_CREATE_CLINICIAN_APPLICATIONS.sql",
+        "sha256": "edc9b9055795c69a3ee2459a77c3396ca8d70e225713a921cb4b1cdd45a8df5f"
+      },
+      {
+        "source": "supabase/rebuild/08_CREATE_ACCESS_CONSENT.sql",
+        "sha256": "7c8a21c04ca931c555ba95e0f92b842451aa500304c53c25a6b8d2e63c91322d"
+      },
+      {
+        "source": "supabase/rebuild/09_CREATE_SECURITY_AUDIT_AND_ACCOUNT_LIFECYCLE.sql",
+        "sha256": "54da6fe73776321854629f34bc6d6907f1abcc0098f06a96092e3794dd431f5e"
+      },
+      {
+        "source": "supabase/rebuild/10_FIX_PATIENT_CREATION_RPC.sql",
+        "sha256": "0f1c4a994dd0f3b172755c3eed38da5b3423a1596f4472304d881f1756bc50b4"
+      }
+    ],
+    "storageAPIEnabled": false,
+    "productionDataUsed": false
+  },
+  "artifacts": [
+    {
+      "file": ".tmp/p0c2/original-28-attempt1.json",
+      "sha256": "f314ab5a6d345b94c8050be302b93688e76692b9b57558c199c9f7623fa3329b"
+    },
+    {
+      "file": ".tmp/p0c2/original-28-attempt2.json",
+      "sha256": "75f6ae9774161f5951e04f0a927560639b0abbcae8312a457a4d83166b207b6e"
+    },
+    {
+      "file": ".tmp/p0c2/original-28-attempt1.junit.xml",
+      "sha256": "ef75a0e20a0b70250810c1f846439c405660e5821722db83891b821e86a5a3bd"
+    },
+    {
+      "file": ".tmp/p0c2/original-28-attempt2.junit.xml",
+      "sha256": "a76a3a5fbaff1d604b42ac6e72342777be41c51af4b1630e6a2ab269a07a78b9"
+    },
+    {
+      "file": ".tmp/p0c2/migration-evidence.json",
+      "sha256": "360dbf790ba22eef2ae238be8af6e1e36fd9b25faf875102eb5aebaae8e22db0"
+    },
+    {
+      "file": ".tmp/p0c2/history-real-attempt3.json",
+      "sha256": "1c7bedde5a2432b13d7308783a41cbaaf6a2b45b4296cfacf1cb87b9e1607e7e"
+    },
+    {
+      "file": ".tmp/p0c2/extra-real-evidence.json",
+      "sha256": "329259a021c08adb0798f3bfffb9018c75b451eda3b88f3cc0474de0d519b1db"
+    },
+    {
+      "file": ".tmp/p0c2/process-recovery-evidence.json",
+      "sha256": "9506c9af248c05bd3d8a166e7d216d263e75e93e89c33ce1214667dde1dc2a8c"
+    },
+    {
+      "file": ".tmp/p0c2/participant-policy-real-evidence.json",
+      "sha256": "0f4e66659476cd1db4a65c4178703e1894f8361f2a9155771aab5bc3231ea002"
+    },
+    {
+      "file": ".tmp/p0c2/jwt-signature-evidence.json",
+      "sha256": "edd8947c1c0d05c0fdbd841c09d6df3f31f86dfc8c2921430224df8395fdc483"
+    },
+    {
+      "file": ".tmp/p0c2/schema-source-manifest.json",
+      "sha256": "e19dfbc37dc5fd9ec2f9f9dd47256594ceb1c0a65361601f3877381965b9f5c3"
+    },
+    {
+      "file": ".tmp/p0c2/cleanup-evidence.json",
+      "sha256": "c9314f77c1738fa6e38b993f97fb4e3f160f93367c6d8f0695b542d008c993d5"
+    },
+    {
+      "file": ".tmp/p0c2/cra-regression.log",
+      "sha256": "576c23f4c70d0c51286f499d88af0c4587cdebe1a2603a41bc090d0738ff87ab"
+    },
+    {
+      "file": ".tmp/p0c2/tool-regression.log",
+      "sha256": "0afa60bf30631fb287899e9bc15e23d14104d63702fe13d570cc0c163aa25b9c"
+    },
+    {
+      "file": ".tmp/p0c2/cli-cache-restore-evidence.json",
+      "sha256": "02faf4f1a037b75e4f2a4758ea700904c855d105b435ce362004a30ff9957faa"
+    },
+    {
+      "file": "scripts/p0/isolated-integration.test.cjs",
+      "sha256": "4f0618c0c9c8eeacb43aed49448f9762c0f17ff4359ee67bf9d025f3674de299"
+    },
+    {
+      "file": "scripts/p0/sql/01-task-codes.draft.sql",
+      "sha256": "f29660350a3615e38235da0d54999191382a180641e93301a90ba4d677dae469"
+    },
+    {
+      "file": "scripts/p0/sql/01-task-codes.rollback.draft.sql",
+      "sha256": "5c166ccdb9b88929412f676c19d36a781b70f86f321a10cb21d1d1f011f3ed2a"
+    },
+    {
+      "file": "scripts/p0/sql/04-participant-returning.draft.sql",
+      "sha256": "607193cd33860b0ecec9b811561f575e3ac15b7604d83995b2c4b77afd5a72f1"
+    },
+    {
+      "file": "scripts/p0/sql/04-participant-returning.rollback.draft.sql",
+      "sha256": "09f732e70e8e9d92285b7283dab422c144804171934fb3423fa1e8af08733398"
+    },
+    {
+      "file": "docs/p0c2-equivalence-2026-10-23.json",
+      "sha256": "0d994f664d4691c00e47d7171768b7533639a3f80627f4828878e748195c61a2"
+    },
+    {
+      "file": ".tmp/p0c2/build-auth.cjs",
+      "sha256": "b9bed6ce90c09424a6bce652321d2bc67f648a769d713b17bfb6409cdb4d876b"
+    },
+    {
+      "file": ".tmp/p0c2/native-db.cjs",
+      "sha256": "95bb89b88ba31c9e09d77736718daa3333c57b026f7b27dec3a3510aa2af69ea"
+    },
+    {
+      "file": ".tmp/p0c2/native-services.cjs",
+      "sha256": "05342d04ded0816e7268ea99c8bdb26d8968bea494a97bc097bcb63ce5d40ee5"
+    },
+    {
+      "file": ".tmp/p0c2/build-schema.cjs",
+      "sha256": "7ea37988ca49896e15ab168c8f749c742936faa3e6e0f7f0753d1acbea17b880"
+    },
+    {
+      "file": ".tmp/p0c2/seed-identities.cjs",
+      "sha256": "ce6268301cca3dfa4419a065e4f00a2820eaaadb942e17b43fcd08903054a7fb"
+    },
+    {
+      "file": ".tmp/p0c2/attest-runtime.cjs",
+      "sha256": "39ae49a3d52394712709063f9e7a518c0b828ef6b67c7888effff6ab68258722"
+    },
+    {
+      "file": ".tmp/p0c2/migrate-and-verify.cjs",
+      "sha256": "6196f20a598cf6e7e31fa0ff75380664891b2082a11e108a50bea7455c10b303"
+    },
+    {
+      "file": ".tmp/p0c2/run-original.cjs",
+      "sha256": "0e690b30a3bd4c45d3b97d952010bcc76f91bcbffc9bf9cbd67811ee3ada9c71"
+    },
+    {
+      "file": ".tmp/p0c2/history-real.cjs",
+      "sha256": "3c4b528b12b2c206f409b83fe6ad042f632b6c1193c98ef1916db3c5bbb53ae8"
+    },
+    {
+      "file": ".tmp/p0c2/extra-real.cjs",
+      "sha256": "85b54c715cf527e2fa5e3b132a83d695f435001eab842b3975e854552e0af5dd"
+    },
+    {
+      "file": ".tmp/p0c2/process-recovery.cjs",
+      "sha256": "86de32b72f5bc5ba05bc5fd89aa9eebfcb4f6fd297702e48a801603fe03a5c61"
+    },
+    {
+      "file": ".tmp/p0c2/crash-repair-child.cjs",
+      "sha256": "13502e67c35d8aec3deaa9f8d92f9f75aa733bed5987d4303f53c12562f27790"
+    },
+    {
+      "file": ".tmp/p0c2/participant-policy-real.cjs",
+      "sha256": "971e49dfdc2b7806f51825db3d6893e3ba469d3107717c0a370448daf3e039b6"
+    },
+    {
+      "file": ".tmp/p0c2/cleanup-native.cjs",
+      "sha256": "c39cda87fc47d9afe0ffe36c1b1f1b7df619f76f3103a9578e45266c0bea48d5"
+    }
+  ],
+  "limits": [
+    "No current production catalog comparison after OAuth failure",
+    "Native Windows Auth listener adaptation and routing-only gateway differ from standard Supabase stack",
+    "No real browser, physical outage or browser quota verification",
+    "Research persona uses existing clinician role and existing consent defaults; independent researcher role and least-scope matrix not proven"
+  ],
+  "executionBatches": [
+    {
+      "executedAt": "2026-10-23T08:48:37.286Z",
+      "database": "p0c2_isolated_cabffaaa4591",
+      "caseIds": [
+        "P0C2-M01",
+        "P0C2-M02",
+        "P0C2-M03",
+        "P0C2-M04",
+        "P0C2-M05",
+        "P0C2-M06",
+        "P0C2-M07",
+        "P0C2-M08",
+        "P0C2-M09",
+        "P0C2-M10"
+      ]
+    },
+    {
+      "executedAt": "2026-10-23T08:59:56.776Z",
+      "database": "p0c2_isolated_cabffaaa4591",
+      "caseIds": [
+        "P0C2-H01",
+        "P0C2-H02",
+        "P0C2-H03",
+        "P0C2-H04",
+        "P0C2-H05",
+        "P0C2-H06",
+        "P0C2-H07",
+        "P0C2-H08",
+        "P0C2-H09",
+        "P0C2-H10",
+        "P0C2-H11",
+        "P0C2-H12"
+      ]
+    },
+    {
+      "executedAt": "2026-10-23T09:08:20.903Z",
+      "database": "p0c2_isolated_cabffaaa4591",
+      "caseIds": [
+        "P0C2-X01",
+        "P0C2-X02",
+        "P0C2-X03",
+        "P0C2-X04",
+        "P0C2-X05",
+        "P0C2-X06",
+        "P0C2-X07"
+      ]
+    },
+    {
+      "executedAt": "2026-10-23T09:03:44.117Z",
+      "database": "p0c2_isolated_cabffaaa4591",
+      "caseIds": [
+        "P0C2-G01",
+        "P0C2-G02",
+        "P0C2-G03"
+      ]
+    },
+    {
+      "executedAt": "2026-10-23T09:11:31.436Z",
+      "database": "p0c2_isolated_cabffaaa4591",
+      "caseIds": [
+        "P0C2-R01"
+      ]
+    },
+    {
+      "executedAt": "2026-10-23T09:13:52.231Z",
+      "database": "p0c2_isolated_cabffaaa4591",
+      "caseIds": [
+        "P0C2-R02"
+      ]
+    }
+  ],
+  "deliveryChecks": {
+    "checkedAt": "2026-10-23T13:10:11.320Z",
+    "requiredReports": 5,
+    "localLinks": 24,
+    "artifactHashes": 35,
+    "originalIdsNamesExpectations": "PASS",
+    "all62ActualResults": "PASS",
+    "sourceESLint": "PASS",
+    "gitDiffCheck": "PASS",
+    "credentialsAbsent": "PASS",
+    "publicJunitMatchesOriginal": "PASS",
+    "syntheticClusterRemoved": true
+  }
+}

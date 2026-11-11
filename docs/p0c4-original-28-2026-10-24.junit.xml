@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+	<testcase name="LB: full write, exact raw readback and duplicate submission" time="3.794430" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="PM: full write, exact raw readback and duplicate submission" time="1.391496" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="CBT: real schema accepts the current task code" time="0.200574" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="SRT: real schema accepts the current task code" time="0.222609" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="ARI: real schema accepts the current task code" time="0.160170" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="DCCS: real schema accepts the current task code" time="0.175305" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="game_results: one interrupted request stays pending and a new client retries" time="0.828022" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="behavioral_sessions: one interrupted request stays pending and a new client retries" time="0.902063" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="behavioral_task_sessions: one interrupted request stays pending and a new client retries" time="0.858443" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="behavioral_trials: one interrupted request stays pending and a new client retries" time="0.817244" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="behavioral_trial_derivations: one interrupted request stays pending and a new client retries" time="0.890065" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="lost raw insert acknowledgement retries without duplicate IDs or source keys" time="0.877706" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="existing session plus partial trial checkpoint fills remaining trials" time="1.116853" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="real unique constraint rejects duplicate source key and leaves raw answers intact" time="0.901810" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="anonymous/other guardian cannot read or attach a raw trial to this session" time="0.896368" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="guardian cannot rewrite a saved raw answer through PostgREST" time="0.857305" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="existing session survives a later main-result failure and can retry" time="1.584247" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="full main payload with only seven committed trials stays pending and fills the remaining thirteen" time="0.836577" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="final main acknowledgement failure keeps research data and retries the final status safely" time="1.658510" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="two simultaneous sync clients converge after retry without duplicate trials" time="1.690290" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="legacy SSG remains readable without conversion to ARI" time="0.177129" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="ART: unrecognized task code still fails the real CHECK" time="0.041419" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="INVALID_TASK: unrecognized task code still fails the real CHECK" time="0.037875" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="unrelated nonnegative trial-count constraint remains enforced" time="0.992129" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="authorized researcher reads the complete hierarchy while an unauthorized clinician cannot" time="0.960654" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="own participant cannot be attached to another patient raw trial through a derivation" time="1.488670" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="reviewed isolated repair is repeatable and retains old derivation versions and main status" time="3.195184" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<testcase name="an owned participant cannot link a different patient main result through a session" time="0.915513" classname="test" file="C:\01_數位專題\ef-game\scripts\p0\isolated-integration.test.cjs"/>
+	<!-- tests 28 -->
+	<!-- suites 0 -->
+	<!-- pass 28 -->
+	<!-- fail 0 -->
+	<!-- cancelled 0 -->
+	<!-- skipped 0 -->
+	<!-- todo 0 -->
+	<!-- duration_ms 29470.7038 -->
+</testsuites>

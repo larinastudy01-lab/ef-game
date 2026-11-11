@@ -28,8 +28,88 @@
   animation: dccs-training-mouse 1s ease-in-out infinite;
 }
 @keyframes dccs-training-mouse { 50% { transform: translateY(-10px); } }
-.dccs-training-rule-status { position: relative; z-index: 21; font-weight: 700; color: #305866; }
+.Dcss-page.dccs-training-rule-page {
+  --dccs-training-height: 100svh;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: var(--dccs-training-height);
+  min-height: var(--dccs-training-height);
+  padding: 16px;
+  box-sizing: border-box;
+}
+.game-testing-active .dccs-training-rule-page { --dccs-training-height: calc(100svh - 64px); }
+.game-testing-active:has(.dccs-training-rule-page) { box-sizing: border-box; }
+.dccs-training-rule-scene {
+  width: min(100%, 1100px, calc((var(--dccs-training-height) - 32px) * 1.25));
+  height: min(calc(var(--dccs-training-height) - 32px), 850px);
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  justify-items: center;
+  gap: clamp(16px, 3vh, 32px);
+}
+.dccs-training-narrator {
+  display: grid;
+  grid-template-areas: "frame";
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  pointer-events: none;
+}
+.dccs-training-narrator-frame {
+  grid-area: frame;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+  user-select: none;
+}
+.dccs-training-narrator-open { opacity: 0; }
+.dccs-training-narrator-closed { opacity: 1; }
+.dccs-training-narrator[data-speaking="true"] .dccs-training-narrator-frame {
+  animation: dccs-training-mouth 560ms steps(1, end) infinite both;
+}
+.dccs-training-narrator[data-speaking="true"] .dccs-training-narrator-closed { animation-delay: -280ms; }
+@keyframes dccs-training-mouth { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+.dccs-training-voice-actions { display: flex; align-items: center; justify-content: center; gap: clamp(24px, 6vw, 72px); }
+.dccs-training-voice-button {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  width: clamp(56px, 10svh, 88px);
+  height: clamp(56px, 10svh, 88px);
+  padding: 12px;
+  border: 3px solid #c78b36;
+  border-radius: 50%;
+  color: #75431c;
+  background: #fff0bd;
+  box-shadow: 0 5px 0 #98632b, 0 8px 14px #44230e30;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.dccs-training-voice-button svg { display: block; width: 100%; height: 100%; }
+.dccs-training-voice-next { background: #ffd56c; }
+.dccs-training-voice-button:disabled { opacity: .4; cursor: default; }
+.dccs-training-voice-button[data-failed="true"] { border-color: #b34f36; }
+.dccs-training-voice-button:focus-visible { outline: 4px solid #297d9b; outline-offset: 6px; }
+.dccs-training-wind-guide {
+  position: fixed;
+  left: max(12px, env(safe-area-inset-left));
+  top: max(12px, env(safe-area-inset-top));
+  width: clamp(90px, 17vw, 200px);
+  z-index: 21;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+.dccs-training-wind-guide .dccs-training-narrator { aspect-ratio: 1408 / 1126; height: auto; }
+.game-testing-active .dccs-training-wind-guide { top: calc(64px + max(12px, env(safe-area-inset-top))); }
+.dccs-training-wind-guide .dccs-training-voice-button { width: 48px; height: 48px; padding: 8px; }
 @media (prefers-reduced-motion: reduce) {
   .dccs-training-gust { animation: none; opacity: .75; transform: translateX(20%); }
   [data-testid="dccs-training"] .Dcss-visual-basket-btn > .dccs-training-answer-hint { animation: none; }
+  .dccs-training-narrator[data-speaking="true"] .dccs-training-narrator-frame { animation: none; }
+  .dccs-training-narrator[data-speaking="true"] .dccs-training-narrator-open { opacity: 1; }
+  .dccs-training-narrator[data-speaking="true"] .dccs-training-narrator-closed { opacity: 0; }
 }

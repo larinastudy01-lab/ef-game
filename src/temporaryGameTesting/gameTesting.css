@@ -55,6 +55,8 @@
 .game-testing-levels button { padding: 10px 12px; border: 1px solid #d6e1d7; border-radius: 9px; background: #f5f8f2; color: #315444; font-size: 14px; }
 .game-testing-levels button:hover { background: #e3eddf; }
 .game-testing-levels button span { color: #68806e; font-size: 11px; margin-right: 3px; }
+.game-testing-versions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.game-testing-versions button { background: #e8f0e9; border-color: #bcd1c2; }
 .game-testing-hats { background: #fff8e6; border-color: #eadcaa; grid-column: 1 / -1; }
 .game-testing-menu button:focus-visible, .game-testing-toolbar :is(button, a):focus-visible { outline: 3px solid #cf9226; outline-offset: 3px; }
 @media (max-width: 960px) { .game-testing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

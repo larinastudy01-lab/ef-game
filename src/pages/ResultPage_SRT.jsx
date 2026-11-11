@@ -218,6 +218,8 @@ const ResultPage_SRT = ({
   const parentView = scoringResult?.parentView || {};
 
   const isTrainingMode = mode === "training" || summaryData?.mode === "training";
+  const stimulusName = isTrainingMode ? "橡實" : summaryData?.stimulusName || summaryData?.protocol?.stimulusName || "橡實";
+  const describeStimulus = (text) => typeof text === "string" ? text.replaceAll("橡實", stimulusName) : text;
 
   const resolvedTrainingData = useMemo(() => {
     const embeddedAnalysis = summaryData?.aiAnalysis || {};
@@ -588,7 +590,7 @@ const ResultPage_SRT = ({
             {isTrainingMode ? "練習結果" : "測驗結果"}
           </p>
           <h1 className="srt-result-main-title">
-            {isTrainingMode ? "橡實練習完成" : "橡實挑戰完成"}
+            {isTrainingMode ? "橡實練習完成" : `${stimulusName}挑戰完成`}
           </h1>
         </header>
 
@@ -604,8 +606,8 @@ const ResultPage_SRT = ({
                 <p className="srt-overview-label">
                   {isTrainingMode ? "這次練習" : "這次挑戰"}
                 </p>
-                <h2 className="srt-overview-title">{childShortLabel}</h2>
-                <p className="srt-overview-desc">{oneSentenceResult}</p>
+                <h2 className="srt-overview-title">{describeStimulus(childShortLabel)}</h2>
+                <p className="srt-overview-desc">{describeStimulus(oneSentenceResult)}</p>
               </div>
             </div>
 
@@ -637,9 +639,9 @@ const ResultPage_SRT = ({
             <div className="srt-quick-stats">
               {quickStats.map((item) => (
                 <article key={item.label} className="srt-stat-card">
-                  <p className="srt-stat-label">{item.label}</p>
+                  <p className="srt-stat-label">{describeStimulus(item.label)}</p>
                   <p className="srt-stat-value">{item.value}</p>
-                  <p className="srt-stat-helper">{item.helper}</p>
+                  <p className="srt-stat-helper">{describeStimulus(item.helper)}</p>
                 </article>
               ))}
             </div>
@@ -707,7 +709,7 @@ const ResultPage_SRT = ({
                           width: `${(item.value / distributionTotal) * 100}%`,
                           backgroundColor: item.color,
                         }}
-                        title={`${item.label} ${item.value} 次`}
+                        title={`${describeStimulus(item.label)} ${item.value} 次`}
                       />
                     ) : null
                   )}
@@ -715,7 +717,7 @@ const ResultPage_SRT = ({
                 <div className="srt-distribution-list">
                   {distributionItems.map((item) => (
                     <div key={item.key}>
-                      <span><i style={{ backgroundColor: item.color }} />{item.label}</span>
+                      <span><i style={{ backgroundColor: item.color }} />{describeStimulus(item.label)}</span>
                       <strong>{item.value} 次</strong>
                     </div>
                   ))}
@@ -729,7 +731,7 @@ const ResultPage_SRT = ({
             <div className="srt-collapsible-content">
           <section className="srt-panel-block">
             <h2 className="srt-section-title">結果快速解讀</h2>
-            <p className="srt-parent-summary-text">{resultPlainSummary}</p>
+            <p className="srt-parent-summary-text">{describeStimulus(resultPlainSummary)}</p>
           </section>
 
           <section className="srt-panel-block">
@@ -745,10 +747,10 @@ const ResultPage_SRT = ({
                     <span className={`srt-status-pill ${item.tone}`}>{item.badge}</span>
                     <div>
                       <p className="srt-card-label">觀察重點</p>
-                      <h3>{item.title}</h3>
+                      <h3>{describeStimulus(item.title)}</h3>
                     </div>
                   </div>
-                  <p>{item.text}</p>
+                  <p>{describeStimulus(item.text)}</p>
                 </article>
               ))}
             </div>
@@ -767,7 +769,7 @@ const ResultPage_SRT = ({
                     </span>
                     <div>
                       <p className="srt-card-label">孩子在做什麼</p>
-                      <h3>{item.title}</h3>
+                      <h3>{describeStimulus(item.title)}</h3>
                     </div>
                   </div>
                   {item.value !== undefined && !isTrainingMode && (
@@ -778,8 +780,8 @@ const ResultPage_SRT = ({
                       </div>
                     </>
                   )}
-                  <p>{item.description || item.desc}</p>
-                  {item.advice && <p className="srt-card-meaning">{item.advice}</p>}
+                  <p>{describeStimulus(item.description || item.desc)}</p>
+                  {item.advice && <p className="srt-card-meaning">{describeStimulus(item.advice)}</p>}
                 </article>
               ))}
             </div>
@@ -789,14 +791,14 @@ const ResultPage_SRT = ({
 
           <section className="srt-next-card">
             <h2 className="srt-section-title">下一步建議</h2>
-            <h3>{nextSuggestion.title}</h3>
-            <p>{nextSuggestion.text}</p>
+            <h3>{describeStimulus(nextSuggestion.title)}</h3>
+            <p>{describeStimulus(nextSuggestion.text)}</p>
           </section>
 
           <section className="srt-note-box">
             <h3>結果小提醒</h3>
             <p>
-              這份結果是本次遊戲中的觀察紀錄，可以幫助了解孩子在「看見橡實、快速反應、維持注意」時的狀況；不代表醫療診斷，建議搭配多次練習或其他任務一起觀察。
+              這份結果是本次遊戲中的觀察紀錄，可以幫助了解孩子在「看見{stimulusName}、快速反應、維持注意」時的狀況；不代表醫療診斷，建議搭配多次練習或其他任務一起觀察。
             </p>
           </section>
         </section>
@@ -808,7 +810,7 @@ const ResultPage_SRT = ({
             onClick={handleBackToMenu}
             aria-label="回到森林"
           >
-            <img src={homeBackBtn} width="532" height="177" loading="lazy" alt="回到森林" />
+            <img src={homeBackBtn} width="288" height="282" loading="lazy" alt="回到森林" />
           </button>
 
           {isTrainingMode && (
@@ -818,7 +820,7 @@ const ResultPage_SRT = ({
               onClick={handleRestart}
               aria-label="play again"
             >
-              <img src={homeAgainBtn} width="532" height="177" loading="lazy" alt="再玩一次" />
+              <img src={homeAgainBtn} width="330" height="282" loading="lazy" alt="再玩一次" />
             </button>
           )}
         </footer>

@@ -72,13 +72,21 @@
   color: #68401e;
   font-size: 22px;
 }
-.srt-practice-assistance button {
-  margin: 8px;
-  padding: 12px 20px;
-  border: 2px solid #8aa658;
-  border-radius: 16px;
-  background: #f0f7d3;
-  color: #4a652e;
-  font: inherit;
+.srt-practice-assistance-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.srt-practice-assistance-actions button {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 180px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   cursor: pointer;
 }
+.srt-practice-assistance-actions img { display: block; width: 100%; height: auto; }
+.srt-practice-assistance-actions button:hover { filter: brightness(1.05); }
+.srt-practice-assistance-actions button:focus-visible { outline: 3px solid #9c5a23; outline-offset: 4px; }

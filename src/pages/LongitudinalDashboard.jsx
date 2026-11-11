@@ -68,7 +68,6 @@ export default function LongitudinalDashboard() {
       <section className="studio-card"><h2>研究事件時間軸</h2><ResearchTimeline events={analysis.timeline} inputs={inputs}/></section>
       <details className="studio-advanced"><summary>訓練歷程、建議紀錄與統計建模準備度</summary><div className="studio-grid-two"><section className="studio-card"><h2>訓練歷程</h2><ResearchTimeline events={analysis.timeline.filter((event)=>event.event_type === "Training" || (event.event_type === "Task" && series.some((row)=>row.session_id === event.session_id && row.assessment_or_training === "training")))} inputs={inputs}/></section><section className="studio-card"><h2>建議歷程</h2>{logNotice && <ResearchNotice tone="warning">{logNotice}</ResearchNotice>}<ResearchTimeline events={analysis.timeline.filter((event)=>event.event_type === "Recommendation")} inputs={inputs}/></section></div><section className="studio-card"><h2>統計建模準備度</h2><p>{analysis.mixed_effects_readiness.reason}</p><code>{analysis.mixed_effects_readiness.planned_structure}</code><p>目前尚未擬合混合效應模型，也未報告推論統計結果。</p></section></details>
       <details className="studio-quality-strip"><summary>與目前分析相關的資料品質</summary><ResearchAlerts alerts={buildResearchQualityAlerts(rows.filter((row)=>matchesResearchScope(row.participant_id,row.task_code,{selectedParticipant,selectedTask})))}/></details>
-      <ResearchNotice>{analysis.interpretation_guardrail}</ResearchNotice>
     </>}
   </ResearchPage>;
 }

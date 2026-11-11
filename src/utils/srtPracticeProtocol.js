@@ -79,6 +79,7 @@ export function updateSrtPracticeProgress(progress, record, config) {
 export function buildSrtPracticeResult({ records, progress, hintCount, startedAtMs, status, config, audioEvents = [] }) {
   return {
     gameId: "SRT", mode: "practice", status,
+    ...(config.testVersion ? { testVersion: config.testVersion, stimulusSetId: config.stimulusSetId, stimulusName: config.stimulusName } : {}),
     startedAt: new Date(startedAtMs).toISOString(),
     updatedAt: new Date().toISOString(),
     practice_attempt_count: records.length,

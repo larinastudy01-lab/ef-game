@@ -2,7 +2,7 @@ import React, { StrictMode } from "react";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import TestARI from "./TestPage_ARI";
-import { ARI_PRACTICE_AUDIO as cues } from "../utils/ariPracticeAudio";
+import { ARI_ASSESSMENT_VERSIONS } from "../config/ariAssessmentConfig";
 import { useTestAttempt } from "../utils/useTestAttempt";
 import { saveUnifiedResult } from "../utils/resultManager";
 
@@ -11,11 +11,13 @@ jest.mock("../utils/resultManager", () => ({ saveUnifiedResult: jest.fn() }));
 
 let audios;
 let attempt;
+const assessment = ARI_ASSESSMENT_VERSIONS["01"];
+const cues = assessment.audio;
 const current = () => audios.at(-1);
 const practice = () => screen.getByTestId("ari-practice");
 const narrator = () => screen.queryByTestId("ari-narrator");
 const advance = async (ms) => act(async () => { jest.advanceTimersByTime(ms); });
-const animal = (target) => screen.getByRole("button", { name: target === "cat" ? "貓咪" : "狗狗", exact: true });
+const animal = (target) => screen.getByRole("button", { name: assessment.animals[target].label, exact: true });
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -61,12 +63,10 @@ async function endCue(expected) {
 }
 async function finishIntro() {
   await endCue(cues.intro);
-  expect(screen.getByRole("status")).toHaveTextContent("聽到狗狗的叫聲，就要點貓咪！");
+  expect(screen.getByRole("status")).toHaveTextContent(assessment.ruleText);
   expect(animal("cat")).toBeDisabled();
-  await endCue(cues.dogRule);
-  expect(screen.getByRole("status")).toHaveTextContent("聽到貓咪的叫聲，就要點狗狗！");
   expect(animal("dog")).toBeDisabled();
-  await endCue(cues.catRule);
+  await endCue(cues.rule);
 }
 async function openQuestion(sound = "cat") {
   expect(practice()).toHaveAttribute("data-state", "question_prompt");
@@ -172,7 +172,7 @@ test.each([[0.1, "cat", "dog"], [0.9, "dog", "cat"]])("practice after STEP plays
   expect(screen.queryByText("完成囉！")).toBeNull();
   fireEvent.click(startButton);
   expect(practice()).toHaveAttribute("data-state", "assessment_intro");
-  expect(screen.getByRole("status")).toHaveTextContent("記得喔！聽到聲音，要點另一隻動物！");
+  expect(screen.getByRole("status")).toHaveTextContent("記得喔！要點另一隻動物！");
   expect(attempt.begin).not.toHaveBeenCalled();
   await endCue(cues.assessmentStart);
   expect(attempt.begin).toHaveBeenCalledTimes(1);
@@ -440,5 +440,5 @@ test("StrictMode cancels its first setup before starting the active intro", asyn
   expect(audios[0].onended).toBeNull();
   await finishIntro();
   await openQuestion();
-  expect(audios).toHaveLength(7);
+  expect(audios).toHaveLength(6);
 });

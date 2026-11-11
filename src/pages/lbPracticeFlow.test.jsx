@@ -2,24 +2,28 @@ import React from "react";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import TestPageLB from "./TestPage_LB";
-import { LB_PRACTICE_STAGES } from "../utils/lbPracticeProtocol";
-import { LB_FORMAL_AUDIO, LB_PRACTICE_AUDIO } from "../utils/lbPracticeAudio";
+import { getLBAssessmentVersion, LB_ASSESSMENT_COLOR_LABELS } from "../config/lbAssessmentConfig";
+import { getNextLBTestVersion } from "../utils/lbAssessmentVersion";
 import { saveUnifiedResult } from "../utils/resultManager";
 
 const mockAttempt = { begin: jest.fn(), checkpoint: jest.fn(), complete: jest.fn((raw) => raw) };
 jest.mock("../utils/useTestAttempt", () => ({ useTestAttempt: () => mockAttempt }));
 jest.mock("../utils/resultManager", () => ({ saveUnifiedResult: jest.fn() }));
 jest.mock("../utils/lbDoorplateAssets", () => ({
-  getLBDoorplateImage: (color, number) => `${color}_${number}.webp`,
+  getLBAssessmentImage: (version, color, number) => `${version}/${color}/${number}.webp`,
 }));
 
+let assessment;
+let LB_PRACTICE_STAGES;
+let LB_PRACTICE_AUDIO;
+let LB_FORMAL_AUDIO;
 let recordings;
 let audioSpy;
 const advance = async (ms) => act(async () => { jest.advanceTimersByTime(ms); });
 const board = () => document.querySelector("[data-mode]");
 const plate = (key) => {
   const [color, number] = key.split("-");
-  return screen.getByRole("button", { name: `${color === "blue" ? "藍色" : "黃色"}${number}`, exact: true });
+  return screen.getByRole("button", { name: `${LB_ASSESSMENT_COLOR_LABELS[assessment.colors[color === "blue" ? 1 : 0]]}${number}`, exact: true });
 };
 const submit = () => fireEvent.click(screen.getByRole("button", { name: "送出答案" }));
 const select = (keys) => keys.forEach((key) => fireEvent.click(plate(key)));
@@ -30,6 +34,7 @@ beforeEach(() => {
   mockAttempt.complete.mockImplementation((raw) => raw);
   localStorage.clear();
   sessionStorage.clear();
+  localStorage.setItem("currentChildId", "lb-child");
   recordings = [];
   audioSpy = jest.spyOn(window, "Audio").mockImplementation((src) => {
     const audio = document.createElement("audio");
@@ -47,6 +52,10 @@ afterEach(() => {
 });
 
 function start() {
+  assessment = getLBAssessmentVersion(getNextLBTestVersion("lb-child"));
+  LB_PRACTICE_STAGES = assessment.practiceStages;
+  LB_PRACTICE_AUDIO = assessment.practiceAudio;
+  LB_FORMAL_AUDIO = assessment.formalAudio;
   render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><TestPageLB /></MemoryRouter>);
   fireEvent.click(screen.getByRole("button", { name: "開始", exact: true }));
   fireEvent.ended(document.querySelector("video"));
@@ -130,6 +139,28 @@ test("STEP ends directly on practice one, with the existing art and controls loc
   expect(screen.queryByText("0/5")).not.toBeInTheDocument();
   expect(mockAttempt.begin).not.toHaveBeenCalled();
   expect(mockAttempt.checkpoint).not.toHaveBeenCalled();
+  expect(localStorage.getItem("lbTestLastVersion_lb-child")).toBeNull();
+});
+
+test("re-entering after formal use alternates 01, 02, 01 while practice and rule speech do not consume a copy", async () => {
+  for (const version of ["01", "02", "01"]) {
+    await reachPracticeTwo();
+    expect(board()).toHaveAttribute("data-test-version", version);
+    const previousVersion = localStorage.getItem("lbTestLastVersion_lb-child");
+    await finishIntroduction(2);
+    select(LB_PRACTICE_STAGES.practiceMode2.sequence);
+    submit();
+    await finishReview(6);
+    expect(localStorage.getItem("lbTestLastVersion_lb-child")).toBe(previousVersion);
+    await finishFormalCue("rule1");
+    expect(localStorage.getItem("lbTestLastVersion_lb-child")).toBe(version);
+    expect(mockAttempt.checkpoint).toHaveBeenCalledWith(expect.objectContaining({
+      testVersion: version, stimulusSetId: `test${version}`,
+    }));
+    cleanup();
+    jest.clearAllMocks();
+  }
+  expect(saveUnifiedResult).not.toHaveBeenCalled();
 });
 
 test("idle reminders start five seconds after controls unlock and reset after a selection, removal or blank click without showing a mouse", async () => {
@@ -281,8 +312,11 @@ test("leaving during practice route review cancels the walker, completion cue an
   expect(saveUnifiedResult).not.toHaveBeenCalled();
 });
 
-test("both original formal stages still submit twenty scored trials, excluding practice answers and time", async () => {
+test.each(["01", "02"])("copy %s submits twenty scored trials, excluding practice answers and time", async (version) => {
+  if (version === "02") localStorage.setItem("lbTestLastVersion_lb-child", "01");
   await reachFormal();
+  expect(board()).toHaveAttribute("data-test-version", version);
+  expect(localStorage.getItem("lbTestLastVersion_lb-child")).toBe(version);
   const formalStartedAt = Date.now();
   for (let number = 1; number <= 10; number += 1) {
     await advance(100);
@@ -297,24 +331,30 @@ test("both original formal stages still submit twenty scored trials, excluding p
   expect(screen.queryByLabelText("第二關圖像操作說明")).not.toBeInTheDocument();
   expect(document.querySelector(".lb-mouse-guide, .lb-practice-mouse")).toBeNull();
   await advance(2400); // Rule speech must not add to stage two's selection time.
-  expect(screen.getByRole("button", { name: "紅 1", exact: true })).toBeDisabled();
+  expect(plate("yellow-1")).toBeDisabled();
   await finishFormalCue("rule2");
   for (let number = 1; number <= 10; number += 1) {
     await advance(100);
-    fireEvent.click(screen.getByRole("button", { name: number % 2 ? `紅 ${number}` : `藍色${number}`, exact: true }));
+    fireEvent.click(plate(`${number % 2 ? "yellow" : "blue"}-${number}`));
   }
   submit();
   await advance(8000);
   expect(mockAttempt.begin).toHaveBeenCalledTimes(1);
   expect(saveUnifiedResult).toHaveBeenCalledTimes(1);
   const result = saveUnifiedResult.mock.calls[0][0].rawResult;
+  expect(result).toMatchObject({ testVersion: version, stimulusSetId: `test${version}` });
+  expect(result.raw).toMatchObject({ testVersion: version, stimulusSetId: `test${version}` });
+  expect(result.stageRecords.every((record) => record.testVersion === version)).toBe(true);
+  expect(result.trialLogs.every((record) => record.testVersion === version)).toBe(true);
+  expect(result.trialLogs[10].expectedColor).toBe(assessment.colors[0]);
+  expect(result.trialLogs[11].expectedColor).toBe(assessment.colors[1]);
   expect(result.trialLogs).toHaveLength(20);
   expect(result.stageRecords).toHaveLength(2);
   expect(result.trialLogs.every((trial) => trial.correct && trial.mode === "test")).toBe(true);
   expect(result.trialLogs.every((trial) => Date.parse(trial.timestamp) >= formalStartedAt)).toBe(true);
   expect(result.totalSelectionTime).toBe(2000);
   expect(recordings).toHaveLength(12);
-  expect(recordings.at(-1).getAttribute("src")).toBe("完成囉 你實在是太棒了.mp3");
+  expect(recordings.at(-1).getAttribute("src")).toBe(LB_FORMAL_AUDIO.complete);
   startVoiceAt(0);
   expect(screen.getByAltText("小雞正在說明")).toBeInTheDocument();
   expect(screen.getByRole("region", { name: "測驗結果" })).not.toContainElement(
@@ -349,7 +389,7 @@ test("practice one replaces idle speech with a number reminder and stops it on t
   fireEvent.click(plate("yellow-3"));
   const errorAudio = recordings.at(-1);
   expect(idleAudio.pause).toHaveBeenCalledTimes(1);
-  expect(errorAudio.getAttribute("src")).toBe("哎呀！看看下一個數字是多少？.mp3");
+  expect(errorAudio.getAttribute("src")).toBe(LB_PRACTICE_AUDIO.numberError1);
   expect(errorAudio.pause).not.toHaveBeenCalled();
   expect(plate("yellow-3")).toBeEnabled();
   const count = recordings.length;
@@ -362,7 +402,7 @@ test("practice one replaces idle speech with a number reminder and stops it on t
 
 test.each([
   ["yellow-2", "再看看喔！數字要照順序！.mp3"],
-  ["blue-1", "哎呀！看看這次應該點什麼顏色？.mp3"],
+  ["blue-1", getLBAssessmentVersion("01").practiceAudio.colorError],
   ["blue-2", "再看看喔！數字要照順序！.mp3"],
 ])("practice two distinguishes the first selection %s by number before color", async (key, filename) => {
   await reachPracticeTwo();
@@ -421,8 +461,8 @@ test("formal speech excludes all introduction time and gives no number, color or
   await finishFormalCue("rule2");
   const secondStageAudioCount = recordings.length;
   await advance(10000);
-  fireEvent.click(screen.getByRole("button", { name: "藍色2", exact: true })); // Wrong number and color.
-  fireEvent.click(screen.getByRole("button", { name: "紅 2", exact: true })); // Wrong color.
+  fireEvent.click(screen.getByRole("button", { name: "深灰色2", exact: true })); // Wrong number and color.
+  fireEvent.click(screen.getByRole("button", { name: "淺灰色2", exact: true })); // Wrong color.
   fireEvent.click(screen.getByRole("button", { name: "退回上一個門牌" }));
   await advance(10000);
   expect(recordings).toHaveLength(secondStageAudioCount);
@@ -457,6 +497,7 @@ test("leaving during formal rule speech stops playback and prevents a late asses
   await act(async () => { fireEvent.ended(audio); });
   await advance(30000);
   expect(mockAttempt.begin).not.toHaveBeenCalled();
+  expect(localStorage.getItem("lbTestLastVersion_lb-child")).toBeNull();
   expect(saveUnifiedResult).not.toHaveBeenCalled();
   expect(jest.getTimerCount()).toBe(0);
 });
@@ -598,14 +639,14 @@ test("formal rule speech lights the spoken card and removes both companion and h
   const colorRule = startVoiceAt(3.7);
   expect(board()).not.toHaveClass("lb-formal-fullscreen");
   const secondPositions = formalPositions(20);
-  expect(screen.getByRole("button", { name: "紅 1", exact: true })).toHaveClass("is-voice-highlighted");
+  expect(screen.getByRole("button", { name: "淺灰色1", exact: true })).toHaveClass("is-voice-highlighted");
   moveVoiceTo(colorRule, 5.4);
-  expect(screen.getByRole("button", { name: "紅 1", exact: true })).not.toHaveClass("is-voice-highlighted");
-  expect(screen.getByRole("button", { name: "藍色2", exact: true })).toHaveClass("is-voice-highlighted");
+  expect(screen.getByRole("button", { name: "淺灰色1", exact: true })).not.toHaveClass("is-voice-highlighted");
+  expect(screen.getByRole("button", { name: "深灰色2", exact: true })).toHaveClass("is-voice-highlighted");
   await finishFormalCue("rule2");
   expect(board()).toHaveClass("lb-formal-fullscreen");
   expect(formalPositions(20)).toEqual(secondPositions);
-  expect(screen.getByRole("button", { name: "藍色2", exact: true })).not.toHaveClass("is-voice-highlighted");
+  expect(screen.getByRole("button", { name: "深灰色2", exact: true })).not.toHaveClass("is-voice-highlighted");
   expect(screen.queryByAltText("小雞正在說明")).not.toBeInTheDocument();
   await advance(10000);
   expect(screen.queryByAltText("小雞正在說明")).not.toBeInTheDocument();

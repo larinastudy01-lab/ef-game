@@ -1,36 +1,33 @@
 import {
   analyzePMConfusions,
   buildPMQuestion,
+  getPMItemPool,
   PM_CONFUSION_DEFINITION,
   PM_ITEM_BY_ID,
   PM_ITEMS,
 } from "./pmItems";
 
-const itemIds = (numbers) => numbers.map((number) => `PM${String(number).padStart(2, "0")}`);
 const seededRandom = (seed) => () => {
   seed = (seed * 1664525 + 1013904223) >>> 0;
   return seed / 4294967296;
 };
 
-test("all 29 object assets have the supplied categories and exclude the background", () => {
-  expect(PM_ITEMS).toHaveLength(29);
-  expect(new Set(PM_ITEMS.map((item) => item.id)).size).toBe(29);
-  expect(PM_ITEMS.map((item) => item.id)).toEqual(itemIds(Array.from({ length: 29 }, (_, index) => index + 1)));
+test("all 81 new assets have unique category-qualified identifiers and exclude the background", () => {
+  expect(PM_ITEMS).toHaveLength(81);
+  expect(new Set(PM_ITEMS.map((item) => item.id)).size).toBe(81);
   const expectedCategories = {
-    food: [1, 4, 5, 15, 16],
-    wearables: [6, 10, 12, 17, 18, 22, 28, 29],
-    animal_toys: [8, 19, 20, 21],
-    kitchen: [9, 13, 14, 26, 27],
-    nature: [7, 11, 24, 25],
-    other: [2, 3, 23],
+    unclassified: 26, car: 7, clothes: 8, furniture: 17, food: 15, ball: 8,
   };
-  Object.entries(expectedCategories).forEach(([category, numbers]) => {
-    expect(PM_ITEMS.filter((item) => item.categoryKey === category).map((item) => item.id)).toEqual(itemIds(numbers));
+  Object.entries(expectedCategories).forEach(([category, count]) => {
+    const items = PM_ITEMS.filter((item) => item.assetCategoryKey === category);
+    expect(items).toHaveLength(count);
+    items.forEach((item, index) => {
+      const number = String(index + 1).padStart(2, "0");
+      expect(item.id).toBe(`PM_${category.toUpperCase()}_${number}`);
+      expect(item.sourcePath).toBe(`PM/${category === "unclassified" ? "" : `${category}/`}PM_${number}.${category === "unclassified" && number === "07" ? "png" : "webp"}`);
+    });
   });
-  PM_ITEMS.forEach((item, index) => {
-    const number = String(index + 1).padStart(2, "0");
-    // Jest resolves the imported assets before replacing them with their basename.
-    expect(item.image).toBe(`PM_${number}.${index === 7 ? "png" : "webp"}`);
+  PM_ITEMS.forEach((item) => {
     expect(item.image).not.toContain("background");
     expect(item.alt).toBeTruthy();
     expect(PM_ITEM_BY_ID[item.id]).toBe(item);
@@ -50,19 +47,49 @@ test.each([1, 2, 3, 4, 5, 6, 7])(
       expect(question.optionIds).toEqual(expect.arrayContaining(question.targetIds));
       question.optionIds.forEach((id) => expect(PM_ITEM_BY_ID[id]).toBeDefined());
       expect(question.similarityCondition).toMatchObject({
-        policy: "uniform_random_pool", forcedSimilarity: false,
+        policy: "categorized_and_shared_pool", forcedSimilarity: false,
       });
+      if (memoryCount >= 2) {
+        expect(question.targets.some((item) => item.assetCategoryKey === "unclassified")).toBe(true);
+        expect(question.targets.some((item) => item.assetCategoryKey !== "unclassified")).toBe(true);
+      }
     }
   }
 );
 
-test("formal and training questions use the same unscaled stimulus selection policy", () => {
+test("formal and training questions keep their category pools separate with shared unclassified objects", () => {
   const training = buildPMQuestion(7, { mode: "training", random: seededRandom(21) });
   const assessment = buildPMQuestion(7, { mode: "test", random: seededRandom(21) });
-  expect(assessment.targetIds).toEqual(training.targetIds);
-  expect(assessment.optionIds).toEqual(training.optionIds);
+  expect(training.options.every((item) => ["food", "ball", "unclassified"].includes(item.assetCategoryKey))).toBe(true);
+  expect(assessment.options.every((item) => ["car", "furniture", "clothes", "unclassified"].includes(item.assetCategoryKey))).toBe(true);
   expect(assessment.similarityCondition).toMatchObject({ mode: "test", forcedSimilarity: false });
   expect(buildPMQuestion(99, { random: seededRandom(2) }).targets).toHaveLength(7);
+});
+
+test.each([
+  ["test", ["food"]], ["test", ["ball"]], ["practice", ["food"]],
+  ["training", ["car"]], ["training", ["clothes"]], ["training", ["furniture"]],
+])("%s rejects forbidden categories %s", (mode, categoryKeys) => {
+  expect(() => getPMItemPool({ mode, categoryKeys })).toThrow(/Invalid PM/);
+});
+
+test.each([
+  ["test", ["car", "clothes"], 41], ["test", ["car", "furniture"], 50],
+  ["training", ["food"], 41], ["training", ["ball"], 34],
+])("%s pool %s has exactly the permitted assets", (mode, categoryKeys, size) => {
+  const pool = getPMItemPool({ mode, categoryKeys });
+  expect(pool).toHaveLength(size);
+  for (let seed = 1; seed <= 20; seed += 1) {
+    const question = buildPMQuestion(7, { mode, categoryKeys, random: seededRandom(seed) });
+    expect(question.options.every((item) => pool.includes(item))).toBe(true);
+  }
+});
+
+test("uncategorized objects are not classified as semantically similar just because they share a folder", () => {
+  expect(analyzePMConfusions({ targetIds: ["PM_UNCLASSIFIED_01"], selectedIds: ["PM_UNCLASSIFIED_02"] }).errors[0].type).toBe("unrelated");
+  // Legacy analysis keeps its original metadata and never points at renamed images.
+  expect(PM_ITEM_BY_ID.PM10.categoryKey).toBe("wearables");
+  expect(PM_ITEM_BY_ID.PM10.image).toBeUndefined();
 });
 
 test("wrong selections distinguish a defined visual match, a category association, and an unrelated item", () => {

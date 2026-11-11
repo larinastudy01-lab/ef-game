@@ -1023,7 +1023,7 @@ function getChildMessage(stars) {
     return "做得很好！再多聽一下，就能更快找到相反的動物！";
   }
 
-  return "沒關係！記得貓叫選狗、狗叫選貓，再試一次就會更進步！";
+  return "沒關係！記得聽到聲音，要選另一隻動物，再試一次就會更進步！";
 }
 
 function getChildShortLabel(stars) {
@@ -1160,14 +1160,8 @@ function buildParentSummary({
       dogSoundAccuracy
     ) >= 30
   ) {
-    const weakerSound =
-      catSoundAccuracy <
-      dogSoundAccuracy
-        ? "貓叫"
-        : "狗叫";
-
     parts.push(
-      `孩子在「${weakerSound}」題型的表現較弱，可針對該聲音規則增加練習。`
+      "孩子在其中一種動物聲音題型的表現較弱，可針對該聲音規則增加練習。"
     );
   }
 
@@ -1218,7 +1212,7 @@ function buildClinicalFlags({
       type: "accuracy_low",
       level: "warning",
       message:
-        "相反規則正確率偏低，建議確認是否理解「貓叫選狗、狗叫選貓」的任務規則。",
+        "相反規則正確率偏低，建議確認是否理解「聽到聲音，要選另一隻動物」的任務規則。",
     });
   }
 
@@ -1312,7 +1306,7 @@ function buildClinicalFlags({
       type: "sound_rule_asymmetry",
       level: "notice",
       message:
-        "貓聲題與狗聲題的正確率差距較大，可能對其中一種聲音或規則方向較不熟悉。",
+        "兩種動物聲音題的正確率差距較大，可能對其中一種聲音或規則方向較不熟悉。",
     });
   }
 
@@ -2209,7 +2203,7 @@ export function calculateAriScore(
       "audio-visual-opposite-v2",
 
     taskRule:
-      "catSoundSelectDog_dogSoundSelectCat",
+      options.taskRule || "catSoundSelectDog_dogSoundSelectCat",
 
     abilityType:
       "attention_control",
@@ -2383,7 +2377,7 @@ export function calculateAriScore(
         ),
 
       reminder:
-        "記得：聽到貓叫要選狗，聽到狗叫要選貓。",
+        "記得：聽到聲音，要選另一隻動物。",
     },
 
     parentView: {

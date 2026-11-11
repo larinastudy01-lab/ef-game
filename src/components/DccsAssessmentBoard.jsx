@@ -2,14 +2,13 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import chicken from "../asset/chicken.webp";
 import chickenClosed from "../asset/chicken01.webp";
 import mouse from "../asset/mouse.webp";
-import leftBox from "../asset/DCCS/box_left.webp";
-import rightBox from "../asset/DCCS/box_right.webp";
+import { getDccsAssessmentVersion } from "../config/dccsAssessmentVersions";
 import { DCCS_ASSESSMENT_CONFIG as CONFIG } from "../config/dccsAssessmentConfig";
 import { getDccsCorrectPosition } from "../utils/dccsAssessmentProtocol";
 
 export default function DccsAssessmentBoard({ rule, ruleIndex, phase, trial, presentationKey,
   onAssetsReady, onAnswer, locked, selected, feedback, feedbackShown,
-  speaking, audioFailed, onReplay, onContinue }) {
+  speaking, audioFailed, onReplay, onContinue, assessment = getDccsAssessmentVersion("01") }) {
   const root = useRef(null);
   const stimulus = useRef(null);
   const boxes = useRef({});
@@ -42,6 +41,7 @@ export default function DccsAssessmentBoard({ rule, ruleIndex, phase, trial, pre
 
   return <main ref={root} className="dccs-assessment" data-testid="dccs-assessment"
     data-mode={practice ? "practice" : "formal"} data-rule={rule.id} data-phase={phase}
+    data-test-version={assessment.testVersion} data-stimulus-set={assessment.stimulusSetId}
     style={{ "--reveal-ms": `${CONFIG.revealMs}ms`, "--deposit-ms": `${CONFIG.depositMs}ms` }}>
     {(practice || intro || speaking) && <aside className={`dccs-narrator is-${characterState}`}
       data-state={characterState} data-speaking={speaking} data-layout={narratorLayout}>
@@ -65,7 +65,7 @@ export default function DccsAssessmentBoard({ rule, ruleIndex, phase, trial, pre
         </div>
       </div>
       <div className="dccs-assessment-boxes">
-        {[["top", leftBox, "左側"], ["bottom", rightBox, "右側"]].map(([side, src, label]) =>
+        {[["top", assessment.boxes.top, "左側"], ["bottom", assessment.boxes.bottom, "右側"]].map(([side, src, label]) =>
           <button key={side} ref={(node) => { boxes.current[side] = node; }} type="button"
             data-position={side === "top" ? "left" : "right"}
             className={`dccs-assessment-box ${selected === side ? "is-selected" : ""}`}

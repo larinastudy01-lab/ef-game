@@ -84,20 +84,22 @@
 }
 
 .srt-intro-replay {
-  min-height: 52px;
+  display: inline-grid;
+  gap: 6px;
+  width: min(100%, 180px);
   margin-top: 12px;
-  padding: 12px 24px;
-  border: 2px solid #49762c;
-  border-radius: 16px;
-  background: #5d8e37;
-  color: #fff;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
   font: inherit;
   font-size: 20px;
   font-weight: 700;
   cursor: pointer;
 }
 
-.srt-intro-replay:hover { background: #49762c; }
+.srt-intro-replay img { display: block; width: 100%; height: auto; }
+.srt-intro-replay:hover { filter: brightness(1.05); }
 .srt-intro-replay:focus-visible { outline: 3px solid #9c5a23; outline-offset: 4px; }
 
 @media (max-width: 600px) {

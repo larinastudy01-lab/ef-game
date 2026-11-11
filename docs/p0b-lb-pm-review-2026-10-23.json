@@ -1,0 +1,330 @@
+{
+  "snapshotAt": "2026-10-23T06:58:41.987531+00:00",
+  "lb": [
+    {
+      "resultRef": "02a70594edaf1f118ec0",
+      "sourceRecords": 7,
+      "extraRepeatedKeys": 3,
+      "duplicateGroups": [
+        {
+          "originalSourceKey": "2-2",
+          "ordinals": [
+            2,
+            3,
+            4,
+            5
+          ],
+          "levelIds": [
+            "2"
+          ],
+          "steps": [
+            2,
+            2,
+            2,
+            2
+          ],
+          "statuses": [
+            "wrong",
+            "wrong",
+            "wrong",
+            "correct"
+          ],
+          "correctness": [
+            false,
+            false,
+            false,
+            true
+          ],
+          "distinctRawContentHashes": 4
+        }
+      ],
+      "conclusion": "distinct operations on the same planned step; phase+step remains nonunique; no automatic renaming/deletion/trial inflation",
+      "manualDecisions": [
+        "confirm original order and individual research UUID mapping",
+        "define operation event versus attempt versus planned trial",
+        "review event linkage without modifying original trialId/step/level/raw content",
+        "approve a versioned conversion and rollback before any apply"
+      ],
+      "applyAuthorized": false
+    },
+    {
+      "resultRef": "11b7a3f356f2cb10ce6e",
+      "sourceRecords": 7,
+      "extraRepeatedKeys": 2,
+      "duplicateGroups": [
+        {
+          "originalSourceKey": "1-2",
+          "ordinals": [
+            2,
+            3,
+            4
+          ],
+          "levelIds": [
+            "1"
+          ],
+          "steps": [
+            2,
+            2,
+            2
+          ],
+          "statuses": [
+            "wrong",
+            "wrong",
+            "correct"
+          ],
+          "correctness": [
+            false,
+            false,
+            true
+          ],
+          "distinctRawContentHashes": 3
+        }
+      ],
+      "conclusion": "distinct operations on the same planned step; phase+step remains nonunique; no automatic renaming/deletion/trial inflation",
+      "manualDecisions": [
+        "confirm original order and individual research UUID mapping",
+        "define operation event versus attempt versus planned trial",
+        "review event linkage without modifying original trialId/step/level/raw content",
+        "approve a versioned conversion and rollback before any apply"
+      ],
+      "applyAuthorized": false
+    },
+    {
+      "resultRef": "562c7f85b3debb919db1",
+      "sourceRecords": 7,
+      "extraRepeatedKeys": 2,
+      "duplicateGroups": [
+        {
+          "originalSourceKey": "2-1-1",
+          "ordinals": [
+            1,
+            2,
+            3
+          ],
+          "levelIds": [
+            "2-1"
+          ],
+          "steps": [
+            1,
+            1,
+            1
+          ],
+          "statuses": [
+            "wrong",
+            "wrong",
+            "correct"
+          ],
+          "correctness": [
+            false,
+            false,
+            true
+          ],
+          "distinctRawContentHashes": 3
+        }
+      ],
+      "conclusion": "distinct operations on the same planned step; phase+step remains nonunique; no automatic renaming/deletion/trial inflation",
+      "manualDecisions": [
+        "confirm original order and individual research UUID mapping",
+        "define operation event versus attempt versus planned trial",
+        "review event linkage without modifying original trialId/step/level/raw content",
+        "approve a versioned conversion and rollback before any apply"
+      ],
+      "applyAuthorized": false
+    },
+    {
+      "resultRef": "82f9cad07a0fba614108",
+      "sourceRecords": 11,
+      "extraRepeatedKeys": 1,
+      "duplicateGroups": [
+        {
+          "originalSourceKey": "1-4-5",
+          "ordinals": [
+            5,
+            6
+          ],
+          "levelIds": [
+            "1-4"
+          ],
+          "steps": [
+            5,
+            5
+          ],
+          "statuses": [
+            "wrong",
+            "correct"
+          ],
+          "correctness": [
+            false,
+            true
+          ],
+          "distinctRawContentHashes": 2
+        }
+      ],
+      "conclusion": "distinct operations on the same planned step; phase+step remains nonunique; no automatic renaming/deletion/trial inflation",
+      "manualDecisions": [
+        "confirm original order and individual research UUID mapping",
+        "define operation event versus attempt versus planned trial",
+        "review event linkage without modifying original trialId/step/level/raw content",
+        "approve a versioned conversion and rollback before any apply"
+      ],
+      "applyAuthorized": false
+    },
+    {
+      "resultRef": "a6f011283a6435dc19eb",
+      "sourceRecords": 8,
+      "extraRepeatedKeys": 3,
+      "duplicateGroups": [
+        {
+          "originalSourceKey": "1-2",
+          "ordinals": [
+            2,
+            3,
+            4,
+            5
+          ],
+          "levelIds": [
+            "1"
+          ],
+          "steps": [
+            2,
+            2,
+            2,
+            2
+          ],
+          "statuses": [
+            "wrong",
+            "wrong",
+            "wrong",
+            "correct"
+          ],
+          "correctness": [
+            false,
+            false,
+            false,
+            true
+          ],
+          "distinctRawContentHashes": 4
+        }
+      ],
+      "conclusion": "distinct operations on the same planned step; phase+step remains nonunique; no automatic renaming/deletion/trial inflation",
+      "manualDecisions": [
+        "confirm original order and individual research UUID mapping",
+        "define operation event versus attempt versus planned trial",
+        "review event linkage without modifying original trialId/step/level/raw content",
+        "approve a versioned conversion and rollback before any apply"
+      ],
+      "applyAuthorized": false
+    },
+    {
+      "resultRef": "ce7f778a5f8101d0dd2d",
+      "sourceRecords": 5,
+      "extraRepeatedKeys": 1,
+      "duplicateGroups": [
+        {
+          "originalSourceKey": "2-2",
+          "ordinals": [
+            2,
+            3
+          ],
+          "levelIds": [
+            "2"
+          ],
+          "steps": [
+            2,
+            2
+          ],
+          "statuses": [
+            "wrong",
+            "correct"
+          ],
+          "correctness": [
+            false,
+            true
+          ],
+          "distinctRawContentHashes": 2
+        }
+      ],
+      "conclusion": "distinct operations on the same planned step; phase+step remains nonunique; no automatic renaming/deletion/trial inflation",
+      "manualDecisions": [
+        "confirm original order and individual research UUID mapping",
+        "define operation event versus attempt versus planned trial",
+        "review event linkage without modifying original trialId/step/level/raw content",
+        "approve a versioned conversion and rollback before any apply"
+      ],
+      "applyAuthorized": false
+    }
+  ],
+  "pm": [
+    {
+      "resultRef": "1476b691fe0f53b94897",
+      "administered": 6,
+      "timeouts": 0,
+      "timeoutRate": 0,
+      "status": "available",
+      "pipelineVersion": "behavioral-features-js-1.1.0",
+      "processingVersion": "trial-normalizer-1.1.0",
+      "recordedFalseTimeoutFlags": 6,
+      "missingTimeoutFlags": 0,
+      "legalDeselectionTrials": 0,
+      "storedPreviousVersion": "absent_not_fabricated",
+      "deselectionEvidence": [],
+      "rawModified": false
+    },
+    {
+      "resultRef": "59b42bc3c8e6916914c9",
+      "administered": 6,
+      "timeouts": 0,
+      "timeoutRate": 0,
+      "status": "available",
+      "pipelineVersion": "behavioral-features-js-1.1.0",
+      "processingVersion": "trial-normalizer-1.1.0",
+      "recordedFalseTimeoutFlags": 6,
+      "missingTimeoutFlags": 0,
+      "legalDeselectionTrials": 0,
+      "storedPreviousVersion": "absent_not_fabricated",
+      "deselectionEvidence": [],
+      "rawModified": false
+    },
+    {
+      "resultRef": "6baacde28093ffcdc429",
+      "administered": 4,
+      "timeouts": 0,
+      "timeoutRate": 0,
+      "status": "available",
+      "pipelineVersion": "behavioral-features-js-1.1.0",
+      "processingVersion": "trial-normalizer-1.1.0",
+      "recordedFalseTimeoutFlags": 4,
+      "missingTimeoutFlags": 0,
+      "legalDeselectionTrials": 0,
+      "storedPreviousVersion": "absent_not_fabricated",
+      "deselectionEvidence": [],
+      "rawModified": false
+    },
+    {
+      "resultRef": "d2ff5aa0f0190de58700",
+      "administered": 6,
+      "timeouts": 0,
+      "timeoutRate": 0,
+      "status": "available",
+      "pipelineVersion": "behavioral-features-js-1.1.0",
+      "processingVersion": "trial-normalizer-1.1.0",
+      "recordedFalseTimeoutFlags": 6,
+      "missingTimeoutFlags": 0,
+      "legalDeselectionTrials": 1,
+      "storedPreviousVersion": "absent_not_fabricated",
+      "deselectionEvidence": [
+        {
+          "doubleClickCount": null,
+          "validTrial": true,
+          "exclusionReasons": []
+        }
+      ],
+      "rawModified": false
+    }
+  ],
+  "zeroDenominator": {
+    "expectedRate": null,
+    "reason": "not_calculable_no_administered_trials",
+    "verification": "covered_by_local_unit_tests_not_observed_in_historical_PM"
+  }
+}

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { playLBPracticeCue, waitForLBPractice } from "./lbPracticeAudio";
 import { LB_MODES } from "./lbPracticeProtocol";
 
-export default function useLBPracticeFlow({ stage, displayItems, onPassed, onRetry, onPlayback }) {
+export default function useLBPracticeFlow({ stage, displayItems, onPassed, onRetry, onPlayback, audio }) {
   const [status, setStatus] = useState("inactive");
   const [mouse, setMouse] = useState(null);
   const [demoKeys, setDemoKeys] = useState([]);
@@ -14,7 +14,7 @@ export default function useLBPracticeFlow({ stage, displayItems, onPassed, onRet
   const completingRef = useRef(false);
   passedRef.current = onPassed;
   retryRef.current = onRetry;
-  const playCue = useCallback((event, signal) => playLBPracticeCue(event, signal, onPlayback), [onPlayback]);
+  const playCue = useCallback((event, signal) => playLBPracticeCue(event, signal, onPlayback, audio), [onPlayback, audio]);
 
   useEffect(() => {
     if (!stage) return undefined;

@@ -1,5 +1,4 @@
 import colorIntro from "../asset/voice/看看這件衣服是什麼顏色，放到一樣顏色的地方！.mp3";
-import categoryIntro from "../asset/voice/這次不看顏色，要看衣服的種類喔！上衣放在上衣的籃子 帽子放在帽子的籃子.mp3";
 import bagIntro from "../asset/voice/這次要看透明袋子裡的衣服喔！把衣服放到跟衣服顏色一樣的籃子裡！.mp3";
 import colorCorrect from "../asset/voice/答對了！顏色一樣！.mp3";
 import categoryCorrect from "../asset/voice/答對了！種類一樣！.mp3";
@@ -14,7 +13,7 @@ import passed from "../asset/voice/你學會了！準備開始挑戰吧！.mp3";
 
 export const DCCS_ASSESSMENT_AUDIO = Object.freeze({
   color: { intro: colorIntro, correct: colorCorrect, retry: colorRetry, formal: colorFormal, passed },
-  category: { intro: categoryIntro, correct: categoryCorrect, retry: categoryRetry, formal: categoryFormal, passed },
+  category: { intro: categoryFormal, correct: categoryCorrect, retry: categoryRetry, formal: categoryFormal, passed },
   bag_color: { intro: bagIntro, correct: bagCorrect, retry: bagRetry, formal: bagFormal, passed },
 });
 

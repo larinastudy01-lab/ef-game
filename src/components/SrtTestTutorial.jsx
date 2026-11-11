@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import HandPointerHint from "./HandPointerHint";
 import SrtRuleIllustration from "./SrtRuleIllustration";
 import SrtNarrator from "./SrtNarrator";
+import homeAgainBtn from "../asset/home/again.webp";
+import homeTestMapBtn from "../asset/home/testmap.webp";
 import {
   buildSrtPracticeResult, createSrtPracticeQueue, emptySrtPracticeProgress,
   resolveSrtPracticeConfig, saveSrtPracticeResult, updateSrtPracticeProgress,
@@ -239,12 +241,13 @@ export default function SrtTestTutorial({ onReady, onExit, childId, assessmentTi
     <main className="srt-play-page srt-practice-page" data-mode="practice" data-stage={stage}
       data-feedback-animation={settings.feedbackAnimationEnabled} aria-label="SRT 試玩">
       <div className="srt-practice-board" data-testid="srt-practice-area" data-narrator-layout={narratorLayout}
+        data-stimulus-set={settings.stimulusSetId}
         onClick={() => respondRef.current?.({ clicked: true, hit: false })}>
         <div className="srt-practice-header">
           <div className="srt-practice-progress" role="progressbar" aria-label="連續答對進度"
             aria-valuenow={Math.min(progress.correctStreak, settings.requiredCorrectStreak)} aria-valuemin={0} aria-valuemax={settings.requiredCorrectStreak}>
             {Array.from({ length: settings.requiredCorrectStreak }, (_, index) => (
-              <img key={index} src={settings.stimuli.normal.img} width="151" height="194" alt=""
+              <img key={index} src={settings.stimuli.normal.img} width={settings.stimuli.normal.width} height={settings.stimuli.normal.height} alt=""
                 className={index < progress.correctStreak ? "is-complete" : ""} />
             ))}
           </div>
@@ -278,8 +281,16 @@ export default function SrtTestTutorial({ onReady, onExit, childId, assessmentTi
         {stage === "help" && (
           <div className="srt-practice-assistance" onClick={(event) => event.stopPropagation()}>
             <p>先休息一下，請大人陪你確認遊戲規則，再重新試玩。</p>
-            <button type="button" onClick={() => setSession((value) => value + 1)}>重新試玩</button>
-            {onExit && <button type="button" onClick={onExit}>返回測驗地圖</button>}
+            <div className="srt-practice-assistance-actions">
+              <button type="button" onClick={() => setSession((value) => value + 1)} aria-label="重新試玩">
+                <img src={homeAgainBtn} width="330" height="282" alt="" />
+              </button>
+              {onExit && (
+                <button type="button" onClick={onExit} aria-label="返回測驗地圖">
+                  <img src={homeTestMapBtn} width="375" height="269" alt="" />
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

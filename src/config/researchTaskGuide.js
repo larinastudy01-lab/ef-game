@@ -15,8 +15,8 @@ export const RESEARCH_TASK_GUIDE = [
   },
   {
     code: "SRT",
-    rules: "一般橡實出現時點選，腐壞橡實出現時抑制點擊；訓練模式另有金色橡實，規則依模式與難度區分。",
-    collected: "橡實類型與位置、實際動作、正誤、反應時間、漏按／誤按及輔助介入紀錄。",
+    rules: "測驗點選好的水果、不點壞的水果，01 使用葡萄、02 使用蘋果；訓練使用普通、腐壞與金色橡實，規則依難度區分。",
+    collected: "刺激類型與位置、實際動作、正誤、反應時間、漏按／誤按及輔助介入紀錄。",
     fields: "targetType · positionX · positionY · missed · action / trainingAction · isCorrect · reactionTime · errorType · falseClick · assisted",
   },
   {

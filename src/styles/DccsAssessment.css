@@ -31,13 +31,15 @@
 .dccs-assessment-box { position: absolute; top: 82%; width: 32.5%; aspect-ratio: 319 / 131; min-height: 44px; translate: -50% -50%; display: grid; place-items: center; padding: 0; border: 0; background: transparent; cursor: pointer; pointer-events: auto; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .dccs-assessment-box[data-position="left"] { left: 27%; }
 .dccs-assessment-box[data-position="right"] { left: 73%; }
-.dccs-box-artwork { position: relative; display: block; width: 100%; pointer-events: none; }
-.dccs-box-artwork > img { display: block; width: 100%; height: auto; filter: drop-shadow(0 8px 7px #35241440); pointer-events: none; }
+.dccs-box-artwork { position: relative; display: block; width: 100%; aspect-ratio: 319 / 131; overflow: hidden; pointer-events: none; }
+/* Both assessment copies use a 1306 × 1205 canvas. Center that canvas inside
+   the existing wide box footprint, hiding only the transparent vertical margin. */
+.dccs-box-artwork > img { position: absolute; top: 50%; left: 0; display: block; width: 100%; height: auto; translate: 0 -50%; filter: drop-shadow(0 8px 7px #35241440); pointer-events: none; }
 /* This window stays inside the original label's paper inset. Its duplicate
    source is scaled 1.12x, centered on the printed icon, and clipped to the
    inset; all wooden framing comes from the untouched original image. */
-.dccs-box-reference { position: absolute; left: 50%; top: 59%; width: 25%; height: 47%; translate: -50% -50%; overflow: hidden; pointer-events: none; }
-.dccs-box-reference img { position: absolute; left: 50%; top: 50%; width: 448%; max-width: none; height: auto; translate: -50% -60%; pointer-events: none; }
+.dccs-box-reference { position: absolute; left: 50%; top: 62%; width: 25%; height: 47%; translate: -50% -50%; overflow: hidden; pointer-events: none; }
+.dccs-box-reference img { position: absolute; left: 50%; top: 50%; width: 448%; max-width: none; height: auto; translate: -50% -55.5%; pointer-events: none; }
 /* Practice points only to the correct box. Keep the hand on the wooden side,
    clear of the printed reference. */
 .dccs-practice-hand { position: absolute; left: 70%; top: 58%; width: 25%; height: auto; pointer-events: none; user-select: none; transform-origin: 22% 20%; animation: dccs-hand-tap 1.6s ease-in-out infinite; }

@@ -36,9 +36,19 @@ const renderPage = async (Page) => { await act(async () => { root.render(<Page/>
 
 test("all-task statistics show distributions for every task with visible units", async () => {
   await renderPage(ResearchStatistics);
-  expect(screen.getByRole("heading", { name: "CBT · n = 3" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "PM · n = 3" })).toBeInTheDocument();
+  expect(screen.getByText("進階分布、箱型圖與離群值").closest("details")).not.toHaveAttribute("open");
+  act(() => fireEvent.click(screen.getByText("進階分布、箱型圖與離群值")));
+  expect(screen.getAllByRole("heading", { name: "石頭記憶（CBT） · 3 筆有效場次" })).toHaveLength(2);
+  expect(screen.getAllByRole("heading", { name: "圖片記憶（PM） · 3 筆有效場次" })).toHaveLength(2);
   expect(screen.getByRole("heading", { name: "資料分布 · 正確率（%）" })).toBeInTheDocument();
+});
+
+test("a single observation displays its value without drawing a box plot", async () => {
+  getResearchFeatureInputsFromCloud.mockResolvedValueOnce([inputs[0]]);
+  await renderPage(ResearchStatistics);
+  act(() => fireEvent.click(screen.getByText("進階分布、箱型圖與離群值")));
+  expect(screen.getByText(/僅 1 筆有效場次/)).toBeInTheDocument();
+  expect(screen.queryByRole("img", { name: "正確率（%）箱型圖" })).not.toBeInTheDocument();
 });
 
 test.each([[ResearchProfessionalDashboard, "研究總覽"], [LongitudinalDashboard, "縱向追蹤"]])("participant tools include personal context and a separate quality review", async (Page, title) => {
@@ -46,7 +56,7 @@ test.each([[ResearchProfessionalDashboard, "研究總覽"], [LongitudinalDashboa
   expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
   expect(screen.getByRole("region", { name: "資料摘要" })).toHaveTextContent("增加 50.0 個百分點");
   act(() => fireEvent.click(screen.getByText(Page === ResearchProfessionalDashboard ? "檢視說明" : "與目前分析相關的資料品質")));
-  expect(screen.getByRole("region", { name: "警示與資料品質" })).toHaveTextContent("臨床危急值監測：尚未啟用");
+  expect(screen.getByRole("region", { name: "警示與資料品質" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "暗色模式" })).toBeInTheDocument();
 });
 

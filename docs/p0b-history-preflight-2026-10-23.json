@@ -1,0 +1,5851 @@
+{
+  "dryRun": true,
+  "snapshotAt": "2026-10-23T06:58:41.987531+00:00",
+  "coverage": "admin_repeatable_read_snapshot_all_main_rows",
+  "classificationVersion": "p0b-preflight-1.0",
+  "categories": {
+    "A": {
+      "results": 69,
+      "sourceTrials": 849
+    },
+    "B": {
+      "results": 4,
+      "sourceTrials": 48
+    },
+    "C": {
+      "results": 26,
+      "sourceTrials": 317
+    },
+    "D": {
+      "results": 1,
+      "sourceTrials": 0
+    },
+    "E": {
+      "results": 0,
+      "sourceTrials": 0
+    }
+  },
+  "totals": {
+    "results": 100,
+    "sourceTrials": 1214,
+    "incorrectlySynced": 21,
+    "withMissingTechnicalIds": 9
+  },
+  "globalGates": [
+    "isolated_postgres_postgrest_rls_not_verified",
+    "backup_restore_not_verified",
+    "production_apply_forbidden_in_p0b"
+  ],
+  "records": [
+    {
+      "resultRef": "0171f126edd640a9cc84",
+      "gameId": "ARI",
+      "mode": "training",
+      "primaryCategory": "B",
+      "problemCategories": [
+        "B"
+      ],
+      "reasons": [
+        "source_start_not_recorded_preserve_null",
+        "task_code_schema_block"
+      ],
+      "missingSchema": [
+        "behavioral_task_sessions_task_code_check",
+        "behavioral_trial_derivations_task_code_check"
+      ],
+      "sourceTrialCount": 12,
+      "expectedResearchTrialCount": 12,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 12,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "8d20ca1cf0fa624079353a70393c50bc64bdc0150859683e3ae5d52fc4666e44",
+      "sourceTrialHashCount": 12,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "02a70594edaf1f118ec0",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "canonical_source_key_collision",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 7,
+      "expectedResearchTrialCount": 7,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 7,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 3,
+      "canonicalDuplicateKeyCount": 3,
+      "sourcePayloadSha256": "b890d57ff4af1b0c881ff447bea15f79f5269511852c04b425b272dc642fa3c2",
+      "sourceTrialHashCount": 7,
+      "pm": null,
+      "manualLbEvidence": [
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "2-1",
+          "levelId": "2",
+          "ordinal": 1,
+          "stageId": null,
+          "ruleType": "redBlue",
+          "taskType": "ruleSwitch",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "hard",
+          "trialIndex": null,
+          "stepInLevel": 1,
+          "trialNumber": null,
+          "canonicalKey": "2-1",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "2-2",
+          "levelId": "2",
+          "ordinal": 2,
+          "stageId": null,
+          "ruleType": "redBlue",
+          "taskType": "ruleSwitch",
+          "isCorrect": false,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "hard",
+          "trialIndex": null,
+          "stepInLevel": 2,
+          "trialNumber": null,
+          "canonicalKey": "2-2",
+          "recordedStatus": "wrong"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "2-2",
+          "levelId": "2",
+          "ordinal": 3,
+          "stageId": null,
+          "ruleType": "redBlue",
+          "taskType": "ruleSwitch",
+          "isCorrect": false,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "hard",
+          "trialIndex": null,
+          "stepInLevel": 2,
+          "trialNumber": null,
+          "canonicalKey": "2-2",
+          "recordedStatus": "wrong"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "2-2",
+          "levelId": "2",
+          "ordinal": 4,
+          "stageId": null,
+          "ruleType": "redBlue",
+          "taskType": "ruleSwitch",
+          "isCorrect": false,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "hard",
+          "trialIndex": null,
+          "stepInLevel": 2,
+          "trialNumber": null,
+          "canonicalKey": "2-2",
+          "recordedStatus": "wrong"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "2-2",
+          "levelId": "2",
+          "ordinal": 5,
+          "stageId": null,
+          "ruleType": "redBlue",
+          "taskType": "ruleSwitch",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "hard",
+          "trialIndex": null,
+          "stepInLevel": 2,
+          "trialNumber": null,
+          "canonicalKey": "2-2",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "2-3",
+          "levelId": "2",
+          "ordinal": 6,
+          "stageId": null,
+          "ruleType": "redBlue",
+          "taskType": "ruleSwitch",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "hard",
+          "trialIndex": null,
+          "stepInLevel": 3,
+          "trialNumber": null,
+          "canonicalKey": "2-3",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "2-4",
+          "levelId": "2",
+          "ordinal": 7,
+          "stageId": null,
+          "ruleType": "redBlue",
+          "taskType": "ruleSwitch",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "hard",
+          "trialIndex": null,
+          "stepInLevel": 4,
+          "trialNumber": null,
+          "canonicalKey": "2-4",
+          "recordedStatus": "correct"
+        }
+      ],
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "03be45c403d203e1f83a",
+      "gameId": "DCCS",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 8,
+      "expectedResearchTrialCount": 8,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 8,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "86bf2c77bcc506d2201e40badb8a26d6133bb3ab4123de752afff8e767efae43",
+      "sourceTrialHashCount": 8,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "0447d885a5617ac1374d",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 8,
+      "expectedResearchTrialCount": 8,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 8,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "91f28d50c9ca71e2e5e561734636811fcfe2463c62cc2acbe54987d0bdb33b75",
+      "sourceTrialHashCount": 8,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "04cac1f1584fe1b42c0d",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 5,
+      "expectedResearchTrialCount": 5,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 5,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "ef8d2de937a9cb3d0d21b78cbc3e7d1a8c9e46d25f9db51201876ddd2fbcdab5",
+      "sourceTrialHashCount": 5,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "06c5dd0a66fbbb47f5a9",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "technical_ids_require_frozen_reviewed_plan",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 7,
+      "expectedResearchTrialCount": 7,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": false,
+        "taskSessionIdPresent": false,
+        "trialIdCount": 0,
+        "missingTechnicalIds": true
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "633dd457e1b371daa1129fa57e7a139522f8a4a04354360d64897540109ae386",
+      "sourceTrialHashCount": 7,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "088294e7904330202c8f",
+      "gameId": "CBT",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "technical_ids_require_frozen_reviewed_plan"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 10,
+      "expectedResearchTrialCount": 10,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": false,
+        "taskSessionIdPresent": false,
+        "trialIdCount": 0,
+        "missingTechnicalIds": true
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "385ccccc857ebc12a358533dea9e0f6d9aef1e01045d306628b88bbcd67d0395",
+      "sourceTrialHashCount": 10,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "08e48f0eba112dd53ff0",
+      "gameId": "DCCS",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 8,
+      "expectedResearchTrialCount": 8,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 8,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "5afb288d12506b19072f1d99bae53d1bbf70be81155e5e277e7a7bbe070a71ff",
+      "sourceTrialHashCount": 8,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "0d9acb55782665bd4e4f",
+      "gameId": "DCCS",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "7f08c8c98b474b885d67b35a0787170f6f18f4707c1b343de268e4b9ef812c7e",
+      "sourceTrialHashCount": 6,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "11b7a3f356f2cb10ce6e",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "canonical_source_key_collision",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 7,
+      "expectedResearchTrialCount": 7,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 7,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 2,
+      "canonicalDuplicateKeyCount": 2,
+      "sourcePayloadSha256": "3e6ab5aa31c5b5451825293f2b60a521363660ac7b8de9de48129fedc332d795",
+      "sourceTrialHashCount": 7,
+      "pm": null,
+      "manualLbEvidence": [
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-1",
+          "levelId": "1",
+          "ordinal": 1,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "guidePath",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "normal",
+          "trialIndex": null,
+          "stepInLevel": 1,
+          "trialNumber": null,
+          "canonicalKey": "1-1",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-2",
+          "levelId": "1",
+          "ordinal": 2,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "guidePath",
+          "isCorrect": false,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "normal",
+          "trialIndex": null,
+          "stepInLevel": 2,
+          "trialNumber": null,
+          "canonicalKey": "1-2",
+          "recordedStatus": "wrong"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-2",
+          "levelId": "1",
+          "ordinal": 3,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "guidePath",
+          "isCorrect": false,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "normal",
+          "trialIndex": null,
+          "stepInLevel": 2,
+          "trialNumber": null,
+          "canonicalKey": "1-2",
+          "recordedStatus": "wrong"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-2",
+          "levelId": "1",
+          "ordinal": 4,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "guidePath",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "normal",
+          "trialIndex": null,
+          "stepInLevel": 2,
+          "trialNumber": null,
+          "canonicalKey": "1-2",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-3",
+          "levelId": "1",
+          "ordinal": 5,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "guidePath",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "normal",
+          "trialIndex": null,
+          "stepInLevel": 3,
+          "trialNumber": null,
+          "canonicalKey": "1-3",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-4",
+          "levelId": "1",
+          "ordinal": 6,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "guidePath",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "normal",
+          "trialIndex": null,
+          "stepInLevel": 4,
+          "trialNumber": null,
+          "canonicalKey": "1-4",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-5",
+          "levelId": "1",
+          "ordinal": 7,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "guidePath",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "normal",
+          "trialIndex": null,
+          "stepInLevel": 5,
+          "trialNumber": null,
+          "canonicalKey": "1-5",
+          "recordedStatus": "correct"
+        }
+      ],
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "1476b691fe0f53b94897",
+      "gameId": "PM",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "6132087f07cc5ba3dd877acdc10d4ed9c79a71dec1ed19cdaa6e15bb7b90440f",
+      "sourceTrialHashCount": 6,
+      "pm": {
+        "administered": 6,
+        "timeouts": 0,
+        "timeoutRate": 0,
+        "status": "available",
+        "pipelineVersion": "behavioral-features-js-1.1.0",
+        "processingVersion": "trial-normalizer-1.1.0",
+        "recordedFalseTimeoutFlags": 6,
+        "missingTimeoutFlags": 0,
+        "legalDeselectionTrials": 0,
+        "storedPreviousVersion": "absent_not_fabricated"
+      },
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "165787ac22e4ca322f4d",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 5,
+      "expectedResearchTrialCount": 5,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 5,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "a417f04e1a1cc84f211ab2e1e7c3913a095433f95ad391b25c51322d27786b8b",
+      "sourceTrialHashCount": 5,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "17ccc28c0e39e1334adb",
+      "gameId": "DCCS",
+      "mode": "test",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 12,
+      "expectedResearchTrialCount": 12,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 12,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "d5de9f27b2e37b397feb7af0771690ea86a77189ca1e326751ce5a5d4e8dc062",
+      "sourceTrialHashCount": 12,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "195b515fdc3bb9d88516",
+      "gameId": "SSG",
+      "mode": "test",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 20,
+      "expectedResearchTrialCount": 20,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 20,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "00367d5944eddc667d15769963436d34325c8d4f00ade09e6b00b92a18a2747f",
+      "sourceTrialHashCount": 20,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "1e0b794f995db6ada3ec",
+      "gameId": "ARI",
+      "mode": "training",
+      "primaryCategory": "B",
+      "problemCategories": [
+        "B"
+      ],
+      "reasons": [
+        "source_start_not_recorded_preserve_null",
+        "task_code_schema_block"
+      ],
+      "missingSchema": [
+        "behavioral_task_sessions_task_code_check",
+        "behavioral_trial_derivations_task_code_check"
+      ],
+      "sourceTrialCount": 12,
+      "expectedResearchTrialCount": 12,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 12,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "f69a3db97dbf940f05b297df4622acc2bd8ef106c7f0cd6ca0e06dbc0374970e",
+      "sourceTrialHashCount": 12,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "202c92611f5e46556d33",
+      "gameId": "DCCS",
+      "mode": "test",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 12,
+      "expectedResearchTrialCount": 12,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 12,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "4a187b9c8c2f14860eeaef548114e22e40a886810620f8bf07fb16213ca99f3f",
+      "sourceTrialHashCount": 12,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "21e8a120e7d6aa2cc09b",
+      "gameId": "SSG",
+      "mode": "test",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 20,
+      "expectedResearchTrialCount": 20,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 20,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "e7bdc21343b65218f9a51c2b4074c3bb43ad5dca24a0959a830a322f45c71d6b",
+      "sourceTrialHashCount": 20,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "23e414b0fa9219e8d796",
+      "gameId": "SSG",
+      "mode": "test",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 20,
+      "expectedResearchTrialCount": 20,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 20,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "f3b02ef73877718629949bbe7a2b2384dbe0a4e0ad1e13f286bf3772a470e695",
+      "sourceTrialHashCount": 20,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "269f08e5f74729a8e7d0",
+      "gameId": "SSG",
+      "mode": "training",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 8,
+      "expectedResearchTrialCount": 8,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 8,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "16d845038a1d0e60941c2fe60601e7deab2db55163e41ea5052f0ad518a80977",
+      "sourceTrialHashCount": 8,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "28a75c909494f3d33bec",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 5,
+      "expectedResearchTrialCount": 5,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 5,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "10f9499e51e7ff593817117c7aad6fd48ba7e7334304ca36a434a24e5ce9091a",
+      "sourceTrialHashCount": 5,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "2e411eb9149b5b55300c",
+      "gameId": "SSG",
+      "mode": "test",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 20,
+      "expectedResearchTrialCount": 20,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 20,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "51912e8730aa8a72733c6e1cc3a6501e5d9d3a439278b32f4ce27f5b45f58adf",
+      "sourceTrialHashCount": 20,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "2ffd3f9785fe9dee02d2",
+      "gameId": "SSG",
+      "mode": "training",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 12,
+      "expectedResearchTrialCount": 12,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 12,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "5d401ac6f6a58286214e612edfd88072cedb8c526e2f09eafc17220ea992a72f",
+      "sourceTrialHashCount": 12,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "370c9668380805a804ef",
+      "gameId": "DCCS",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "b5d1d87a035757b48f2546bddeb0d3f4d7074a4b827f16199b6efd03ed4f4d6b",
+      "sourceTrialHashCount": 6,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "37631675d899cd7e3495",
+      "gameId": "SRT",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 51,
+      "expectedResearchTrialCount": 51,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 51,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "920baff5504a53f4cbe566bf39069ef7a4fb4523e7bf19a6c1c3ebea9f842f37",
+      "sourceTrialHashCount": 51,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "3850ff73e593ab955cbe",
+      "gameId": "SSG",
+      "mode": "training",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 8,
+      "expectedResearchTrialCount": 8,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 8,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "5dd80cdb087a4aeee603b79c8e1981de6873d30a40ea7f0ca63d17796102ca57",
+      "sourceTrialHashCount": 8,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "3949c67997f867f71309",
+      "gameId": "SSG",
+      "mode": "test",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 19,
+      "expectedResearchTrialCount": 19,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 19,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "6f878ce0d952a534cd2da83feb484f275007b4fcf9540225a2eece1f1b2b3cba",
+      "sourceTrialHashCount": 19,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "3a2c7c1d6c3d98550ff2",
+      "gameId": "ARI",
+      "mode": "training",
+      "primaryCategory": "B",
+      "problemCategories": [
+        "B"
+      ],
+      "reasons": [
+        "source_start_not_recorded_preserve_null",
+        "task_code_schema_block"
+      ],
+      "missingSchema": [
+        "behavioral_task_sessions_task_code_check",
+        "behavioral_trial_derivations_task_code_check"
+      ],
+      "sourceTrialCount": 12,
+      "expectedResearchTrialCount": 12,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 12,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "645d312c5d7b96dc67682a31a1f97fb587f5ed9d1f08383332edc1276a215d18",
+      "sourceTrialHashCount": 12,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "3eb9c7ee82f5a8e6256d",
+      "gameId": "SSG",
+      "mode": "training",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 8,
+      "expectedResearchTrialCount": 8,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 8,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "4139a6d4f9789be33f099a5b52c3ef2cd244bb0f93ee7b5c6b71fe68a63bcffc",
+      "sourceTrialHashCount": 8,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "41a1e9f1116959c77ab7",
+      "gameId": "SRT",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 50,
+      "expectedResearchTrialCount": 50,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 50,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "d9a557946713042ec691acf0bad00dc77db8990475eead2d450d3036e75272fb",
+      "sourceTrialHashCount": 50,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "47d6a956f17cec1e51e3",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 5,
+      "expectedResearchTrialCount": 5,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 5,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "54f6648562ffc94e60ffb3b61335421b5691e81903d7c0463a4c57b119988be5",
+      "sourceTrialHashCount": 5,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "4df96813f87b7148aad2",
+      "gameId": "DCCS",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "f6c324faf6cc00805080035b13733919a6810ec3f6ce415d0dd2bdb2ffb63cc6",
+      "sourceTrialHashCount": 6,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "50e76fafd3836261bf32",
+      "gameId": "LB",
+      "mode": "test",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 20,
+      "expectedResearchTrialCount": 20,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 20,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 10,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "f19dd2b52537e36fc5a11a640c9daa9b75b8621aa91425b7369c485ea56d0819",
+      "sourceTrialHashCount": 20,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "534ade856e5a81a2e66c",
+      "gameId": "SSG",
+      "mode": "training",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 8,
+      "expectedResearchTrialCount": 8,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 8,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "a6ea53d61500c7fd9ca3fb085084afb938570898a86671a987f466320390c804",
+      "sourceTrialHashCount": 8,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "562c7f85b3debb919db1",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "canonical_source_key_collision",
+        "technical_ids_require_frozen_reviewed_plan",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 7,
+      "expectedResearchTrialCount": 7,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": false,
+        "taskSessionIdPresent": false,
+        "trialIdCount": 0,
+        "missingTechnicalIds": true
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 2,
+      "canonicalDuplicateKeyCount": 2,
+      "sourcePayloadSha256": "1761e49f732146b9b47913977825fc318f40963dc7e742f393c6e6ed6d47b0d8",
+      "sourceTrialHashCount": 7,
+      "pm": null,
+      "manualLbEvidence": [
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "2-1-1",
+          "levelId": "2-1",
+          "ordinal": 1,
+          "stageId": null,
+          "ruleType": "backward",
+          "taskType": "guidePath",
+          "isCorrect": false,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "veryHard",
+          "trialIndex": null,
+          "stepInLevel": 1,
+          "trialNumber": null,
+          "canonicalKey": "2-1-1",
+          "recordedStatus": "wrong"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "2-1-1",
+          "levelId": "2-1",
+          "ordinal": 2,
+          "stageId": null,
+          "ruleType": "backward",
+          "taskType": "guidePath",
+          "isCorrect": false,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "veryHard",
+          "trialIndex": null,
+          "stepInLevel": 1,
+          "trialNumber": null,
+          "canonicalKey": "2-1-1",
+          "recordedStatus": "wrong"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "2-1-1",
+          "levelId": "2-1",
+          "ordinal": 3,
+          "stageId": null,
+          "ruleType": "backward",
+          "taskType": "guidePath",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "veryHard",
+          "trialIndex": null,
+          "stepInLevel": 1,
+          "trialNumber": null,
+          "canonicalKey": "2-1-1",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "2-1-2",
+          "levelId": "2-1",
+          "ordinal": 4,
+          "stageId": null,
+          "ruleType": "backward",
+          "taskType": "guidePath",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "veryHard",
+          "trialIndex": null,
+          "stepInLevel": 2,
+          "trialNumber": null,
+          "canonicalKey": "2-1-2",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "2-1-3",
+          "levelId": "2-1",
+          "ordinal": 5,
+          "stageId": null,
+          "ruleType": "backward",
+          "taskType": "guidePath",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "veryHard",
+          "trialIndex": null,
+          "stepInLevel": 3,
+          "trialNumber": null,
+          "canonicalKey": "2-1-3",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "2-1-4",
+          "levelId": "2-1",
+          "ordinal": 6,
+          "stageId": null,
+          "ruleType": "backward",
+          "taskType": "guidePath",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "veryHard",
+          "trialIndex": null,
+          "stepInLevel": 4,
+          "trialNumber": null,
+          "canonicalKey": "2-1-4",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "2-1-5",
+          "levelId": "2-1",
+          "ordinal": 7,
+          "stageId": null,
+          "ruleType": "backward",
+          "taskType": "guidePath",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "veryHard",
+          "trialIndex": null,
+          "stepInLevel": 5,
+          "trialNumber": null,
+          "canonicalKey": "2-1-5",
+          "recordedStatus": "correct"
+        }
+      ],
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "5807c12f71973ccf2b2b",
+      "gameId": "DCCS",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "7cefa3fd6840760504cf104211b6e8e5ff966e29af0366f374af341cbd0cb86d",
+      "sourceTrialHashCount": 6,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "58fec1cfb707755c5416",
+      "gameId": "SRT",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 47,
+      "expectedResearchTrialCount": 47,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 47,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "1ec37f51bc0d69433b632bc06e539649ca736062eafd0ecdd54cbb27e9da2f9c",
+      "sourceTrialHashCount": 47,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "5957681f22626c74b35b",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 5,
+      "expectedResearchTrialCount": 5,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 5,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "892a5d8eceb9e65581eac47fefad82ff581f0636ddb4c6f933c6b4b30e73b814",
+      "sourceTrialHashCount": 5,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "59b42bc3c8e6916914c9",
+      "gameId": "PM",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "ca04871f5915e4d0071803daa3002fbfb9bf462ae4472d42233d9860563443b5",
+      "sourceTrialHashCount": 6,
+      "pm": {
+        "administered": 6,
+        "timeouts": 0,
+        "timeoutRate": 0,
+        "status": "available",
+        "pipelineVersion": "behavioral-features-js-1.1.0",
+        "processingVersion": "trial-normalizer-1.1.0",
+        "recordedFalseTimeoutFlags": 6,
+        "missingTimeoutFlags": 0,
+        "legalDeselectionTrials": 0,
+        "storedPreviousVersion": "absent_not_fabricated"
+      },
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "5a0f404b355dda3b9186",
+      "gameId": "SSG",
+      "mode": "training",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 12,
+      "expectedResearchTrialCount": 12,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 12,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "15f22ea3992a880455bff76c21228c7f937687d8d6d5652cbafc3604591e8730",
+      "sourceTrialHashCount": 12,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "5bb55c3ca6ecbd63ef8e",
+      "gameId": "DCCS",
+      "mode": "test",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 12,
+      "expectedResearchTrialCount": 12,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 12,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "4eaef0df2c79fb62c95c7261c1ff35f6419494e97e94a8d66f5585cbc37f0fc8",
+      "sourceTrialHashCount": 12,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "5c816cf2d3f2fa14eeeb",
+      "gameId": "CBT",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "9e022eaaaa9a0a2621cc2a32bde4d94550c08747950c7ec067fb5dcf7e1784da",
+      "sourceTrialHashCount": 6,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "6515d6d9405467674872",
+      "gameId": "CBT",
+      "mode": "test",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "0235a8a09abaf8abb1773fd5740eae13dfe72c7deb1bb4142d0be228d3da45a8",
+      "sourceTrialHashCount": 6,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "65b0a09f628fc84e5afc",
+      "gameId": "CBT",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 2,
+      "expectedResearchTrialCount": 2,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 2,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "01c6ea52c958733edee308ea9c3012a6e749fc8a9e0b2aa383a79d6724ac08f2",
+      "sourceTrialHashCount": 2,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "693826c6a6588e943709",
+      "gameId": "DCCS",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "d8e4060f8768968d82a15af880c7ac153d1045eafb4430ed5c631fb84e2f1d97",
+      "sourceTrialHashCount": 6,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "69fc968fecb7ab1b3647",
+      "gameId": "CBT",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "d57085b748b81765d22423b782e3789169d2ffbc274e88329631026a427e7e0f",
+      "sourceTrialHashCount": 6,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "6baacde28093ffcdc429",
+      "gameId": "PM",
+      "mode": "test",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 4,
+      "expectedResearchTrialCount": 4,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 4,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "2f2b30ae836f6470f3888788b9009c1565eeb86b8331104e97c5a870fc4ba854",
+      "sourceTrialHashCount": 4,
+      "pm": {
+        "administered": 4,
+        "timeouts": 0,
+        "timeoutRate": 0,
+        "status": "available",
+        "pipelineVersion": "behavioral-features-js-1.1.0",
+        "processingVersion": "trial-normalizer-1.1.0",
+        "recordedFalseTimeoutFlags": 4,
+        "missingTimeoutFlags": 0,
+        "legalDeselectionTrials": 0,
+        "storedPreviousVersion": "absent_not_fabricated"
+      },
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "6d23998326b69621632b",
+      "gameId": "CBT",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "a184f89422954b385114e9bf60f85f20a20d985f2a9683f1eda9bb558aca5dd9",
+      "sourceTrialHashCount": 6,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "6f2591b226294f69854c",
+      "gameId": "SSG",
+      "mode": "training",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 12,
+      "expectedResearchTrialCount": 12,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 12,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "2f4bc149c31bbfaaab7063646ca60cfbfbcc88a3498f72e68b26b590c625e42d",
+      "sourceTrialHashCount": 12,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "705ea942356ff6e9a17e",
+      "gameId": "SRT",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 48,
+      "expectedResearchTrialCount": 48,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 48,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "870ede2d3238941890fd85ca6725fe2a5b1735a396acabee0c56a413406f2f70",
+      "sourceTrialHashCount": 48,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "748c6955f3649e3b442e",
+      "gameId": "DCCS",
+      "mode": "test",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 12,
+      "expectedResearchTrialCount": 12,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 12,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "fc49f8c76d2d260c39f5369d892a6a42209c58ef07bb1d60656b42fa9c7f8559",
+      "sourceTrialHashCount": 12,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "75175b50f0b0cfb8387b",
+      "gameId": "CBT",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "6315b8bb931a163c104ef5c1b9a4f64139dcf716f2b85ad902bfcf7885bc57f9",
+      "sourceTrialHashCount": 6,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "772856d2d6d89ba5e157",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 5,
+      "expectedResearchTrialCount": 5,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 5,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "d8d03f22f4e8dd90bcaa2db07ddfe597e56dba7ad230289150b0ac245cc76047",
+      "sourceTrialHashCount": 5,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "77709fc1011713ba1599",
+      "gameId": "LB",
+      "mode": "test",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 20,
+      "expectedResearchTrialCount": 20,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 20,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 10,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "1b9b5296d3a8b725bc0cbbf23a6f75d0ad220c6f1a06d31eba1c69bf6ed68362",
+      "sourceTrialHashCount": 20,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "7cf1f509b1d1571653e8",
+      "gameId": "SSG",
+      "mode": "test",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 15,
+      "expectedResearchTrialCount": 15,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 15,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "2451e71d4feb7dd7198693feb9584a38d7198e621afad8e85300c81e7e08d15c",
+      "sourceTrialHashCount": 15,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "7e060aaeb18fc080146a",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 5,
+      "expectedResearchTrialCount": 5,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 5,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "b3601f9097758eced58c12b4e5a5d819da267f77adcd7289ee30b8eeaf59d464",
+      "sourceTrialHashCount": 5,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "7f161159cd345af0e956",
+      "gameId": "ARI",
+      "mode": "training",
+      "primaryCategory": "B",
+      "problemCategories": [
+        "B"
+      ],
+      "reasons": [
+        "source_start_not_recorded_preserve_null",
+        "task_code_schema_block"
+      ],
+      "missingSchema": [
+        "behavioral_task_sessions_task_code_check",
+        "behavioral_trial_derivations_task_code_check"
+      ],
+      "sourceTrialCount": 12,
+      "expectedResearchTrialCount": 12,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 12,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "90a12950ec3c1ec047a90add337fca664a730c040d8f342d407b9ba1ec1dc0f5",
+      "sourceTrialHashCount": 12,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "80fd8f965fb27b57e3f2",
+      "gameId": "LB",
+      "mode": "test",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 20,
+      "expectedResearchTrialCount": 20,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 20,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 10,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "9bfe75a0d0e5fc6a367cffbb5d3db6b096bb109c866ff8b26461d6dd0258b697",
+      "sourceTrialHashCount": 20,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "82f9cad07a0fba614108",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "canonical_source_key_collision",
+        "technical_ids_require_frozen_reviewed_plan",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 11,
+      "expectedResearchTrialCount": 11,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": false,
+        "taskSessionIdPresent": false,
+        "trialIdCount": 0,
+        "missingTechnicalIds": true
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 1,
+      "canonicalDuplicateKeyCount": 1,
+      "sourcePayloadSha256": "2216fb96f0929e624ea4c2bde48fbf60a2d013a73e63b5778543a9067cec6767",
+      "sourceTrialHashCount": 11,
+      "pm": null,
+      "manualLbEvidence": [
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-4-1",
+          "levelId": "1-4",
+          "ordinal": 1,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "findSequence",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "veryHard",
+          "trialIndex": null,
+          "stepInLevel": 1,
+          "trialNumber": null,
+          "canonicalKey": "1-4-1",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-4-2",
+          "levelId": "1-4",
+          "ordinal": 2,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "findSequence",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "veryHard",
+          "trialIndex": null,
+          "stepInLevel": 2,
+          "trialNumber": null,
+          "canonicalKey": "1-4-2",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-4-3",
+          "levelId": "1-4",
+          "ordinal": 3,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "findSequence",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "veryHard",
+          "trialIndex": null,
+          "stepInLevel": 3,
+          "trialNumber": null,
+          "canonicalKey": "1-4-3",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-4-4",
+          "levelId": "1-4",
+          "ordinal": 4,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "findSequence",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "veryHard",
+          "trialIndex": null,
+          "stepInLevel": 4,
+          "trialNumber": null,
+          "canonicalKey": "1-4-4",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-4-5",
+          "levelId": "1-4",
+          "ordinal": 5,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "findSequence",
+          "isCorrect": false,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "veryHard",
+          "trialIndex": null,
+          "stepInLevel": 5,
+          "trialNumber": null,
+          "canonicalKey": "1-4-5",
+          "recordedStatus": "wrong"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-4-5",
+          "levelId": "1-4",
+          "ordinal": 6,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "findSequence",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "veryHard",
+          "trialIndex": null,
+          "stepInLevel": 5,
+          "trialNumber": null,
+          "canonicalKey": "1-4-5",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-4-6",
+          "levelId": "1-4",
+          "ordinal": 7,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "findSequence",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "veryHard",
+          "trialIndex": null,
+          "stepInLevel": 6,
+          "trialNumber": null,
+          "canonicalKey": "1-4-6",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-4-7",
+          "levelId": "1-4",
+          "ordinal": 8,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "findSequence",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "veryHard",
+          "trialIndex": null,
+          "stepInLevel": 7,
+          "trialNumber": null,
+          "canonicalKey": "1-4-7",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-4-8",
+          "levelId": "1-4",
+          "ordinal": 9,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "findSequence",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "veryHard",
+          "trialIndex": null,
+          "stepInLevel": 8,
+          "trialNumber": null,
+          "canonicalKey": "1-4-8",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-4-9",
+          "levelId": "1-4",
+          "ordinal": 10,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "findSequence",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "veryHard",
+          "trialIndex": null,
+          "stepInLevel": 9,
+          "trialNumber": null,
+          "canonicalKey": "1-4-9",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-4-10",
+          "levelId": "1-4",
+          "ordinal": 11,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "findSequence",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "veryHard",
+          "trialIndex": null,
+          "stepInLevel": 10,
+          "trialNumber": null,
+          "canonicalKey": "1-4-10",
+          "recordedStatus": "correct"
+        }
+      ],
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "85c5d9acb2a9902db61f",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "technical_ids_require_frozen_reviewed_plan",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 10,
+      "expectedResearchTrialCount": 10,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": false,
+        "taskSessionIdPresent": false,
+        "trialIdCount": 0,
+        "missingTechnicalIds": true
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "2a948b175360d02e2540ef320745cb6c51a8c7ba56c095726e6ef03450da233e",
+      "sourceTrialHashCount": 10,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "86d99b9d60c0310a7ede",
+      "gameId": "CBT",
+      "mode": "test",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "d5f596c971b01523597a072f696f7c18908302c241e47bb2a965a9e656b5cda1",
+      "sourceTrialHashCount": 6,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "88a9eaa43a11f0613985",
+      "gameId": "DCCS",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 8,
+      "expectedResearchTrialCount": 8,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 8,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "c73ad30b81a984cd83183b46cc8e1a8e7f6e9598a6f63518f6cdcaf97976d480",
+      "sourceTrialHashCount": 8,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "8d83fbf2f4c5b2580ab5",
+      "gameId": "SSG",
+      "mode": "test",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 20,
+      "expectedResearchTrialCount": 20,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 20,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "ba2cf50237eac784ca049d67b703a27ce653ab3d06390a951c18f40b54943385",
+      "sourceTrialHashCount": 20,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "8dfe81b19ba11ec274aa",
+      "gameId": "CBT",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 2,
+      "expectedResearchTrialCount": 2,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 2,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "0944ec20c90d6b955394ffea22a0d3b1ca2fa460f67a7f92b710e02ab1d1e351",
+      "sourceTrialHashCount": 2,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "8f5bd9a3239bfd3128b1",
+      "gameId": "DCCS",
+      "mode": "test",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 12,
+      "expectedResearchTrialCount": 12,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 12,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "defc25fee67505060e99b73d938608774b436fb13dab68676fb41eb2259f3b76",
+      "sourceTrialHashCount": 12,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "906ddab63c126893504a",
+      "gameId": "SSG",
+      "mode": "test",
+      "primaryCategory": "D",
+      "problemCategories": [
+        "D",
+        "C"
+      ],
+      "reasons": [
+        "insufficient_source_trials_or_payload",
+        "unmapped_legacy_task_semantics",
+        "technical_ids_require_frozen_reviewed_plan"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 0,
+      "expectedResearchTrialCount": 0,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 0,
+        "missingTechnicalIds": true
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "dba81828bb86fa50c9a692b56a7d9419637991c5037a43fb65ca11c4483c4553",
+      "sourceTrialHashCount": 0,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "937470fb7dd2c46f4a7f",
+      "gameId": "DCCS",
+      "mode": "test",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 12,
+      "expectedResearchTrialCount": 12,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 12,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "92347baf8205586a60276b1cf52a496a430003a7a8248bad11a614d55b5491b5",
+      "sourceTrialHashCount": 12,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "9a1bcd81b152757bd496",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 5,
+      "expectedResearchTrialCount": 5,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 5,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "095843e67d68755a4827785d5b45cedac6abd411adc5e1f085b730424a18edf2",
+      "sourceTrialHashCount": 5,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "9c201c40df1deab8d84e",
+      "gameId": "SSG",
+      "mode": "test",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 20,
+      "expectedResearchTrialCount": 20,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 20,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "cc87eee12b81128d0425c7cc7620765e0757aaf6f61dcc66f23cb4904903fdc0",
+      "sourceTrialHashCount": 20,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "9cc40ceff44d3fcc3f79",
+      "gameId": "DPT",
+      "mode": "training",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics",
+        "technical_ids_require_frozen_reviewed_plan",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 12,
+      "expectedResearchTrialCount": 12,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": false,
+        "taskSessionIdPresent": false,
+        "trialIdCount": 0,
+        "missingTechnicalIds": true
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "8a7b92861a53dee65adb2cc705f47f92a44a42cd0b940b3c5258ffdec8878cb0",
+      "sourceTrialHashCount": 12,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "a07d3ba4914908f27690",
+      "gameId": "SSG",
+      "mode": "test",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 2,
+      "expectedResearchTrialCount": 2,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 2,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "0cba14749e4588a45b54cb3b8c8d786bcf1c9fe43649947f3d17c56e28ef1701",
+      "sourceTrialHashCount": 2,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "a6f011283a6435dc19eb",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "canonical_source_key_collision",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 8,
+      "expectedResearchTrialCount": 8,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 8,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 3,
+      "canonicalDuplicateKeyCount": 3,
+      "sourcePayloadSha256": "9691a688189820440547ed9ae1a09b714ddbe36a0e1bcdacd7c15b256684fa3d",
+      "sourceTrialHashCount": 8,
+      "pm": null,
+      "manualLbEvidence": [
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-1",
+          "levelId": "1",
+          "ordinal": 1,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "guidePath",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "normal",
+          "trialIndex": null,
+          "stepInLevel": 1,
+          "trialNumber": null,
+          "canonicalKey": "1-1",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-2",
+          "levelId": "1",
+          "ordinal": 2,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "guidePath",
+          "isCorrect": false,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "normal",
+          "trialIndex": null,
+          "stepInLevel": 2,
+          "trialNumber": null,
+          "canonicalKey": "1-2",
+          "recordedStatus": "wrong"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-2",
+          "levelId": "1",
+          "ordinal": 3,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "guidePath",
+          "isCorrect": false,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "normal",
+          "trialIndex": null,
+          "stepInLevel": 2,
+          "trialNumber": null,
+          "canonicalKey": "1-2",
+          "recordedStatus": "wrong"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-2",
+          "levelId": "1",
+          "ordinal": 4,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "guidePath",
+          "isCorrect": false,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "normal",
+          "trialIndex": null,
+          "stepInLevel": 2,
+          "trialNumber": null,
+          "canonicalKey": "1-2",
+          "recordedStatus": "wrong"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-2",
+          "levelId": "1",
+          "ordinal": 5,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "guidePath",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "normal",
+          "trialIndex": null,
+          "stepInLevel": 2,
+          "trialNumber": null,
+          "canonicalKey": "1-2",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-3",
+          "levelId": "1",
+          "ordinal": 6,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "guidePath",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "normal",
+          "trialIndex": null,
+          "stepInLevel": 3,
+          "trialNumber": null,
+          "canonicalKey": "1-3",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-4",
+          "levelId": "1",
+          "ordinal": 7,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "guidePath",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "normal",
+          "trialIndex": null,
+          "stepInLevel": 4,
+          "trialNumber": null,
+          "canonicalKey": "1-4",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "1-5",
+          "levelId": "1",
+          "ordinal": 8,
+          "stageId": null,
+          "ruleType": "forward",
+          "taskType": "guidePath",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "normal",
+          "trialIndex": null,
+          "stepInLevel": 5,
+          "trialNumber": null,
+          "canonicalKey": "1-5",
+          "recordedStatus": "correct"
+        }
+      ],
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "a7ac3d8f01b5b62f8140",
+      "gameId": "CBT",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "d562b1908567391fb4c3283eb403eba09121b967120c678f69d2f277de760c6c",
+      "sourceTrialHashCount": 6,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "a9b5defac45d91aaa16a",
+      "gameId": "SSG",
+      "mode": "training",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 8,
+      "expectedResearchTrialCount": 8,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 8,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "c21a221e07c8b61c319b0f7473423c90c7cdca09f6273ce77620d3e34bba181b",
+      "sourceTrialHashCount": 8,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "abc57dada4503d992669",
+      "gameId": "DCCS",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "4e71fc031e5d0735d2d3705d425ef1149610471b98e3e2a5c4a1a5c296da386b",
+      "sourceTrialHashCount": 6,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "afd849bfd6ee485cabb7",
+      "gameId": "DCCS",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "6695d3f26802479d1f04454226681682c3aaa97cdd6a49379190747431455d21",
+      "sourceTrialHashCount": 6,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "b0097fbbbf2acc8ca17a",
+      "gameId": "DCCS",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "4e9fd9ac13bcf55ff806ebe4185cd006bc9454a88df66ed565ff0fc99ff93136",
+      "sourceTrialHashCount": 6,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "b00b695b0312b969ecc6",
+      "gameId": "SRT",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "technical_ids_require_frozen_reviewed_plan"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 58,
+      "expectedResearchTrialCount": 58,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": false,
+        "taskSessionIdPresent": false,
+        "trialIdCount": 0,
+        "missingTechnicalIds": true
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "cebff4ef046adc1dd2a47eadbdae063f2203a69928b83ec0b0a25648b0290ecf",
+      "sourceTrialHashCount": 58,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "b6ec7454931bd5ac979a",
+      "gameId": "DCCS",
+      "mode": "test",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 12,
+      "expectedResearchTrialCount": 12,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 12,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "b034da6896cdfadff553c73906b977e28ef199f07d3d2fecf73cfbf246ceb0e5",
+      "sourceTrialHashCount": 12,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "b80a887202026128a3c1",
+      "gameId": "DCCS",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "089be8b0260379646d05729faafe5bd41edaaa0bd64b175ece8640761375a5ef",
+      "sourceTrialHashCount": 6,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "b88b75357cb5786c8354",
+      "gameId": "SRT",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 50,
+      "expectedResearchTrialCount": 50,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 50,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "f6f04f798c096ed0467764a77ff841f55bcb3ac1f5fbc26b9c3fef856d9e2445",
+      "sourceTrialHashCount": 50,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "b89cde778cc2a4c1b7e4",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 5,
+      "expectedResearchTrialCount": 5,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 5,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "2277f3cd7f254766f83d43a75738c20f10a7ff14494fd0443a43704ef796e3a9",
+      "sourceTrialHashCount": 5,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "c23026d0a364519b3ab6",
+      "gameId": "SRT",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 49,
+      "expectedResearchTrialCount": 49,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 49,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "49aece33a5d29be321bdea81bb7f693f56390a495e36d1c2c801fad9e033db10",
+      "sourceTrialHashCount": 49,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "ce7f778a5f8101d0dd2d",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "canonical_source_key_collision",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 5,
+      "expectedResearchTrialCount": 5,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 5,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 1,
+      "canonicalDuplicateKeyCount": 1,
+      "sourcePayloadSha256": "720111b5d3de03c87d1778b34e7634fd0188c34d26a4b4771e919bf31aeffd7c",
+      "sourceTrialHashCount": 5,
+      "pm": null,
+      "manualLbEvidence": [
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "2-1",
+          "levelId": "2",
+          "ordinal": 1,
+          "stageId": null,
+          "ruleType": "redBlue",
+          "taskType": "ruleSwitch",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "hard",
+          "trialIndex": null,
+          "stepInLevel": 1,
+          "trialNumber": null,
+          "canonicalKey": "2-1",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "2-2",
+          "levelId": "2",
+          "ordinal": 2,
+          "stageId": null,
+          "ruleType": "redBlue",
+          "taskType": "ruleSwitch",
+          "isCorrect": false,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "hard",
+          "trialIndex": null,
+          "stepInLevel": 2,
+          "trialNumber": null,
+          "canonicalKey": "2-2",
+          "recordedStatus": "wrong"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "2-2",
+          "levelId": "2",
+          "ordinal": 3,
+          "stageId": null,
+          "ruleType": "redBlue",
+          "taskType": "ruleSwitch",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "hard",
+          "trialIndex": null,
+          "stepInLevel": 2,
+          "trialNumber": null,
+          "canonicalKey": "2-2",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "2-3",
+          "levelId": "2",
+          "ordinal": 4,
+          "stageId": null,
+          "ruleType": "redBlue",
+          "taskType": "ruleSwitch",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "hard",
+          "trialIndex": null,
+          "stepInLevel": 3,
+          "trialNumber": null,
+          "canonicalKey": "2-3",
+          "recordedStatus": "correct"
+        },
+        {
+          "rule": null,
+          "level": null,
+          "phase": null,
+          "round": null,
+          "stage": null,
+          "oldKey": "2-4",
+          "levelId": "2",
+          "ordinal": 5,
+          "stageId": null,
+          "ruleType": "redBlue",
+          "taskType": "ruleSwitch",
+          "isCorrect": true,
+          "ruleStage": null,
+          "stepIndex": null,
+          "difficulty": "hard",
+          "trialIndex": null,
+          "stepInLevel": 4,
+          "trialNumber": null,
+          "canonicalKey": "2-4",
+          "recordedStatus": "correct"
+        }
+      ],
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "d18aa925caacc38c5d84",
+      "gameId": "CBT",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 12,
+      "expectedResearchTrialCount": 12,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 12,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "30ae33be51212cd7a9c6917ae14a280be0d31a270659e6fe642eb88a349bf6c3",
+      "sourceTrialHashCount": 12,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "d18ddf7996d4a667801e",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 5,
+      "expectedResearchTrialCount": 5,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 5,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "f9f9d8cab4a0a16e26019e997a81e8c1225334b3ddd44494ad2f25c5a1ac6c97",
+      "sourceTrialHashCount": 5,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "d2ff5aa0f0190de58700",
+      "gameId": "PM",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "d37106de9a9c8cf0508839ff6b91a56cc54267d90e5ed88ec773660eba4f239c",
+      "sourceTrialHashCount": 6,
+      "pm": {
+        "administered": 6,
+        "timeouts": 0,
+        "timeoutRate": 0,
+        "status": "available",
+        "pipelineVersion": "behavioral-features-js-1.1.0",
+        "processingVersion": "trial-normalizer-1.1.0",
+        "recordedFalseTimeoutFlags": 6,
+        "missingTimeoutFlags": 0,
+        "legalDeselectionTrials": 1,
+        "storedPreviousVersion": "absent_not_fabricated"
+      },
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "da49d9e2351c4d0ffcf6",
+      "gameId": "DCCS",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 8,
+      "expectedResearchTrialCount": 8,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 8,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "de0034d32a766861b6fd3c718fcbbac5e65e98333328803175151e13dc6fabe0",
+      "sourceTrialHashCount": 8,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "dd00da1dc98220f757c3",
+      "gameId": "CBT",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 2,
+      "expectedResearchTrialCount": 2,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 2,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "2a2ebd1431afa2ccf8924f822fe97fd22c2236e32d3f79d16e8699e9a7d74934",
+      "sourceTrialHashCount": 2,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "e33736c442b4f8ee170e",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "technical_ids_require_frozen_reviewed_plan",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 5,
+      "expectedResearchTrialCount": 5,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": false,
+        "taskSessionIdPresent": false,
+        "trialIdCount": 0,
+        "missingTechnicalIds": true
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "0b3f3386e943c3316e2287db5ece867ce289f5793ff47b20d5dd40b79263a95d",
+      "sourceTrialHashCount": 5,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "e38e65d672055bd24e66",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 5,
+      "expectedResearchTrialCount": 5,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 5,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "c5108832a36b691cdf44ea2905875da1a99a85487bc626b637bd46e745dfc5c8",
+      "sourceTrialHashCount": 5,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "e73ccd440c8f4ff530d8",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 4,
+      "expectedResearchTrialCount": 4,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 4,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "e485d9f627d54a4199129eb6b616a46e781858cbe7b9bdfcb98ed69165d2b44f",
+      "sourceTrialHashCount": 4,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "e92f48e60d3c2bf52847",
+      "gameId": "SRT",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [],
+      "missingSchema": [],
+      "sourceTrialCount": 44,
+      "expectedResearchTrialCount": 44,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 44,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": true,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "ba623228298c684c34ff2e424837fe3d45710c241b14c61f6398bc504d28ed42",
+      "sourceTrialHashCount": 44,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "ee2136fab2b9061ead1f",
+      "gameId": "SSG",
+      "mode": "test",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 20,
+      "expectedResearchTrialCount": 20,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 20,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "b41abcbbb11cb385da8837aa89e7bd9c98972f1705d762fd635863f8e36f7ab9",
+      "sourceTrialHashCount": 20,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "f0b846738babe3a1ad05",
+      "gameId": "SSG",
+      "mode": "training",
+      "primaryCategory": "C",
+      "problemCategories": [
+        "C"
+      ],
+      "reasons": [
+        "unmapped_legacy_task_semantics",
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 8,
+      "expectedResearchTrialCount": 8,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 8,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "d5452f7e3e904610a47bd1bb63b946f84f67cfdfe5661d8b7a67d059c79a306b",
+      "sourceTrialHashCount": 8,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "blocked"
+    },
+    {
+      "resultRef": "f2630fc22cc28a371ba6",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 8,
+      "expectedResearchTrialCount": 8,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 8,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "1b9f647a5e37a45d81f17adbfa8d27b27488bcec5d4e856a518cf4ae69fb2194",
+      "sourceTrialHashCount": 8,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "f740e23d54be3f755ace",
+      "gameId": "CBT",
+      "mode": "test",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "de0b2d9182f9d2aeffc7b0ded028d478f60d6f5656f3fff9282106e286b8d559",
+      "sourceTrialHashCount": 6,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "f786ddca79e83fd29f5c",
+      "gameId": "DCCS",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "8f2819e68d8a3328e7727eab20077913a065ae1b148fde33a188546831b06a19",
+      "sourceTrialHashCount": 6,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "fbbbba7c6482d693a985",
+      "gameId": "CBT",
+      "mode": "test",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 10,
+      "expectedResearchTrialCount": 10,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 10,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "b0512fb45857dbe0f9062a0d5b3408be9b1da765e98914315191a1efbeb0d9a3",
+      "sourceTrialHashCount": 10,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "ff7cca3a39fa2a34d3a9",
+      "gameId": "DCCS",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 6,
+      "expectedResearchTrialCount": 6,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": null,
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": false
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 6,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "c668a85d4321a15076189a9268a45e59b68fc673597f570f834b9309007bd0b8",
+      "sourceTrialHashCount": 6,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    },
+    {
+      "resultRef": "ffe40852b6918bf7bdf1",
+      "gameId": "LB",
+      "mode": "training",
+      "primaryCategory": "A",
+      "problemCategories": [],
+      "reasons": [
+        "source_start_not_recorded_preserve_null"
+      ],
+      "missingSchema": [],
+      "sourceTrialCount": 5,
+      "expectedResearchTrialCount": 5,
+      "storedResearch": {
+        "session": 0,
+        "task": 0,
+        "trials": 0,
+        "currentDerivations": 0
+      },
+      "sync": {
+        "mainResult": "saved",
+        "recordedStatus": "synced",
+        "recordedResearchState": null,
+        "researchHierarchy": "incomplete",
+        "incorrectlyClaimedSynced": true
+      },
+      "originalIds": {
+        "mainResultPresent": true,
+        "payloadResultMatches": true,
+        "sessionIdPresent": true,
+        "taskSessionIdPresent": true,
+        "trialIdCount": 5,
+        "missingTechnicalIds": false
+      },
+      "timestamps": {
+        "originalStartRecorded": false,
+        "missingStartPolicy": "preserve_null_no_invention",
+        "finishRecorded": true
+      },
+      "oldDuplicateKeyCount": 0,
+      "canonicalDuplicateKeyCount": 0,
+      "sourcePayloadSha256": "f460f38274fe91f430ddbd21f3e7bf0f54f255086d383800accde238ba0b35e1",
+      "sourceTrialHashCount": 5,
+      "pm": null,
+      "manualLbEvidence": null,
+      "applyAuthorized": false,
+      "status": "candidate_only_global_acceptance_gates_pending"
+    }
+  ]
+}

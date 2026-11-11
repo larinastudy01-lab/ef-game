@@ -1,9 +1,9 @@
 import { ALL_RESULTS_KEY, normalizeGameResult, saveUnifiedResult } from "./resultManager";
-import { queueGameResult } from "./resultSync";
+import { queueGameResult, reportResultStorageFailure } from "./resultSync";
 import { awardTrainingCoins } from "./economyManager";
 import { completeActiveRecommendation } from "../analytics/recommendation/onlineRecommendation";
 
-jest.mock("./resultSync", () => ({ queueGameResult: jest.fn() }));
+jest.mock("./resultSync", () => ({ queueGameResult: jest.fn(), reportResultStorageFailure: jest.fn() }));
 jest.mock("./economyManager", () => ({ awardTrainingCoins: jest.fn(() => ({ awarded: false })) }));
 jest.mock("../analytics/recommendation/onlineRecommendation", () => ({ completeActiveRecommendation: jest.fn().mockResolvedValue(null) }));
 
@@ -17,6 +17,25 @@ beforeEach(() => {
 
 const save = (rawResult, mode = "training", childId = "child-1") => saveUnifiedResult({
   rawResult, mode, gameId: "DCCS", child: { childId },
+});
+
+test("LB keeps its official finalScore and averageReactionTime in the saved summary", () => {
+  const raw = { finalScore: 98, averageReactionTime: 290, accuracy: 100,
+    trials: [{ stageId: "forward", stepIndex: 0, isCorrect: true }] };
+  const saved = saveUnifiedResult({ rawResult: raw, gameId: "LB", mode: "test", child: { childId: "child-1" } });
+  expect(saved.summary).toMatchObject({ score: 98, avgReactionTime: 290, accuracy: 100 });
+  expect(queueGameResult).toHaveBeenCalledWith(expect.objectContaining({ summary: expect.objectContaining({ score: 98 }) }));
+  expect(saved.rawResult.finalScore).toBe(98);
+  expect(saved.trials).toEqual(raw.trials);
+});
+
+test("explicit CBT accuracyPercent supplies percent without guessing legacy ratio units", () => {
+  const raw = { accuracy: 0.75, accuracyPercent: 75, score: 67,
+    trials: [{ sequence: [1, 2], answer: [1, 2], isCorrect: true }] };
+  const saved = normalizeGameResult({ rawResult: raw, gameId: "CBT" });
+  expect(saved.summary.accuracy).toBe(75);
+  expect(saved.rawResult).toEqual(raw);
+  expect(normalizeGameResult({ rawResult: { accuracy: 0.75 }, gameId: "CBT" }).summary.accuracy).toBe(0.75);
 });
 
 test("SRT variability, actual hints and interval protocol reach the unified clinical payload", () => {
@@ -74,4 +93,15 @@ test("same raw object without timestamps can be retried without duplicating", ()
   const raw = { score: 0 };
   expect(save(raw).resultId).toBe(save(raw).resultId);
   expect(JSON.parse(localStorage.getItem(ALL_RESULTS_KEY))).toHaveLength(1);
+});
+
+test("display quota failure reports storage risk after durable queuing instead of hiding it", () => {
+  const setItem = jest.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new DOMException("Full", "QuotaExceededError"); });
+  const warning = jest.spyOn(console, "warn").mockImplementation(() => {});
+  try {
+    const saved = saveUnifiedResult({ rawResult: { finalScore: 98, trials: [{ isCorrect: true }] }, gameId: "LB", mode: "test" });
+    expect(queueGameResult).toHaveBeenCalledWith(expect.objectContaining({ resultId: saved.resultId, trials: [{ isCorrect: true }] }));
+    expect(reportResultStorageFailure).toHaveBeenCalledTimes(1);
+    expect(saved.syncStatus).toBe("pending");
+  } finally { setItem.mockRestore(); warning.mockRestore(); }
 });

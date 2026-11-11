@@ -4,7 +4,7 @@ import gameMapBackground from "../asset/GameMap.webp";
 import srtIcon from "../asset/SRT_icon.webp";
 import pmIcon from "../asset/PM_icon.webp";
 import cbtIcon from "../asset/CBT_icon.webp";
-import ariIcon from "../asset/ARI/cat.webp";
+import ariIcon from "../asset/ARI/training/cat.webp";
 import dccsIcon from "../asset/DCCS_icon.webp";
 import lbIcon from "../asset/LB_icon.webp";
 import mouseGuide from "../asset/mouse.webp";

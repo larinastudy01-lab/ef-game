@@ -20,7 +20,8 @@ function createPracticeSequence(previous = []) {
   return pairs[Math.floor(Math.random() * pairs.length)];
 }
 
-export default function CBTPractice({ Board, blocks, onComplete }) {
+export default function CBTPractice({ Board, blocks, onComplete, assessment }) {
+  const stepImage = assessment?.stepImage || stepStoneImage;
   const [phase, setPhase] = useState("INTRO");
   const [round, setRound] = useState(0);
   const [sequence, setSequence] = useState(createPracticeSequence);
@@ -43,7 +44,7 @@ export default function CBTPractice({ Board, blocks, onComplete }) {
   const enteredRef = useRef(false);
   const replayRef = useRef(null);
   const timersRef = useRef(new Set());
-  const audio = useMemo(createCBTPracticeAudioPlayer, []);
+  const audio = useMemo(() => createCBTPracticeAudioPlayer(assessment?.audio), [assessment]);
   const transition = useCallback((next) => { phaseRef.current = next; setPhase(next); }, []);
   const schedule = useCallback((callback, delay) => {
     const timer = setTimeout(() => { timersRef.current.delete(timer); callback(); }, delay);
@@ -57,8 +58,8 @@ export default function CBTPractice({ Board, blocks, onComplete }) {
   useEffect(() => {
     // Warm the image cache during the first instruction, before the first tap.
     const image = new Image();
-    image.src = stepStoneImage;
-  }, []);
+    image.src = stepImage;
+  }, [stepImage]);
 
   useEffect(() => {
     const frame = boardFrameRef.current;
@@ -164,7 +165,7 @@ export default function CBTPractice({ Board, blocks, onComplete }) {
           style={{ height: 455 * boardScale, "--cbt-practice-board-scale": boardScale }}>
           {!completed && <Board blocks={blocks} phase={phase} activeIndex={activeIndex} selectedIndex={null}
             wrongIndex={null} personIndex={null} isWalking={false} tapFeedback={tapFeedback} practiceHintIndex={practiceHintIndex}
-            steppedIndices={steppedIndices}
+            steppedIndices={steppedIndices} assessment={assessment}
             onBlockClick={handleTap} disabled={phase !== "WAIT_RESPONSE"} />}
         </div>
         <aside className="cbt-practice-narrator-slot" aria-label="旁白角色區">

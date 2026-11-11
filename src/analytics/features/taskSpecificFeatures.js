@@ -1,5 +1,6 @@
 import { mean, rate } from "./math";
 import { normalizeTaskCode } from "../trials/constants";
+import { getTrialResponseState } from "../trials/validation";
 
 const correct = (trial) => trial.isCorrect ?? trial.is_correct;
 const rt = (trial) => trial.reactionTimeMs ?? trial.reaction_time_ms;
@@ -32,14 +33,20 @@ function cbtFeatures(trials) {
   };
 }
 
-function pmFeatures(trials) {
+function pmFeatures(trials, allTrials) {
   const load = (trial) => Number(meta(trial).memoryCount ?? meta(trial).memorySpan ?? 0);
   const correctLoads = trials.filter((trial) => correct(trial) && load(trial) > 0).map(load);
+  const administered = allTrials.map(getTrialResponseState).filter((state) => state.administered === true);
+  const timeoutCount = administered.filter((state) => state.timedOut).length;
   return {
     pm_max_correct_memory_load: correctLoads.length ? Math.max(...correctLoads) : null,
     pm_accuracy_by_memory_load: groupedAccuracy(trials, load),
     pm_accuracy_by_difficulty: groupedAccuracy(trials, (trial) => trial.difficulty),
-    pm_timeout_rate: rate(trials.filter((trial) => trial.timedOut || meta(trial).isTimeout).length, trials.length),
+    pm_timeout_rate: rate(timeoutCount, administered.length),
+    pm_administered_trial_count: administered.length,
+    pm_timeout_trial_count: timeoutCount,
+    pm_timeout_rate_status: administered.length ? "available" : "not_calculable_no_administered_trials",
+    pm_timeout_definition_version: "pm-administered-timeouts-v1",
     pm_mean_wrong_tap_count: mean(trials.map((trial) => meta(trial).wrongTapCount)),
     pm_mean_missed_target_count: mean(trials.map((trial) => meta(trial).missedTargetCount)),
     pm_mean_deselect_count: mean(trials.map((trial) => meta(trial).deselectCount)),
@@ -110,10 +117,10 @@ function dccsFeatures(trials) {
   };
 }
 
-export function calculateTaskSpecificFeatures(taskValue, validTrials = []) {
+export function calculateTaskSpecificFeatures(taskValue, validTrials = [], { allTrials = validTrials } = {}) {
   const taskCode = normalizeTaskCode(taskValue);
   if (taskCode === "CBT") return cbtFeatures(validTrials);
-  if (taskCode === "PM") return pmFeatures(validTrials);
+  if (taskCode === "PM") return pmFeatures(validTrials, allTrials);
   if (taskCode === "SRT") return srtFeatures(validTrials);
   if (taskCode === "ARI") return ariFeatures(validTrials);
   if (taskCode === "LB") return lbFeatures(validTrials);

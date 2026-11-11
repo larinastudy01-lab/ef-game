@@ -1,10 +1,10 @@
-import { gameLocalStorage as localStorage } from "../temporaryGameTesting/runtime";
+import { gameLocalStorage as localStorage, getGameTestingVersion } from "../temporaryGameTesting/runtime";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import stoneImg from "../asset/CBT/training/stone.webp";
 import stepStoneImg from "../asset/CBT/training/step.webp";
-import stoneShinyImg from "../asset/CBT/stone_shiny.webp";
+import stoneShinyImg from "../asset/CBT/training/stone_shiny.webp";
 import personImg from "../asset/CBT/CBT_person.webp";
 import bgImg from "../asset/CBT/CBT_background.webp";
 import tutorialVideo from "../asset/optimized/mp4/CBT_step.mp4";
@@ -32,6 +32,7 @@ import { CBT_PROTOCOL_VERSION, CBT_ANSWER_TIME_SECONDS, CBT_MAX_SEQUENCE_LENGTH,
 import CBTAssessmentStage from "../components/CBTAssessmentStage";
 import CBTPractice from "../components/CBTPractice";
 import { CBT_ASSESSMENT_LAYOUT, createCBTAssessmentBlocks } from "../utils/cbtAssessmentLayout";
+import { CBT_ASSESSMENT_VERSIONS } from "../config/cbtAssessmentConfig";
 import "../styles/TestStepVideo.css";
 
 // 仍保留內部作答時間上限，但不在幼兒畫面顯示壓力式倒數。
@@ -1009,6 +1010,12 @@ function getCurrentChildId() {
 
 export default function TestPage_CBT() {
   const navigate = useNavigate();
+  const { search } = useLocation();
+  const testingVersion = getGameTestingVersion(search, Object.keys(CBT_ASSESSMENT_VERSIONS));
+  const assessment = CBT_ASSESSMENT_VERSIONS[testingVersion];
+  const assessmentMetadata = assessment ? {
+    testVersion: assessment.testVersion, stimulusSetId: assessment.stimulusSetId, stimulusName: assessment.stimulusName,
+  } : {};
   const testAttempt = useTestAttempt({ gameId: "CBT", route: "/test-cbt" });
 
   const [phase, setPhase] = useState("story");
@@ -1614,6 +1621,7 @@ export default function TestPage_CBT() {
 
     const resultPayload = testAttempt.complete({
       ...legacyAiResult,
+      ...assessmentMetadata,
       protocol: { version: CBT_PROTOCOL_VERSION, stoneCount: CBT_MAX_STONES,
         maxStones: CBT_MAX_STONES, maxSequenceLength: MAX_MEMORY_LENGTH,
         answerLimitMs: ANSWER_TIME * 1000, flashDurationMs: SHOW_SPEED,
@@ -1904,6 +1912,8 @@ export default function TestPage_CBT() {
   return (
     <div
       className="cbt-page"
+      data-test-version={assessment?.testVersion}
+      data-stimulus-set={assessment?.stimulusSetId}
       style={{
         "--cbt-bg": `url(${bgImg})`,
       }}
@@ -1915,7 +1925,7 @@ export default function TestPage_CBT() {
           <h1 className="cbt-start-title">記住跳石橋的密碼幫助鹿先生</h1>
 
           <div className="cbt-start-content">
-            <div className="cbt-dialog-bubble">幫小鹿記住石頭亮起的路線。</div>
+            <div className="cbt-dialog-bubble">幫小鹿記住{assessment?.stimulusName || "石頭"}亮起的路線。</div>
             <div className="cbt-round-avatar">
               <img src={startAvatar} alt="引導遊戲的小鹿" width="1200" height="1200" decoding="async" draggable="false" />
             </div>
@@ -1939,14 +1949,15 @@ export default function TestPage_CBT() {
       )}
 
       {phase === "practice" && (
-        <CBTPractice Board={CBTBoard} blocks={practiceBlocks} onComplete={startFormalTest} />
+        <CBTPractice Board={CBTBoard} blocks={practiceBlocks} onComplete={startFormalTest} assessment={assessment} />
       )}
 
 
       {(phase === "show" || phase === "answerCue" || phase === "answer") && (
         <div className="cbt-card cbt-card--wide cbt-test-card">
-          <CBTAssessmentStage cue={phase === "answerCue"} onCueComplete={openFormalResponse}>
+          <CBTAssessmentStage cue={phase === "answerCue"} onCueComplete={openFormalResponse} answerAudio={assessment?.audio.answer}>
           <CBTBoard
+            assessment={assessment}
             blocks={blocks}
             layout={CBT_ASSESSMENT_LAYOUT}
             showPerson={false}
@@ -2329,6 +2340,7 @@ function CBTBoard({
   practiceHintIndex = null,
   steppedIndices = [],
   showPerson = true,
+  assessment,
   layout = { width: BOARD_WIDTH, height: BOARD_HEIGHT, stoneSize: STONE_SIZE },
 }) {
   return (
@@ -2361,7 +2373,7 @@ function CBTBoard({
             key={index}
             type="button"
             className="cbt-block"
-            aria-label={`第 ${index + 1} 顆石頭`}
+            aria-label={`第 ${index + 1} ${assessment ? `${assessment.unit}${assessment.stimulusName}` : "顆石頭"}`}
             style={{
               top: block.top,
               left: block.left,
@@ -2376,8 +2388,9 @@ function CBTBoard({
           >
             <img
               key={tapFeedback?.index === index ? `tap-${tapFeedback.id}` : "stone"}
-              src={isGlowing ? stoneShinyImg : isStepped ? stepStoneImg : stoneImg}
-              alt={`第 ${index + 1} 顆石頭`}
+              src={assessment ? (isGlowing ? assessment.shinyImage : isStepped ? assessment.stepImage : assessment.image)
+                : isGlowing ? stoneShinyImg : isStepped ? stepStoneImg : stoneImg}
+              alt={`第 ${index + 1} ${assessment ? `${assessment.unit}${assessment.stimulusName}` : "顆石頭"}`}
               width="360"
               height="203"
               loading="lazy"

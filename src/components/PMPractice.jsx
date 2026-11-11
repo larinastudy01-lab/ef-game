@@ -9,8 +9,8 @@ import startImage from "../asset/home/start.webp";
 import mouseImage from "../asset/mouse.webp";
 import "../styles/PMPractice.css";
 
-export default function PMPractice({ onComplete }) {
-  const [question, setQuestion] = useState(() => buildPMQuestion(2, { mode: "practice" }));
+export default function PMPractice({ onComplete, categoryKeys }) {
+  const [question, setQuestion] = useState(() => buildPMQuestion(2, { mode: "practice", categoryKeys }));
   const [round, setRound] = useState(0);
   const [phase, setPhase] = useState("memorize");
   const [selectedIds, setSelectedIds] = useState([]);
@@ -46,7 +46,7 @@ export default function PMPractice({ onComplete }) {
     if (phaseRef.current !== "feedback") return;
     if (outcomeRef.current.streak >= 2) transition("complete");
     else {
-      setQuestion(buildPMQuestion(2, { mode: "practice" }));
+      setQuestion(buildPMQuestion(2, { mode: "practice", categoryKeys }));
       setRound((value) => value + 1);
       selectedRef.current = [];
       setSelectedIds([]);

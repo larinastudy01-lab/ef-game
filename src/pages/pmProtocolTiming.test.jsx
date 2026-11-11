@@ -5,6 +5,8 @@ import TrainingPagePM from "./TrainingPage_PM";
 import TestPagePM from "./TestPage_PM";
 import { saveUnifiedResult } from "../utils/resultManager";
 import { useTestAttempt } from "../utils/useTestAttempt";
+import * as pmItems from "../utils/pmItems";
+import { getNextPMStimulus, getPMStimulusUsage } from "../utils/pmStimulusUsage";
 
 jest.mock("../utils/resultManager", () => ({ saveUnifiedResult: jest.fn() }));
 jest.mock("../utils/useTestAttempt", () => ({ useTestAttempt: jest.fn() }));
@@ -16,9 +18,7 @@ const stage = () => screen.getByTestId("pm-stage");
 const options = () => within(stage()).queryAllByRole("button")
   .filter((button) => button.dataset.itemId);
 const option = (id) => options().find((button) => button.dataset.itemId === id);
-const memoryIds = () => within(stage()).queryAllByRole("img")
-  .map((image) => image.getAttribute("src")?.match(/PM_(\d{2})\.(?:webp|png)$/)?.[1])
-  .filter(Boolean).map((number) => `PM${number}`);
+const memoryIds = () => Array.from(stage().querySelectorAll("[data-memory-id]")).map((element) => element.dataset.memoryId);
 let attempt;
 
 beforeEach(() => {
@@ -43,7 +43,7 @@ afterEach(() => {
 });
 
 function renderPage(page, route) {
-  render(<MemoryRouter initialEntries={[route]}
+  return render(<MemoryRouter initialEntries={[route]}
     future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>{page}</MemoryRouter>);
 }
 
@@ -63,11 +63,12 @@ function startTraining(difficulty) {
 }
 
 function startAssessment() {
-  renderPage(<TestPagePM />, "/test-picture-memory");
+  const view = renderPage(<TestPagePM />, "/test-picture-memory");
   fireEvent.click(screen.getByRole("button", { name: "進入遊戲" }));
   fireEvent.click(screen.getByRole("button", { name: "跳過動畫" }));
   fireEvent.click(screen.getByRole("button", { name: "完成試玩" }));
   expect(stage()).toHaveAttribute("data-phase", "memorize");
+  return view;
 }
 
 function observe(showSeconds, checkBoundary = false) {
@@ -108,6 +109,17 @@ const trainingResult = () => saveUnifiedResult.mock.calls[0][0].rawResult;
 const recordedAssessmentTrials = () => attempt.checkpoint.mock.calls
   .flatMap(([payload]) => payload.trials || []);
 
+function fixedTrainingQuestion(wrongId) {
+  const targetIds = ["PM_FOOD_01", "PM_UNCLASSIFIED_01"];
+  const optionIds = [...targetIds, wrongId, "PM_UNCLASSIFIED_02"];
+  jest.spyOn(pmItems, "buildPMQuestion").mockReturnValue({
+    targets: targetIds.map((id) => pmItems.PM_ITEM_BY_ID[id]),
+    options: optionIds.map((id) => pmItems.PM_ITEM_BY_ID[id]), targetIds, optionIds,
+    memoryCount: 2, recognitionOptionCount: 4,
+    similarityCondition: { policy: "categorized_and_shared_pool", mode: "training", categoryKeys: ["food"], forcedSimilarity: false },
+  });
+}
+
 test.each([
   ["beginner", [2, 2]],
   ["easy", [3, 3, 4, 4]],
@@ -136,15 +148,17 @@ test.each([
   });
   expect(stage()).toHaveAttribute("data-phase", "endingVideo");
   expect(saveUnifiedResult).toHaveBeenCalledTimes(1);
-  expect(trainingResult().stimulusPolicy.poolSize).toBe(29);
+  expect(trainingResult().stimulusPolicy.poolSize).toBe(41);
   const trials = trainingResult().trials;
   expect(trials.map((trial) => trial.memoryCount)).toEqual(counts);
   expect(trials.every((trial) => trial.answerTimeLimit === 15 && trial.isCorrect)).toBe(true);
   expect(trials.every((trial) => trial.motionMode === "none" && trial.adaptiveOffset === 0)).toBe(true);
 });
 
-test("formal assessment holds viewing at five seconds across twelve trials, with loads two through seven and no practice prompts", () => {
+test.each(["01", "02"])("formal copy %s holds viewing at five seconds across twelve trials with loads two through seven", (version) => {
+  if (version === "02") localStorage.setItem("pmStimulusUsage_test_child-pm", JSON.stringify({ categoryCounts: { clothes: 10, furniture: 0 } }));
   startAssessment();
+  expect(stage()).toHaveAttribute("data-test-version", version);
   const counts = [2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7];
   counts.forEach((count) => {
     expect(stage()).toHaveAttribute("data-memory-count", String(count));
@@ -163,6 +177,40 @@ test("formal assessment holds viewing at five seconds across twelve trials, with
   expect(result.trials.map((trial) => trial.memoryCount)).toEqual(counts);
   expect(result.trials.every((trial) => trial.showTime === 5 && trial.answerTimeLimit === 15)).toBe(true);
   expect(result.trials.every((trial) => trial.promptCount === 0)).toBe(true);
+  expect(result.testVersion).toBe(version);
+  const allowed = version === "01" ? ["car", "clothes", "unclassified"] : ["car", "furniture", "unclassified"];
+  expect(result.trials.every((trial) => trial.testVersion === version
+    && trial.targetMetadata.concat(trial.optionMetadata).every((item) => allowed.includes(item.assetCategoryKey)))).toBe(true);
+});
+
+test("usage counts only displayed formal pictures, is stable during clicks, and leaves practice uncounted", () => {
+  const view = renderPage(<TestPagePM />, "/test-picture-memory");
+  fireEvent.click(screen.getByRole("button", { name: "進入遊戲" }));
+  fireEvent.click(screen.getByRole("button", { name: "跳過動畫" }));
+  expect(getPMStimulusUsage("child-pm", "test").categoryCounts).toEqual({});
+  fireEvent.click(screen.getByRole("button", { name: "完成試玩" }));
+  const sum = () => Object.values(getPMStimulusUsage("child-pm", "test").categoryCounts).reduce((a, b) => a + b, 0);
+  expect(sum()).toBe(2);
+  const targets = observe(5);
+  expect(sum()).toBe(6);
+  fireEvent.click(option(targets[0])); fireEvent.click(option(targets[0]));
+  expect(sum()).toBe(6);
+  view.unmount();
+  expect(getNextPMStimulus("child-pm", "test").version).toBe("02");
+  expect(getPMStimulusUsage("child-pm", "training").categoryCounts).toEqual({});
+});
+
+test.each([["01", "food", 41], ["02", "ball", 34]])("training copy %s uses only %s and shared items", (version, category, size) => {
+  if (version === "02") localStorage.setItem("pmStimulusUsage_training_child-pm", JSON.stringify({ categoryCounts: { food: 20, ball: 0 } }));
+  startTraining("beginner");
+  expect(stage()).toHaveAttribute("data-stimulus-version", version);
+  submitIds(observe(3)); nextTrainingRound(); submitIds(observe(3));
+  const result = trainingResult();
+  expect(result.trainingStimulusVersion).toBe(version);
+  expect(result.stimulusPolicy.poolSize).toBe(size);
+  expect(result.trials.every((trial) => trial.targetMetadata.concat(trial.optionMetadata)
+    .every((item) => [category, "unclassified"].includes(item.assetCategoryKey)))).toBe(true);
+  expect(getPMStimulusUsage("child-pm", "test").categoryCounts).toEqual({});
 });
 
 test("entry reminder appears after three seconds on an option and saves each actual display once", () => {
@@ -262,12 +310,13 @@ test("assessment timeout is fifteen seconds even after a late object selection",
 });
 
 test("a selected lookalike is recorded as possible confusion with a missed target and preserves click history", () => {
+  fixedTrainingQuestion("PM_FOOD_07");
   startTraining("beginner");
   const targets = observe(3);
-  expect(targets).toContain("PM10");
-  expect(options().map((button) => button.dataset.itemId)).toContain("PM22");
+  expect(targets).toContain("PM_FOOD_01");
+  expect(options().map((button) => button.dataset.itemId)).toContain("PM_FOOD_07");
   advance(250);
-  const selected = targets.map((id) => id === "PM10" ? "PM22" : id);
+  const selected = targets.map((id) => id === "PM_FOOD_01" ? "PM_FOOD_07" : id);
   submitIds(selected);
   nextTrainingRound();
   submitIds(observe(3));
@@ -277,7 +326,7 @@ test("a selected lookalike is recorded as possible confusion with a missed targe
     visualSimilarityConfusionCount: 1, categoryConfusionCount: 0,
   });
   expect(first.confusionAnalysis.errors).toEqual(expect.arrayContaining([
-    expect.objectContaining({ selectedId: "PM22", type: "visual_similarity", matchedTargetIds: ["PM10"], possibleConfusion: true }),
+    expect.objectContaining({ selectedId: "PM_FOOD_07", type: "visual_similarity", matchedTargetIds: ["PM_FOOD_01"], possibleConfusion: true }),
   ]));
   expect(first.confusionAnalysis.definition).toContain("不能確認實際錯誤原因");
   expect(first.tapLogs).toHaveLength(2);
@@ -286,27 +335,28 @@ test("a selected lookalike is recorded as possible confusion with a missed targe
 });
 
 test("a wrong item from the same category stays distinct from an explicitly defined visual lookalike", () => {
-  Math.random.mockReturnValue(0.9999);
+  fixedTrainingQuestion("PM_FOOD_02");
   startTraining("beginner");
   const targets = observe(3);
-  expect(targets).toEqual(["PM01", "PM02"]);
-  expect(option("PM04")).toBeTruthy();
-  submitIds(["PM04", "PM02"]);
+  expect(targets).toEqual(["PM_FOOD_01", "PM_UNCLASSIFIED_01"]);
+  expect(option("PM_FOOD_02")).toBeTruthy();
+  submitIds(["PM_FOOD_02", "PM_UNCLASSIFIED_01"]);
   nextTrainingRound();
   submitIds(observe(3));
   const first = trainingResult().trials[0];
   expect(first).toMatchObject({ possibleConfusionCount: 1, visualSimilarityConfusionCount: 0, categoryConfusionCount: 1 });
   expect(first.confusionAnalysis.errors).toEqual(expect.arrayContaining([
-    expect.objectContaining({ selectedId: "PM04", type: "same_category", matchedTargetIds: ["PM01"] }),
+    expect.objectContaining({ selectedId: "PM_FOOD_02", type: "same_category", matchedTargetIds: ["PM_FOOD_01"] }),
   ]));
 });
 
 test("a corrected wrong click remains in the click history without becoming a final confusion error", () => {
+  fixedTrainingQuestion("PM_FOOD_07");
   startTraining("beginner");
   const targets = observe(3);
-  fireEvent.click(option("PM22"));
+  fireEvent.click(option("PM_FOOD_07"));
   advance(100);
-  fireEvent.click(option("PM22"));
+  fireEvent.click(option("PM_FOOD_07"));
   submitIds(targets);
   nextTrainingRound();
   submitIds(observe(3));
@@ -314,8 +364,8 @@ test("a corrected wrong click remains in the click history without becoming a fi
   expect(first).toMatchObject({ isCorrect: true, wrongTapCount: 1, possibleConfusionCount: 0 });
   expect(first.confusionAnalysis.errors).toEqual([]);
   expect(first.tapLogs.slice(0, 2)).toMatchObject([
-    { itemId: "PM22", action: "select", isCorrectItem: false },
-    { itemId: "PM22", action: "deselect", isCorrectItem: false },
+    { itemId: "PM_FOOD_07", action: "select", isCorrectItem: false },
+    { itemId: "PM_FOOD_07", action: "deselect", isCorrectItem: false },
   ]);
 });
 

@@ -800,9 +800,8 @@ function TrainingInlineStyle() {
       .lb-doorplate-node-correct-flash { filter: drop-shadow(0 0 18px rgba(255, 222, 96, 0.95)) !important; }
       .lb-doorplate-node-wrong { filter: drop-shadow(0 0 14px rgba(255, 92, 92, 0.95)) !important; }
       .lb-training-hint-target { z-index: 15 !important; filter: drop-shadow(0 0 22px rgba(255, 225, 73, 1)) drop-shadow(0 0 12px rgba(255, 153, 44, .75)) !important; }
-      .lb-doorplate-node-red .lb-doorplate-art, .lb-image-guide-step .lb-doorplate-art-red { filter: sepia(1) saturate(5.5) hue-rotate(320deg) brightness(1.02) drop-shadow(0 10px 8px rgba(89,58,22,.16)) !important; }
+      .lb-doorplate-node-red .lb-doorplate-art { filter: sepia(1) saturate(5.5) hue-rotate(320deg) brightness(1.02) drop-shadow(0 10px 8px rgba(89,58,22,.16)) !important; }
       .lb-answer-mouse { position: absolute; width: 75%; height: auto; right: -35%; bottom: -40%; z-index: 30; pointer-events: none; }
-      .lb-training-clock { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 35; border-radius: 18px; padding: 8px 18px; background: #fff9e9; color: #453723; font-weight: 700; pointer-events: none; }
       .lb-training-memory-hidden .lb-doorplate-number:empty::after { content: "?"; color: rgba(107, 58, 22, .35); }
 
       .lb-map-home-img {
@@ -1311,74 +1310,6 @@ function TrainingInlineStyle() {
         display: block;
         object-fit: cover;
       }
-      .lb-image-guide-panel {
-        width: min(88vw, 1040px);
-        min-height: min(72vh, 650px);
-        padding: clamp(28px, 4vw, 54px) clamp(24px, 5vw, 70px) clamp(76px, 9vh, 104px);
-        gap: clamp(20px, 3vh, 34px);
-      }
-      .lb-image-guide-title {
-        position: relative;
-        z-index: 3;
-        margin: 0;
-        color: #5b351d;
-        font-size: clamp(30px, 4vw, 52px);
-        line-height: 1.15;
-        font-weight: 950;
-        text-align: center;
-      }
-      .lb-image-guide-text {
-        position: relative;
-        z-index: 3;
-        margin: 0;
-        color: #694125;
-        font-size: clamp(20px, 2.2vw, 30px);
-        line-height: 1.45;
-        font-weight: 850;
-        text-align: center;
-      }
-      .lb-image-guide-sequence {
-        position: relative;
-        z-index: 3;
-        width: min(100%, 760px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: clamp(10px, 2.5vw, 34px);
-      }
-      .lb-image-guide-step {
-        position: relative;
-        display: grid;
-        place-items: center;
-        width: clamp(112px, 15vw, 178px);
-        aspect-ratio: 1;
-      }
-      .lb-image-guide-step:first-child {
-        animation: lbGuidePulse 1.35s ease-in-out infinite;
-      }
-      .lb-image-guide-step img {
-        width: 76%;
-        height: auto;
-        filter: drop-shadow(0 8px 7px rgba(89,58,22,.18));
-      }
-      .lb-image-guide-arrow {
-        color: #d87932;
-        font-size: clamp(38px, 5vw, 66px);
-        line-height: 1;
-        font-weight: 950;
-        filter: drop-shadow(0 4px 0 rgba(255,255,255,.65));
-      }
-      .lb-image-guide-action {
-        position: absolute;
-        left: 50%;
-        bottom: -8px;
-        z-index: 5;
-        transform: translateX(-50%);
-      }
-      @keyframes lbGuidePulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.05); }
-      }
       .lb-guided-skip {
         position: absolute;
         left: 50%;
@@ -1552,10 +1483,6 @@ function TrainingInlineStyle() {
         .lb-round-icon { width: 116px; height: 116px; }
         .lb-video-panel { width: 94vw; padding: 20px 18px 78px; border-radius: 38px; }
         .lb-video-frame { border-radius: 26px; }
-        .lb-image-guide-panel { width: 94vw; min-height: 0; padding: 28px 16px 74px; }
-        .lb-image-guide-sequence { gap: 8px; }
-        .lb-image-guide-step { width: clamp(86px, 25vw, 132px); border-width: 3px; }
-        .lb-image-guide-arrow { font-size: clamp(28px, 8vw, 44px); }
         .lb-guided-skip { left: 50%; right: auto; bottom: -10px; transform: translateX(-50%); }
         .lb-result-actions { gap: 10px; }
         .lb-result-metrics { grid-template-columns: 1fr !important; }
@@ -1599,13 +1526,11 @@ export default function TrainingPage_LB() {
   const [showRuleChange, setShowRuleChange] = useState(false);
   const [walkingIndex, setWalkingIndex] = useState(0);
   const [summary, setSummary] = useState(null);
-  const [remainingSeconds, setRemainingSeconds] = useState(stageLevel.answerTimeLimit);
 
   const delayTimerRef = useRef(null);
   const wrongFlashTimerRef = useRef(null);
   const hintTimerRef = useRef(null);
   const answerTimerRef = useRef(null);
-  const countdownRef = useRef(null);
   const stepActiveRef = useRef(false);
   const hintKeyRef = useRef(null);
   const promptEventsRef = useRef([]);
@@ -1642,7 +1567,6 @@ export default function TrainingPage_LB() {
     clearTimeout(wrongFlashTimerRef.current);
     clearTimeout(hintTimerRef.current);
     clearTimeout(answerTimerRef.current);
-    clearInterval(countdownRef.current);
     stepActiveRef.current = false;
     clearTimeout(previewTimerRef.current);
     clearTimeout(reviewEndTimerRef.current);
@@ -1705,20 +1629,15 @@ export default function TrainingPage_LB() {
       stepActiveRef.current = true;
       hintKeyRef.current = null;
       setHintKey(null);
-      setRemainingSeconds(currentLevel.answerTimeLimit);
       if (currentLevel.hintMode === "delay") {
         hintTimerRef.current = setTimeout(() => showMouseHint("idle"), currentLevel.hintDelayMs);
       }
       answerTimerRef.current = setTimeout(() => timeoutHandlerRef.current?.(), currentLevel.answerTimeLimit * 1000);
-      countdownRef.current = setInterval(() => {
-        setRemainingSeconds(Math.max(0, Math.ceil(currentLevel.answerTimeLimit - (performance.now() - stepStartTimeRef.current) / 1000)));
-      }, 250);
     });
     return () => {
       stepActiveRef.current = false;
       clearTimeout(hintTimerRef.current);
       clearTimeout(answerTimerRef.current);
-      clearInterval(countdownRef.current);
       cancelAnimationFrame(stepRafRef.current);
     };
   }, [phase, expectedItem, currentLevel, showMouseHint]);
@@ -1739,7 +1658,6 @@ export default function TrainingPage_LB() {
     setHintKey(null);
     hintKeyRef.current = null;
     pendingPromptEventsRef.current = [];
-    setRemainingSeconds(level.answerTimeLimit);
     setIsLocked(false);
     setWalkingIndex(0);
     setMemoryHidden(false);
@@ -1765,9 +1683,7 @@ export default function TrainingPage_LB() {
   }
 
   function handleStepVideoEnd() {
-    resetLevel(levelIndex);
-    setTrainingPhase("imageGuide");
-    setFooterMessage("請依照門牌上的順序，從 1 開始點擊。");
+    startCurrentLevel();
   }
 
   function handleEndingVideoEnd() {
@@ -1908,7 +1824,6 @@ export default function TrainingPage_LB() {
       stepActiveRef.current = false;
       clearTimeout(hintTimerRef.current);
       clearTimeout(answerTimerRef.current);
-      clearInterval(countdownRef.current);
       wrongStepCountRef.current = 0;
       setCorrectGlowKey(item.key);
       setWrongKey(null);
@@ -2027,7 +1942,6 @@ export default function TrainingPage_LB() {
 
   function handleAnswerTimeout() {
     if (!stepActiveRef.current || finishedRef.current) return;
-    setRemainingSeconds(0);
     appendLog(buildLog({
       clickedItem: null, isCorrect: false,
       reactionTime: currentLevel.answerTimeLimit * 1000,
@@ -2186,9 +2100,9 @@ export default function TrainingPage_LB() {
     return (
       <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
         <TrainingInlineStyle />
-        <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-video-panel game-start-card-artwork lb-video-card-artwork" aria-label="開始動畫">
-            <div className="lb-video-frame">
+        <main className="lb-center-shell test-video-layout">
+          <section className="lb-soft-panel lb-video-panel game-start-card-artwork lb-video-card-artwork test-video-card" aria-label="開始動畫">
+            <div className="lb-video-frame test-video-frame">
               <video
                 ref={introVideoRef}
                 src={introVideo}
@@ -2197,10 +2111,10 @@ export default function TrainingPage_LB() {
                 playsInline
                 controls
                 onEnded={handleIntroVideoEnd}
-                className="lb-video"
+                className="lb-video test-video"
               />
             </div>
-            <div className="lb-video-actions"><div className="lb-guided-action lb-guided-skip">
+            <div className="lb-video-actions test-video-actions"><div className="lb-guided-action lb-guided-skip">
               <button type="button" className="lb-forest-button lb-image-button lb-btn-skip" onClick={handleIntroVideoEnd} aria-label="跳過動畫">
                 <img width={1024} height={341} loading="lazy" src={homeSkipBtn} alt="跳過動畫" draggable="false" />
               </button>
@@ -2245,39 +2159,6 @@ export default function TrainingPage_LB() {
       </div>
     );
   }
-
-  if (phase === "imageGuide") {
-    const guideItems = currentSequence.slice(0, 3);
-
-    return (
-      <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
-        <TrainingInlineStyle />
-        <main className="lb-center-shell">
-          <section className="lb-soft-panel lb-start-panel lb-image-guide-panel game-start-card-artwork" aria-label={`第 ${levelIndex + 1} 關圖像操作說明`}>
-            <h1 className="lb-image-guide-title">{levelIndex === 0 ? "按照數字順序點門牌" : currentLevel.title}</h1>
-            {levelIndex > 0 && <p className="lb-image-guide-text">{currentLevel.iconHint}</p>}
-            <div className="lb-image-guide-sequence" aria-label={currentLevel.iconHint}>
-              {guideItems.map((item, index) => (
-                <React.Fragment key={item.key}>
-                  {index > 0 && <span className="lb-image-guide-arrow" aria-hidden="true">→</span>}
-                  <div className="lb-image-guide-step">
-                    <img src={getDoorplateImage(item.color, item.number)} className={item.color === "red" ? "lb-doorplate-art-red" : undefined} alt={`門牌 ${getExpectedText(item)}`} draggable="false" />
-                  </div>
-                </React.Fragment>
-              ))}
-            </div>
-            <div className="lb-guided-action lb-image-guide-action">
-              <button type="button" className="lb-forest-button lb-image-button lb-btn-next" onClick={startCurrentLevel} aria-label={`看完說明，開始第 ${levelIndex + 1} 關`}>
-                <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" draggable="false" />
-              </button>
-              <img width={1024} height={1024} loading="lazy" className="lb-mouse-guide lb-mouse-on-button" src={mouseGuideImg} alt="" aria-hidden="true" draggable="false" />
-            </div>
-          </section>
-        </main>
-      </div>
-    );
-  }
-
 
   if (phase === "endingVideo") {
     return (
@@ -2357,9 +2238,6 @@ export default function TrainingPage_LB() {
       <TrainingInlineStyle />
       <div className="lb-training-simple-frame">
         <main className="lb-training-simple-play" onClick={handleBlankClick} data-testid="lb-training-stage" data-phase={phase} data-difficulty={currentLevel.difficulty}>
-          <div className="lb-training-clock" role="timer" aria-label="作答剩餘時間">
-            {currentLevel.difficultyLabel} · {phase === "reviewing" ? "路線完成" : `剩餘 ${remainingSeconds} 秒`}
-          </div>
           {showRuleChange && (
             <div
               role="status"

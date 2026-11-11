@@ -1,0 +1,15 @@
+{
+  "lastSuccessfulSnapshotAt": "2026-10-23T06:58:41.987531+00:00",
+  "earlierSnapshotAt": "2026-10-23T06:53:59.544979+00:00",
+  "lastObservedMainResults": 100,
+  "lastObservedSourceTrials": 1214,
+  "changedPayloadsBetweenSuccessfulSnapshots": 0,
+  "lastObservedSynced": 21,
+  "lastObservedResearchTrials": 0,
+  "finalReadback": {
+    "status": "UNVERIFIED",
+    "reason": "Supabase OAuth token refresh failed: Failed to parse server response"
+  },
+  "productionWritesAttempted": false,
+  "deploymentAttempted": false
+}

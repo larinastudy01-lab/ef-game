@@ -74,11 +74,10 @@ function startTraining(difficulty) {
   renderPage(<TrainingPageCBT />, `/training-cbt?difficulty=${difficulty}`);
   fireEvent.click(screen.getByRole("button", { name: "開始練習" }));
   fireEvent.click(screen.getByRole("button", { name: "跳過動畫" }));
-  expect(screen.getByText(/先看完亮燈.*再.*點石頭/)).toBeInTheDocument();
+  expect(screen.queryByText(/先看完亮燈.*再.*點石頭/)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "跳過動畫" }));
-  const warmup = playSequence(1000);
-  answer(warmup);
-  fireEvent.click(screen.getByRole("button", { name: "進入正式訓練" }));
+  expect(screen.queryByTestId("cbt-practice")).not.toBeInTheDocument();
+  expect(board()).toHaveAttribute("data-phase", "show");
 }
 
 function startAssessment() {
@@ -87,6 +86,15 @@ function startAssessment() {
   expect(document.querySelector("video")).toHaveAttribute("src", "CBT_step.mp4");
   expect(screen.queryByText(/看完再點/)).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "跳過動畫" }));
+  passPractice();
+  expect(attempt.begin).not.toHaveBeenCalled();
+  expect(attempt.checkpoint).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "開始正式評測" }));
+  expect(board()).toHaveAttribute("data-phase", "show");
+  expect(screen.queryByText("準備")).toBeNull();
+}
+
+function passPractice() {
   // Assessment practice has its own narration/timing and never records trials.
   const endPracticeVoice = () => fireEvent.ended(window.HTMLMediaElement.prototype.play.mock.instances.at(-1));
   for (let round = 0; round < 2; round += 1) {
@@ -103,11 +111,6 @@ function startAssessment() {
     advance(300);
     endPracticeVoice();
   }
-  expect(attempt.begin).not.toHaveBeenCalled();
-  expect(attempt.checkpoint).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: "開始正式評測" }));
-  expect(board()).toHaveAttribute("data-phase", "show");
-  expect(screen.queryByText("準備")).toBeNull();
 }
 
 function nextTrainingRound() {
@@ -229,9 +232,9 @@ test.each(["training", "assessment"])("%s records early taps silently and announ
   expect(window.HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
   expect(screen.queryByTestId("cbt-ready-cue")).not.toBeInTheDocument();
   playSequence(800);
-  if (mode === "training") expect(screen.getByTestId("cbt-ready-cue")).toHaveTextContent("可以開始點了");
-  else expect(screen.queryByTestId("cbt-ready-cue")).toBeNull();
-  expect(playedSounds()).toEqual([mode === "training" ? "start.mp3" : "換你開始點囉.mp3"]);
+  expect(screen.queryByTestId("cbt-ready-cue")).toBeNull();
+  expect(screen.queryByTestId("cbt-observe-cue")).toBeNull();
+  expect(playedSounds()).toEqual(["換你開始點囉.mp3"]);
   expect(board()).toHaveAttribute("data-early-click-count", "1");
 });
 

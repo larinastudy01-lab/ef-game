@@ -10,12 +10,94 @@ const RETRY_MS = 30000;
 const STALE_ATTEMPT_MS = 60000;
 const liveAttempts = new Set();
 const attemptLocks = new Map();
+const MIRROR_OWNER_KEY = "efGameResultMirrorOwner";
+const MIRROR_ARCHIVE_PREFIX = "efGameResultMirrorArchive:";
+const MIRROR_CONFLICT_PREFIX = "efGameResultMirrorConflict:";
 const fallbackTabId = createBehavioralId();
 let accountId = null;
 let worker = null;
 let storageError = false;
 
+// Display mirrors are shared by legacy result readers. Move them out of those
+// readers' keys on an account boundary, retaining the exact strings for the
+// original account. The durable upload outbox is never moved or deleted here.
+const MIRROR_VERSION_KEY = "efGameResultMirrorVersion";
+const MIRROR_VERSION = "2";
+const isOriginalMirror = (key) => key === "efGameResults" || key.startsWith("result:")
+  || /^(ari|cbt|dccs|lb|pm|srt)(Test|Training)Result$/.test(key)
+  || /^(current|selected)(Child|Patient)(Id)?$/.test(key);
+const isResultMirror = (key) => isOriginalMirror(key)
+  || /^(latest)?(ari|cbt|dccs|lb|pm|srt|pictureMemory)(Test|Training)?Result(?:_|$|Mode|Version)/i.test(key)
+  || /^(DCCS|LB)_(TRAINING_)?RESULT$/.test(key)
+  || /^ef_(game_)?(ari|cbt|dccs|lb|pm|srt)_/i.test(key)
+  || /^ef_test_(ari|cbt|dccs|lb|pm|srt)_completed(?:_|$)/i.test(key)
+  || /^(activeChild|childId|patientId|childrenProfiles|ef_active_patient(_id|_version)?)$/.test(key);
+const storageKeys = (storage) => Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(Boolean);
+
+function switchResultMirrors(nextOwnerId) {
+  [localStorage, sessionStorage].forEach((storage) => {
+    const previousOwner = storage.getItem(MIRROR_OWNER_KEY);
+    const currentVersion = storage.getItem(MIRROR_VERSION_KEY) === MIRROR_VERSION;
+    const changed = previousOwner !== nextOwnerId;
+    const keys = storageKeys(storage);
+    keys.filter(isResultMirror).forEach((key) => {
+      if (!changed && (currentVersion || isOriginalMirror(key))) return;
+      const value = storage.getItem(key);
+      if (value === null) return; // Another tab may already have archived this key.
+      let owner = previousOwner;
+      if (!currentVersion && !isOriginalMirror(key)) {
+        // Old expanded aliases were never covered by the owner marker. Retain
+        // explicit ownership only; ambiguous legacy data stays unassigned.
+        let source;
+        try { source = JSON.parse(value); } catch { source = null; }
+        const sources = Array.isArray(source) ? source : [source];
+        const owners = sources.map((item) => item?.syncOwnerId || item?.rawResult?.syncOwnerId || item?.guardian_id);
+        owner = owners.length && owners.every((id) => id && id === owners[0]) ? owners[0] : null;
+      }
+      const archivedKey = MIRROR_ARCHIVE_PREFIX + (owner || "unassigned") + ":" + encodeURIComponent(key);
+      const previous = storage.getItem(archivedKey);
+      if (previous !== null && previous !== value) {
+        // Never overwrite an older acquisition history left by a legacy reader.
+        const conflictKey = MIRROR_CONFLICT_PREFIX + (owner || "unassigned") + ":" + encodeURIComponent(key) + ":" + createBehavioralId();
+        storage.setItem(conflictKey, previous);
+        if (storage.getItem(conflictKey) !== previous) throw new Error("Result mirror conflict not acknowledged");
+      }
+      storage.setItem(archivedKey, value);
+      if (storage.getItem(archivedKey) !== value) throw new Error("Result mirror archive not acknowledged");
+      storage.removeItem(key);
+    });
+    if (nextOwnerId) {
+      const prefix = MIRROR_ARCHIVE_PREFIX + nextOwnerId + ":";
+      storageKeys(storage).filter((key) => key.startsWith(prefix)).forEach((key) => {
+        const restoredKey = decodeURIComponent(key.slice(prefix.length));
+        const value = storage.getItem(key);
+        if (!isResultMirror(restoredKey) || value === null) return;
+        const current = storage.getItem(restoredKey);
+        if (current !== null && current !== value) return; // Preserve both histories for review.
+        storage.setItem(restoredKey, value);
+        if (storage.getItem(restoredKey) !== value) throw new Error("Result mirror restore not acknowledged");
+        storage.removeItem(key); // Verified move, never an outbox key.
+      });
+      storage.setItem(MIRROR_OWNER_KEY, nextOwnerId);
+    } else storage.removeItem(MIRROR_OWNER_KEY);
+    storage.setItem(MIRROR_VERSION_KEY, MIRROR_VERSION);
+  });
+}
+
+export function areResultMirrorsReady(ownerId = accountId) {
+  if (!ownerId || ownerId !== accountId) return false;
+  try {
+    return [localStorage, sessionStorage].every((storage) =>
+      storage.getItem(MIRROR_OWNER_KEY) === ownerId && storage.getItem(MIRROR_VERSION_KEY) === MIRROR_VERSION);
+  } catch { return false; }
+}
+
 export const getResultSyncAccountId = () => accountId;
+
+export function reportResultStorageFailure() {
+  storageError = true;
+  notify();
+}
 
 export function getResultSyncTabId() {
   try {
@@ -46,6 +128,7 @@ export function readResultOutbox() {
 
 export function getResultSyncState() {
   try {
+    localStorage.getItem(MIRROR_OWNER_KEY); // Detect denied reads even with an empty outbox.
     const entries = readResultOutbox().filter((entry) => !entry.ownerId || entry.ownerId === accountId);
     return {
       pending: entries.filter((entry) => !entry.activeTabId).length,
@@ -70,7 +153,10 @@ export function queueGameResult(result, options = {}) {
     ? options.ownerId
     : result.rawResult?.syncOwnerId !== undefined ? result.rawResult.syncOwnerId : accountId;
   const entry = {
-    result: { ...result, syncStatus: "pending" },
+    result: { ...result, syncStatus: "pending", syncState: {
+      gameResult: "pending", researchHierarchy: "pending",
+      expectedTrialCount: result.trials?.length || 0, verifiedTrialCount: null,
+    } },
     ownerId,
     activeTabId: options.activeTabId || null,
     revision: createBehavioralId(),
@@ -126,17 +212,17 @@ export async function recoverInterruptedResults() {
   });
 }
 
-function markLocalResultSynced(resultId) {
+function markLocalResultSynced(resultId, syncState, syncStatus = "synced") {
   // Update mirrors only after the database acknowledges the write. Failure to
   // update a display cache must not invalidate a successful cloud upload.
   [localStorage, sessionStorage].forEach((storage) => {
     for (let index = 0; index < storage.length; index += 1) {
       const key = storage.key(index);
-      if (key?.startsWith(RESULT_OUTBOX_PREFIX)) continue;
+      if (key?.startsWith(RESULT_OUTBOX_PREFIX) || key?.startsWith(MIRROR_CONFLICT_PREFIX)) continue;
       try {
         const value = JSON.parse(storage.getItem(key));
         const mark = (result) => result?.resultId === resultId
-          ? { ...result, syncStatus: "synced", ...(result.rawResult ? { rawResult: { ...result.rawResult, syncStatus: "synced" } } : {}) }
+          ? { ...result, syncStatus, syncState, ...(result.rawResult ? { rawResult: { ...result.rawResult, syncStatus } } : {}) }
           : result;
         if (value?.resultId === resultId || (Array.isArray(value) && value.some((result) => result?.resultId === resultId))) {
           storage.setItem(key, JSON.stringify(Array.isArray(value) ? value.map(mark) : mark(value)));
@@ -170,17 +256,31 @@ async function uploadPendingResults() {
         continue;
       }
       const saved = await saveGameResultToCloud(entry.result, { expectedOwnerId: ownerId });
-      // No session / no child is not a successful upload.
-      if (!saved) continue;
+      // Only a verified hierarchy and acknowledged main result are a complete
+      // upload. Legacy/partial acknowledgements must retain the durable source.
+      if (saved?.id !== entry.result.resultId || saved.syncState?.gameResult !== "saved"
+        || saved.syncState?.researchHierarchy !== "verified"
+        || saved.syncState.expectedTrialCount !== entry.result.trials?.length
+        || saved.syncState.verifiedTrialCount !== saved.syncState.expectedTrialCount) continue;
       const key = `${RESULT_OUTBOX_PREFIX}${entry.result.resultId}`;
       const latest = JSON.parse(localStorage.getItem(key) || "null");
       // A completion or a new checkpoint can arrive during an older upload.
       if (latest?.revision === entry.revision) {
-        markLocalResultSynced(entry.result.resultId);
+        markLocalResultSynced(entry.result.resultId, saved.syncState);
         localStorage.removeItem(key);
         notify();
       }
-    } catch {
+    } catch (error) {
+      if (error.syncState) {
+        const key = `${RESULT_OUTBOX_PREFIX}${entry.result.resultId}`;
+        const latest = JSON.parse(localStorage.getItem(key) || "null");
+        if (latest?.revision === entry.revision) {
+          latest.result = { ...latest.result, syncStatus: "pending", syncState: error.syncState };
+          localStorage.setItem(key, JSON.stringify(latest));
+          markLocalResultSynced(entry.result.resultId, error.syncState, "pending");
+          notify();
+        }
+      }
       // Leave failed records on disk. Other independent records can still sync.
     }
   }
@@ -222,7 +322,9 @@ export function startResultSync() {
     if (event.key?.startsWith(RESULT_OUTBOX_PREFIX)) { notify(); scheduleSync(); }
   };
   const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-    accountId = session?.user?.id || null;
+    const nextOwnerId = session?.user?.id || null;
+    try { switchResultMirrors(nextOwnerId); } catch { storageError = true; }
+    accountId = nextOwnerId;
     notify();
     scheduleSync();
   });

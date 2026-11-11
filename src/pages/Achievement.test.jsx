@@ -75,7 +75,6 @@ test("finishing an assigned LB route grants exactly one persisted credit and upl
   fireEvent.click(screen.getByRole("button", { name: "開始訓練" }));
   fireEvent.click(screen.getByRole("button", { name: "跳過動畫" }));
   fireEvent.click(screen.getByRole("button", { name: "跳過步驟說明" }));
-  fireEvent.click(screen.getByRole("button", { name: "看完說明，開始第 2 關" }));
   act(() => jest.advanceTimersToNextTimer());
   for (let number = 1; number <= 10; number += 1) {
     advance(100);

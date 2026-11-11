@@ -1,6 +1,6 @@
 import {
   createGameTestingShortcut, gameLocalStorage, gameSessionStorage,
-  isTemporaryGameTesting, resetGameTestingMemory, startTemporaryGameTesting,
+  isTemporaryGameTesting, resetGameTestingMemory, startTemporaryGameTesting, getGameTestingVersion,
 } from "./runtime";
 import { createTestAttempt } from "../utils/useTestAttempt";
 import { saveUnifiedResult } from "../utils/resultManager";
@@ -17,10 +17,22 @@ const snapshot = (storage) => Object.fromEntries(Object.keys(storage).map((key) 
 
 test("normal play continues using browser storage", () => {
   expect(isTemporaryGameTesting()).toBe(false);
+  expect(getGameTestingVersion("?testVersion=02", ["01", "02"])).toBeNull();
   gameLocalStorage.setItem("normal-result", "original");
   gameSessionStorage.setItem("normal-session", "original");
   expect(localStorage.getItem("normal-result")).toBe("original");
   expect(sessionStorage.getItem("normal-session")).toBe("original");
+});
+
+test("copy selection survives a marked URL refresh and rejects unknown copies", () => {
+  window.history.replaceState(null, "", "/test-srt?gameTesting=1&testVersion=02");
+  jest.isolateModules(() => {
+    const runtime = require("./runtime");
+    expect(runtime.getGameTestingVersion(window.location.search, ["01", "02"])).toBe("02");
+    expect(runtime.getGameTestingVersion("?testVersion=03", ["01", "02"])).toBeNull();
+    expect(runtime.getGameTestingVersion("", ["01", "02"])).toBeNull();
+  });
+  window.history.replaceState(null, "", "/");
 });
 
 test("QA isolates writes, deletions, identity and result synchronization from both real stores", () => {

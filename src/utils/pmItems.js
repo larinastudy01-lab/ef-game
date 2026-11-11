@@ -1,32 +1,4 @@
-import PM01 from "../asset/PM/food/PM_01.webp";
-import PM02 from "../asset/PM/PM_02.webp";
-import PM03 from "../asset/PM/PM_03.webp";
-import PM04 from "../asset/PM/food/PM_04.webp";
-import PM05 from "../asset/PM/food/PM_05.webp";
-import PM06 from "../asset/PM/clothes/PM_06.webp";
-import PM07 from "../asset/PM/PM_07.webp";
-import PM08 from "../asset/PM/PM_08.png";
-import PM09 from "../asset/PM/food/PM_09.webp";
-import PM10 from "../asset/PM/clothes/PM_10.webp";
-import PM11 from "../asset/PM/PM_11.webp";
-import PM12 from "../asset/PM/clothes/PM_12.webp";
-import PM13 from "../asset/PM/food/PM_13.webp";
-import PM14 from "../asset/PM/food/PM_14.webp";
-import PM15 from "../asset/PM/food/PM_15.webp";
-import PM16 from "../asset/PM/food/PM_16.webp";
-import PM17 from "../asset/PM/clothes/PM_17.webp";
-import PM18 from "../asset/PM/clothes/PM_18.webp";
-import PM19 from "../asset/PM/PM_19.webp";
-import PM20 from "../asset/PM/PM_20.webp";
-import PM21 from "../asset/PM/PM_21.webp";
-import PM22 from "../asset/PM/clothes/PM_22.webp";
-import PM23 from "../asset/PM/PM_23.webp";
-import PM24 from "../asset/PM/PM_24.webp";
-import PM25 from "../asset/PM/PM_25.webp";
-import PM26 from "../asset/PM/food/PM_26.webp";
-import PM27 from "../asset/PM/food/PM_27.webp";
-import PM28 from "../asset/PM/clothes/PM_28.webp";
-import PM29 from "../asset/PM/clothes/PM_29.webp";
+import { PM_ASSET_ITEMS, PM_ASSET_CATALOG_VERSION, PM_TEST_CATEGORIES, PM_TRAINING_CATEGORIES } from "../config/pmAssets";
 
 const categories = [
   ["food", "食物／甜點", [1, 4, 5, 15, 16]],
@@ -43,18 +15,31 @@ const visualGroups = [
   ["watches", "手錶的錶面與錶帶結構相近", [10, 22]],
   ["handled_utensils", "湯匙與叉子的長柄輪廓相近", [9, 14]],
 ];
-const images = [PM01, PM02, PM03, PM04, PM05, PM06, PM07, PM08, PM09, PM10, PM11, PM12, PM13, PM14, PM15, PM16, PM17, PM18, PM19, PM20, PM21, PM22, PM23, PM24, PM25, PM26, PM27, PM28, PM29];
 const descriptions = ["紫色奶油蛋糕", "藍色水壺", "紫色禮物盒", "彩色棒棒糖", "莓果果醬", "奶黃色皮鞋", "綠色葉子", "黃色小鴨玩偶", "金色湯匙", "綠色圓面手錶", "彩虹吊飾", "紅色帽子", "金色筷子", "金色叉子", "巧克力蛋糕", "草莓蛋糕", "彩色運動鞋", "奶黃色短靴", "粉紅色兔子玩偶", "藍色熊玩偶", "紫色狗玩偶", "紫色方面手錶", "紫色鬧鐘", "白色雲朵", "黃色太陽", "藍色馬克杯", "粉紅色茶壺", "紫色棒球帽", "粉紅色漁夫帽"];
 export const PM_CONFUSION_DEFINITION = "錯選物件與漏選目標具有預先定義的相近外形，或屬於同一素材分類時，記錄為可能混淆；此關聯不能確認實際錯誤原因。";
-export const PM_ITEMS = images.map((image, index) => {
+// Retain the old identifiers' analysis metadata without mapping them to new
+// pictures that happen to reuse the same filenames.
+const legacyItems = Array.from({ length: 29 }, (_, index) => {
   const number = index + 1;
   const [categoryKey, categoryLabel] = categories.find(([, , ids]) => ids.includes(number));
   const group = visualGroups.find(([, , ids]) => ids.includes(number));
   const id = `PM${String(number).padStart(2, "0")}`;
-  return { id, image, alt: descriptions[index], categoryKey, categoryLabel,
+  return { id, alt: descriptions[index], categoryKey, categoryLabel,
     similarityGroup: group?.[0] ?? null, similarityDefinition: group?.[1] ?? null };
 });
-export const PM_ITEM_BY_ID = Object.fromEntries(PM_ITEMS.map((item) => [item.id, item]));
+export const PM_ITEMS = PM_ASSET_ITEMS;
+export const PM_ITEM_BY_ID = Object.fromEntries([...legacyItems, ...PM_ITEMS].map((item) => [item.id, item]));
+
+export function getPMItemPool({ mode = "training", categoryKeys } = {}) {
+  const allowed = mode === "training" ? PM_TRAINING_CATEGORIES
+    : ["test", "practice"].includes(mode) ? PM_TEST_CATEGORIES : null;
+  if (!allowed) throw new Error(`Unknown PM mode: ${mode}`);
+  const selected = categoryKeys || allowed;
+  if (!selected.length || selected.some((category) => !allowed.includes(category))) {
+    throw new Error(`Invalid PM ${mode} stimulus categories`);
+  }
+  return PM_ITEMS.filter((item) => item.assetCategoryKey === "unclassified" || selected.includes(item.assetCategoryKey));
+}
 
 function shuffle(items, random) {
   const copy = [...items];
@@ -65,16 +50,25 @@ function shuffle(items, random) {
   return copy;
 }
 
-export function buildPMQuestion(memoryCount, { mode = "training", random = Math.random } = {}) {
+export function buildPMQuestion(memoryCount, { mode = "training", categoryKeys, random = Math.random } = {}) {
   const count = Math.max(1, Math.min(7, Math.round(Number(memoryCount) || 1)));
-  const targets = shuffle(PM_ITEMS, random).slice(0, count);
+  const pool = getPMItemPool({ mode, categoryKeys });
+  // Include both a categorized item and a shared item, then sample the rest
+  // uniformly. The same rule applies to test, practice and training.
+  const shared = pool.filter((item) => item.assetCategoryKey === "unclassified");
+  const categorized = pool.filter((item) => item.assetCategoryKey !== "unclassified");
+  const anchors = count >= 2 ? [shuffle(categorized, random)[0], shuffle(shared, random)[0]] : [];
+  const targets = shuffle([...anchors, ...shuffle(pool.filter((item) => !anchors.includes(item)), random).slice(0, count - anchors.length)], random);
   const targetIds = targets.map((item) => item.id);
   const recognitionOptionCount = Math.min(12, count * 2);
-  const distractors = shuffle(PM_ITEMS.filter((item) => !targetIds.includes(item.id)), random)
+  const distractors = shuffle(pool.filter((item) => !targetIds.includes(item.id)), random)
     .slice(0, recognitionOptionCount - count);
   const options = shuffle([...targets, ...distractors], random);
   const similarityCondition = {
-    policy: "uniform_random_pool", mode, categoryScheme: "asset_categories_v1",
+    policy: "categorized_and_shared_pool", mode, categoryScheme: "asset_categories_v2",
+    assetCatalogVersion: PM_ASSET_CATALOG_VERSION,
+    categoryKeys: [...(categoryKeys || (mode === "training" ? PM_TRAINING_CATEGORIES : PM_TEST_CATEGORIES))],
+    poolSize: pool.length,
     forcedSimilarity: false, definition: PM_CONFUSION_DEFINITION,
     distractorAssociations: analyzePMConfusions({ targetIds, selectedIds: distractors.map((item) => item.id), optionIds: options.map((item) => item.id) }).errors,
   };
@@ -90,7 +84,7 @@ export function analyzePMConfusions({ targetIds = [], selectedIds = [], optionId
   const errors = wrongSelectedIds.map((selectedId) => {
     const item = PM_ITEM_BY_ID[selectedId];
     const visualMatches = missedTargetIds.filter((id) => item?.similarityGroup && item.similarityGroup === PM_ITEM_BY_ID[id]?.similarityGroup);
-    const categoryMatches = missedTargetIds.filter((id) => item && item.categoryKey === PM_ITEM_BY_ID[id]?.categoryKey);
+    const categoryMatches = missedTargetIds.filter((id) => item?.categoryKey && item.categoryKey !== "unclassified" && item.categoryKey === PM_ITEM_BY_ID[id]?.categoryKey);
     const type = visualMatches.length ? "visual_similarity" : categoryMatches.length ? "same_category" : "unrelated";
     return { selectedId, categoryKey: item?.categoryKey ?? null, categoryLabel: item?.categoryLabel ?? null,
       similarityGroup: item?.similarityGroup ?? null, type, possibleConfusion: type !== "unrelated",

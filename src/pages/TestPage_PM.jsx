@@ -1,6 +1,6 @@
-import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
+import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage, getGameTestingVersion } from "../temporaryGameTesting/runtime";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { analyzePerformance } from "../ai/performanceAnalyzer";
 import { analyzeErrors } from "../ai/errorAnalyzer";
@@ -9,7 +9,10 @@ import { createGameResult } from "../ai/gameResultTemplate";
 import { saveUnifiedResult } from "../utils/resultManager";
 import { useTestAttempt } from "../utils/useTestAttempt";
 import { calculatePMScore } from "../utils/pmScoring";
-import { PM_ITEMS, PM_ITEM_BY_ID, buildPMQuestion, analyzePMConfusions } from "../utils/pmItems";
+import { PM_ITEM_BY_ID, getPMItemPool, buildPMQuestion, analyzePMConfusions } from "../utils/pmItems";
+import { PM_ASSESSMENT_VERSIONS, getPMStimulusMetadata } from "../config/pmStimulusConfig";
+import { PM_ASSET_CATALOG_VERSION } from "../config/pmAssets";
+import { getNextPMStimulus, recordPMStimulusExposure } from "../utils/pmStimulusUsage";
 import { PM_PROTOCOL_VERSION, PM_ANSWER_TIME_SECONDS, PM_TEST_SHOW_TIME, getPMRecommendedDifficulty } from "../utils/pmProtocol";
 import PMPractice from "../components/PMPractice";
 
@@ -30,7 +33,7 @@ import "../styles/TestStepVideo.css";
 const TEST_PAGE_ROUTE = "/test-map";
 
 
-// Catalog contains all 29 categorized stimuli; the background is excluded.
+// Assessment pools contain only the selected categories plus shared objects.
 
 // PM 完整測驗：記憶負荷 2～7，每個跨度 2 題，共 12 題，最多 12 選。
 const FULL_TEST_SHOW_TIME = PM_TEST_SHOW_TIME;
@@ -278,7 +281,15 @@ const SESSION_PM_TEST_RESULT_KEYS = ["pmTestResult", "latestPMTestResult"];
 
 export default function TestPage_PM() {
   const navigate = useNavigate();
+  const { search } = useLocation();
+  const testingVersion = getGameTestingVersion(search, Object.keys(PM_ASSESSMENT_VERSIONS));
+  const [stimulusChildId, setStimulusChildId] = useState(resolveCurrentChildId);
+  const [stimulus, setStimulus] = useState(() => PM_ASSESSMENT_VERSIONS[testingVersion] || getNextPMStimulus(stimulusChildId, "test"));
+  const stimulusMetadata = getPMStimulusMetadata(stimulus, "test");
+  const stimulusPool = useMemo(() => getPMItemPool({ mode: "test", categoryKeys: stimulus.categoryKeys }), [stimulus]);
+  const exposureRef = useRef(new Set());
   const testAttempt = useTestAttempt({ gameId: "PM", difficulty: "adaptive_span_test", route: "/test-picture-memory" });
+  const checkpoint = (data) => testAttempt.checkpoint({ ...stimulusMetadata, ...data });
 
   const answerStartRef = useRef(null);
   const answerDeadlineRef = useRef(null);
@@ -309,6 +320,15 @@ export default function TestPage_PM() {
   const [currentMemorizeItems, setCurrentMemorizeItems] = useState([]);
   const [currentOptions, setCurrentOptions] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
+
+  useEffect(() => {
+    if (!formalStartedRef.current || !["memorize", "answer"].includes(phase)) return;
+    const key = `${currentLevelIndex}-${phase}`;
+    const items = phase === "memorize" ? currentMemorizeItems : currentOptions;
+    if (!items.length || exposureRef.current.has(key)) return;
+    exposureRef.current.add(key);
+    recordPMStimulusExposure(stimulusChildId, "test", stimulus, items, { startSession: currentLevelIndex === 0 && phase === "memorize" });
+  }, [phase, currentLevelIndex, currentMemorizeItems, currentOptions, stimulus, stimulusChildId]);
 
 
 
@@ -401,13 +421,13 @@ export default function TestPage_PM() {
   const pushRecord = (record) => {
     lastResultRef.current = record;
     recordsRef.current = [...recordsRef.current, record];
-    testAttempt.checkpoint({ trials: recordsRef.current });
+    checkpoint({ trials: recordsRef.current });
   };
 
   const setupLevel = (levelConfig) => {
     if (!levelConfig) return;
 
-    const question = buildPMQuestion(levelConfig.memoryCount, { mode: "test" });
+    const question = buildPMQuestion(levelConfig.memoryCount, { mode: "test", categoryKeys: stimulus.categoryKeys });
     const memorizeItems = question.targets;
     const options = question.options;
     resetRuntimeRefs();
@@ -419,6 +439,10 @@ export default function TestPage_PM() {
   };
 
   const handleStart = () => {
+    const childId = resolveCurrentChildId();
+    setStimulusChildId(childId);
+    setStimulus(PM_ASSESSMENT_VERSIONS[testingVersion] || getNextPMStimulus(childId, "test"));
+    exposureRef.current.clear();
     clearAllTimers();
     recordsRef.current = [];
     pendingResultRef.current = null;
@@ -448,6 +472,7 @@ export default function TestPage_PM() {
     formalStartedRef.current = true;
     testStartedAtRef.current = new Date().toISOString();
     resultIdRef.current = testAttempt.begin().resultId;
+    checkpoint({});
     setupLevel(TEST_TRIALS[0]);
   };
 
@@ -515,7 +540,7 @@ export default function TestPage_PM() {
 
     tapLogsRef.current = [...tapLogsRef.current, newLog];
     selectedIdsRef.current = nextSelected;
-    testAttempt.checkpoint({ currentTrial: { levelIndex: currentLevelIndex, correctIds, selectedIds: nextSelected, tapLogs: tapLogsRef.current } });
+    checkpoint({ currentTrial: { levelIndex: currentLevelIndex, correctIds, selectedIds: nextSelected, tapLogs: tapLogsRef.current } });
     setSelectedIds(nextSelected);
   };
 
@@ -559,6 +584,7 @@ export default function TestPage_PM() {
 
     const confusionAnalysis = analyzePMConfusions({ targetIds: correctIds, selectedIds: finalSelectedIds, optionIds: questionRef.current?.optionIds });
     const record = {
+      ...stimulusMetadata,
       protocolVersion: PM_PROTOCOL_VERSION,
       mode: "test",
       targetIds: correctIds,
@@ -736,7 +762,9 @@ export default function TestPage_PM() {
       resultId,
       schemaVersion: "1.0.0",
       protocolVersion: PM_PROTOCOL_VERSION,
-      stimulusPolicy: { poolSize: PM_ITEMS.length, optionLimit: 12, sampling: "uniform_random_pool", visualInterference: "none", showTime: PM_TEST_SHOW_TIME, answerTimeLimit: PM_ANSWER_TIME_SECONDS },
+      ...stimulusMetadata,
+      protocol: { ...stimulusMetadata },
+      stimulusPolicy: { poolSize: stimulusPool.length, categoryKeys: [...stimulus.categoryKeys], sharedCategory: "unclassified", assetCatalogVersion: PM_ASSET_CATALOG_VERSION, optionLimit: 12, sampling: "categorized_and_shared_pool", visualInterference: "none", showTime: PM_TEST_SHOW_TIME, answerTimeLimit: PM_ANSWER_TIME_SECONDS },
       childId,
       gameId: "PM",
       mode: "test",
@@ -907,7 +935,8 @@ export default function TestPage_PM() {
   const resultStars = Math.max(0, Math.min(3, Number(pendingResultRef.current?.stars) || 0));
 
   return (
-    <div style={styles.page(bgImage)} data-testid="pm-stage" data-phase={phase} data-memory-count={currentLevel?.memoryCount} data-show-time={currentLevel?.showTime} data-answer-limit={PM_ANSWER_TIME_SECONDS}>
+    <div style={styles.page(bgImage)} data-testid="pm-stage" data-phase={phase} data-memory-count={currentLevel?.memoryCount} data-show-time={currentLevel?.showTime} data-answer-limit={PM_ANSWER_TIME_SECONDS}
+      data-test-version={stimulus.version} data-stimulus-set={stimulus.stimulusSetId} data-stimulus-categories={stimulus.categoryKeys.join(",")}>
       <style>{`
         button[aria-label="進入遊戲"]:hover:not(:disabled),
         button[aria-label="跳過動畫"]:hover:not(:disabled),
@@ -986,14 +1015,14 @@ export default function TestPage_PM() {
             </div>
           )}
 
-          {phase === "practice" && <PMPractice onComplete={handleAssessmentStart} />}
+          {phase === "practice" && <PMPractice onComplete={handleAssessmentStart} categoryKeys={stimulus.categoryKeys} />}
 
           {phase === "memorize" && currentLevel && (
             <div style={styles.card}>
 
               <div style={styles.memoryGrid}>
                 {currentMemorizeItems.map((item) => (
-                  <div key={item.id} style={styles.memoryCard}>
+                  <div key={item.id} data-memory-id={item.id} style={styles.memoryCard}>
                     <img src={item.image} alt={item.alt} width="162" height="162" loading="lazy" style={styles.memoryImage} />
                   </div>
                 ))}

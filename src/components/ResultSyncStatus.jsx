@@ -23,5 +23,5 @@ export default function ResultSyncStatus() {
     position: "fixed", bottom: 12, left: 12, zIndex: 10000, maxWidth: "min(420px, calc(100vw - 24px))",
     padding: "8px 12px", borderRadius: 12, background: state.storageError ? "#fff1f0" : "#fff9e8",
     color: state.storageError ? "#a12622" : "#61431b", boxShadow: "0 2px 10px #0002", fontSize: 14,
-  }}>{message}</div>;
+  }}>{message}{state.pending > 0 ? "請勿清除瀏覽器資料；尚未上傳的紀錄可能無法復原。" : ""}</div>;
 }

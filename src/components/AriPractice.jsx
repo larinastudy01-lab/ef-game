@@ -2,10 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import mouse from "../asset/mouse.webp";
 import voice from "../asset/voice.webp";
 import start from "../asset/home/start.webp";
-import cat from "../asset/ARI/cat.webp";
-import dog from "../asset/ARI/dog.webp";
 import AriNarrator from "./AriNarrator";
-import { ARI_PRACTICE_AUDIO, playAriPracticeAudio, waitForAriPractice } from "../utils/ariPracticeAudio";
+import { playAriPracticeAudio, waitForAriPractice } from "../utils/ariPracticeAudio";
 import "../styles/ARIPractice.css";
 
 export const MAX_PRACTICE_ROUNDS = 3;
@@ -15,7 +13,8 @@ const randomSound = () => Math.random() < 0.5 ? "cat" : "dog";
 
 // This is the practice stage of TestPage_ARI. All answers stay in memory;
 // only its parent can start the existing formal assessment recorder.
-export default function AriPractice({ onComplete, onReviewStep }) {
+export default function AriPractice({ assessment, onComplete, onReviewStep }) {
+  const { audio, animals } = assessment;
   const [state, setState] = useState("initializing");
   const [feedback, setFeedback] = useState(null);
   const [audioIssue, setAudioIssue] = useState(false);
@@ -45,7 +44,7 @@ export default function AriPractice({ onComplete, onReviewStep }) {
       if (signal.aborted) return;
       const [nextState, source] = cues[index];
       transition(nextState);
-      const isNarration = source !== ARI_PRACTICE_AUDIO.cat && source !== ARI_PRACTICE_AUDIO.dog;
+      const isNarration = source !== audio.cat && source !== audio.dog;
       setNarration(isNarration ? nextState : null);
       setSpeaking(false);
       try {
@@ -67,21 +66,21 @@ export default function AriPractice({ onComplete, onReviewStep }) {
       setSpeaking(false);
     }
     if (!signal.aborted) done();
-  }, [transition]);
+  }, [transition, audio]);
 
   const askQuestion = useCallback((sound, signal) => {
     soundRef.current = sound;
     setFeedback(null);
     setReplaying(false);
     runCues([
-      ["question_prompt", ARI_PRACTICE_AUDIO.question],
-      ["stimulus_playing", ARI_PRACTICE_AUDIO[sound]],
-      ["answer_prompt", ARI_PRACTICE_AUDIO.answer],
+      ["question_prompt", audio.question],
+      ["stimulus_playing", audio[sound]],
+      ["answer_prompt", audio.answer],
     ], () => {
       busy.current = false;
       transition("awaiting_answer");
     }, signal);
-  }, [runCues, transition]);
+  }, [runCues, transition, audio]);
 
   const startPractice = useCallback(() => {
     session.current?.abort();
@@ -99,13 +98,12 @@ export default function AriPractice({ onComplete, onReviewStep }) {
     setCompletionReady(false);
     transition("initializing");
     runCues([
-      ["intro", ARI_PRACTICE_AUDIO.intro],
-      ["dog_rule", ARI_PRACTICE_AUDIO.dogRule],
-      ["cat_rule", ARI_PRACTICE_AUDIO.catRule],
+      ["intro", audio.intro],
+      ["rule", audio.rule],
     ], () => {
       askQuestion(randomSound(), controller.signal);
     }, controller.signal);
-  }, [askQuestion, runCues, transition]);
+  }, [askQuestion, runCues, transition, audio]);
 
   useEffect(() => {
     startPractice();
@@ -123,16 +121,16 @@ export default function AriPractice({ onComplete, onReviewStep }) {
     if (!correct) failedRounds.current += 1;
     setFeedback(correct ? "correct" : "wrong");
     const feedbackDelay = waitForAriPractice(FEEDBACK_MS, signal);
-    const cues = [["feedback", correct ? ARI_PRACTICE_AUDIO.correct : ARI_PRACTICE_AUDIO.wrong]];
+    const cues = [["feedback", correct ? audio.correct : audio.wrong]];
     if (!correct && failedRounds.current < MAX_PRACTICE_ROUNDS) {
-      cues.push(["retry_prompt", ARI_PRACTICE_AUDIO.retry]);
+      cues.push(["retry_prompt", audio.retry]);
     }
     runCues(cues, async () => {
       await feedbackDelay;
       if (signal.aborted) return;
       if (streakRef.current === 2) {
         setFeedback(null);
-        runCues([["completed", ARI_PRACTICE_AUDIO.complete]], () => {
+        runCues([["completed", audio.complete]], () => {
           busy.current = false;
           setCompletionReady(true);
         }, signal);
@@ -152,7 +150,7 @@ export default function AriPractice({ onComplete, onReviewStep }) {
     if (busy.current || retry.current || stateRef.current !== "awaiting_answer") return;
     busy.current = true;
     setReplaying(true);
-    runCues([["stimulus_playing", ARI_PRACTICE_AUDIO[soundRef.current]]], () => {
+    runCues([["stimulus_playing", audio[soundRef.current]]], () => {
       busy.current = false;
       setReplaying(false);
       transition("awaiting_answer");
@@ -172,23 +170,22 @@ export default function AriPractice({ onComplete, onReviewStep }) {
   const solo = state === "intro" || passed;
   const narratorEvent = narration || (solo ? state : null);
   const message = audioIssue ? "聲音沒播出來，請再試一次" :
-    state === "intro" ? "仔細聽喔！這次要找跟聲音不一樣的動物！" :
-    state === "dog_rule" ? "聽到狗狗的叫聲，就要點貓咪！" :
-    state === "cat_rule" ? "聽到貓咪的叫聲，就要點狗狗！" :
+    state === "intro" ? "小耳朵準備好，開始囉！" :
+    state === "rule" ? assessment.ruleText :
     state === "question_prompt" ? "小耳朵準備好！聽一聽，再點相反的動物！" :
-    state === "assessment_intro" ? "記得喔！聽到聲音，要點另一隻動物！" :
+    state === "assessment_intro" ? "記得喔！要點另一隻動物！" :
     state === "assistance_required" ? "請大人陪你再練習" :
     state === "retry_prompt" ? "沒關係，重新找另一隻動物！" :
     feedback === "correct" ? "太棒了！你有找到正確的動物喔！" :
     feedback === "wrong" ? "哎呀！要點另一隻動物！" : canAnswer ? "換你選囉" : "仔細聽一聽";
 
   return (
-    <main className="ari-practice" data-testid="ari-practice" data-state={state} data-can-answer={canAnswer} aria-label="動物聲音試玩">
+    <main className="ari-practice" data-testid="ari-practice" data-state={state} data-can-answer={canAnswer} data-test-version={assessment.testVersion} data-stimulus-set={assessment.stimulusSetId} aria-label="動物聲音試玩">
       <h1 className="ari-practice-sr-only">請選擇相反的動物</h1>
       <p className="ari-practice-sr-only" role="status">{message}</p>
       <div className="ari-practice-scene" data-narrator-layout={solo ? "center" : narratorEvent ? "beside" : "animals"}>
         {!solo && <div className="ari-practice-animals" aria-label="選擇動物">
-        {[["cat", cat, "貓咪"], ["dog", dog, "狗狗"]].map(([target, source, label]) => (
+        {Object.entries(animals).map(([target, { image: source, label }]) => (
           <button key={target} type="button" className="ari-practice-animal" aria-label={label} disabled={!canAnswer} onClick={() => handleAnswer(target)}>
             <img src={source} alt="" draggable="false" />
             {target === guidedTarget && <img className="ari-practice-guide" src={mouse} alt="提示點擊正確動物" aria-hidden="true" draggable="false" />}
@@ -208,7 +205,7 @@ export default function AriPractice({ onComplete, onReviewStep }) {
           {completionReady && <button type="button" className="ari-practice-start" aria-label="開始挑戰" onClick={() => {
             if (busy.current) return;
             setCompletionReady(false);
-            runCues([["assessment_intro", ARI_PRACTICE_AUDIO.assessmentStart]], () => {
+            runCues([["assessment_intro", audio.assessmentStart]], () => {
               session.current.abort();
               onComplete();
             }, session.current.signal);

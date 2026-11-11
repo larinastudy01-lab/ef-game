@@ -1,13 +1,13 @@
 // DCCS uses the four available objects. Each object has a normal image and a
 // plastic-wrapped image; the latter keeps the existing "bag" rule API intact.
-import blueHatImg from "../asset/DCCS/blue hat.webp";
-import blueHatPlasticImg from "../asset/DCCS/blue hat_plastic.webp";
-import blueShirtImg from "../asset/DCCS/blue shirt.webp";
-import blueShirtPlasticImg from "../asset/DCCS/blue shirt_plastic.webp";
-import redHatImg from "../asset/DCCS/red hat.webp";
-import redHatPlasticImg from "../asset/DCCS/red hat_plastic.webp";
-import redShirtImg from "../asset/DCCS/red shirt.webp";
-import redShirtPlasticImg from "../asset/DCCS/red shirt_plastic.webp";
+import blueHatImg from "../asset/DCCS/training/blue hat.webp";
+import blueHatPlasticImg from "../asset/DCCS/training/blue hat_plastic.webp";
+import blueShirtImg from "../asset/DCCS/training/blue shirt.webp";
+import blueShirtPlasticImg from "../asset/DCCS/training/blue shirt_plastic.webp";
+import redHatImg from "../asset/DCCS/training/red hat.webp";
+import redHatPlasticImg from "../asset/DCCS/training/red hat_plastic.webp";
+import redShirtImg from "../asset/DCCS/training/red shirt.webp";
+import redShirtPlasticImg from "../asset/DCCS/training/red shirt_plastic.webp";
 
 export const DCCS_COLORS = Object.freeze(["blue", "red"]);
 export const DCCS_TYPES = Object.freeze(["hat", "shirt"]);

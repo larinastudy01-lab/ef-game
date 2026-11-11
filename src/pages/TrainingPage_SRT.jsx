@@ -17,7 +17,7 @@ import clickSoundFile from "../asset/Click.mp3";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
 import homeNextBtn from "../asset/home/next.webp";
-import homeBackBtn from "../asset/return.webp";
+import homeBackBtn from "../asset/home/back.webp";
 import homeAgainBtn from "../asset/home/again.webp";
 import homeResultBtn from "../asset/home/result.webp";
 import mouseGuideImg from "../asset/mouse.webp";
@@ -1808,7 +1808,7 @@ const TrainingPage_SRT = () => {
     if (effectTimeoutRef.current) clearTimeout(effectTimeoutRef.current);
     effectTimeoutRef.current = setTimeout(() => {
       setEffect(null);
-    }, 360);
+    }, 220);
 
     if (currentConfig.waitForResponse) scheduleNextTrial(getRandomDelay(currentConfig));
   };
@@ -2084,7 +2084,7 @@ const TrainingPage_SRT = () => {
             </div>
             <div className="srt-guided-action srt-guided-start">
               <button type="button" className="srt-forest-button srt-image-button srt-btn-start" onClick={handleStart} aria-label="進入遊戲">
-                <img src={homeStartBtn} width="532" height="177" alt="進入遊戲" />
+                <img src={homeStartBtn} width="271" height="166" alt="進入遊戲" />
               </button>
               <img loading="lazy" className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} width="156" height="156" alt="" aria-hidden="true" />
             </div>
@@ -2093,9 +2093,9 @@ const TrainingPage_SRT = () => {
       )}
 
       {phase === "intro" && (
-        <main className="srt-center-shell">
-          <section className="srt-soft-panel srt-video-panel game-start-card-artwork srt-video-card-artwork" aria-label="前導動畫">
-            <div className="srt-video-frame">
+        <main className="srt-center-shell test-video-layout">
+          <section className="srt-soft-panel srt-video-panel game-start-card-artwork srt-video-card-artwork test-video-card" aria-label="前導動畫">
+            <div className="srt-video-frame test-video-frame">
               <video
                 src={introVideo}
                 autoPlay
@@ -2103,18 +2103,18 @@ const TrainingPage_SRT = () => {
                 playsInline
                 controls
                 onEnded={handleIntroEnd}
-                className="srt-video"
+                className="srt-video test-video"
               />
             </div>
-            <div className="srt-step-actions">
+            <div className="srt-step-actions test-video-actions">
               <div className="srt-guided-action srt-guided-skip">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={handleIntroEnd} aria-label="跳過動畫">
-                  <img src={homeSkipBtn} width="532" height="177" loading="lazy" alt="跳過動畫" />
+                  <img src={homeSkipBtn} width="400" height="269" loading="lazy" alt="跳過動畫" />
                 </button>
               </div>
               <div className="srt-guided-action srt-guided-next">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-next" onClick={handleIntroEnd} aria-label="下一步">
-                  <img src={homeNextBtn} width="532" height="177" loading="lazy" alt="下一步" />
+                  <img src={homeNextBtn} width="325" height="236" loading="lazy" alt="下一步" />
                 </button>
                 <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} width="156" height="156" loading="lazy" alt="" aria-hidden="true" />
               </div>
@@ -2140,12 +2140,12 @@ const TrainingPage_SRT = () => {
             <div className="srt-step-actions test-video-actions">
               <div className="srt-guided-action srt-guided-skip">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={startTraining} aria-label="跳過動畫">
-                  <img src={homeSkipBtn} width="532" height="177" loading="lazy" alt="跳過動畫" />
+                  <img src={homeSkipBtn} width="400" height="269" loading="lazy" alt="跳過動畫" />
                 </button>
               </div>
               <div className="srt-guided-action srt-guided-next">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-next" onClick={startTraining} aria-label="下一步">
-                  <img src={homeNextBtn} width="532" height="177" loading="lazy" alt="下一步" />
+                  <img src={homeNextBtn} width="325" height="236" loading="lazy" alt="下一步" />
                 </button>
                 <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} width="156" height="156" loading="lazy" alt="" aria-hidden="true" />
               </div>
@@ -2216,7 +2216,7 @@ const TrainingPage_SRT = () => {
                 disabled={!warmupReady}
                 aria-label="開始練習"
               >
-                <img src={homeStartBtn} width="532" height="177" alt="開始練習" />
+                <img src={homeStartBtn} width="271" height="166" alt="開始練習" />
               </button>
               {warmupReady && (
                 <img loading="lazy" className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} width="156" height="156" alt="" aria-hidden="true" />
@@ -2290,13 +2290,13 @@ const TrainingPage_SRT = () => {
             <div className="test-video-actions">
               <div className="srt-guided-action srt-guided-skip">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-skip" onClick={handleEndingVideoEnd} aria-label="跳過動畫">
-                  <img src={homeSkipBtn} width="532" height="177" loading="lazy" alt="跳過動畫" />
+                  <img src={homeSkipBtn} width="400" height="269" loading="lazy" alt="跳過動畫" />
                 </button>
                 <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} width="156" height="156" loading="lazy" alt="" aria-hidden="true" />
               </div>
               <div className="srt-guided-action srt-guided-next">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-next" onClick={handleEndingVideoEnd} aria-label="下一步">
-                  <img src={homeNextBtn} width="532" height="177" loading="lazy" alt="下一步" />
+                  <img src={homeNextBtn} width="325" height="236" loading="lazy" alt="下一步" />
                 </button>
               </div>
             </div>
@@ -2324,15 +2324,15 @@ const TrainingPage_SRT = () => {
             <div className="srt-result-actions">
               <div className="srt-guided-action srt-guided-result-main">
                 <button type="button" className="srt-forest-button srt-image-button srt-btn-home" onClick={() => navigate("/game-menu")} aria-label="回到森林">
-                  <img src={homeBackBtn} width="532" height="177" loading="lazy" alt="回到森林" />
+                  <img src={homeBackBtn} width="288" height="282" loading="lazy" alt="回到森林" />
                 </button>
                 <img className="srt-mouse-guide srt-mouse-on-button" src={mouseGuideImg} width="156" height="156" loading="lazy" alt="" aria-hidden="true" />
               </div>
               <button type="button" className="srt-forest-button srt-image-button srt-btn-replay" onClick={handleStart} aria-label="再玩一次">
-                <img src={homeAgainBtn} width="532" height="177" loading="lazy" alt="再玩一次" />
+                <img src={homeAgainBtn} width="330" height="282" loading="lazy" alt="再玩一次" />
               </button>
               <button type="button" className="srt-forest-button srt-image-button srt-btn-detail" onClick={() => setShowDetailedResult(true)} aria-label="詳細結果">
-                <img src={homeResultBtn} width="532" height="177" loading="lazy" alt="查看詳細結果" />
+                <img src={homeResultBtn} width="305" height="236" loading="lazy" alt="查看詳細結果" />
               </button>
             </div>
           </section>
@@ -3038,16 +3038,15 @@ const trainingPageCss = `
   -webkit-user-drag: none;
   filter: drop-shadow(0 11px 12px rgba(79, 57, 20, 0.24));
   animation: srt-test-item-pop 0.18s ease-out;
-  transition: transform 0.15s ease, filter 0.15s ease;
+  transition: transform 0.1s ease-out;
 }
 
 .srt-item-hitbox:hover .srt-test-item {
-  transform: scale(1.04);
-  filter: drop-shadow(0 13px 15px rgba(79, 57, 20, 0.28)) brightness(1.06);
+  transform: scale(1.025);
 }
 
 .srt-item-hitbox:active .srt-test-item {
-  transform: scale(0.94);
+  transform: scale(0.97);
 }
 
 @keyframes srt-test-item-pop {
@@ -3089,21 +3088,32 @@ const trainingPageCss = `
 
 .srt-test-effect {
   position: absolute;
-  width: 78px;
-  height: 78px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: 5;
-  border: 5px solid rgba(255, 236, 94, 0.92);
-  background: rgba(255, 245, 158, 0.18);
-  box-shadow: 0 0 22px rgba(255, 204, 48, 0.55);
-  animation: srt-test-effect-pop 0.42s ease-out forwards;
+  border: 2px solid rgba(255, 240, 173, 0.8);
+  background: rgba(255, 245, 199, 0.12);
+  animation: srt-test-effect-pop 0.22s ease-out forwards;
 }
 
 @keyframes srt-test-effect-pop {
-  from { transform: translate(-50%, -50%) scale(0.7); opacity: 0.95; }
-  to { transform: translate(-50%, -50%) scale(1.45); opacity: 0; }
+  from { transform: translate(-50%, -50%) scale(0.9); opacity: 0.8; }
+  to { transform: translate(-50%, -50%) scale(1.12); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .srt-test-item {
+    animation: none;
+    transition: none;
+  }
+
+  .srt-test-effect {
+    animation: none;
+    opacity: 0.8;
+  }
 }
 
 

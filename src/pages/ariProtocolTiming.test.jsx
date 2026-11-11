@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom";
 import TrainingARI from "./TrainingPage_ARI";
 import TestARI from "./TestPage_ARI";
-import { ARI_PRACTICE_AUDIO as cues } from "../utils/ariPracticeAudio";
+import { ARI_ASSESSMENT_VERSIONS } from "../config/ariAssessmentConfig";
 import { saveUnifiedResult } from "../utils/resultManager";
 import { useTestAttempt } from "../utils/useTestAttempt";
 
@@ -12,12 +12,13 @@ jest.mock("../utils/useTestAttempt", () => ({ useTestAttempt: jest.fn() }));
 
 let audios;
 let attempt;
+const cues = ARI_ASSESSMENT_VERSIONS["01"].audio;
 const advance = (ms) => act(() => jest.advanceTimersByTime(ms));
 const stage = () => screen.getByTestId("ari-training-stage");
 const mouse = () => screen.queryByAltText("MOUSE 提示正確動物");
 const result = () => saveUnifiedResult.mock.calls[0][0].rawResult;
-const currentAnimalAudio = () => [...audios].reverse().find((audio) => /(?:cat|dog)\.mp3$/.test(audio.src));
-const oppositeOfSound = () => currentAnimalAudio().src.includes("cat.mp3") ? "狗狗" : "貓咪";
+const currentAnimalAudio = () => [...audios].reverse().find((audio) => /(?:cat|dog|pig|sheep)\.mp3$/.test(audio.src));
+const oppositeOfSound = () => ({ "cat.mp3": "狗狗", "dog.mp3": "貓咪", "pig.mp3": "綿羊", "sheep.mp3": "小豬" })[currentAnimalAudio().src.split("/").pop()];
 const animal = (name) => screen.getByRole("button", { name: new RegExp(`^${name}`) });
 
 beforeEach(() => {
@@ -175,7 +176,7 @@ async function startAssessment() {
   renderPage(<TestARI />, "/test-ari");
   fireEvent.click(screen.getByRole("button", { name: "進入遊戲" }));
   fireEvent.click(screen.getByRole("button", { name: "下一步" }));
-  for (const cue of [cues.intro, cues.dogRule, cues.catRule]) {
+  for (const cue of [cues.intro, cues.rule]) {
     expect(audios.at(-1).src).toBe(cue);
     await act(async () => audios.at(-1).onended());
   }

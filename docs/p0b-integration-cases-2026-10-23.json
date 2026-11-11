@@ -1,0 +1,313 @@
+{
+  "executionStatus": "UNVERIFIED",
+  "cases": [
+    {
+      "id": "P0B-I01",
+      "purpose": "LB: full write, exact raw readback and duplicate submission",
+      "testData": "Entirely synthetic, disposable project only: 20 events, two stages with overlapping stepIndex",
+      "expected": "One main/session/task, exact unique raw and current derivations; repeated submission retains IDs/content",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I02",
+      "purpose": "PM: full write, exact raw readback and duplicate submission",
+      "testData": "Entirely synthetic, disposable project only: 12 administered trials including one legal cancellation",
+      "expected": "One main/session/task, exact unique raw and current derivations; repeated submission retains IDs/content",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I03",
+      "purpose": "CBT: real schema accepts the current task code",
+      "testData": "Entirely synthetic, disposable project only: CBT, one transport-only trial",
+      "expected": "Main, task, raw and derived rows written; raw answer and summary unchanged",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I04",
+      "purpose": "SRT: real schema accepts the current task code",
+      "testData": "Entirely synthetic, disposable project only: SRT, one transport-only trial",
+      "expected": "Main, task, raw and derived rows written; raw answer and summary unchanged",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I05",
+      "purpose": "ARI: real schema accepts the current task code",
+      "testData": "Entirely synthetic, disposable project only: ARI, one transport-only trial",
+      "expected": "Main, task, raw and derived rows written; raw answer and summary unchanged",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I06",
+      "purpose": "DCCS: real schema accepts the current task code",
+      "testData": "Entirely synthetic, disposable project only: DCCS, one transport-only trial",
+      "expected": "Main, task, raw and derived rows written; raw answer and summary unchanged",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I07",
+      "purpose": "game_results: one interrupted request stays pending and a new client retries",
+      "testData": "Entirely synthetic, disposable project only: LB20; one rejected game_results request",
+      "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I08",
+      "purpose": "behavioral_sessions: one interrupted request stays pending and a new client retries",
+      "testData": "Entirely synthetic, disposable project only: LB20; one rejected behavioral_sessions request",
+      "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I09",
+      "purpose": "behavioral_task_sessions: one interrupted request stays pending and a new client retries",
+      "testData": "Entirely synthetic, disposable project only: LB20; one rejected behavioral_task_sessions request",
+      "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I10",
+      "purpose": "behavioral_trials: one interrupted request stays pending and a new client retries",
+      "testData": "Entirely synthetic, disposable project only: LB20; one rejected behavioral_trials request",
+      "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I11",
+      "purpose": "behavioral_trial_derivations: one interrupted request stays pending and a new client retries",
+      "testData": "Entirely synthetic, disposable project only: LB20; one rejected behavioral_trial_derivations request",
+      "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I12",
+      "purpose": "lost raw insert acknowledgement retries without duplicate IDs or source keys",
+      "testData": "Entirely synthetic, disposable project only: LB20, response lost after server commit",
+      "expected": "Retry converges to 20 original raw rows and 20 current derived rows",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I13",
+      "purpose": "existing session plus partial trial checkpoint fills remaining trials",
+      "testData": "Entirely synthetic, disposable project only: LB7 checkpoint, then LB20 complete payload",
+      "expected": "Existing seven IDs/content retained, thirteen rows added",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I14",
+      "purpose": "real unique constraint rejects duplicate source key and leaves raw answers intact",
+      "testData": "Entirely synthetic, disposable project only: LB20 plus conflicting new UUID/source key",
+      "expected": "23505 and no raw changes",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I15",
+      "purpose": "anonymous/other guardian cannot read or attach a raw trial to this session",
+      "testData": "Entirely synthetic, disposable project only: two distinct guardians/patients plus anonymous client",
+      "expected": "No foreign rows visible; insertion denied; original dataset unchanged",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I16",
+      "purpose": "guardian cannot rewrite a saved raw answer through PostgREST",
+      "testData": "Entirely synthetic, disposable project only: an attempted update to stored raw_data",
+      "expected": "Stored acquisition data unchanged",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I17",
+      "purpose": "existing session survives a later main-result failure and can retry",
+      "testData": "Entirely synthetic, disposable project only: complete LB20 followed by a failed main update",
+      "expected": "Previous hierarchy retained and retry completes",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I18",
+      "purpose": "full main payload with only seven committed trials stays pending and fills the remaining thirteen",
+      "testData": "Entirely synthetic, disposable project only: full LB20 main plus a seven-row atomic synthetic checkpoint",
+      "expected": "Main remains pending until exact twenty-row readback succeeds; existing seven rows unchanged",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I19",
+      "purpose": "final main acknowledgement failure keeps research data and retries the final status safely",
+      "testData": "Entirely synthetic, disposable project only: LB20 hierarchy succeeds, final main PATCH fails",
+      "expected": "Research retained, main pending, retry verifies full data before status acknowledgement",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I20",
+      "purpose": "two simultaneous sync clients converge after retry without duplicate trials",
+      "testData": "Entirely synthetic, disposable project only: two clients submit the same LB20 result/IDs",
+      "expected": "At least one succeeds; conflicts retry to one exact dataset",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I21",
+      "purpose": "legacy SSG remains readable without conversion to ARI",
+      "testData": "Entirely synthetic, disposable project only: one synthetic legacy SSG payload",
+      "expected": "Raw stored/read code stays SSG",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I22",
+      "purpose": "ART: unrecognized task code still fails the real CHECK",
+      "testData": "Entirely synthetic, disposable project only: one ART synthetic payload",
+      "expected": "23514; hierarchy never falsely acknowledged",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I23",
+      "purpose": "INVALID_TASK: unrecognized task code still fails the real CHECK",
+      "testData": "Entirely synthetic, disposable project only: one INVALID_TASK synthetic payload",
+      "expected": "23514; hierarchy never falsely acknowledged",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I24",
+      "purpose": "unrelated nonnegative trial-count constraint remains enforced",
+      "testData": "Entirely synthetic, disposable project only: valid LB20, then total_trials=-1",
+      "expected": "23514; original dataset unchanged",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I25",
+      "purpose": "authorized researcher reads the complete hierarchy while an unauthorized clinician cannot",
+      "testData": "Entirely synthetic, disposable project only: two approved clinicians, only one with guardian research consent",
+      "expected": "Authorized positive read on all six tables; unauthorized client sees no case rows",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I26",
+      "purpose": "own participant cannot be attached to another patient raw trial through a derivation",
+      "testData": "Entirely synthetic, disposable project only: guardian A own participant plus B raw UUID; distinct processing version",
+      "expected": "Both INSERT and UPDATE fail 42501, not an unrelated unique violation",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I27",
+      "purpose": "reviewed isolated repair is repeatable and retains old derivation versions and main status",
+      "testData": "Entirely synthetic, disposable project only: reviewed LB20 plan plus inactive synthetic old derivation",
+      "expected": "Verified count/IDs/content, old version retained, historical main payload/status unchanged",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    },
+    {
+      "id": "P0B-I28",
+      "purpose": "an owned participant cannot link a different patient main result through a session",
+      "testData": "Entirely synthetic, disposable project only: B main-only checkpoint plus A owned participant",
+      "expected": "INSERT/UPDATE fail 42501, not a duplicate source-result constraint",
+      "actual": "NOT_RUN_NO_VERIFIED_ISOLATED_ENVIRONMENT",
+      "result": "UNVERIFIED",
+      "unresolved": [
+        "PostgreSQL/PostgREST/RLS execution required; local doubles are not substitutes"
+      ]
+    }
+  ]
+}

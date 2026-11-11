@@ -1,4 +1,5 @@
 import { normalizeTaskCode } from "./constants";
+import { getTrialResponseState } from "./validation";
 
 const first = (...values) => values.find((value) => value !== undefined && value !== null);
 const asBoolean = (value) => (typeof value === "boolean" ? value : null);
@@ -53,11 +54,25 @@ export function mapRawTrial(rawTrial = {}, taskValue, fallbackIndex = 0) {
   const taskCode = normalizeTaskCode(taskValue || rawTrial.taskCode || rawTrial.task || rawTrial.taskName);
   const timedOut = Boolean(first(rawTrial.isTimeout, rawTrial.timeout, false));
   const actualResponse = mapActualResponse(taskCode, rawTrial);
+  const legacySourceTrialKey = String(first(rawTrial.trialId, rawTrial.trial_id, rawTrial.trialIndex, rawTrial.trialNumber, rawTrial.stepIndex, fallbackIndex + 1));
+  const stagedLB = taskCode === "LB" && rawTrial.stageId != null;
+  const sourceTrialKey = stagedLB
+    ? `LB:${rawTrial.stageId}:${first(rawTrial.stepIndex, rawTrial.stepInLevel, rawTrial.trialNumber, rawTrial.trialIndex, fallbackIndex + 1)}`
+    : legacySourceTrialKey;
+  // A PM deselection is a legal edit. Missing duplicate-click evidence stays
+  // unknown; neither a deselection nor a repeated selection implies a double click.
+  const pmEvents = rawTrial.clickLogs || rawTrial.tapLogs;
+  const duplicateEvents = taskCode === "PM" && Array.isArray(pmEvents)
+    ? pmEvents.filter((event) => ["doubleClick", "repeatedClick"].includes(event.action)).length : 0;
+  const pmDuplicateCounts = [rawTrial.doubleClickCount, rawTrial.repeatedClickCount, rawTrial.errorTypes?.repeatedClick]
+    .map(asNumber).filter((count) => count !== null && count >= 0);
+  const pmState = taskCode === "PM" ? getTrialResponseState(rawTrial) : null;
   return {
-    sourceTrialKey: String(first(rawTrial.trialId, rawTrial.trial_id, rawTrial.trialIndex, rawTrial.trialNumber, rawTrial.stepIndex, fallbackIndex + 1)),
+    sourceTrialKey,
+    ...(stagedLB ? { legacySourceTrialKey } : {}),
     taskCode,
     taskName: taskCode,
-    trialIndex: asNumber(first(rawTrial.trialIndex, rawTrial.trialNumber, rawTrial.stepIndex, rawTrial.stepInLevel, rawTrial.roundIndex, fallbackIndex + 1)),
+    trialIndex: stagedLB ? fallbackIndex + 1 : asNumber(first(rawTrial.trialIndex, rawTrial.trialNumber, rawTrial.stepIndex, rawTrial.stepInLevel, rawTrial.roundIndex, fallbackIndex + 1)),
     stimulus: mapStimulus(taskCode, rawTrial),
     condition: first(rawTrial.condition, rawTrial.ruleStage, rawTrial.rule, rawTrial.targetType, rawTrial.stageId, null),
     difficulty: String(first(rawTrial.difficulty, rawTrial.microDifficulty, rawTrial.level, "default")),
@@ -65,14 +80,19 @@ export function mapRawTrial(rawTrial = {}, taskValue, fallbackIndex = 0) {
     actualResponse,
     isCorrect: asBoolean(first(rawTrial.isCorrect, rawTrial.correct)),
     reactionTimeMs: asNumber(first(rawTrial.reactionTime, rawTrial.responseTime, rawTrial.answerTime, rawTrial.rt)),
-    errorType: first(rawTrial.errorType, rawTrial.wrongType, timedOut ? "timeout" : null),
+    errorType: first(rawTrial.errorType, rawTrial.wrongType, (pmState?.timedOut ?? timedOut) ? "timeout" : null),
     occurredAt: first(rawTrial.createdAt, rawTrial.timestamp, null),
-    timedOut,
+    timedOut: pmState?.timedOut ?? timedOut,
     completed: first(rawTrial.completed, true) !== false,
     responseRequired: !(taskCode === "SRT" && rawTrial.targetType === "rotten"),
     invalidResponse: Boolean(rawTrial.invalidResponse),
-    doubleClickCount: asNumber(first(rawTrial.repeatedClickCount, rawTrial.deselectCount, 0)),
-    taskSpecificMetadata: taskSpecificMetadata(rawTrial),
+    doubleClickCount: taskCode === "PM"
+      ? (pmDuplicateCounts.length || duplicateEvents ? Math.max(duplicateEvents, ...pmDuplicateCounts) : null)
+      : asNumber(first(rawTrial.repeatedClickCount, rawTrial.deselectCount, 0)),
+    taskSpecificMetadata: {
+      ...taskSpecificMetadata(rawTrial),
+      ...(pmState ? pmState : {}),
+    },
     rawData: rawTrial,
   };
 }

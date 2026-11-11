@@ -37,12 +37,12 @@ export function waitForLBPractice(ms, signal) {
 
 // Wait for each recording to end before advancing. Errors, blocked autoplay or
 // missing media must not leave the child's controls permanently locked.
-export function playLBPracticeCue(event, signal, onPlayback) {
-  return playLBAudio(LB_PRACTICE_AUDIO[event], signal, event, onPlayback);
+export function playLBPracticeCue(event, signal, onPlayback, cues = LB_PRACTICE_AUDIO) {
+  return playLBAudio(cues[event], signal, event, onPlayback);
 }
 
-export function playLBFormalCue(event, signal, onPlayback) {
-  return playLBAudio(LB_FORMAL_AUDIO[event], signal, event, onPlayback);
+export function playLBFormalCue(event, signal, onPlayback, cues = LB_FORMAL_AUDIO) {
+  return playLBAudio(cues[event], signal, event, onPlayback);
 }
 
 function playLBAudio(src, signal, event, onPlayback) {
@@ -52,6 +52,7 @@ function playLBAudio(src, signal, event, onPlayback) {
     try { audio = new Audio(src); } catch { resolve(); return; }
     let finished = false;
     let playing = false;
+    let timer;
     const update = () => {
       if (playing && !finished) onPlayback?.({ event, currentTime: audio.currentTime });
     };
@@ -67,13 +68,23 @@ function playLBAudio(src, signal, event, onPlayback) {
       audio.removeEventListener("timeupdate", update);
       audio.removeEventListener("seeked", update);
       audio.removeEventListener("pause", paused);
+      audio.removeEventListener("loadedmetadata", extendForDuration);
+      audio.removeEventListener("durationchange", extendForDuration);
       signal.removeEventListener("abort", finish);
       audio.pause();
       onPlayback?.(null);
       resolve();
     };
-    // Bound failures to load or emit ended so controls cannot remain locked.
-    const timer = window.setTimeout(finish, 12000);
+    // Some assessment-copy recordings exceed 12 seconds. Once metadata is
+    // available, allow their full duration plus a small load/buffer margin.
+    const extendForDuration = () => {
+      if (finished) return;
+      const durationMs = Number.isFinite(audio.duration) ? audio.duration * 1000 : 0;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(finish, Math.max(12000, durationMs + 3000));
+    };
+    // Keep a bounded fallback when the recording never loads.
+    timer = window.setTimeout(finish, 12000);
     audio.preload = "auto";
     audio.addEventListener("ended", finish);
     audio.addEventListener("error", finish);
@@ -81,6 +92,8 @@ function playLBAudio(src, signal, event, onPlayback) {
     audio.addEventListener("timeupdate", update);
     audio.addEventListener("seeked", update);
     audio.addEventListener("pause", paused);
+    audio.addEventListener("loadedmetadata", extendForDuration);
+    audio.addEventListener("durationchange", extendForDuration);
     signal.addEventListener("abort", finish, { once: true });
     try { Promise.resolve(audio.play()).catch(finish); } catch { finish(); }
   });

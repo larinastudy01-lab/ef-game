@@ -1,0 +1,109 @@
+{
+  "recordedAt": "2026-10-23T08:02:16.892Z",
+  "overall": "BLOCKED",
+  "databaseIntegration": {
+    "executed": 0,
+    "pass": 0,
+    "fail": 0,
+    "blocked": 28,
+    "notRun": 0,
+    "productionWritesAttempted": 0,
+    "isolatedWritesAttempted": 0
+  },
+  "productionReadonlyRefresh": {
+    "status": "BLOCKED",
+    "operation": "Supabase connector list_projects",
+    "queryExecuted": false,
+    "reason": "OAuth token refresh failed: Failed to parse server response",
+    "observedDuringThisTurn": true,
+    "lastSuccessfulSnapshotAt": "2026-10-23T06:58:41.987531+00:00",
+    "oldSnapshotIsCurrent": false
+  },
+  "local": {
+    "cra": {
+      "status": "PASS",
+      "suites": 85,
+      "tests": 656,
+      "snapshots": 4,
+      "seconds": 181.3,
+      "log": ".tmp/p0c-cra-tests.log",
+      "sha256": "ff935245db84b56b6cec474c400ed1725221a153d50d7120aefe9fe4c06cc94a"
+    },
+    "tools": {
+      "status": "PASS",
+      "tests": 44,
+      "baselineTests": 24,
+      "addedTests": 20,
+      "log": ".tmp/p0c-tool-tests.log",
+      "sha256": "f2a3d1bdd95d05f5b9a214ff271bde33daba5d3cbe557fb88df466d2c33731be"
+    },
+    "eslint": {
+      "status": "PASS",
+      "files": 9,
+      "note": "Observed CLI exit 0; stale Browserslist informational warning"
+    },
+    "javascriptSyntax": {
+      "status": "PASS",
+      "files": 9
+    },
+    "trackedDiffCheck": {
+      "status": "PASS"
+    },
+    "newArtifactWhitespaceCheck": {
+      "status": "PASS"
+    },
+    "sourceEquivalence": {
+      "status": "PASS",
+      "protectedFiles": 871,
+      "baseline": "8ef96ff4100533907bd4c2549a0c018b0553f345",
+      "report": "docs/p0c-equivalence-2026-10-23.json"
+    }
+  },
+  "scriptDigests": [
+    {
+      "path": "scripts/p0/p0c-guard.cjs",
+      "sha256": "45558ba1e71b1b2c0386dc19102a90b9377d59f292406db1b7bee68c9a8c5b81"
+    },
+    {
+      "path": "scripts/p0/p0c-guard.test.cjs",
+      "sha256": "c4004bd074650429636d36a02d208a17841d7bbe42ae0a767e9e4e26c3792c47"
+    },
+    {
+      "path": "scripts/p0/p0c-preflight.cjs",
+      "sha256": "47a3b5c27f61ac6b3cc23bed4bfe3db745341b6ae04cd7b9d482037cdfc87a2f"
+    },
+    {
+      "path": "scripts/p0/p0c-catalog.test.cjs",
+      "sha256": "3cec01e0e6977dd22c1bbebf6a188296b3c44cd0bf6e39fb131e4b66b52f6d8c"
+    },
+    {
+      "path": "scripts/p0/p0c-fixtures.cjs",
+      "sha256": "e8e7bca4cb006789de8dfbe49a7737b1a5f442294688f2cbb0ae1bb775edac15"
+    },
+    {
+      "path": "scripts/p0/p0c-fixtures.test.cjs",
+      "sha256": "6e9d272b7aed56e8055d1c8ecddba396b62e47c1077fba9187b40a839d821368"
+    },
+    {
+      "path": "scripts/p0/build-p0c-matrix.cjs",
+      "sha256": "74304b14ac61ac2c33c3e82ab412447ad7c1c571519530a3ea3ba83ab23c01d7"
+    },
+    {
+      "path": "scripts/p0/isolated-integration.test.cjs",
+      "sha256": "a71230edd9eafa4ae852952a30b20f89eba93f4d7fd8397a5f58839cbd1d4469"
+    },
+    {
+      "path": "scripts/p0/repair-batch.cjs",
+      "sha256": "2db1fee0c40b05661dd4368fae71f90a7035eb8617d8c04aa2a14db7b727e065"
+    }
+  ],
+  "limits": [
+    "No PostgreSQL parser or engine execution",
+    "No real Auth/JWT signature or RLS verification",
+    "No physical network outage or application/process restart test",
+    "Local template not started or CLI validated",
+    "Supplemental X01-X12 are specifications, not completed automated execution",
+    "No latest production snapshot due OAuth failure"
+  ],
+  "qualityScore": 56
+}

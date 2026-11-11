@@ -1,6 +1,6 @@
-import { gameLocalStorage as localStorage } from "../temporaryGameTesting/runtime";
+import { gameLocalStorage as localStorage, getGameTestingVersion } from "../temporaryGameTesting/runtime";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/GamePage_ARI.css";
 
 import { analyzePerformance } from "../ai/performanceAnalyzer";
@@ -13,7 +13,9 @@ import { calculateAriScore } from "../utils/ariScoring";
 import { ARI_ASSESSMENT_CONFIG } from "../utils/ariProtocol";
 import AriPractice from "../components/AriPractice";
 import AriNarrator from "../components/AriNarrator";
-import { ARI_PRACTICE_AUDIO, playAriPracticeAudio } from "../utils/ariPracticeAudio";
+import { playAriPracticeAudio } from "../utils/ariPracticeAudio";
+import { ARI_ASSESSMENT_VERSIONS, getAriAssessmentVersion } from "../config/ariAssessmentConfig";
+import { getAriAssessmentChild, getNextAriTestVersion, markAriTestVersionUsed } from "../utils/ariAssessmentVersion";
 
 import backgroundImg from "../asset/ARI/ARI_background.webp";
 import stepVideo from "../asset/optimized/mp4/ARI_step.mp4";
@@ -25,10 +27,6 @@ import homeBackBtn from "../asset/home/back.webp";
 import homeResultBtn from "../asset/home/result.webp";
 import mouseGuideImg from "../asset/mouse.webp";
 
-import catImg from "../asset/ARI/cat.webp";
-import dogImg from "../asset/ARI/dog.webp";
-import catSound from "../asset/ARI/cat.mp3";
-import dogSound from "../asset/ARI/dog.mp3";
 import "../styles/TestStepVideo.css";
 
 const RESULT_ROUTE = "/result-ari";
@@ -52,10 +50,6 @@ const asset = {
   homeBackBtn,
   homeResultBtn,
   mouseGuideImg,
-  cat: catImg,
-  dog: dogImg,
-  catSound,
-  dogSound,
 };
 
 function shuffleArray(array) {
@@ -148,7 +142,7 @@ function summarizeRecords(recordsWithMeta) {
   };
 }
 
-function buildTrials() {
+export function buildAriAssessmentTrials(assessment) {
   const combinations = [
     { soundType: "cat", correctTarget: "dog", correctPosition: "left" },
     { soundType: "cat", correctTarget: "dog", correctPosition: "right" },
@@ -173,15 +167,27 @@ function buildTrials() {
       trialIndex: index + 1,
       catPosition,
       dogPosition,
-      soundSrc: trial.soundType === "cat" ? asset.catSound : asset.dogSound,
+      soundSrc: assessment.animals[trial.soundType].sound,
     };
   });
 }
 
 export default function TestPage_ARI() {
   const navigate = useNavigate();
+  const { search } = useLocation();
+  const testingVersion = getGameTestingVersion(search, Object.keys(ARI_ASSESSMENT_VERSIONS));
+  const [assessmentChild, setAssessmentChild] = useState(getAriAssessmentChild);
+  const [assessment, setAssessment] = useState(() =>
+    getAriAssessmentVersion(testingVersion || getNextAriTestVersion(assessmentChild?.childId)));
+  const assessmentMeta = {
+    testVersion: assessment.testVersion,
+    stimulusSetId: assessment.stimulusSetId,
+    stimulusName: assessment.stimulusName,
+    stimulusAnimals: assessment.stimulusAnimals,
+    stimulusAnimalLabels: assessment.stimulusAnimalLabels,
+  };
   const testAttempt = useTestAttempt({ gameId: "ARI", route: "/test-ari" });
-  const trials = useMemo(() => buildTrials(), []);
+  const trials = useMemo(() => buildAriAssessmentTrials(assessment), [assessment]);
   const [phase, setPhase] = useState("start");
   const [trialIndex, setTrialIndex] = useState(0);
   const [canAnswer, setCanAnswer] = useState(false);
@@ -241,13 +247,13 @@ export default function TestPage_ARI() {
     const controller = new AbortController();
     setResultAudioIssue(false);
     setResultSpeaking(false);
-    playAriPracticeAudio(ARI_PRACTICE_AUDIO.assessmentComplete, controller.signal, (playing) => {
+    playAriPracticeAudio(assessment.audio.assessmentComplete, controller.signal, (playing) => {
       if (!controller.signal.aborted) setResultSpeaking(playing);
     }).catch(() => {
       if (!controller.signal.aborted) setResultAudioIssue(true);
     });
     return () => controller.abort();
-  }, [phase, resultAudioRetry]);
+  }, [phase, resultAudioRetry, assessment]);
 
   function resetTestState() {
     clearCurrentTimer();
@@ -269,13 +275,18 @@ export default function TestPage_ARI() {
   }
 
   function handleStart() {
+    const child = getAriAssessmentChild();
+    setAssessmentChild(child);
+    setAssessment(getAriAssessmentVersion(testingVersion || getNextAriTestVersion(child?.childId)));
     resetTestState();
     setPhase("teaching");
   }
 
   function startTest() {
     resetTestState();
-    testAttempt.begin();
+    testAttempt.begin(assessmentChild);
+    testAttempt.checkpoint(assessmentMeta);
+    markAriTestVersionUsed(assessmentChild?.childId, assessment.testVersion);
     setPhase("playing");
     addTimeout(() => startTrial(0), 0);
   }
@@ -340,6 +351,10 @@ export default function TestPage_ARI() {
     const isAnticipation = Number.isFinite(reactionTime) && reactionTime < ANTICIPATION_RT;
     const isCorrect = targetCorrect && !isAnticipation;
     return {
+      ...assessmentMeta,
+      soundAnimal: assessment.animals[trial.soundType].id,
+      expectedAnimal: assessment.animals[trial.correctTarget].id,
+      selectedAnimal: selectedTarget ? assessment.animals[selectedTarget].id : null,
       trialIndex: trial.trialIndex,
       mode: "test",
       allowReplay: false,
@@ -426,6 +441,7 @@ export default function TestPage_ARI() {
         mode: "test",
         difficulty: "normal",
         plannedTotalRounds: TOTAL_TRIALS,
+        taskRule: assessment.taskRule,
       }) || {};
     } catch (error) {
       console.error("ARI 測驗評分失敗：", error);
@@ -525,7 +541,8 @@ export default function TestPage_ARI() {
       taskCode: "ARI",
       taskVersion: TASK_VERSION,
       scoringVersion: ariScoring.scoringVersion || SCORING_VERSION,
-      taskRule: "catSoundSelectDog_dogSoundSelectCat",
+      ...assessmentMeta,
+      taskRule: assessment.taskRule,
       gameId: "ARI",
       abilityType: "attention_control",
       mode: "test",
@@ -659,7 +676,7 @@ export default function TestPage_ARI() {
     return (
       <div className="ari-page ari-page--soft ari-page--practice" style={{ "--ari-bg": `url(${asset.background})` }}>
         <style>{ariInlineCss}</style>
-        <AriPractice onComplete={startTest} onReviewStep={() => setPhase("teaching")} />
+        <AriPractice assessment={assessment} onComplete={startTest} onReviewStep={() => setPhase("teaching")} />
       </div>
     );
   }
@@ -732,16 +749,16 @@ export default function TestPage_ARI() {
     <div className="ari-page ari-page--soft" style={{ "--ari-bg": `url(${asset.background})` }}>
       <style>{ariInlineCss}</style>
       <div className="ari-container">
-        <div className="ari-stage" onPointerDownCapture={handleStagePointerDown} data-testid="ari-assessment-stage" data-trial={trialIndex + 1} data-can-answer={canAnswer}>
+        <div className="ari-stage" onPointerDownCapture={handleStagePointerDown} data-testid="ari-assessment-stage" data-trial={trialIndex + 1} data-can-answer={canAnswer} data-test-version={assessment.testVersion} data-stimulus-set={assessment.stimulusSetId}>
           <div className={audioError ? "ari-listen-status" : "ari-assessment-status"} aria-live="polite">
             {audioError ? "聲音未能播放，本次評測已中斷，請返回測驗地圖重新開始。" : isPreparingSound ? "請準備聽聲音" : canAnswer ? "請選擇相反的動物" : "請稍候"}
           </div>
           <div className="ari-animal-choice-row" aria-label="選擇動物">
             <button type="button" className={`ari-animal-choice ${canAnswer ? "is-clickable" : ""}`} onClick={() => handleAnswer(leftTarget, "left")} data-answer-zone="true" aria-disabled={!canAnswer} disabled={!canAnswer}>
-              <img loading="lazy" src={leftTarget === "cat" ? asset.cat : asset.dog} alt={leftTarget === "cat" ? "貓咪" : "狗狗"} draggable="false" />
+              <img loading="lazy" src={assessment.animals[leftTarget].image} alt={assessment.animals[leftTarget].label} draggable="false" />
             </button>
             <button type="button" className={`ari-animal-choice ${canAnswer ? "is-clickable" : ""}`} onClick={() => handleAnswer(rightTarget, "right")} data-answer-zone="true" aria-disabled={!canAnswer} disabled={!canAnswer}>
-              <img loading="lazy" src={rightTarget === "cat" ? asset.cat : asset.dog} alt={rightTarget === "cat" ? "貓咪" : "狗狗"} draggable="false" />
+              <img loading="lazy" src={assessment.animals[rightTarget].image} alt={assessment.animals[rightTarget].label} draggable="false" />
             </button>
           </div>
           {audioError && <button type="button" className="ari-retry-audio" onClick={() => navigate(TEST_PAGE_ROUTE)}>返回測驗地圖</button>}

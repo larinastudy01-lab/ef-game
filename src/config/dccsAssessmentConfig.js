@@ -1,4 +1,4 @@
-import { getCard } from "./dccsClothingData";
+import { getDccsAssessmentVersion } from "./dccsAssessmentVersions";
 
 // UI timings only; formal stimulus selection, order and scoring stay in the existing page.
 export const DCCS_ASSESSMENT_CONFIG = Object.freeze({
@@ -20,8 +20,5 @@ export const DCCS_RULES = Object.freeze([
 ]);
 // References already printed on box_left.webp / box_right.webp. Keep the visual
 // reference identities explicit instead of inferring them from asset filenames.
-export const DCCS_BOX_REFERENCES = Object.freeze({
-  top: getCard("blue_shirt"),
-  bottom: getCard("red_hat"),
-});
+export const DCCS_BOX_REFERENCES = getDccsAssessmentVersion("01").boxReferences;
 

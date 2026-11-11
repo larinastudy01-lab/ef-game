@@ -2,6 +2,7 @@ import React, { StrictMode } from "react";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import TestPageCBT from "./TestPage_CBT";
+import TrainingPageCBT from "./TrainingPage_CBT";
 import { CBT_PRACTICE_AUDIO as cues } from "../utils/cbtPracticeAudio";
 import { CBT_ASSESSMENT_ANSWER_AUDIO as assessmentVoice } from "../components/CBTAssessmentStage";
 import { useTestAttempt } from "../utils/useTestAttempt";
@@ -109,6 +110,92 @@ function enterAssessment() {
   fireEvent.click(screen.getByRole("button", { name: "開始正式評測" }));
   expect(board()).toHaveAttribute("data-phase", "show");
   return view;
+}
+
+function enterTraining(difficulty = "beginner", entry = "ended") {
+  const view = render(<MemoryRouter initialEntries={[`/training-cbt?difficulty=${difficulty}`]}
+    future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><TrainingPageCBT /></MemoryRouter>);
+  expect(screen.queryByText(/^(入門|簡單|中等|難|專業)$/)).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "開始練習" }));
+  fireEvent.ended(document.querySelector("video"));
+  expect(document.querySelector("video")).toHaveAttribute("src", "CBT_step.mp4");
+  expect(document.querySelector(".test-video-card").textContent).toBe("");
+  if (entry === "ended") fireEvent.ended(document.querySelector("video"));
+  else fireEvent.click(screen.getByRole("button", { name: entry }));
+  expect(saveUnifiedResult).not.toHaveBeenCalled();
+  expect(board()).toHaveAttribute("data-phase", "show");
+  expect(screen.queryByTestId("cbt-practice")).toBeNull();
+  return view;
+}
+
+test.each([
+  ["beginner", "ended", 5], ["easy", "跳過動畫", 6], ["medium", "下一步", 7],
+  ["hard", "ended", 8], ["expert", "ended", 9],
+])(
+  "%s training enters formal play directly after STEP %s with %s stones", (difficulty, entry, count) => {
+    enterTraining(difficulty, entry);
+    expect(stones()).toHaveLength(count);
+    expect(screen.getByTestId("cbt-assessment-stage").textContent).toBe("");
+    expect(narrator()).toBeNull();
+    expect(audios.some(({ src }) => Object.values(cues).includes(src))).toBe(false);
+    expect(screen.queryByRole("button", { name: "進入正式訓練" })).toBeNull();
+    expect(saveUnifiedResult).not.toHaveBeenCalled();
+  }
+);
+
+test("training chicken narration gates the full answer deadline and keeps second-step help text-free", () => {
+  enterTraining();
+  const sequence = showTrainingSequence();
+  expect(current().src).toBe(assessmentVoice);
+  expect(screen.getByTestId("cbt-assessment-stage").textContent).toBe("");
+  expect(stones().every((stone) => stone.disabled)).toBe(true);
+  act(() => current().onplaying());
+  expect(narrator()).toHaveAttribute("data-speaking", "true");
+  act(() => current().onwaiting());
+  expect(narrator()).toHaveAttribute("data-speaking", "false");
+  advance(8000);
+  expect(board()).toHaveAttribute("data-phase", "answerCue");
+  endVoice(assessmentVoice);
+  expect(narrator()).toBeNull();
+  fireEvent.click(stones()[sequence[0]]);
+  advance(260);
+  expect(board().querySelector('img[src="step.webp"]')).toBeInTheDocument();
+  expect(board().querySelector(".cbt-person")).toBeNull();
+  const wrong = stones().findIndex((_, index) => index !== sequence[1]);
+  fireEvent.click(stones()[wrong]);
+  expect(screen.getByTestId("cbt-answer-hint")).toHaveAttribute("alt", "點擊石頭提示");
+  expect(board().textContent).toBe("");
+  advance(14739);
+  expect(board()).toHaveAttribute("data-phase", "answer");
+  advance(1);
+  expect(screen.getByRole("button", { name: "進入下一題" })).toBeInTheDocument();
+});
+
+test("blocked training narration retries through the chicken before the answer deadline starts", async () => {
+  enterTraining();
+  nextPlayError = { name: "NotAllowedError" };
+  showTrainingSequence();
+  await act(async () => {});
+  advance(20000);
+  expect(board()).toHaveAttribute("data-phase", "answerCue");
+  expect(stones().every((stone) => stone.disabled)).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "播放作答提示" }));
+  endVoice(assessmentVoice);
+  advance(14999);
+  expect(board()).toHaveAttribute("data-phase", "answer");
+  advance(1);
+  expect(screen.getByRole("button", { name: "進入下一題" })).toBeInTheDocument();
+});
+
+function showTrainingSequence() {
+  const sequence = [];
+  for (let step = 0; step < 7 && board().dataset.phase === "show"; step += 1) {
+    sequence.push(lit());
+    advance(1000);
+    advance(260);
+  }
+  expect(board()).toHaveAttribute("data-phase", "answerCue");
+  return sequence;
 }
 
 function showAssessmentSequence() {

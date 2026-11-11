@@ -10,6 +10,7 @@ import { calculateDccsScore } from "../utils/dccsScoring";
 import { buildDccsPracticeTrials, getDccsCorrectPosition } from "../utils/dccsAssessmentProtocol";
 import { DCCS_ASSESSMENT_AUDIO } from "../utils/dccsAssessmentAudio";
 import { DCCS_RULES, DCCS_BOX_REFERENCES } from "../config/dccsAssessmentConfig";
+import { getDccsAssessmentVersion } from "../config/dccsAssessmentVersions";
 
 jest.mock("../utils/useTestAttempt", () => ({ useTestAttempt: jest.fn() }));
 jest.mock("../utils/resultManager", () => ({ saveUnifiedResult: jest.fn() }));
@@ -28,14 +29,23 @@ function expectCleanBoard() {
   expect(board().querySelector("header, h1, .dccs-narrator-bubble, .dccs-voice, .dccs-adult-entry, .dccs-passed-message")).toBeNull();
   expect(board().querySelector('img[src="voice.webp"]')).toBeNull();
 }
-const bank = buildDccsTrialSets();
-const formal = [bank.colorTestTrials, bank.typeTestTrials, bank.bagColorTestTrials];
-const practice = formal.map((trials, index) => buildDccsPracticeTrials(trials, DCCS_RULES[index].id));
+let assessment;
+let bank;
+let formal;
+let practice;
+function useCopy(version = "01") {
+  assessment = getDccsAssessmentVersion(version);
+  bank = buildDccsTrialSets(assessment);
+  formal = [bank.colorTestTrials, bank.typeTestTrials, bank.bagColorTestTrials];
+  practice = formal.map((trials, index) => buildDccsPracticeTrials(trials, DCCS_RULES[index].id, assessment.boxReferences));
+}
 
 beforeEach(() => {
   jest.useFakeTimers();
   jest.clearAllMocks();
   localStorage.clear(); sessionStorage.clear();
+  localStorage.setItem("currentChild", JSON.stringify({ childId: "dccs-child" }));
+  useCopy();
   monotonic = 1000;
   jest.spyOn(performance, "now").mockImplementation(() => monotonic);
   jest.spyOn(HTMLImageElement.prototype, "complete", "get").mockReturnValue(true);
@@ -103,10 +113,13 @@ test.each(["ended", "跳過", "下一步"])("STEP %s enters rule-one practice wi
   expect(boxes()[0]).toBeDisabled();
 });
 
-test("all three independent practice gates lead through the unchanged formal banks and complete once", () => {
+test.each(["01", "02"])("copy %s keeps its stimuli through all three practice gates and completes once", (version) => {
+  useCopy(version);
+  if (version === "02") localStorage.setItem("dccsTestLastVersion_dccs-child", "01");
   start("ended", true);
   for (let ruleIndex = 0; ruleIndex < 3; ruleIndex += 1) {
     expect(board()).toHaveAttribute("data-rule", DCCS_RULES[ruleIndex].id);
+    expect(board()).toHaveAttribute("data-test-version", version);
     expectCleanBoard();
     passPractice(ruleIndex);
     expectCleanBoard();
@@ -131,14 +144,20 @@ test("all three independent practice gates lead through the unchanged formal ban
   expect(attempt.complete).toHaveBeenCalledTimes(1);
   expect(saveUnifiedResult).toHaveBeenCalledTimes(1);
   const result = attempt.complete.mock.calls[0][0];
+  expect(result).toMatchObject({ testVersion: version, stimulusSetId: `test${version}`,
+    protocol: { testVersion: version, stimulusSetId: `test${version}` } });
   expect(result.trials).toHaveLength(formal.flat().length);
   expect(result.trials.map((trial) => trial.stimulus_id)).toEqual(formal.flat().map((trial) => trial.card.id));
   expect(result.trials.every((trial) => trial.mode === "formal" && trial.session_id === "research-session")).toBe(true);
+  expect(result.trials.every((trial) => trial.testVersion === version
+    && trial.left_target_id === assessment.boxReferences.top.id
+    && trial.right_target_id === assessment.boxReferences.bottom.id)).toBe(true);
+  expect(result.practiceLogs.every((trial) => trial.testVersion === version)).toBe(true);
   expect(result.practiceLogs).toHaveLength(6);
   expect(result.practiceSummary.map((entry) => entry.passed)).toEqual([true, true, true]);
   expect(result.trials.every((trial) => trial.reaction_time_ms === 735)).toBe(true);
   expect(result.trials[5]).toEqual(expect.objectContaining({
-    stimulus_id: "red_hat", is_correct: false, selected_target: "left",
+    stimulus_id: assessment.boxReferences.bottom.id, is_correct: false, selected_target: "left",
     error_type: "wrong_target", error_type_basis: "displayed_box_references",
     previous_rule_target: "right",
   }));
@@ -327,15 +346,35 @@ test("classification follows metadata when targets exchange positions; practice 
     const correct = getDccsCorrectPosition(trial);
     return DCCS_BOX_REFERENCES[correct === "top" ? "bottom" : "top"].color === trial.card.color;
   })).toBe(true);
-  expect(formal[1].every((trial) => trial.topTarget.key === "tshirt" && trial.bottomTarget.key === "hat")).toBe(true);
+  expect(formal[1].every((trial) => trial.topTarget.key === "pants" && trial.bottomTarget.key === "socks")).toBe(true);
   expect(JSON.stringify(bank)).toBe(before);
   expect(formal.map((trials) => trials.length)).toEqual([4, 4, 4]);
   expect(formal.map((trials) => trials.map((trial) => trial.card.id))).toEqual([
-    ["blue_tshirt", "red_hat", "blue_hat", "red_tshirt"],
-    ["blue_tshirt", "red_hat", "blue_hat", "red_tshirt"],
-    ["blue_tshirt", "red_hat", "blue_hat", "red_tshirt"],
+    ["blue_pants", "red_socks", "blue_socks", "red_pants"],
+    ["blue_pants", "red_socks", "blue_socks", "red_pants"],
+    ["blue_pants", "red_socks", "blue_socks", "red_pants"],
   ]);
   expect(formal.map((trials) => trials.map((trial) => trial.imageVariant))).toEqual([
     ["normal", "normal", "normal", "normal"], ["normal", "normal", "normal", "normal"], ["bag", "bag", "bag", "bag"],
   ]);
+});
+
+test("opening, STEP and practice do not consume a copy; the next assessment alternates 01, 02, 01", () => {
+  const abandoned = start();
+  endVoice(); ready(); answer(practice[0][0]); settlePractice();
+  expect(localStorage.getItem("dccsTestLastVersion_dccs-child")).toBeNull();
+  abandoned.unmount();
+  for (const version of ["01", "02", "01"]) {
+    useCopy(version);
+    const previous = localStorage.getItem("dccsTestLastVersion_dccs-child");
+    const view = start();
+    expect(board()).toHaveAttribute("data-test-version", version);
+    expect(localStorage.getItem("dccsTestLastVersion_dccs-child")).toBe(previous);
+    passPractice(0);
+    expect(localStorage.getItem("dccsTestLastVersion_dccs-child")).toBe(previous);
+    ready();
+    expect(localStorage.getItem("dccsTestLastVersion_dccs-child")).toBe(version);
+    expect(board()).toHaveAttribute("data-test-version", version);
+    view.unmount();
+  }
 });

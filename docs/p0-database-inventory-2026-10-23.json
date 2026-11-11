@@ -1,0 +1,309 @@
+{
+  "observedAt": "2026-10-23",
+  "projectRef": "krgvfzjwqijjdwphsyto",
+  "readOnly": true,
+  "rls": [
+    {
+      "table": "behavioral_sessions",
+      "forced": false,
+      "enabled": true,
+      "policies": 3
+    },
+    {
+      "table": "behavioral_task_sessions",
+      "forced": false,
+      "enabled": true,
+      "policies": 3
+    },
+    {
+      "table": "behavioral_trial_derivations",
+      "forced": false,
+      "enabled": true,
+      "policies": 3
+    },
+    {
+      "table": "behavioral_trials",
+      "forced": false,
+      "enabled": true,
+      "policies": 2
+    },
+    {
+      "table": "game_results",
+      "forced": false,
+      "enabled": true,
+      "policies": 4
+    },
+    {
+      "table": "research_participants",
+      "forced": false,
+      "enabled": true,
+      "policies": 3
+    }
+  ],
+  "counts": {
+    "game_results": 100,
+    "behavioral_trials": 0,
+    "behavioral_sessions": 0,
+    "behavioral_task_sessions": 0,
+    "behavioral_trial_derivations": 0
+  },
+  "indexes": [
+    {
+      "name": "behavioral_trial_derivations_pkey",
+      "table": "behavioral_trial_derivations",
+      "definition": "CREATE UNIQUE INDEX behavioral_trial_derivations_pkey ON public.behavioral_trial_derivations USING btree (id)"
+    },
+    {
+      "name": "behavioral_trial_derivations_trial_id_processing_version_key",
+      "table": "behavioral_trial_derivations",
+      "definition": "CREATE UNIQUE INDEX behavioral_trial_derivations_trial_id_processing_version_key ON public.behavioral_trial_derivations USING btree (trial_id, processing_version)"
+    },
+    {
+      "name": "derivations_participant_task_idx",
+      "table": "behavioral_trial_derivations",
+      "definition": "CREATE INDEX derivations_participant_task_idx ON public.behavioral_trial_derivations USING btree (participant_id, task_code, processed_at DESC)"
+    },
+    {
+      "name": "derivations_one_current_idx",
+      "table": "behavioral_trial_derivations",
+      "definition": "CREATE UNIQUE INDEX derivations_one_current_idx ON public.behavioral_trial_derivations USING btree (trial_id) WHERE is_current"
+    },
+    {
+      "name": "behavioral_trials_pkey",
+      "table": "behavioral_trials",
+      "definition": "CREATE UNIQUE INDEX behavioral_trials_pkey ON public.behavioral_trials USING btree (id)"
+    },
+    {
+      "name": "behavioral_trials_task_session_id_source_trial_key_key",
+      "table": "behavioral_trials",
+      "definition": "CREATE UNIQUE INDEX behavioral_trials_task_session_id_source_trial_key_key ON public.behavioral_trials USING btree (task_session_id, source_trial_key)"
+    },
+    {
+      "name": "behavioral_trials_task_idx",
+      "table": "behavioral_trials",
+      "definition": "CREATE INDEX behavioral_trials_task_idx ON public.behavioral_trials USING btree (task_session_id, trial_index)"
+    }
+  ],
+  "constraints": [
+    {
+      "name": "game_results_accuracy_check",
+      "table": "game_results",
+      "definition": "CHECK (((accuracy >= (0)::numeric) AND (accuracy <= (100)::numeric)))"
+    },
+    {
+      "name": "game_results_avg_reaction_time_check",
+      "table": "game_results",
+      "definition": "CHECK ((avg_reaction_time >= (0)::numeric))"
+    },
+    {
+      "name": "game_results_check",
+      "table": "game_results",
+      "definition": "CHECK (((started_at IS NULL) OR (finished_at >= started_at)))"
+    },
+    {
+      "name": "game_results_check1",
+      "table": "game_results",
+      "definition": "CHECK ((correct_count <= total_trials))"
+    },
+    {
+      "name": "game_results_check2",
+      "table": "game_results",
+      "definition": "CHECK ((error_count <= total_trials))"
+    },
+    {
+      "name": "game_results_correct_count_check",
+      "table": "game_results",
+      "definition": "CHECK ((correct_count >= 0))"
+    },
+    {
+      "name": "game_results_error_count_check",
+      "table": "game_results",
+      "definition": "CHECK ((error_count >= 0))"
+    },
+    {
+      "name": "game_results_guardian_id_fkey",
+      "table": "game_results",
+      "definition": "FOREIGN KEY (guardian_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "game_results_mode_check",
+      "table": "game_results",
+      "definition": "CHECK (((mode IS NULL) OR (mode = ANY (ARRAY['test'::text, 'training'::text]))))"
+    },
+    {
+      "name": "game_results_patient_id_fkey",
+      "table": "game_results",
+      "definition": "FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "game_results_pkey",
+      "table": "game_results",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "game_results_stars_check",
+      "table": "game_results",
+      "definition": "CHECK ((stars >= 0))"
+    },
+    {
+      "name": "game_results_total_trials_check",
+      "table": "game_results",
+      "definition": "CHECK ((total_trials >= 0))"
+    },
+    {
+      "name": "behavioral_sessions_assessment_or_training_check",
+      "table": "behavioral_sessions",
+      "definition": "CHECK ((assessment_or_training = ANY (ARRAY['assessment'::text, 'training'::text])))"
+    },
+    {
+      "name": "behavioral_sessions_check",
+      "table": "behavioral_sessions",
+      "definition": "CHECK (((completed_at IS NULL) OR (started_at IS NULL) OR (completed_at >= started_at)))"
+    },
+    {
+      "name": "behavioral_sessions_participant_id_fkey",
+      "table": "behavioral_sessions",
+      "definition": "FOREIGN KEY (participant_id) REFERENCES research_participants(id) ON DELETE RESTRICT"
+    },
+    {
+      "name": "behavioral_sessions_pkey",
+      "table": "behavioral_sessions",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "behavioral_sessions_session_status_check",
+      "table": "behavioral_sessions",
+      "definition": "CHECK ((session_status = ANY (ARRAY['in_progress'::text, 'completed'::text, 'interrupted'::text, 'abandoned'::text])))"
+    },
+    {
+      "name": "behavioral_sessions_source_result_id_fkey",
+      "table": "behavioral_sessions",
+      "definition": "FOREIGN KEY (source_result_id) REFERENCES game_results(id) ON DELETE SET NULL"
+    },
+    {
+      "name": "behavioral_sessions_source_result_id_key",
+      "table": "behavioral_sessions",
+      "definition": "UNIQUE (source_result_id)"
+    },
+    {
+      "name": "behavioral_task_sessions_check",
+      "table": "behavioral_task_sessions",
+      "definition": "CHECK ((correct_trials <= total_trials))"
+    },
+    {
+      "name": "behavioral_task_sessions_check1",
+      "table": "behavioral_task_sessions",
+      "definition": "CHECK ((incorrect_trials <= total_trials))"
+    },
+    {
+      "name": "behavioral_task_sessions_check2",
+      "table": "behavioral_task_sessions",
+      "definition": "CHECK (((completed_at IS NULL) OR (started_at IS NULL) OR (completed_at >= started_at)))"
+    },
+    {
+      "name": "behavioral_task_sessions_completion_status_check",
+      "table": "behavioral_task_sessions",
+      "definition": "CHECK ((completion_status = ANY (ARRAY['in_progress'::text, 'completed'::text, 'interrupted'::text, 'abandoned'::text])))"
+    },
+    {
+      "name": "behavioral_task_sessions_correct_trials_check",
+      "table": "behavioral_task_sessions",
+      "definition": "CHECK ((correct_trials >= 0))"
+    },
+    {
+      "name": "behavioral_task_sessions_incorrect_trials_check",
+      "table": "behavioral_task_sessions",
+      "definition": "CHECK ((incorrect_trials >= 0))"
+    },
+    {
+      "name": "behavioral_task_sessions_mean_reaction_time_ms_check",
+      "table": "behavioral_task_sessions",
+      "definition": "CHECK (((mean_reaction_time_ms IS NULL) OR (mean_reaction_time_ms >= (0)::numeric)))"
+    },
+    {
+      "name": "behavioral_task_sessions_pkey",
+      "table": "behavioral_task_sessions",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "behavioral_task_sessions_session_id_fkey",
+      "table": "behavioral_task_sessions",
+      "definition": "FOREIGN KEY (session_id) REFERENCES behavioral_sessions(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "behavioral_task_sessions_session_id_task_order_index_key",
+      "table": "behavioral_task_sessions",
+      "definition": "UNIQUE (session_id, task_order_index)"
+    },
+    {
+      "name": "behavioral_task_sessions_task_code_check",
+      "table": "behavioral_task_sessions",
+      "definition": "CHECK ((task_code = ANY (ARRAY['CBT'::text, 'PM'::text, 'SRT'::text, 'SSG'::text, 'LB'::text, 'DCCS'::text])))"
+    },
+    {
+      "name": "behavioral_task_sessions_task_order_index_check",
+      "table": "behavioral_task_sessions",
+      "definition": "CHECK ((task_order_index > 0))"
+    },
+    {
+      "name": "behavioral_task_sessions_total_trials_check",
+      "table": "behavioral_task_sessions",
+      "definition": "CHECK ((total_trials >= 0))"
+    },
+    {
+      "name": "behavioral_trials_pkey",
+      "table": "behavioral_trials",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "behavioral_trials_task_session_id_fkey",
+      "table": "behavioral_trials",
+      "definition": "FOREIGN KEY (task_session_id) REFERENCES behavioral_task_sessions(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "behavioral_trials_task_session_id_source_trial_key_key",
+      "table": "behavioral_trials",
+      "definition": "UNIQUE (task_session_id, source_trial_key)"
+    },
+    {
+      "name": "behavioral_trials_trial_index_check",
+      "table": "behavioral_trials",
+      "definition": "CHECK (((trial_index IS NULL) OR (trial_index >= 0)))"
+    },
+    {
+      "name": "behavioral_trial_derivations_check",
+      "table": "behavioral_trial_derivations",
+      "definition": "CHECK (((NOT valid_trial) OR (cardinality(exclusion_reasons) = 0)))"
+    },
+    {
+      "name": "behavioral_trial_derivations_participant_id_fkey",
+      "table": "behavioral_trial_derivations",
+      "definition": "FOREIGN KEY (participant_id) REFERENCES research_participants(id) ON DELETE RESTRICT"
+    },
+    {
+      "name": "behavioral_trial_derivations_pkey",
+      "table": "behavioral_trial_derivations",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "behavioral_trial_derivations_reaction_time_ms_check",
+      "table": "behavioral_trial_derivations",
+      "definition": "CHECK (((reaction_time_ms IS NULL) OR (reaction_time_ms >= (0)::numeric)))"
+    },
+    {
+      "name": "behavioral_trial_derivations_task_code_check",
+      "table": "behavioral_trial_derivations",
+      "definition": "CHECK ((task_code = ANY (ARRAY['CBT'::text, 'PM'::text, 'SRT'::text, 'SSG'::text, 'LB'::text, 'DCCS'::text])))"
+    },
+    {
+      "name": "behavioral_trial_derivations_trial_id_fkey",
+      "table": "behavioral_trial_derivations",
+      "definition": "FOREIGN KEY (trial_id) REFERENCES behavioral_trials(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "behavioral_trial_derivations_trial_id_processing_version_key",
+      "table": "behavioral_trial_derivations",
+      "definition": "UNIQUE (trial_id, processing_version)"
+    }
+  ]
+}

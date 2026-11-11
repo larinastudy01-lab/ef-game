@@ -31,6 +31,7 @@ import { GAME_TESTING_ROUTE, gameTestingUrl, isGameTestingPath } from "./tempora
 const GameTestingMenu = lazy(() => import("./temporaryGameTesting/GameTestingMenu"));
 
 const ProtectedRoute = lazy(() => import("./components/ProtectedRoute"));
+const ResultAccessRoute = lazy(() => import("./components/ResultAccessRoute"));
 const ResultSyncStatus = lazy(() => import("./components/ResultSyncStatus"));
 const GameMenuPage = lazy(() => import("./pages/GameMenuPage"));
 const ChildSelectPage = lazy(() => import("./pages/ChildSelectPage"));
@@ -78,6 +79,7 @@ const ResultPageDC = lazy(() => import("./pages/ResultPage_DC"));
 
 const SETTINGS_STORAGE_KEY = "efGameTrainingSettings";
 const CLINICIAN_ROLES = ["clinician", "medical", "doctor"];
+const FAMILY_ROLES = ["guardian", "parent"];
 
 function ClinicianRoute({ children }) {
   return (
@@ -161,7 +163,7 @@ function AppContent() {
 
   const [isMuted, setIsMuted] = useState(false);
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [isForegroundMediaPlaying, setIsForegroundMediaPlaying] = useState(false);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const [appSettings, setAppSettings] = useState(loadAppSettings);
 
@@ -169,6 +171,7 @@ function AppContent() {
   const isClinicianPage =
     location.pathname === "/clinician-login" ||
     location.pathname === "/clinician-dashboard";
+  const currentPath = location.pathname.toLowerCase().replace(/\/+$/, "");
   const isResearchPage = [
     "/research-tools",
     "/research-professional-dashboard",
@@ -176,9 +179,16 @@ function AppContent() {
     "/ai-behavioral-analysis",
     "/adaptive-recommendation-research",
     "/longitudinal-dashboard",
-  ].includes(location.pathname);
+  ].includes(currentPath);
   const isSettingsPage = location.pathname === "/settings";
   const isHomePage = location.pathname === "/";
+  // Keep the whole task quiet, including gaps between voice clips and trials.
+  const isTaskPage =
+    (currentPath.startsWith("/test-") && currentPath !== "/test-map") ||
+    currentPath.startsWith("/training-") ||
+    currentPath.startsWith("/result-") ||
+    currentPath === "/result" ||
+    currentPath === "/hat-sticker-game";
 
   useEffect(() => {
     setIsSettingsMenuOpen(false);
@@ -187,8 +197,10 @@ function AppContent() {
   // 判斷目前是否允許播放背景音樂
   const shouldPlayBGM =
     !isMuted &&
-    !isVideoPlaying &&
+    !isForegroundMediaPlaying &&
+    !isTaskPage &&
     !isClinicianPage &&
+    !isResearchPage &&
     hasUserInteracted;
 
   useEffect(() => {
@@ -254,7 +266,7 @@ function AppContent() {
     };
   }, []);
 
-  // 根據目前頁面、靜音狀態與影片狀態控制背景音樂
+  // 根據目前頁面、靜音狀態與前景媒體狀態控制背景音樂
   useEffect(() => {
     const audio = audioRef.current;
 
@@ -270,37 +282,51 @@ function AppContent() {
     }
   }, [shouldPlayBGM]);
 
-  // 監聽所有影片的播放、暫停與結束事件
+  // Game voice clips use detached Audio objects, so task routes stay silent
+  // regardless of media events. On other pages, yield to attached audio/video.
   useEffect(() => {
-    const handleVideoPlay = (event) => {
-      if (event.target?.tagName === "VIDEO") {
+    const playingMedia = new Set();
+    const isForegroundMedia = (media) =>
+      media !== audioRef.current && ["AUDIO", "VIDEO"].includes(media?.tagName);
+    const handleMediaPlay = (event) => {
+      const media = event.target;
+      if (!isForegroundMedia(media)) return;
+      if (media.tagName === "VIDEO") {
         // Videos start muted so browser autoplay can begin reliably. Once playback
         // has actually started, hand the audio focus to the video immediately.
-        event.target.muted = false;
-        audioRef.current?.pause();
-        setIsVideoPlaying(true);
+        media.muted = false;
+      }
+      playingMedia.add(media);
+      audioRef.current?.pause();
+      setIsForegroundMediaPlaying(true);
+    };
+
+    const handleMediaStop = (event) => {
+      if (playingMedia.delete(event.target)) {
+        setIsForegroundMediaPlaying(playingMedia.size > 0);
       }
     };
 
-    const handleVideoStop = (event) => {
-      if (event.target?.tagName === "VIDEO") {
-        // A page transition can briefly contain more than one video. Only resume
-        // the BGM after every video has stopped.
-        const hasPlayingVideo = Array.from(document.querySelectorAll("video")).some(
-          (video) => !video.paused && !video.ended
-        );
-        setIsVideoPlaying(hasPlayingVideo);
-      }
-    };
-
-    document.addEventListener("play", handleVideoPlay, true);
-    document.addEventListener("pause", handleVideoStop, true);
-    document.addEventListener("ended", handleVideoStop, true);
+    const stopEvents = ["pause", "ended", "error", "abort", "emptied"];
+    document.addEventListener("play", handleMediaPlay, true);
+    stopEvents.forEach((event) => document.addEventListener(event, handleMediaStop, true));
+    // Removing a playing element during navigation may not emit a pause event.
+    const observer = new MutationObserver(() => {
+      let removed = false;
+      playingMedia.forEach((media) => {
+        if (!media.isConnected) { playingMedia.delete(media); removed = true; }
+      });
+      if (removed) setIsForegroundMediaPlaying(playingMedia.size > 0);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    document.querySelectorAll("audio, video").forEach((media) => {
+      if (!media.paused && !media.ended) handleMediaPlay({ target: media });
+    });
 
     return () => {
-      document.removeEventListener("play", handleVideoPlay, true);
-      document.removeEventListener("pause", handleVideoStop, true);
-      document.removeEventListener("ended", handleVideoStop, true);
+      observer.disconnect();
+      document.removeEventListener("play", handleMediaPlay, true);
+      stopEvents.forEach((event) => document.removeEventListener(event, handleMediaStop, true));
     };
   }, []);
 
@@ -319,7 +345,7 @@ function AppContent() {
         "--app-brightness": isHomePage ? 1 : appSettings.brightness / 100,
       }}
     >
-      <audio ref={audioRef} src={BGM} loop preload="none" />
+      <audio ref={audioRef} src={BGM} loop preload="none" data-testid="app-bgm" />
       <GameTestingControls />
 
       {!isGameTesting && !isSettingsPage && !isClinicianPage && !isResearchPage && (
@@ -406,20 +432,20 @@ function AppContent() {
         />
 
         {/* 兒童 / 模式 / 地圖流程 */}
-        <Route path="/child-select" element={<ChildSelectPage />} />
-        <Route path="/mode-select" element={<ModeSelectPage />} />
+        <Route path="/child-select" element={<ResultAccessRoute requirePatient={false}><ChildSelectPage /></ResultAccessRoute>} />
+        <Route path="/mode-select" element={<ResultAccessRoute><ModeSelectPage /></ResultAccessRoute>} />
         <Route path="/game-menu" element={<GameMenuPage />} />
-        <Route path="/test-map" element={<TestMapPage />} />
+        <Route path="/test-map" element={<ResultAccessRoute><TestMapPage /></ResultAccessRoute>} />
         <Route path="/rest" element={<RestPage />} />
 
         {/* 共用結果頁：家長端 / 醫療端 */}
-        <Route path="/result-pa" element={<ResultPagePA />} />
-        <Route path="/result-dc" element={<ResultPageDC />} />
+        <Route path="/result-pa" element={<ResultAccessRoute audience="family"><ResultPagePA /></ResultAccessRoute>} />
+        <Route path="/result-dc" element={<ResultAccessRoute audience="clinical"><ResultPageDC /></ResultAccessRoute>} />
 
         {/* SRT */}
         <Route path="/training-srt" element={<TrainingPageSRT />} />
         <Route path="/test-srt" element={<TestPageSRT />} />
-        <Route path="/result-srt" element={<ResultPageSRT />} />
+        <Route path="/result-srt" element={<ResultAccessRoute audience="shared" allowGameTesting><ResultPageSRT /></ResultAccessRoute>} />
 
         {/* 舊 SRT result route 保留 */}
         <Route
@@ -438,13 +464,13 @@ function AppContent() {
         />
         <Route
           path="/result-picture-memory"
-          element={<ResultPagePM />}
+          element={<ResultAccessRoute audience="shared" allowGameTesting><ResultPagePM /></ResultAccessRoute>}
         />
 
         {/* CBT */}
         <Route path="/training-cbt" element={<TrainingPageCBT />} />
         <Route path="/test-cbt" element={<TestPageCBT />} />
-        <Route path="/result-cbt" element={<ResultPageCBT />} />
+        <Route path="/result-cbt" element={<ResultAccessRoute audience="shared" allowGameTesting><ResultPageCBT /></ResultAccessRoute>} />
 
         {/* Linking Balloons */}
         <Route
@@ -455,7 +481,7 @@ function AppContent() {
           path="/test-linking-balloons"
           element={<TestPageLB />}
         />
-        <Route path="/result-lb" element={<ResultPageLB />} />
+        <Route path="/result-lb" element={<ResultAccessRoute audience="shared" allowGameTesting><ResultPageLB /></ResultAccessRoute>} />
 
         {/* ARI */}
         <Route
@@ -463,7 +489,7 @@ function AppContent() {
           element={<TrainingPageARI />}
         />
         <Route path="/test-ari" element={<TestPageARI />} />
-        <Route path="/result-ari" element={<ResultPageARI />} />
+        <Route path="/result-ari" element={<ResultAccessRoute audience="shared" allowGameTesting><ResultPageARI /></ResultAccessRoute>} />
 
         {/* DCCS */}
         <Route
@@ -471,7 +497,7 @@ function AppContent() {
           element={<TrainingPageDCCS />}
         />
         <Route path="/test-dccs" element={<TestPageDCCS />} />
-        <Route path="/result-dccs" element={<ResultPageDCCS />} />
+        <Route path="/result-dccs" element={<ResultAccessRoute audience="shared" allowGameTesting><ResultPageDCCS /></ResultAccessRoute>} />
 
         {/* DCCS 舊路由 redirect */}
         <Route
@@ -514,7 +540,7 @@ function AppContent() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route
           path="/parent-results"
-          element={<ProtectedRoute allowedRoles={["guardian", "parent"]} redirectTo="/login"><ParentResultsPage /></ProtectedRoute>}
+          element={<ProtectedRoute allowedRoles={FAMILY_ROLES} redirectTo="/login"><ResultAccessRoute requirePatient={false}><ParentResultsPage /></ResultAccessRoute></ProtectedRoute>}
         />
 
         {/* 找不到頁面時回首頁 */}

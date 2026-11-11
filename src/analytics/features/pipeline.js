@@ -61,7 +61,7 @@ export function buildTaskFeatureRow({
     interrupted_session: interrupted,
     exclusion_reason_counts: exclusionCounts(normalizedTrials),
     ...calculateGeneralFeatures(validTrials, quality),
-    ...calculateTaskSpecificFeatures(taskCode, validTrials),
+    ...calculateTaskSpecificFeatures(taskCode, validTrials, { allTrials: normalizedTrials }),
   };
 }
 

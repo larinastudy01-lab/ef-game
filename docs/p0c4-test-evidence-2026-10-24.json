@@ -1,0 +1,1474 @@
+{
+  "generatedAt": "2026-10-24T05:29:20.388Z",
+  "overall": "BLOCKED",
+  "score": 56,
+  "commit": "8ef96ff4100533907bd4c2549a0c018b0553f345",
+  "workingTree": true,
+  "native": {
+    "database": "p0c4_isolated_c0fc0a60735b",
+    "systemIdentifier": "7699882706748678332",
+    "apiOrigin": "http://127.0.0.1:55341",
+    "postgres": "17.11",
+    "postgrest": "16.5",
+    "auth": "v2.197.0+Windows listener adaptation",
+    "standardSupabase": false,
+    "storageApiEnabled": false
+  },
+  "production": {
+    "status": "BLOCKED",
+    "attemptedAt": "2026-10-23T15:14:51Z",
+    "actualError": "OAuth token refresh failed: Failed to parse server response",
+    "reauthorizationDeclined": true,
+    "latestSchema": null,
+    "latestCounts": null,
+    "latestHistoricalClassification": null,
+    "writes": 0,
+    "migrations": 0,
+    "repairs": 0,
+    "authOrStorageChanges": 0,
+    "deployments": 0,
+    "pushes": 0
+  },
+  "standardSupabase": {
+    "status": "BLOCKED",
+    "dockerOrPodman": false,
+    "wslDistribution": false,
+    "isolatedCloudProject": false,
+    "paidResourcesCreated": false
+  },
+  "original28": {
+    "startedAt": "2026-10-24T05:20:46.812Z",
+    "finishedAt": "2026-10-24T05:21:16.375Z",
+    "targetOrigin": "http://127.0.0.1:55341",
+    "projectRef": "local",
+    "node": "v24.15.0",
+    "exitCode": 0,
+    "results": [
+      {
+        "id": "P0B-I01",
+        "purpose": "LB: full write, exact raw readback and duplicate submission",
+        "expected": "One main/session/task, exact unique raw and current derivations; repeated submission retains IDs/content",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I02",
+        "purpose": "PM: full write, exact raw readback and duplicate submission",
+        "expected": "One main/session/task, exact unique raw and current derivations; repeated submission retains IDs/content",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I03",
+        "purpose": "CBT: real schema accepts the current task code",
+        "expected": "Main, task, raw and derived rows written; raw answer and summary unchanged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I04",
+        "purpose": "SRT: real schema accepts the current task code",
+        "expected": "Main, task, raw and derived rows written; raw answer and summary unchanged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I05",
+        "purpose": "ARI: real schema accepts the current task code",
+        "expected": "Main, task, raw and derived rows written; raw answer and summary unchanged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I06",
+        "purpose": "DCCS: real schema accepts the current task code",
+        "expected": "Main, task, raw and derived rows written; raw answer and summary unchanged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I07",
+        "purpose": "game_results: one interrupted request stays pending and a new client retries",
+        "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I08",
+        "purpose": "behavioral_sessions: one interrupted request stays pending and a new client retries",
+        "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I09",
+        "purpose": "behavioral_task_sessions: one interrupted request stays pending and a new client retries",
+        "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I10",
+        "purpose": "behavioral_trials: one interrupted request stays pending and a new client retries",
+        "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I11",
+        "purpose": "behavioral_trial_derivations: one interrupted request stays pending and a new client retries",
+        "expected": "No false success, source retained, a fresh client fills the complete hierarchy",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I12",
+        "purpose": "lost raw insert acknowledgement retries without duplicate IDs or source keys",
+        "expected": "Retry converges to 20 original raw rows and 20 current derived rows",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I13",
+        "purpose": "existing session plus partial trial checkpoint fills remaining trials",
+        "expected": "Existing seven IDs/content retained, thirteen rows added",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I14",
+        "purpose": "real unique constraint rejects duplicate source key and leaves raw answers intact",
+        "expected": "23505 and no raw changes",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I15",
+        "purpose": "anonymous/other guardian cannot read or attach a raw trial to this session",
+        "expected": "No foreign rows visible; insertion denied; original dataset unchanged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I16",
+        "purpose": "guardian cannot rewrite a saved raw answer through PostgREST",
+        "expected": "Stored acquisition data unchanged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I17",
+        "purpose": "existing session survives a later main-result failure and can retry",
+        "expected": "Previous hierarchy retained and retry completes",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I18",
+        "purpose": "full main payload with only seven committed trials stays pending and fills the remaining thirteen",
+        "expected": "Main remains pending until exact twenty-row readback succeeds; existing seven rows unchanged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I19",
+        "purpose": "final main acknowledgement failure keeps research data and retries the final status safely",
+        "expected": "Research retained, main pending, retry verifies full data before status acknowledgement",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I20",
+        "purpose": "two simultaneous sync clients converge after retry without duplicate trials",
+        "expected": "At least one succeeds; conflicts retry to one exact dataset",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I21",
+        "purpose": "legacy SSG remains readable without conversion to ARI",
+        "expected": "Raw stored/read code stays SSG",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I22",
+        "purpose": "ART: unrecognized task code still fails the real CHECK",
+        "expected": "23514; hierarchy never falsely acknowledged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I23",
+        "purpose": "INVALID_TASK: unrecognized task code still fails the real CHECK",
+        "expected": "23514; hierarchy never falsely acknowledged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I24",
+        "purpose": "unrelated nonnegative trial-count constraint remains enforced",
+        "expected": "23514; original dataset unchanged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I25",
+        "purpose": "authorized researcher reads the complete hierarchy while an unauthorized clinician cannot",
+        "expected": "Authorized positive read on all six tables; unauthorized client sees no case rows",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I26",
+        "purpose": "own participant cannot be attached to another patient raw trial through a derivation",
+        "expected": "Both INSERT and UPDATE fail 42501, not an unrelated unique violation",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I27",
+        "purpose": "reviewed isolated repair is repeatable and retains old derivation versions and main status",
+        "expected": "Verified count/IDs/content, old version retained, historical main payload/status unchanged",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      },
+      {
+        "id": "P0B-I28",
+        "purpose": "an owned participant cannot link a different patient main result through a session",
+        "expected": "INSERT/UPDATE fail 42501, not a duplicate source-result constraint",
+        "status": "PASS",
+        "actual": "Executed original callback against PostgreSQL/PostgREST/real Auth JWT",
+        "evidence": ".tmp\\p0c4\\original-28-attempt7.junit.xml"
+      }
+    ]
+  },
+  "additional34": {
+    "cases": 34,
+    "pass": 34,
+    "results": [
+      {
+        "id": "P0C2-M01",
+        "status": "PASS",
+        "operation": "Ordinary Auth JWT/PostgREST ARI sync before migration",
+        "actual": "23514; main/source retained, hierarchy not acknowledged"
+      },
+      {
+        "id": "P0C2-M02",
+        "status": "PASS",
+        "operation": "Exact forward draft on real PostgreSQL",
+        "actual": "Both CHECKs expanded; other constraints/policies/RLS/triggers unchanged"
+      },
+      {
+        "id": "P0C2-M03",
+        "status": "PASS",
+        "operation": "Forward repeat",
+        "actual": "Same catalog, no source data changes"
+      },
+      {
+        "id": "P0C2-M04",
+        "status": "PASS",
+        "operation": "Rollback before ARI CHECK-bound rows exist",
+        "actual": "Exact legacy catalog restored; retained main/session not deleted"
+      },
+      {
+        "id": "P0C2-M05",
+        "status": "PASS",
+        "operation": "Forward then retry original ARI source",
+        "actual": "4 original raw rows verified; main/raw history unchanged except sync metadata"
+      },
+      {
+        "id": "P0C2-M06",
+        "status": "PASS",
+        "operation": "Rollback with ARI rows retained",
+        "actual": "Safely refused; expanded CHECK and all data retained"
+      },
+      {
+        "id": "P0C2-M07",
+        "status": "PASS",
+        "operation": "Direct ordinary-user task insertion: null",
+        "actual": "23502"
+      },
+      {
+        "id": "P0C2-M08",
+        "status": "PASS",
+        "operation": "Direct ordinary-user task insertion: ART",
+        "actual": "23514"
+      },
+      {
+        "id": "P0C2-M09",
+        "status": "PASS",
+        "operation": "Direct ordinary-user task insertion: INVALID_TASK",
+        "actual": "23514"
+      },
+      {
+        "id": "P0C2-M10",
+        "status": "PASS",
+        "operation": "Exact restrictive binding drafts 02/03",
+        "actual": "Applied to isolated DB only; real cross-binding tests I26/I28 still required"
+      },
+      {
+        "id": "P0C2-H01",
+        "purpose": "A + falsely synced: dryRun is read-only, repair, then verified acknowledgement",
+        "status": "PASS",
+        "actual": "dryRun 0 writes; 20 exact original IDs/order/raw/derived verified twice; main unchanged by repair, acknowledged only by final normal sync"
+      },
+      {
+        "id": "P0C2-H02",
+        "purpose": "E: already complete repair remains idempotent and keeps old derivations",
+        "status": "PASS",
+        "actual": "Complete source and UUIDs retained; inactive old processing version preserved; no additional raw rows"
+      },
+      {
+        "id": "P0C2-H03",
+        "purpose": "Partial raw checkpoint repairs exactly the missing 13 of 20",
+        "status": "PASS",
+        "actual": "7 committed raw rows/IDs/content retained, 13 filled; 20 exact current derivations"
+      },
+      {
+        "id": "P0C2-H04",
+        "purpose": "C: LB ambiguous/unmapped source refuses automatic repair",
+        "status": "PASS",
+        "actual": "Automatic repair refused; original operations/code retained; no guessed mapping or trial invention"
+      },
+      {
+        "id": "P0C2-H05",
+        "purpose": "C: SSG ambiguous/unmapped source refuses automatic repair",
+        "status": "PASS",
+        "actual": "Automatic repair refused; original operations/code retained; no guessed mapping or trial invention"
+      },
+      {
+        "id": "P0C2-H06",
+        "purpose": "C: DPT ambiguous/unmapped source refuses automatic repair",
+        "status": "PASS",
+        "actual": "Automatic repair refused; original operations/code retained; no guessed mapping or trial invention"
+      },
+      {
+        "id": "P0C2-H07",
+        "purpose": "D: insufficient source never invents missing trials",
+        "status": "PASS",
+        "actual": "Declared12/raw0 refused; raw0 retained"
+      },
+      {
+        "id": "P0C2-H08",
+        "purpose": "Conflicting source content is rejected without overwriting raw/main",
+        "status": "PASS",
+        "actual": "Conflicting source rejected; acquisition history and previous verified source unchanged"
+      },
+      {
+        "id": "P0C2-H09",
+        "purpose": "PM timeout/cancellation/planned status survives real DB roundtrip",
+        "status": "PASS",
+        "actual": "14 raw slots, 12 administered, 3 timeout =25%; 2 planned excluded; raw and all derived fields exact"
+      },
+      {
+        "id": "P0C2-H10",
+        "purpose": "CBT early-stop and unadministered slots remain distinct",
+        "status": "PASS",
+        "actual": "2 administered +2 planned preserved; no invented response for planned slots; earlyStop retained"
+      },
+      {
+        "id": "P0C2-H11",
+        "purpose": "B: migrated synthetic ARI history repair is repeatable",
+        "status": "PASS",
+        "actual": "ARI 4 original rows/IDs/code retained across repeated reviewed repair; main unchanged"
+      },
+      {
+        "id": "P0C2-H12",
+        "purpose": "Revocation removes same-JWT and fresh-client access across six tables",
+        "status": "PASS",
+        "actual": "Same JWT and fresh client denied all six hierarchy tables after guardian RPC; raw insert denied42501"
+      },
+      {
+        "id": "P0C2-X01",
+        "purpose": "Unambiguous old LB source keys/UUIDs stay unchanged during repair",
+        "status": "PASS",
+        "actual": "3 legacy keys/UUIDs/raw unchanged; current derivations reference retained UUIDs plus canonical provenance; repeated repair adds no raw"
+      },
+      {
+        "id": "P0C2-X02",
+        "purpose": "Separate research persona gets guardian approval; actual research fallback is read-only",
+        "status": "PASS",
+        "actual": "Independent ordinary clinician-backed research persona: denied before grant, approved by real guardian RPC, actual database.js reader restores20 from7 without writes, same JWT denied after revoke; 12 read-only HTTP requests"
+      },
+      {
+        "id": "P0C2-X03",
+        "purpose": "PM real roundtrip denominator 12/0; planned 0",
+        "status": "PASS",
+        "actual": {
+          "rawCount": 12,
+          "administered": 12,
+          "timeouts": 0,
+          "rate": 0,
+          "status": "available",
+          "otherExclusion": false
+        }
+      },
+      {
+        "id": "P0C2-X04",
+        "purpose": "PM real roundtrip denominator 12/12; planned 0",
+        "status": "PASS",
+        "actual": {
+          "rawCount": 12,
+          "administered": 12,
+          "timeouts": 12,
+          "rate": 1,
+          "status": "available",
+          "otherExclusion": false
+        }
+      },
+      {
+        "id": "P0C2-X05",
+        "purpose": "PM real roundtrip denominator 6/2; planned 0",
+        "status": "PASS",
+        "actual": {
+          "rawCount": 6,
+          "administered": 6,
+          "timeouts": 2,
+          "rate": 0.3333333333333333,
+          "status": "available",
+          "otherExclusion": false
+        }
+      },
+      {
+        "id": "P0C2-X06",
+        "purpose": "PM real roundtrip denominator 0/0; planned 2",
+        "status": "PASS",
+        "actual": {
+          "rawCount": 2,
+          "administered": 0,
+          "timeouts": 0,
+          "rate": null,
+          "status": "not_calculable_no_administered_trials",
+          "otherExclusion": false
+        }
+      },
+      {
+        "id": "P0C2-X07",
+        "purpose": "PM real roundtrip denominator 6/2; planned 0",
+        "status": "PASS",
+        "actual": {
+          "rawCount": 6,
+          "administered": 6,
+          "timeouts": 2,
+          "rate": 0.3333333333333333,
+          "status": "available",
+          "otherExclusion": true
+        }
+      },
+      {
+        "id": "P0C2-G01",
+        "status": "PASS",
+        "actual": "OS-terminated child after actual raw commit;20 raw/0 derivations; durable intent retained",
+        "terminated": {
+          "code": 1,
+          "signal": null,
+          "pid": 25332
+        }
+      },
+      {
+        "id": "P0C2-G02",
+        "status": "PASS",
+        "actual": "New repair-batch process resumed same reviewed plan;20 exact raw/UUID/content and20 current derivations; main unchanged",
+        "resumed": {
+          "code": 0,
+          "signal": null,
+          "pid": 37196
+        }
+      },
+      {
+        "id": "P0C2-G03",
+        "status": "PASS",
+        "actual": "Two independent repair processes plus final retry converge; source/IDs unchanged; no duplicate raw/current derivations",
+        "parallel": [
+          {
+            "code": 1,
+            "signal": null,
+            "pid": 36320
+          },
+          {
+            "code": 0,
+            "signal": null,
+            "pid": 22624
+          }
+        ],
+        "final": {
+          "code": 0,
+          "signal": null,
+          "pid": 36336
+        }
+      },
+      {
+        "id": "P0C2-R01",
+        "status": "PASS",
+        "executedAt": "2026-10-23T16:32:51.025Z",
+        "database": "p0c4_isolated_c0fc0a60735b",
+        "actual": "Rollback reproduces42501 for fresh ordinary-user UPSERT RETURNING; forward succeeds and repeats same UUID; existing visibility unchanged for two guardians, two clinicians and anonymous; no RLS disabling or data rewrites"
+      },
+      {
+        "id": "P0C2-R02",
+        "status": "PASS",
+        "executedAt": "2026-10-23T16:32:31.457Z",
+        "database": "p0c4_isolated_c0fc0a60735b",
+        "actual": "Changed ordinary JWT role without resigning; real Auth and PostgREST reject",
+        "responses": [
+          {
+            "route": "/auth/v1/user",
+            "status": 403,
+            "errorCode": 403
+          },
+          {
+            "route": "/rest/v1/game_results?select=id",
+            "status": 401,
+            "errorCode": "PGRST301"
+          }
+        ],
+        "tokenLogged": false
+      }
+    ]
+  },
+  "participant10": {
+    "pass": 10,
+    "results": [
+      {
+        "id": "Participant-01",
+        "purpose": "合法家長建立自己的 Participant",
+        "status": "PASS",
+        "executedAt": "2026-10-23T15:18:51.916Z",
+        "actual": "Real INSERT SELECT succeeds after old42501; ordinary guardian JWT"
+      },
+      {
+        "id": "Participant-02",
+        "purpose": "合法 INSERT 後允許 RETURNING",
+        "status": "PASS",
+        "executedAt": "2026-10-23T15:18:51.925Z",
+        "actual": "UPSERT SELECT returns the same UUID and own patient; no extra row"
+      },
+      {
+        "id": "Participant-03",
+        "purpose": "家長A不能建立／取得家長B Participant",
+        "status": "PASS",
+        "executedAt": "2026-10-23T15:18:51.935Z",
+        "actual": "Cross INSERT42501; cross SELECT empty; guardian B positive INSERT succeeds"
+      },
+      {
+        "id": "Participant-04",
+        "purpose": "匿名不能建立 Participant",
+        "status": "PASS",
+        "executedAt": "2026-10-23T15:18:51.956Z",
+        "actual": "Anonymous INSERT42501; no row added"
+      },
+      {
+        "id": "Participant-05",
+        "purpose": "無授權專業端不能建立個案 Participant",
+        "status": "PASS",
+        "executedAt": "2026-10-23T15:18:51.963Z",
+        "actual": "Ordinary ungranted clinician INSERT42501"
+      },
+      {
+        "id": "Participant-06",
+        "purpose": "SELECT 不暴露其他個案",
+        "status": "PASS",
+        "executedAt": "2026-10-23T15:18:51.968Z",
+        "actual": "Positive own reads + negative foreign reads for both guardians"
+      },
+      {
+        "id": "Participant-07",
+        "purpose": "UPDATE 不繞過個案限制（minimal與returning）",
+        "status": "PASS",
+        "executedAt": "2026-10-23T15:18:51.977Z",
+        "actual": "Both minimal and returning cross-patient UPDATE refused; original patient FK unchanged"
+      },
+      {
+        "id": "Participant-08",
+        "purpose": "舊有合法 Participant 可讀",
+        "status": "PASS",
+        "executedAt": "2026-10-23T15:18:52.104Z",
+        "actual": "Unmodified prior legitimate participant still readable"
+      },
+      {
+        "id": "Participant-09",
+        "purpose": "rollback 前置條件與影響",
+        "status": "PASS",
+        "executedAt": "2026-10-23T15:18:52.109Z",
+        "actual": "Exact prior policy restored; fresh returning42501 reproduced; forward recovers; no source rewrite"
+      },
+      {
+        "id": "Participant-10",
+        "purpose": "API 回傳與實際 DB 內容一致",
+        "status": "PASS",
+        "executedAt": "2026-10-23T15:18:52.706Z",
+        "actual": "All returned columns match real PostgreSQL row JSON"
+      }
+    ]
+  },
+  "gameReadback": {
+    "at": "2026-10-23T23:43:01.523Z",
+    "database": "p0c4_isolated_c0fc0a60735b",
+    "systemIdentifier": "7699882706748678332",
+    "ordinaryGuardianJwt": true,
+    "applicationDataReadOnly": true,
+    "results": [
+      {
+        "id": "DB-ARI",
+        "status": "PASS",
+        "actual": {
+          "gameType": "ARI",
+          "sessionId": "a6c10fa2-d86e-48ab-8cc9-3ae7053b52ef",
+          "gameResultId": "590edc79-9e22-4bc2-b604-289d4fa44de7_ARI_test_1792769498373_7353e094-df8e-499c-bf09-12b665aafba0",
+          "taskSessionId": "4e33ea91-e9c8-4795-b9e3-075b0927e0da",
+          "raw": 20,
+          "currentDerivations": 20,
+          "uniqueSourceKeys": 20,
+          "protocolVersion": "audio-visual-opposite-v2",
+          "formId": null,
+          "rawSchemaVersion": "1.0.0",
+          "processingVersion": "trial-normalizer-1.1.0",
+          "completionStatus": "completed",
+          "allRawAndDerivedFieldsCompared": true
+        }
+      },
+      {
+        "id": "DB-CBT",
+        "status": "PASS",
+        "actual": {
+          "gameType": "CBT",
+          "sessionId": "c894f11d-d37b-4ad0-b3c4-433cf5c68b2c",
+          "gameResultId": "590edc79-9e22-4bc2-b604-289d4fa44de7_CBT_test_1792770199974_12dfe3e8-a452-4d56-927f-b6b1499be00e",
+          "taskSessionId": "ccf83fe1-7c7f-4cb1-9182-f52b9fc0a753",
+          "raw": 8,
+          "currentDerivations": 8,
+          "uniqueSourceKeys": 8,
+          "protocolVersion": "2.1.0",
+          "formId": null,
+          "rawSchemaVersion": "1.0.0",
+          "processingVersion": "trial-normalizer-1.1.0",
+          "completionStatus": "completed",
+          "allRawAndDerivedFieldsCompared": true
+        }
+      },
+      {
+        "id": "DB-DCCS",
+        "status": "PASS",
+        "actual": {
+          "gameType": "DCCS",
+          "sessionId": "372d9495-c093-4b98-aec3-47521b6b403b",
+          "gameResultId": "590edc79-9e22-4bc2-b604-289d4fa44de7_DCCS_test_1792769773344_a4782b2d-d37a-4454-919a-6e9465c84527",
+          "taskSessionId": "854f3266-a595-4f14-8d4c-0d98ae40efc2",
+          "raw": 12,
+          "currentDerivations": 12,
+          "uniqueSourceKeys": 12,
+          "protocolVersion": null,
+          "formId": null,
+          "rawSchemaVersion": "1.0.0",
+          "processingVersion": "trial-normalizer-1.1.0",
+          "completionStatus": "completed",
+          "allRawAndDerivedFieldsCompared": true
+        }
+      },
+      {
+        "id": "DB-LB",
+        "status": "PASS",
+        "actual": {
+          "gameType": "LB",
+          "sessionId": "1dbd320f-c866-4881-bfcb-96c2a06b5844",
+          "gameResultId": "590edc79-9e22-4bc2-b604-289d4fa44de7_LB_test_1792770382435_f9f59bf9-fcec-474d-9860-d8d544c8af62",
+          "taskSessionId": "31ca6705-22cc-42ff-8bff-c9601fb5c60c",
+          "raw": 20,
+          "currentDerivations": 20,
+          "uniqueSourceKeys": 20,
+          "protocolVersion": null,
+          "formId": null,
+          "rawSchemaVersion": "1.0.0",
+          "processingVersion": "trial-normalizer-1.1.0",
+          "completionStatus": "completed",
+          "allRawAndDerivedFieldsCompared": true
+        }
+      },
+      {
+        "id": "DB-PM",
+        "status": "PASS",
+        "actual": {
+          "gameType": "PM",
+          "sessionId": "415416f7-416d-424e-acbe-ce385adfd531",
+          "gameResultId": "590edc79-9e22-4bc2-b604-289d4fa44de7_PM_test_1792770012153_8c809e18-86be-4abb-b5e3-3611292606b8",
+          "taskSessionId": "f6ec9c1c-6975-45e5-94ba-41a9373f7bb6",
+          "raw": 12,
+          "currentDerivations": 12,
+          "uniqueSourceKeys": 12,
+          "protocolVersion": "2.0.0",
+          "formId": null,
+          "rawSchemaVersion": "1.0.0",
+          "processingVersion": "trial-normalizer-1.1.0",
+          "completionStatus": "completed",
+          "allRawAndDerivedFieldsCompared": true
+        }
+      },
+      {
+        "id": "DB-SRT",
+        "status": "PASS",
+        "actual": {
+          "gameType": "SRT",
+          "sessionId": "f68aee20-c965-4e04-b012-965310a1d072",
+          "gameResultId": "590edc79-9e22-4bc2-b604-289d4fa44de7_SRT_test_1792770658283_db163b7f-1760-4e55-b037-3df09cb4ac2c",
+          "taskSessionId": "7fd283c8-5ee3-4ec1-8062-b68d32130a49",
+          "raw": 242,
+          "currentDerivations": 242,
+          "uniqueSourceKeys": 242,
+          "protocolVersion": "2.1.0",
+          "formId": null,
+          "rawSchemaVersion": "1.0.0",
+          "processingVersion": "trial-normalizer-1.1.0",
+          "completionStatus": "completed",
+          "allRawAndDerivedFieldsCompared": true
+        }
+      },
+      {
+        "id": "DB-CBT-retest",
+        "status": "PASS",
+        "actual": {
+          "gameType": "CBT",
+          "sessionId": "16c1117f-1372-4cc2-99d4-4568c8fe2d91",
+          "gameResultId": "590edc79-9e22-4bc2-b604-289d4fa44de7_CBT_test_1792772397469_ff02ddd0-8656-4348-8baf-a1c172ded879",
+          "taskSessionId": "14e66028-8351-438b-ad89-1429c03312fb",
+          "raw": 8,
+          "currentDerivations": 8,
+          "uniqueSourceKeys": 8,
+          "protocolVersion": "2.1.0",
+          "formId": null,
+          "rawSchemaVersion": "1.0.0",
+          "processingVersion": "trial-normalizer-1.1.0",
+          "completionStatus": "completed",
+          "allRawAndDerivedFieldsCompared": true
+        }
+      },
+      {
+        "id": "DB-LB-retest",
+        "status": "PASS",
+        "actual": {
+          "gameType": "LB",
+          "sessionId": "b88a2678-6bca-4290-8750-075e39b6506a",
+          "gameResultId": "590edc79-9e22-4bc2-b604-289d4fa44de7_LB_test_1792772540103_fd7837aa-bd10-4a14-9402-36e1240a2949",
+          "taskSessionId": "d9cbab27-b7fc-4928-9853-e16a63b902d1",
+          "raw": 20,
+          "currentDerivations": 20,
+          "uniqueSourceKeys": 20,
+          "protocolVersion": null,
+          "formId": null,
+          "rawSchemaVersion": "1.0.0",
+          "processingVersion": "trial-normalizer-1.1.0",
+          "completionStatus": "completed",
+          "allRawAndDerivedFieldsCompared": true
+        }
+      }
+    ]
+  },
+  "gameSemantics": {
+    "at": "2026-10-23T23:47:13.546Z",
+    "results": [
+      {
+        "id": "E2E-ARI-semantic",
+        "status": "PASS",
+        "actual": {
+          "formal": 20,
+          "oppositeAudioResponses": 20,
+          "mediaErrors": 0
+        }
+      },
+      {
+        "id": "E2E-DCCS-semantic",
+        "status": "PASS",
+        "actual": {
+          "formal": 12,
+          "practice": 6,
+          "rules": [
+            "color",
+            "category",
+            "bag_color"
+          ],
+          "allImagesReady": true
+        }
+      },
+      {
+        "id": "E2E-PM-semantic",
+        "status": "PASS",
+        "actual": {
+          "formal": 12,
+          "loads": [
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "answerLimitSeconds": 15,
+          "legalDeselects": 2,
+          "cancelledTrialValid": true,
+          "timeouts": 1,
+          "timeoutRate": 0.08333333333333333
+        }
+      },
+      {
+        "id": "E2E-CBT-semantic",
+        "status": "PASS",
+        "actual": {
+          "administered": 8,
+          "correct": 6,
+          "failedAtLoad5": 2,
+          "unadministeredLoads": [
+            6,
+            7
+          ],
+          "stopReason": "two_failures_same_memory_length",
+          "summaryAccuracyPercent": 75,
+          "rawRatioRetained": 0.75
+        }
+      },
+      {
+        "id": "E2E-LB-semantic",
+        "status": "PASS",
+        "actual": {
+          "formal": 20,
+          "stages": 2,
+          "sourceKeys": [
+            "LB:forward:7",
+            "LB:forward:3",
+            "LB:forward:8",
+            "LB:forward:1",
+            "LB:red-blue:7",
+            "LB:forward:9",
+            "LB:red-blue:6",
+            "LB:forward:4",
+            "LB:red-blue:8",
+            "LB:red-blue:4",
+            "LB:red-blue:9",
+            "LB:red-blue:5",
+            "LB:forward:0",
+            "LB:forward:2",
+            "LB:red-blue:2",
+            "LB:red-blue:3",
+            "LB:forward:5",
+            "LB:red-blue:0",
+            "LB:red-blue:1",
+            "LB:forward:6"
+          ],
+          "officialFinalScore": 98,
+          "storedScore": 98
+        }
+      },
+      {
+        "id": "E2E-SRT-semantic",
+        "status": "PASS",
+        "actual": {
+          "formal": 242,
+          "realFormalElapsedMs": 480115,
+          "protocol": {
+            "version": "2.1.0",
+            "itemSizePx": 118,
+            "normalRate": 0.75,
+            "rottenRate": 0.25,
+            "goldenPurpose": "not_used_in_assessment",
+            "visibleTimeMs": 500,
+            "intervalDefinition": "stimulus_onset_to_onset",
+            "stimulusIntervalsMs": [
+              1000,
+              3000
+            ],
+            "targetToNonTargetRatio": [
+              3,
+              1
+            ]
+          },
+          "hits": 122,
+          "omissions": 60,
+          "commissions": 2,
+          "driverContinuationExplicit": true,
+          "assetFailureNegative": "NOT RUN"
+        }
+      }
+    ]
+  },
+  "negativeApi": {
+    "at": "2026-10-23T23:47:14.078Z",
+    "games": [
+      "ARI",
+      "CBT",
+      "DCCS",
+      "LB",
+      "PM",
+      "SRT"
+    ],
+    "actualUiResultsCovered": 8,
+    "ordinaryActorsOnly": true,
+    "denials": [
+      {
+        "persona": "guardian-b",
+        "table": "game_results",
+        "rows": 0,
+        "errorCode": null,
+        "status": "PASS"
+      },
+      {
+        "persona": "guardian-b",
+        "table": "behavioral_sessions",
+        "rows": 0,
+        "errorCode": null,
+        "status": "PASS"
+      },
+      {
+        "persona": "guardian-b",
+        "table": "behavioral_task_sessions",
+        "rows": 0,
+        "errorCode": null,
+        "status": "PASS"
+      },
+      {
+        "persona": "guardian-b",
+        "table": "behavioral_trials",
+        "rows": 0,
+        "errorCode": null,
+        "status": "PASS"
+      },
+      {
+        "persona": "guardian-b",
+        "table": "behavioral_trial_derivations",
+        "rows": 0,
+        "errorCode": null,
+        "status": "PASS"
+      },
+      {
+        "persona": "guardian-b",
+        "table": "research_participants",
+        "rows": 0,
+        "errorCode": null,
+        "status": "PASS"
+      },
+      {
+        "persona": "clinician-denied",
+        "table": "game_results",
+        "rows": 0,
+        "errorCode": null,
+        "status": "PASS"
+      },
+      {
+        "persona": "clinician-denied",
+        "table": "behavioral_sessions",
+        "rows": 0,
+        "errorCode": null,
+        "status": "PASS"
+      },
+      {
+        "persona": "clinician-denied",
+        "table": "behavioral_task_sessions",
+        "rows": 0,
+        "errorCode": null,
+        "status": "PASS"
+      },
+      {
+        "persona": "clinician-denied",
+        "table": "behavioral_trials",
+        "rows": 0,
+        "errorCode": null,
+        "status": "PASS"
+      },
+      {
+        "persona": "clinician-denied",
+        "table": "behavioral_trial_derivations",
+        "rows": 0,
+        "errorCode": null,
+        "status": "PASS"
+      },
+      {
+        "persona": "clinician-denied",
+        "table": "research_participants",
+        "rows": 0,
+        "errorCode": null,
+        "status": "PASS"
+      },
+      {
+        "persona": "research-persona",
+        "table": "game_results",
+        "rows": 0,
+        "errorCode": null,
+        "status": "PASS"
+      },
+      {
+        "persona": "research-persona",
+        "table": "behavioral_sessions",
+        "rows": 0,
+        "errorCode": null,
+        "status": "PASS"
+      },
+      {
+        "persona": "research-persona",
+        "table": "behavioral_task_sessions",
+        "rows": 0,
+        "errorCode": null,
+        "status": "PASS"
+      },
+      {
+        "persona": "research-persona",
+        "table": "behavioral_trials",
+        "rows": 0,
+        "errorCode": null,
+        "status": "PASS"
+      },
+      {
+        "persona": "research-persona",
+        "table": "behavioral_trial_derivations",
+        "rows": 0,
+        "errorCode": null,
+        "status": "PASS"
+      },
+      {
+        "persona": "research-persona",
+        "table": "research_participants",
+        "rows": 0,
+        "errorCode": null,
+        "status": "PASS"
+      },
+      {
+        "persona": "anonymous",
+        "table": "game_results",
+        "rows": 0,
+        "errorCode": "42501",
+        "status": "PASS"
+      },
+      {
+        "persona": "anonymous",
+        "table": "behavioral_sessions",
+        "rows": 0,
+        "errorCode": "42501",
+        "status": "PASS"
+      },
+      {
+        "persona": "anonymous",
+        "table": "behavioral_task_sessions",
+        "rows": 0,
+        "errorCode": "42501",
+        "status": "PASS"
+      },
+      {
+        "persona": "anonymous",
+        "table": "behavioral_trials",
+        "rows": 0,
+        "errorCode": "42501",
+        "status": "PASS"
+      },
+      {
+        "persona": "anonymous",
+        "table": "behavioral_trial_derivations",
+        "rows": 0,
+        "errorCode": "42501",
+        "status": "PASS"
+      },
+      {
+        "persona": "anonymous",
+        "table": "research_participants",
+        "rows": 0,
+        "errorCode": "42501",
+        "status": "PASS"
+      }
+    ]
+  },
+  "actualUi": {
+    "initialFullGames": 6,
+    "retests": 2,
+    "sourceTrials": 342,
+    "initialSourceTrials": 314,
+    "srtRealDurationMs": 480115,
+    "source": "Actual src/index.js + App; normal map and practice; no direct result-save calls"
+  },
+  "account": {
+    "cases": 8,
+    "status": "PASS in isolated native browser/API scope",
+    "sameJwtRevocation": true,
+    "unauthorizedResultRoutes": 8
+  },
+  "network": {
+    "cases": 7,
+    "status": "PASS in browser emulation/injection scope",
+    "realBrowserRestart": true,
+    "longOfflineMs": 120073,
+    "physicalWifi": false
+  },
+  "storage": {
+    "STORE01": "NOT RUN: IndexedDB is not the result store; injected open was never called",
+    "STORE02": "PASS: real per-origin quota reached; warning, raw outbox retention and recovery",
+    "STORE03": "PASS: injected SecurityError, specific warning and denied render, restored",
+    "STORE04": "PASS: disposable copied pending fixture cleared by real Chrome origin-storage API; prior warning shown",
+    "STORE05": "PASS: actual pending source stayed with A across account changes"
+  },
+  "notRun": [
+    "Standard Supabase stack parity",
+    "Current production schema and history inventory",
+    "Physical Android/iPadOS and Wi-Fi/background behavior",
+    "ARI formal audio failure negative UI case",
+    "SRT broken-image negative UI case"
+  ],
+  "regression": {
+    "suites": 86,
+    "tests": 674,
+    "failed": 0,
+    "snapshots": 4,
+    "success": true,
+    "wallClockSeconds": 23942.285,
+    "performanceClaim": false,
+    "tools": 44,
+    "newMeaningfulTests": 14
+  },
+  "staticChecks": {
+    "at": "2026-10-23T23:50:01.663Z",
+    "eslintErrors": 0,
+    "eslintWarnings": 0,
+    "gitDiffCheckExit": 0
+  },
+  "sourceReview": {
+    "oldGuardExpectedExceptions": [
+      "src/App.js",
+      "src/components/ResultSyncStatus.jsx",
+      "src/utils/resultManager.js",
+      "src/components/ResultAccessRoute.jsx"
+    ],
+    "nonSourcePriorEvidence": 43,
+    "nonSourcePriorEvidenceUnchanged": true,
+    "changedManifestSources": [
+      {
+        "file": "src/utils/resultSync.js",
+        "unchanged": false
+      },
+      {
+        "file": "src/utils/resultSync.test.js",
+        "unchanged": false
+      }
+    ],
+    "unexplainedPriorChanges": []
+  },
+  "sourceHashes": [
+    {
+      "file": "src/App.js",
+      "sha256": "a438f6bd3a48ab07a347b31f2485a3be0aaa630b23902655ed0471bd5b825448"
+    },
+    {
+      "file": "src/utils/resultManager.js",
+      "sha256": "b41af03d670d6ff670066d89bc64b15f69b45350703166eb3dc11ef7e6d87df9"
+    },
+    {
+      "file": "src/utils/resultSync.js",
+      "sha256": "f0c53180894c330112adc98ee87d8055aa2b14ff0aa6ca6405f766bcaeae3924"
+    },
+    {
+      "file": "src/components/ResultAccessRoute.jsx",
+      "sha256": "1be23f4a473275c4e8ba647f87419258b84b268aeb0e71ce6b29aa35161d2e2f"
+    },
+    {
+      "file": "src/components/ResultSyncStatus.jsx",
+      "sha256": "48f84ff4e1b486e11b5b672373d74940aeedddcee2342b6c7dd83814b513b2bd"
+    },
+    {
+      "file": "src/utils/resultManager.test.js",
+      "sha256": "e692f45af1b07b409b5d73fcf82426dd8a1c4bedcf4d986a7ce2d4d31b31df5d"
+    },
+    {
+      "file": "src/utils/resultSync.test.js",
+      "sha256": "a189365a2e2def026131c902e59680f0a3dc696fcb829b01b3732cbc7febb0f7"
+    },
+    {
+      "file": "src/components/ResultAccessRoute.test.jsx",
+      "sha256": "620dd7e90af1255ced7b5d88577122578c255c7a26b2f5c336bd73ffd0608073"
+    }
+  ],
+  "cleanup": {
+    "status": "PASS",
+    "completedAt": "2026-10-24T05:27:40.606Z",
+    "servicesStopped": true,
+    "syntheticClusterRemoved": true,
+    "privateJunctionRemoved": true,
+    "counts": {
+      "main": 177,
+      "raw": 2665,
+      "currentDerivations": 2638,
+      "allDerivations": 2664,
+      "authUsers": 5,
+      "foreignMain": 0,
+      "foreignAuth": 0,
+      "foreignPatients": 0,
+      "rawSha256": "0b9a53643ab2b68a03adb5863b34e3ebea258ab8c67df0b74bc485cbcb60ab1b",
+      "constraints": 117
+    }
+  },
+  "artifacts": [
+    {
+      "file": ".tmp/p0c4/final-regression.json",
+      "sha256": "e0711e88f595010955663f9c2956d9379f3d274d0dbad430ba2257f115ca836c"
+    },
+    {
+      "file": ".tmp/p0c4/final-regression.private.log",
+      "sha256": "1fe26732e0cf001f7d16d7420f6f62026ed88c37af7f3ff51a9b567591bf8c5b"
+    },
+    {
+      "file": ".tmp/p0c4/final-scoped-regression.json",
+      "sha256": "ce2c85bd3cfe0b11d3c8d4f8382d6c7bc598169a6337046626e9821fc77b467f"
+    },
+    {
+      "file": ".tmp/p0c4/tools-regression.private.log",
+      "sha256": "402798c8d23bbc83d09e7a655097ddcae5a32f7b389b4e7e81692fb1c4531e87"
+    },
+    {
+      "file": ".tmp/p0c4/actual-ui-db-snapshot-private.json",
+      "sha256": "21bb3515f8977d08c3ad1cb4036cfc8d44f0dbf1f7025ecea2b22e10721c9ff2"
+    },
+    {
+      "file": ".tmp/p0c4/original-28-attempt7.junit.xml",
+      "sha256": "b16a49ff3b54587803f3418471646befcccbc30dfe0a59531bc9a78218220561"
+    },
+    {
+      "file": ".tmp/p0c4/build-accepted-exit.json",
+      "sha256": "7f295afe5f10da830a2f5f355fc5c368af3027e4304f0340e13c956ecccb9496"
+    },
+    {
+      "file": ".tmp/p0c4/build-renewed-exit.json",
+      "sha256": "16f74b7ec73b738c51d981b5b2c5b00d893e2f292b5edb7996dd8818e3ed0db9"
+    },
+    {
+      "file": ".tmp/p0c4/initial-state.json",
+      "sha256": "367bcd165a85f2c48e68bf1a806c9073b27ef7040b707f9501a8ec3cb1ed4d94"
+    },
+    {
+      "file": ".tmp/p0c4/migration-evidence.json",
+      "sha256": "fc3cf05c6a60ab711c06c5ad7e4385090d709b0fa94aba748f5d3646ca2853fb"
+    },
+    {
+      "file": ".tmp/p0c4/participant-10-attempt1.json",
+      "sha256": "64c6a988ccb1c23c99f0443d6b01e24baa3d33322f2f1249524dc40160e364e7"
+    },
+    {
+      "file": ".tmp/p0c4/original-28-attempt1.json",
+      "sha256": "08039890948636219c8948ca73205b1ce5ae168b2f62d0890c0e4f06ad2ccec1"
+    },
+    {
+      "file": ".tmp/p0c4/original-28-attempt2.json",
+      "sha256": "7bbc6ea5c0009ab2f5678555ece0c9cf2fb554e9e4cec6f4987733bb695ee3c9"
+    },
+    {
+      "file": ".tmp/p0c4/original-28-attempt3.json",
+      "sha256": "3d7c58239f08cf96bcd339c0bbd847569ef9bbc3f24d12fc03385372093500b6"
+    },
+    {
+      "file": ".tmp/p0c4/original-28-attempt4.json",
+      "sha256": "0171c30d75992ebf934adcf0bf43acae7f48dfbab02d7e1bcfeb50c7c141bbab"
+    },
+    {
+      "file": ".tmp/p0c4/original-28-attempt5.json",
+      "sha256": "d2f83db00e8c8779b06a0e0114aedd10aac493788677f8195ec9c0c771a61f5b"
+    },
+    {
+      "file": ".tmp/p0c4/original-28-attempt6.json",
+      "sha256": "3099896c93b1b9fa13d1ae33848f3ffcc1e72c8e442d36fe79c84c6d3a497295"
+    },
+    {
+      "file": ".tmp/p0c4/original-28-attempt7.json",
+      "sha256": "0fd7766ef690673f4b170d3f8c6a804a6cca6d5f4eda8c99bfa90b4bb23d7842"
+    },
+    {
+      "file": ".tmp/p0c4/history-real-attempt1.json",
+      "sha256": "a3cfe1177ef779607ecabe88e335f4724e0936d9adda71613ed0a93e02d5de19"
+    },
+    {
+      "file": ".tmp/p0c4/extra-real-evidence.json",
+      "sha256": "28ab656bc94ed9e549f0050af311a2c21f6c08791a08b1cc28e458f3f80c987b"
+    },
+    {
+      "file": ".tmp/p0c4/process-recovery-evidence.json",
+      "sha256": "aacea46bfee1f1bf071c7bedcdffb36b088c9cb8ade385e66942510edbb7696e"
+    },
+    {
+      "file": ".tmp/p0c4/participant-policy-real-evidence.json",
+      "sha256": "23edbf1e2db3df0a94b1a2b153781bc7592bd5baa8c7eaf101cc017076df058a"
+    },
+    {
+      "file": ".tmp/p0c4/jwt-signature-evidence.json",
+      "sha256": "fdb9b202606ceedc6c5086cf1dcc2aef1910922deb812a484a042b6ccacf6e80"
+    },
+    {
+      "file": ".tmp/p0c4/full-game-readback-final.json",
+      "sha256": "8ebef66501e8f0c961342d8b7df967e2f09f0145acfc76b430dc4a83634fc548"
+    },
+    {
+      "file": ".tmp/p0c4/game-semantic-final.json",
+      "sha256": "12aa56206cd79e26d3aca65f322aa9f87c06d4876912fb8e1c9de34f1a740bef"
+    },
+    {
+      "file": ".tmp/p0c4/all-games-negative-api.json",
+      "sha256": "4e43e6807dacae80c303472935f2eefb996ae5d529314c8439eb87a6a4fc1ac6"
+    },
+    {
+      "file": ".tmp/p0c4/recovery-db-raw-committed-ack-lost.json",
+      "sha256": "636e6f0099e826377dafa59493d9cecb7dd43f3aa401d7f21a07d5142084f959"
+    },
+    {
+      "file": ".tmp/p0c4/recovery-db-final-recovered.json",
+      "sha256": "f3299054539bc7be17015a939de0a13d35a3ddcc9bccce5099ace66c7df78e50"
+    },
+    {
+      "file": ".tmp/p0c4/account-01-before-fix.json",
+      "sha256": "a733d6525dace87eabddd4e50698a0a60a0b2f7d80f15754ed43b78e16de55c6"
+    },
+    {
+      "file": ".tmp/p0c4/account-01-after-fix-existing-profile.json",
+      "sha256": "6846fa670b02ceb17de104140175afbf3a6e4e9ec4fbf936c144b6035e4452d2"
+    },
+    {
+      "file": ".tmp/p0c4/account-pending-B-browser.json",
+      "sha256": "f8d9159755f526db84895d65b66a778b0041eee8cc8d87ca1814625853665bee"
+    },
+    {
+      "file": ".tmp/p0c4/account-03-return-A.json",
+      "sha256": "c41b21ae1d29ac13734acdbedd5df844c14a2a54092a578e17a8233054ffdac6"
+    },
+    {
+      "file": ".tmp/p0c4/account-06-browser.json",
+      "sha256": "70fc861c58ecff3b944130693497ec04d56634e8d5bcd0d8d313c6a05dae99bf"
+    },
+    {
+      "file": ".tmp/p0c4/account-07-browser.json",
+      "sha256": "21f0d2cf4689dde6e60ef1a2b55eb2e4d84489956df5af10894ada33864326b7"
+    },
+    {
+      "file": ".tmp/p0c4/account-08-before-browser.json",
+      "sha256": "f963c0d4f20a0262c7ac9dbd25e1022cf7da770a3656cefb90bc8beb2df0a5d0"
+    },
+    {
+      "file": ".tmp/p0c4/account-08-after-browser.json",
+      "sha256": "4e83f159090c324d1bcffc3f14c88fbffeb2fda11cc10886b4b1e8575f03a2e6"
+    },
+    {
+      "file": ".tmp/p0c4/all-six-unauthorized-result-routes.json",
+      "sha256": "805bdcad6f00a82bbde65c13f65c041c06d15e8804be9a5f41ebc0d866f8be92"
+    },
+    {
+      "file": ".tmp/p0c4/net-01-and-store-02-browser.json",
+      "sha256": "7ac068fa73eaf440d13f33a57fae6b93c6cc5d065c3f8a6399370f8606a6ef5f"
+    },
+    {
+      "file": ".tmp/p0c4/net-02-03-browser.json",
+      "sha256": "e1ebd605d1d0136faf506829bed3617cf6aec11c9573c381c97a7e44179bb4df"
+    },
+    {
+      "file": ".tmp/p0c4/net-04-real-browser-restart.json",
+      "sha256": "de8bdf30ca51df3405df79eea50c2b715800cb90d7bb28442cae51c4ee00153e"
+    },
+    {
+      "file": ".tmp/p0c4/net-05-browser.json",
+      "sha256": "e4d1ac7ae3c778ed7a3b6d1894447fc072712996865a3f30f5a4626304a98154"
+    },
+    {
+      "file": ".tmp/p0c4/net-06-browser.json",
+      "sha256": "5d90e79ca00a2cb0d5218d51f4c46462e66926a0e6f1a2f749e0b019a8f96d50"
+    },
+    {
+      "file": ".tmp/p0c4/net-07-two-minute-offline.json",
+      "sha256": "8c729b1407aaef9f161e417d8ab881a14880fa88c315294998937a0596d9d9fe"
+    },
+    {
+      "file": ".tmp/p0c4/store-01-04-browser.json",
+      "sha256": "3cc036ff46de620889d285dd3d6608a4460e35c81bbf184b020ba7e295a86289"
+    },
+    {
+      "file": ".tmp/p0c4/store-03-before-fix.json",
+      "sha256": "90401a588761807f6871f1caf4bc11bfd80d31f8e7220681bb6589575e655a87"
+    },
+    {
+      "file": ".tmp/p0c4/store-03-browser.json",
+      "sha256": "924bc0789084c628c6d047231b129e868b86188c3909c7b427ced13ed26d9331"
+    },
+    {
+      "file": ".tmp/p0c4/archive-conflict-before-fix.json",
+      "sha256": "0d9d5dd6763d01bd95a68e93e7271af298d57556589d7fc944a7765b8de9aabd"
+    },
+    {
+      "file": ".tmp/p0c4/archive-conflict-after-fix.json",
+      "sha256": "6d205bcd45bf8cafb96f68f1d96fffd1ece72014d88e05f0830c16e1e3e09b30"
+    },
+    {
+      "file": ".tmp/p0c4/parent-six-final-browser.json",
+      "sha256": "d294cbce98a8cac3de7d6881ab716b2a242cc667d44b03552e07de9c9209647b"
+    },
+    {
+      "file": ".tmp/p0c4/source-equivalence-review.json",
+      "sha256": "be6147741c6e32d2ceb1264fb5910a7b127b6dcad880c021db6543f33d11c401"
+    },
+    {
+      "file": ".tmp/p0c4/static-checks-final.json",
+      "sha256": "71661cddb9c152122545aabd65aaf52dfd870e9fbda6f2814f1aa08e3491f5f8"
+    },
+    {
+      "file": ".tmp/p0c4/build-renewed-exit.json",
+      "sha256": "16f74b7ec73b738c51d981b5b2c5b00d893e2f292b5edb7996dd8818e3ed0db9"
+    },
+    {
+      "file": ".tmp/p0c4/catalog-readonly-local-final.json",
+      "sha256": "71346deae56e9d22798de0b9c6e7e6744b60d540e1a7bf9e858b429ae3afdc57"
+    },
+    {
+      "file": ".tmp/p0c4/cleanup-preflight.json",
+      "sha256": "e4c8080a13f3fefaba33da76b92e64899590a481d40d6202b9818814449ff169"
+    },
+    {
+      "file": ".tmp/p0c4/cleanup-evidence.json",
+      "sha256": "b6e813bb0508c68dab1c86382ee461c8a9984409dff4276337e4d9bcde5cc0c0"
+    },
+    {
+      "file": ".tmp/p0c4/ui-control.cjs",
+      "sha256": "b3de02b5387ab687dfad885890d51008b7e3f2c1ae7bed3cfecfbf92218c91f1"
+    },
+    {
+      "file": ".tmp/p0c4/network-faults.cjs",
+      "sha256": "a16de376ae474e4baab40c3a7c9da3d61e5020cb749e3f4de8b573af7a028d87"
+    },
+    {
+      "file": ".tmp/p0c4/readback-final.cjs",
+      "sha256": "a3bcdfcc687f2dda9f196491b446845787850e5d4ee9b52387f303539629d4ba"
+    },
+    {
+      "file": ".tmp/p0c4/semantic-and-access.cjs",
+      "sha256": "ab6a343fd24559ec1421b23caf38a9682a54c908438dc56488f9ab615448d0ef"
+    },
+    {
+      "file": ".tmp/p0c4/recovery-db.cjs",
+      "sha256": "41940b22729a05d14f9c852c6051f89d172d4593f4c39717f3e7a78c52bb4f39"
+    },
+    {
+      "file": ".tmp/p0c4/cleanup-native.cjs",
+      "sha256": "63754c403a43cf9b2c117d1c4dae368a713e6b4d312cfb1ce49fbe91c97225cf"
+    }
+  ]
+}

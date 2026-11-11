@@ -76,8 +76,7 @@ export default function AIBehavioralAnalysis() {
         <p className="xai-narrative">{selected.narrative}</p><div className="xai-grid"><Contributor title="主要正向貢獻特徵" rows={selected.top_positive_contributors} />
           <Contributor title="主要負向貢獻特徵" rows={selected.top_negative_contributors} /></div></>}
     </section>
-    <section className="xai-limit"><h2>模型限制</h2><strong>{result.limitation_notice}</strong><p>{result.interpretation_guardrail}</p>
-      <p>預測僅描述行為表現的模式與關聯，不能用來建立診斷、因果關係或訓練成效。</p></section></>}
+    <details className="studio-advanced"><summary>模型方法與限制</summary><section className="xai-limit"><strong>{result.limitation_notice}</strong><p>{result.interpretation_guardrail}</p></section></details></>}
   </ResearchPage>;
 }
 

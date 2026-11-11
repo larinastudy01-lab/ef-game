@@ -29,8 +29,8 @@ export function ResearchAlerts({ alerts = [] }) {
   const sorted = [...alerts].map((alert) => ({ ...alert, severity: alert.severity === "critical" && !(alert.validatedClinicalRule && alert.ruleId && alert.ruleVersion && alert.thresholdLabel && alert.observationVersion) ? "warning" : alert.severity }))
     .sort((a, b) => ({ critical: 0, warning: 1, info: 2 }[a.severity] ?? 2) - ({ critical: 0, warning: 1, info: 2 }[b.severity] ?? 2));
   return <section className="research-review" aria-label="警示與資料品質">
-    <div className="research-review-heading"><h2>警示與資料品質</h2><span>{sorted.some((alert) => alert.severity === "critical") ? "危急警示依已驗證規則呈現" : "臨床危急值監測：尚未啟用"}</span></div>
-    {!sorted.length && <p>目前沒有資料品質提示。行為表現不作為臨床危急值判定。</p>}
+    <div className="research-review-heading"><h2>警示與資料品質</h2>{sorted.some((alert) => alert.severity === "critical") && <span>危急警示依已驗證規則呈現</span>}</div>
+    {!sorted.length && <p>目前沒有資料品質提示。</p>}
     {sorted.map((alert) => { const key = JSON.stringify([alert.id, alert.ruleId, alert.ruleVersion, alert.observationVersion, alert.message]); const critical = alert.severity === "critical"; return <article key={key} className={`research-alert research-alert-${alert.severity}`} role={critical && !acknowledged[key] ? "alert" : "status"}>
       <strong><span aria-hidden="true">{critical ? "!" : alert.severity === "warning" ? "△" : "i"}</span> {critical ? "危急警示" : alert.severity === "warning" ? "待核對" : "資訊"} · {alert.title}</strong><p>{alert.message}</p>
       {critical && <><p>判定規則：{alert.thresholdLabel} · {alert.ruleId} / {alert.ruleVersion}</p><button type="button" disabled={Boolean(acknowledged[key])} onClick={() => setAcknowledged((current) => ({ ...current, [key]: true }))}>{acknowledged[key] ? "本頁已確認" : "確認危急警示"}</button><small>確認僅記錄於本頁，不代表處置完成或已寫入醫療紀錄。</small></>}

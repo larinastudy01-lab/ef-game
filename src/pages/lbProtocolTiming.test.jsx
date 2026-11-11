@@ -34,16 +34,23 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-function start(difficulty) {
+function start(difficulty, finishStepVideo = false) {
   render(<MemoryRouter initialEntries={[`/training-linking-balloons?difficulty=${difficulty}`]}
     future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><TrainingPageLB /></MemoryRouter>);
   fireEvent.click(screen.getByRole("button", { name: "開始訓練" }));
   fireEvent.click(screen.getByRole("button", { name: "跳過動畫" }));
-  fireEvent.click(screen.getByRole("button", { name: "跳過步驟說明" }));
-  // No answer countdown or reminder can run during the guide.
+  // Watching the step video must not consume answer time or trigger reminders.
   advance(25000);
   expect(saveUnifiedResult).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: /看完說明，開始第/ }));
+  expect(mouse()).toBeNull();
+  expect(screen.queryByTestId("lb-training-stage")).not.toBeInTheDocument();
+  if (finishStepVideo) {
+    fireEvent.ended(screen.getByLabelText("步驟說明動畫").querySelector("video"));
+  } else {
+    fireEvent.click(screen.getByRole("button", { name: "跳過步驟說明" }));
+  }
+  expect(screen.getByTestId("lb-training-stage")).toHaveAttribute("data-phase", "playing");
+  expect(screen.queryByRole("timer")).not.toBeInTheDocument();
   nextTimer(); // first enabled frame
 }
 
@@ -54,8 +61,7 @@ test.each([
   ["hard", true, false, 15],
   ["expert", true, true, 15],
 ])("%s completes only its specified ten-target route and records the selected difficulty", (difficulty, backward, colored, seconds) => {
-  start(difficulty);
-  expect(screen.getByRole("timer")).toHaveTextContent(`剩餘 ${seconds} 秒`);
+  start(difficulty, true);
   expect(screen.getByTestId("lb-training-stage")).toHaveAttribute("data-difficulty", difficulty);
   const numbers = Array.from({ length: 10 }, (_, index) => backward ? 10 - index : index + 1);
   numbers.forEach((number, index) => {
@@ -66,6 +72,8 @@ test.each([
     if (index < 9) nextTimer();
   });
   expect(screen.getByTestId("lb-training-stage")).toHaveAttribute("data-phase", "reviewing");
+  expect(screen.queryByRole("timer")).not.toBeInTheDocument();
+  expect(screen.queryByText(/路線完成/)).not.toBeInTheDocument();
   advance(5820);
   expect(saveUnifiedResult).toHaveBeenCalledTimes(1);
   expect(result()).toMatchObject({ difficulty, completed: true, completedSteps: 10, promptCount: 0, finishReason: "completed", trainingLevel: ["beginner", "easy", "medium", "hard", "expert"].indexOf(difficulty) + 1 });

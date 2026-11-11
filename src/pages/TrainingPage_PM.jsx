@@ -1,6 +1,6 @@
 import { useTrainingAchievementAssignment } from "../utils/useTrainingAchievementAssignment";
-import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
-import React, { useEffect, useRef, useState } from "react";
+import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage, getGameTestingVersion } from "../temporaryGameTesting/runtime";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { analyzePerformance } from "../ai/performanceAnalyzer";
@@ -9,7 +9,10 @@ import { analyzeFatigue } from "../ai/fatigueAnalyzer";
 import { analyzePMTraining, calculatePMAIScore } from "../ai/pmTrainingAnalyzer";
 import { calculatePMScore } from "../utils/pmScoring";
 import { saveUnifiedResult } from "../utils/resultManager";
-import { PM_ITEMS, PM_ITEM_BY_ID, buildPMQuestion, analyzePMConfusions } from "../utils/pmItems";
+import { PM_ITEM_BY_ID, getPMItemPool, buildPMQuestion, analyzePMConfusions } from "../utils/pmItems";
+import { PM_TRAINING_VERSIONS, getPMStimulusMetadata } from "../config/pmStimulusConfig";
+import { PM_ASSET_CATALOG_VERSION } from "../config/pmAssets";
+import { getNextPMStimulus, recordPMStimulusExposure } from "../utils/pmStimulusUsage";
 import { PM_PROTOCOL_VERSION, PM_DIFFICULTY_ORDER, PM_TRAINING_CONFIG,
   PM_ANSWER_TIME_SECONDS, normalizePMDifficulty, getPMShowTime } from "../utils/pmProtocol";
 
@@ -30,8 +33,7 @@ import homeNextBtn from "../asset/home/next.webp";
 import homeSendBtn from "../asset/home/send.webp";
 import "../styles/TestStepVideo.css";
 
-const ALL_ITEMS = PM_ITEMS;
-// Catalog contains all 29 categorized stimuli; the background is excluded.
+// Training pools contain only food or ball, plus shared objects.
 
 
 const COMPLETED_LEVELS_STORAGE_KEY = "ef_game_completed_training_levels";
@@ -283,6 +285,12 @@ export default function TrainingPage_PM() {
   const navigate = useNavigate();
   const location = useLocation();
   const trainingStage = getTrainingStageInfo(location);
+  const testingVersion = getGameTestingVersion(location.search, Object.keys(PM_TRAINING_VERSIONS));
+  const [stimulusChildId, setStimulusChildId] = useState(resolveCurrentChildId);
+  const [stimulus, setStimulus] = useState(() => PM_TRAINING_VERSIONS[testingVersion] || getNextPMStimulus(stimulusChildId, "training"));
+  const stimulusMetadata = getPMStimulusMetadata(stimulus, "training");
+  const stimulusPool = useMemo(() => getPMItemPool({ mode: "training", categoryKeys: stimulus.categoryKeys }), [stimulus]);
+  const exposureRef = useRef(new Set());
 
   const audioRef = useRef(null);
   const answerStartRef = useRef(null);
@@ -319,6 +327,15 @@ export default function TrainingPage_PM() {
   const [currentMemorizeItems, setCurrentMemorizeItems] = useState([]);
   const [currentOptions, setCurrentOptions] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
+
+  useEffect(() => {
+    if (!["memorize", "answer"].includes(phase)) return;
+    const key = `${round}-${phase}`;
+    const items = phase === "memorize" ? currentMemorizeItems : currentOptions;
+    if (!items.length || exposureRef.current.has(key)) return;
+    exposureRef.current.add(key);
+    recordPMStimulusExposure(stimulusChildId, "training", stimulus, items, { startSession: round === 1 && phase === "memorize" });
+  }, [phase, round, currentMemorizeItems, currentOptions, stimulus, stimulusChildId]);
 
   const [readyCountdown, setReadyCountdown] = useState(5);
 
@@ -364,7 +381,7 @@ export default function TrainingPage_PM() {
     const spanInfo = getSpanInfoForRound(round, baseDifficulty);
 
     // Only memory load changes within the selected level.
-    const memoryCount = Math.min(spanInfo.memorySpan, ALL_ITEMS.length);
+    const memoryCount = Math.min(spanInfo.memorySpan, stimulusPool.length);
 
     const showTime = getPMShowTime(memoryCount);
 
@@ -436,7 +453,7 @@ export default function TrainingPage_PM() {
   const setupRound = () => {
     const config = getDifficultyConfig();
 
-    const question = buildPMQuestion(config.memoryCount, { mode: "training" });
+    const question = buildPMQuestion(config.memoryCount, { mode: "training", categoryKeys: stimulus.categoryKeys });
     const memorizeItems = question.targets;
     const options = question.options;
     resetRuntimeRefs();
@@ -466,6 +483,10 @@ export default function TrainingPage_PM() {
   };
 
   const handleStart = () => {
+    const childId = resolveCurrentChildId();
+    setStimulusChildId(childId);
+    setStimulus(PM_TRAINING_VERSIONS[testingVersion] || getNextPMStimulus(childId, "training"));
+    exposureRef.current.clear();
     playClick();
     setPhase("introVideo");
   };
@@ -646,6 +667,7 @@ export default function TrainingPage_PM() {
 
     const confusionAnalysis = analyzePMConfusions({ targetIds: correctIds, selectedIds: finalSelectedIds, optionIds: questionRef.current?.optionIds });
     const record = {
+      ...stimulusMetadata,
       promptCount: promptEventsRef.current.length,
       idleHintCount: promptEventsRef.current.length,
       promptEvents: [...promptEventsRef.current],
@@ -868,7 +890,9 @@ export default function TrainingPage_PM() {
     const finalResult = {
       achievementAssignment, completed: totalTrials >= trainingTotalRounds,
       protocolVersion: PM_PROTOCOL_VERSION,
-      stimulusPolicy: { poolSize: PM_ITEMS.length, optionLimit: 12, sampling: "uniform_random_pool", visualInterference: "none", answerTimeLimit: PM_ANSWER_TIME_SECONDS },
+      ...stimulusMetadata,
+      protocol: { ...stimulusMetadata },
+      stimulusPolicy: { poolSize: stimulusPool.length, categoryKeys: [...stimulus.categoryKeys], sharedCategory: "unclassified", assetCatalogVersion: PM_ASSET_CATALOG_VERSION, optionLimit: 12, sampling: "categorized_and_shared_pool", visualInterference: "none", answerTimeLimit: PM_ANSWER_TIME_SECONDS },
       trials: records,
       summary: scoring.summary,
       metrics: scoring.summary,
@@ -995,7 +1019,8 @@ export default function TrainingPage_PM() {
   );
 
   return (
-    <div style={styles.page(bgImage)} data-testid="pm-stage" data-phase={phase} data-difficulty={currentConfig.broadDifficulty} data-memory-count={currentConfig.memoryCount} data-show-time={currentConfig.showTime} data-answer-limit={PM_ANSWER_TIME_SECONDS}>
+    <div style={styles.page(bgImage)} data-testid="pm-stage" data-phase={phase} data-difficulty={currentConfig.broadDifficulty} data-memory-count={currentConfig.memoryCount} data-show-time={currentConfig.showTime} data-answer-limit={PM_ANSWER_TIME_SECONDS}
+      data-stimulus-version={stimulus.version} data-stimulus-set={stimulus.stimulusSetId} data-stimulus-categories={stimulus.categoryKeys.join(",")}>
       <style>{`
         @keyframes pmMouseTap {
           0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.92; }
@@ -1011,7 +1036,7 @@ export default function TrainingPage_PM() {
         }
       `}</style>
       <div style={styles.overlay}>
-        <div className={["stepVideo", "endingVideo"].includes(phase) ? "test-video-layout" : undefined} style={styles.container}>
+        <div className={["introVideo", "stepVideo", "endingVideo"].includes(phase) ? "test-video-layout" : undefined} style={styles.container}>
           {phase === "rules" && (
             <div className="game-start-card-artwork pm-opening-card-artwork" style={styles.startPanel}>
               <div style={styles.gameTitle}>圖片記憶任務・{currentConfig.shortLabel}</div>
@@ -1030,9 +1055,9 @@ export default function TrainingPage_PM() {
           )}
 
           {phase === "introVideo" && (
-            <div className="game-start-card-artwork pm-video-card-artwork" style={styles.videoPanel}>
-              <div style={styles.videoFrame}>
-                <video
+            <div className="game-start-card-artwork pm-video-card-artwork test-video-card" style={styles.videoPanel}>
+              <div className="test-video-frame" style={styles.videoFrame}>
+                <video className="test-video"
                   src={introVideo}
                   style={styles.video}
                   autoPlay
@@ -1043,7 +1068,7 @@ export default function TrainingPage_PM() {
                 />
               </div>
 
-              <div style={styles.videoActions}>
+              <div className="test-video-actions" style={styles.videoActions}>
                 {renderImageButton({
                   src: homeSkipBtn,
                   alt: "跳過動畫",
@@ -1103,7 +1128,7 @@ export default function TrainingPage_PM() {
                   const imageStyle = { ...styles.memoryImage };
 
                   return (
-                    <div key={item.id} style={styles.memoryCard}>
+                    <div key={item.id} data-memory-id={item.id} style={styles.memoryCard}>
                       <img src={item.image} alt={item.alt} width="162" height="162" loading="lazy" style={imageStyle} />
                     </div>
                   );

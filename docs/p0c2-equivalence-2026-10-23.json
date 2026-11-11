@@ -1,0 +1,102 @@
+{
+  "generatedAt": "2026-10-23T09:12:46.637Z",
+  "baseline": "8ef96ff4100533907bd4c2549a0c018b0553f345",
+  "verification": "Git source equivalence, excluding only the declared P0 research/sync changes and tests",
+  "protectedFileCount": 871,
+  "unexpectedChangedFiles": [],
+  "assessmentSourceEvidence": [
+    {
+      "file": "src/pages/TestPage_ARI.jsx",
+      "blob": "382e79f43c82ecd32ed14524b66e18ca0233a842"
+    },
+    {
+      "file": "src/pages/TestPage_CBT.jsx",
+      "blob": "2a6481950cf0911dbdee85217ba0897b84fa6ca4"
+    },
+    {
+      "file": "src/pages/TestPage_DCCS.jsx",
+      "blob": "c3e7922464b42ae4768ba19d0d5d04def8ce47b3"
+    },
+    {
+      "file": "src/pages/TestPage_LB.jsx",
+      "blob": "59803b3aaa22e0cec0c4c995b627918075410029"
+    },
+    {
+      "file": "src/pages/TestPage_PM.jsx",
+      "blob": "7d7a9d3607ff8b39d543f0652037b6aa78463f95"
+    },
+    {
+      "file": "src/pages/TestPage_SRT.jsx",
+      "blob": "d7ac07279a5e447852bb635dc2b207bb4b85d833"
+    },
+    {
+      "file": "src/utils/achievementProtocol.js",
+      "blob": "ed9d92c5d3b041bfe080551ecaad9533d2aa973a"
+    },
+    {
+      "file": "src/utils/ariProtocol.js",
+      "blob": "d7f1dd484554b34d5a500b9abedbb14e45845350"
+    },
+    {
+      "file": "src/utils/ariScoring.js",
+      "blob": "92ab0ae4f2497bc7483b3afab910ecddfde9002d"
+    },
+    {
+      "file": "src/utils/cbtProtocol.js",
+      "blob": "6e5b2ba968b86062bf881f24549f281dc498f667"
+    },
+    {
+      "file": "src/utils/cbtScoring.js",
+      "blob": "92972449bd8c3cdb4d3c2e05ce4819d697584a51"
+    },
+    {
+      "file": "src/utils/dccsAssessmentProtocol.js",
+      "blob": "7bd624bc1d63d5ca0ba19d0c31665f16f8c3c8c9"
+    },
+    {
+      "file": "src/utils/dccsScoring.js",
+      "blob": "2db34146ddf6ca434e18d6196ed612f216f1feb4"
+    },
+    {
+      "file": "src/utils/dccsTrainingProtocol.js",
+      "blob": "146f21f16fac83cd7c1468c4691223a013326db1"
+    },
+    {
+      "file": "src/utils/lbPracticeProtocol.js",
+      "blob": "a692470a0ef70210d155aa17c64e55de97c0193e"
+    },
+    {
+      "file": "src/utils/lbProtocol.js",
+      "blob": "2003807e852f99c2018e51f39999ffbd4539ab4f"
+    },
+    {
+      "file": "src/utils/lbScoring.js",
+      "blob": "6539c29141285297ddf671059a2d9db0355180ed"
+    },
+    {
+      "file": "src/utils/pmProtocol.js",
+      "blob": "9daffe67d6eb6da31f1c005b831d30530fe8cb36"
+    },
+    {
+      "file": "src/utils/pmScoring.js",
+      "blob": "febfb3dca5f95c34530d901ce84bb5411acaa64e"
+    },
+    {
+      "file": "src/utils/resultManager.js",
+      "blob": "4270b1f8e70f858a9aeae5cecb8b39e171f9b9b8"
+    },
+    {
+      "file": "src/utils/srtPracticeProtocol.js",
+      "blob": "aaa83be053c65a6e3708001dbf168f6eb4549202"
+    },
+    {
+      "file": "src/utils/srtProtocol.js",
+      "blob": "654e6edcb447c95514c932436d40fa665a45e5ea"
+    },
+    {
+      "file": "src/utils/srtScoring.js",
+      "blob": "759e11ac046e24fbc9d1e5d2478ef778aa6dc167"
+    }
+  ],
+  "runtimeLimit": "Does not prove physical timing, browser/device behavior or formal environment acceptance."
+}

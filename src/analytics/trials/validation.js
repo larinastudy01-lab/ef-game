@@ -12,9 +12,36 @@ export const EXCLUSION_REASONS = Object.freeze({
   ACCIDENTAL_DOUBLE_CLICK: "accidental_double_click",
   TIMEOUT: "timeout",
   INVALID_RESPONSE: "invalid_response",
+  NOT_ADMINISTERED: "not_administered",
 });
 
 const hasValue = (value) => value !== null && value !== undefined && value !== "";
+
+/** Acquisition state is independent of RT/analysis validity. For legacy rows,
+ * use recorded responses/outcomes, never the planned question count or index.
+ * Unknown acquisition state is not included in the PM timeout denominator.
+ */
+export function getTrialResponseState(trial = {}) {
+  const metadata = trial.taskSpecificMetadata || trial.task_specific_metadata || {};
+  const sources = [trial, metadata, trial.rawData || trial.raw_data || {}];
+  const statuses = sources.flatMap((source) => [source.responseStatus, source.response_status, source.status]);
+  const notAdministered = sources.some((source) => source.administered === false || source.isAdministered === false)
+    || statuses.some((status) => ["not_administered", "not_presented", "not_started", "planned"].includes(status));
+  if (notAdministered) return { administered: false, responseStatus: "not_administered", timedOut: false };
+  const timedOut = sources.some((source) => source.timedOut === true || source.isTimeout === true || source.timeout === true
+    || source.errorType === "timeout" || source.error_type === "timeout"
+    || (source.exclusionReasons || source.exclusion_reasons || []).includes("timeout"))
+    || statuses.includes("timed_out") || statuses.includes("timeout");
+  if (timedOut) return { administered: true, responseStatus: "timed_out", timedOut: true };
+  const responded = sources.some((source) => typeof (source.isCorrect ?? source.is_correct ?? source.correct) === "boolean"
+    || [source.actualResponse, source.actual_response, source.selectedIds].some((response) =>
+      Array.isArray(response) ? response.length > 0 : hasValue(response)))
+    || statuses.includes("responded");
+  if (responded) return { administered: true, responseStatus: "responded", timedOut: false };
+  const presented = sources.some((source) => source.administered === true || source.isAdministered === true
+    || hasValue(source.presentedAt) || hasValue(source.presented_at)) || statuses.includes("unfinished");
+  return { administered: presented ? true : null, responseStatus: presented ? "unfinished" : "unknown", timedOut: false };
+}
 
 export function validateTrial(trial, context = {}) {
   const reasons = [];
@@ -41,6 +68,9 @@ export function validateTrial(trial, context = {}) {
   if (!completed) reasons.push(EXCLUSION_REASONS.UNFINISHED_TRIAL);
   if (timedOut) reasons.push(EXCLUSION_REASONS.TIMEOUT);
   if (trial?.invalidResponse) reasons.push(EXCLUSION_REASONS.INVALID_RESPONSE);
+  if (taskCode === "PM" && getTrialResponseState(trial).administered === false) {
+    reasons.push(EXCLUSION_REASONS.NOT_ADMINISTERED);
+  }
   if (Number(trial?.doubleClickCount || 0) > 0) {
     reasons.push(EXCLUSION_REASONS.ACCIDENTAL_DOUBLE_CLICK);
   }

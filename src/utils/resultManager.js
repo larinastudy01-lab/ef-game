@@ -1,5 +1,5 @@
 import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
-import { queueGameResult } from "./resultSync";
+import { queueGameResult, reportResultStorageFailure } from "./resultSync";
 import { isTemporaryGameTesting } from "../temporaryGameTesting/runtime";
 import { createBehavioralId } from "../analytics/trials/buildBehavioralHierarchy";
 import { awardTrainingCoins } from "./economyManager";
@@ -278,6 +278,7 @@ export const normalizeGameResult = ({
   );
 
   const accuracy =
+    raw?.accuracyPercent ??
     raw?.accuracy ??
     raw?.performance?.accuracy ??
     (totalTrials > 0 ? Math.round((correctCount / totalTrials) * 100) : 0);
@@ -285,6 +286,7 @@ export const normalizeGameResult = ({
   const avgReactionTime =
     raw?.avgReactionTime ??
     raw?.avgRt ??
+    raw?.averageReactionTime ??
     raw?.averageRt ??
     raw?.scoring?.avgReactionTime ??
     raw?.performance?.avgReactionTime ??
@@ -345,7 +347,7 @@ export const normalizeGameResult = ({
 
     summary: {
       score: safeNumber(
-        raw?.score ?? raw?.performance?.score ?? raw?.scoring?.score,
+        raw?.score ?? raw?.finalScore ?? raw?.performance?.score ?? raw?.scoring?.score,
         0
       ),
       stars: safeNumber(
@@ -584,6 +586,7 @@ export const saveUnifiedResult = ({
     }
   } catch (error) {
     console.warn("統一結果資料儲存失敗：", error);
+    reportResultStorageFailure();
     if (!queued) throw error;
   }
 

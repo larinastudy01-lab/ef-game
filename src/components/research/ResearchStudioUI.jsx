@@ -77,10 +77,12 @@ export function ResearchDrawer({ title, onClose, children }) {
 export function TrialDetails({ input }) {
   if (!input) return <EmptyState title="未提供題次資料"/>;
   const columns = [ { key: "trial_index", label: "題次", numeric: true }, { key: "is_correct", label: "作答", render: (row) => row.is_correct == null ? "—" : row.is_correct ? "正確" : "錯誤" },
+    ...[["stimulus", "刺激內容"], ["expected_response", "預期作答"], ["actual_response", "實際作答"]].map(([key, label]) => ({ key, label,
+      render: (row) => row[key] == null ? "—" : typeof row[key] === "object" ? JSON.stringify(row[key]) : String(row[key]) })),
     { key: "reaction_time_ms", label: "RT（ms）", numeric: true, render: (row) => researchNumber(row.reaction_time_ms, 1) }, { key: "valid_trial", label: "分析狀態", render: (row) => row.valid_trial === false ? "已排除" : row.valid_trial === true ? "可用" : "未標記" },
     { key: "exclusion_reasons", label: "排除原因", render: (row) => (row.exclusion_reasons || []).join("、") || "—" },
     { key: "details", label: "原始與衍生資料", render: (row) => { const raw = input.rawTrials?.find((item) => item.trial_index === row.trial_index); return <details><summary>檢視資料</summary><pre>{JSON.stringify({ acquisition: raw || null, derivation: row }, null, 2)}</pre></details>; } } ];
-  return <><ResearchNotice>以下僅檢視既有題次資料，不修改採集內容或排除規則。</ResearchNotice><ResearchDataTable title="題次紀錄" columns={columns} rows={input.trials || []}/></>;
+  return <ResearchDataTable title="題次紀錄" columns={columns} rows={input.trials || []}/>;
 }
 
 export function ResearchTimeline({ events = [], inputs = [], limit = 8 }) {

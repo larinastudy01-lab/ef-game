@@ -1,10 +1,11 @@
 import React from "react";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import SrtTestTutorial from "../components/SrtTestTutorial";
 import TestPageSRT from "./TestPage_SRT";
 import { useTestAttempt } from "../utils/useTestAttempt";
 import { saveUnifiedResult } from "../utils/resultManager";
+import { getSrtAssessmentVersion } from "../config/srtAssessmentConfig";
 
 jest.mock("../utils/resultManager", () => ({ saveUnifiedResult: jest.fn() }));
 jest.mock("../utils/useTestAttempt", () => ({ useTestAttempt: jest.fn() }));
@@ -336,14 +337,20 @@ test("the practice cap pauses for adult help and offers a fresh attempt without 
   expect(result().practice_attempt_count).toBe(1);
 });
 
-test("STEP, sequential SRT rules, practice feedback, pass and formal audio gate remain isolated end to end", async () => {
+test.each(["01", "02"])("copy %s uses matching rules, practice feedback and formal audio end to end", async (version) => {
+  const assessment = getSrtAssessmentVersion(version);
+  if (version === "02") localStorage.setItem("srtTestLastVersion_child-srt", "01");
+  const previousVersion = localStorage.getItem("srtTestLastVersion_child-srt");
   const { container } = render(<MemoryRouter><TestPageSRT /></MemoryRouter>);
   localStorage.setItem("srtTestResult_child-srt", JSON.stringify({ score: 42 }));
   fireEvent.click(screen.getByRole("button", { name: "進入遊戲" }));
-  await act(async () => { fireEvent.ended(container.querySelector("video")); });
-  expect(audios.at(-1).getAttribute("src")).toBe("小松鼠要收集橡實囉！一起來幫忙吧！.mp3");
+  expect(screen.getByRole("region", { name: "步驟教學影片" })).toBeInTheDocument();
+  expect(screen.getByLabelText("SRT 步驟教學影片")).toHaveAttribute("src", "SRT_step.mp4");
+  fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+  expect(audios.at(-1).getAttribute("src")).toBe(assessment.audio.events.enterPractice);
   await finishAudio();
-  expect(audios.at(-1).getAttribute("src")).toBe("看到好的橡實，就快快點！.mp3");
+  expect(audios.at(-1).getAttribute("src")).toBe(assessment.audio.events.ruleGo);
+  expect(within(screen.getByTestId("srt-practice-example")).getByAltText("")).toHaveAttribute("src", assessment.stimuli.normal.img);
   expect(screen.getByTestId("srt-hand-hint")).toBeInTheDocument();
   await advance(2000);
   // The teaching example ends before the separate, timed practice trials.
@@ -351,8 +358,8 @@ test("STEP, sequential SRT rules, practice feedback, pass and formal audio gate 
   expect(screen.queryByTestId("srt-practice-example")).not.toBeInTheDocument();
   expect(screen.queryByTestId("srt-practice-target")).not.toBeInTheDocument();
   await finishAudio();
-  expect(audios.at(-1).getAttribute("src")).toBe("看到壞掉的橡實，千萬不要點喔！.mp3");
-  expect(screen.getByRole("img", { name: "壞橡實上打叉，不要點擊" })).toBeInTheDocument();
+  expect(audios.at(-1).getAttribute("src")).toBe(assessment.audio.events.ruleNoGo);
+  expect(screen.getByRole("img", { name: `壞${assessment.stimulusName}上打叉，不要點擊` })).toBeInTheDocument();
   await finishAudio();
   expect(audios.at(-1).getAttribute("src")).toBe("準備好了嗎？看仔細，開始囉！.mp3");
   expect(screen.queryByTestId("srt-hand-hint")).not.toBeInTheDocument();
@@ -365,16 +372,16 @@ test("STEP, sequential SRT rules, practice feedback, pass and formal audio gate 
     expect(screen.queryByTestId("srt-narrator")).not.toBeInTheDocument();
     await answer(index < 3);
     if (index < 3) {
-      expect(audios.at(-1).getAttribute("src")).toBe("太棒了！你真厲害！.mp3");
+      expect(audios.at(-1).getAttribute("src")).toBe(assessment.audio.events.correct);
       await finishAudio();
       await reachStage("trial");
     }
   }
-  expect(audios.at(-1).getAttribute("src")).toBe("你學會了！準備開始挑戰吧！.mp3");
+  expect(audios.at(-1).getAttribute("src")).toBe(assessment.audio.events.practiceComplete);
   expect(screen.getByTestId("srt-narrator")).toHaveAttribute("data-narration-event", "practiceComplete");
   expect(practice()).not.toHaveTextContent("✓");
   expect(audios.filter((audio) => audio.getAttribute("src") === "準備好了嗎？看仔細，開始囉！.mp3")).toHaveLength(1);
-  expect(audios.filter((audio) => audio.getAttribute("src") === "你學會了！準備開始挑戰吧！.mp3")).toHaveLength(1);
+  expect(audios.filter((audio) => audio.getAttribute("src") === assessment.audio.events.practiceComplete)).toHaveLength(1);
   expect(useTestAttempt().begin).not.toHaveBeenCalled();
   expect(useTestAttempt().checkpoint).not.toHaveBeenCalled();
   expect(saveUnifiedResult).not.toHaveBeenCalled();
@@ -385,16 +392,19 @@ test("STEP, sequential SRT rules, practice feedback, pass and formal audio gate 
   expect(screen.getByTestId("srt-narrator")).toHaveAttribute("data-speaking", "false");
   expect(useTestAttempt().begin).not.toHaveBeenCalled();
   await advance(1000);
-  expect(result()).toMatchObject({ mode: "practice", practice_passed: true, practice_attempt_count: 4 });
+  expect(result()).toMatchObject({ mode: "practice", practice_passed: true, practice_attempt_count: 4,
+    testVersion: version, stimulusSetId: `test${version}`, stimulusName: assessment.stimulusName });
   expect(screen.queryByRole("main", { name: "SRT 試玩" })).not.toBeInTheDocument();
   expect(screen.getByRole("region", { name: "測驗準備" })).toBeInTheDocument();
-  expect(audios.at(-1).getAttribute("src")).toBe("看到好的橡實，就快快點！.mp3");
+  expect(audios.at(-1).getAttribute("src")).toBe(assessment.audio.events.ruleGo);
+  expect(localStorage.getItem("srtTestLastVersion_child-srt")).toBe(previousVersion);
   expect(useTestAttempt().begin).not.toHaveBeenCalled();
   expect(screen.queryByTestId("srt-game-area")).not.toBeInTheDocument();
   await finishAudio();
   await finishAudio();
   await finishAudio();
   expect(useTestAttempt().begin).toHaveBeenCalledTimes(1);
+  expect(localStorage.getItem("srtTestLastVersion_child-srt")).toBe(version);
   expect(container.querySelector('[data-mode="assessment"]')).toBeInTheDocument();
   expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   expect(screen.queryByTestId("srt-hand-hint")).not.toBeInTheDocument();

@@ -41,14 +41,14 @@ test("five tools share a single main, dataset, theme, and current task catalog",
   expect(screen.getAllByRole("tab")).toHaveLength(5);
   expect(screen.getAllByRole("button", { name: "暗色模式" })).toHaveLength(1);
   const options = within(screen.getByRole("region", { name: "共用分析範圍" })).getByRole("combobox", { name: "任務" }).textContent;
-  expect(options).toContain("ARI · 貓狗反向"); expect(options).not.toMatch(/DPT|SSG|SSS|點探測/);
+  expect(options).toContain("貓狗反向（ARI）"); expect(options).not.toMatch(/DPT|SSG|SSS|點探測/);
   expect(screen.getByText(/已排除 3 筆非現行任務紀錄/)).toBeInTheDocument();
   await act(async () => fireEvent.click(screen.getByRole("button", { name: "暗色模式" })));
   await choose("任務", "ARI");
   for (const name of ["研究統計", "AI 行為分析", "自適應建議", "縱向追蹤", "研究總覽"]) await tab(name);
   expect(screen.getByRole("main")).toHaveAttribute("data-research-theme", "dark");
   expect(screen.getByRole("combobox", { name: "任務" })).toHaveValue("ARI");
-  expect(screen.getByRole("region", { name: "資料摘要" })).toHaveTextContent("ARI · 貓狗反向");
+  expect(screen.getByRole("region", { name: "資料摘要" })).toHaveTextContent("貓狗反向（ARI）");
   expect(container.textContent).not.toMatch(/DPT|SSG|SSS|點探測|removed-policy/);
   expect(getMyProfile).toHaveBeenCalledTimes(1); expect(getResearchFeatureInputsFromCloud).toHaveBeenCalledTimes(1);
   expect(loadRecommendationHistory).toHaveBeenCalledTimes(1); expect(getResearchExperimentHistory).toHaveBeenCalledTimes(1);
@@ -78,8 +78,10 @@ test("sidebar uses the game logo and provides six game guides when expanded or c
   expect(screen.getByRole("img", { name: "蒐秘密遊戲 Logo" })).toHaveAttribute("src", "/logo192.webp");
   expect(screen.queryByRole("button", { name: "開啟既有設定" })).not.toBeInTheDocument();
   const guide = screen.getByRole("region", { name: "遊戲規則與收集資料" });
-  expect(guide.querySelectorAll("details")).toHaveLength(6);
-  expect(guide).toHaveTextContent("CBT石頭記憶");
+  expect(guide.querySelectorAll(":scope > details")).toHaveLength(6);
+  expect(guide).toHaveTextContent("石頭記憶CBT");
+  expect(guide).toHaveTextContent("Corsi Block Tapping");
+  expect(guide).toHaveTextContent("代碼來源");
   expect(guide).toHaveTextContent("主要測驗規則");
   expect(guide).toHaveTextContent("收集的資料");
   expect(guide).toHaveTextContent("reactionTime");
@@ -89,7 +91,7 @@ test("sidebar uses the game logo and provides six game guides when expanded or c
   screen.getByRole("button", { name: "遊戲規則與收集資料" }).focus();
   await act(async () => fireEvent.click(screen.getByRole("button", { name: "遊戲規則與收集資料" })));
   const dialog = screen.getByRole("dialog", { name: "遊戲規則與收集資料" });
-  expect(dialog.querySelectorAll("details")).toHaveLength(6);
+  expect(dialog.querySelectorAll(".studio-task-guide > details")).toHaveLength(6);
   await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));
   expect(screen.getByRole("button", { name: "遊戲規則與收集資料" })).toHaveFocus();
   await act(async () => fireEvent.click(screen.getByRole("button", { name: "展開側邊導覽" })));

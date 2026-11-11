@@ -4,13 +4,13 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import stoneImg from "../asset/CBT/training/stone.webp";
-import stoneShinyImg from "../asset/CBT/stone_shiny.webp";
-import personImg from "../asset/CBT/CBT_person.webp";
+import stepStoneImg from "../asset/CBT/training/step.webp";
+import stoneShinyImg from "../asset/CBT/training/stone_shiny.webp";
 import bgImg from "../asset/CBT/CBT_background.webp";
 import introVideo from "../asset/optimized/mp4/CBT_start.mp4";
 import stepVideo from "../asset/optimized/mp4/CBT_step.mp4";
 import clickSoundFile from "../asset/Click.mp3";
-import startAvatar from "../asset/avatar/deer.webp";
+import startAvatar from "../asset/CBT_icon.webp";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
 import homeNextBtn from "../asset/home/next.webp";
@@ -27,10 +27,10 @@ import { CBT_TRAINING_CONFIG, CBT_DIFFICULTY_ORDER, normalizeCBTDifficulty,
   CBT_PROTOCOL_VERSION, CBT_ANSWER_TIME_SECONDS, CBT_MAX_SEQUENCE_LENGTH,
   CBT_TRAINING_STONE_SIZE,
   createFixedCBTBlocks, createVariableCBTBlocks } from "../utils/cbtProtocol";
-import { CBTPhaseCue, CBTEnvironment, useCbtStartCue } from "../components/CBTPhaseCue";
+import { CBTEnvironment } from "../components/CBTPhaseCue";
+import CBTAssessmentStage from "../components/CBTAssessmentStage";
 import "../styles/TestStepVideo.css";
 
-const SHOW_SPEED = 1000;
 const GAP_SPEED = 260;
 const TOTAL_TRAINING_ROUNDS = 24;
 const TRIALS_PER_MEMORY_SPAN = 2;
@@ -43,9 +43,7 @@ const CBT_TRAINING_RESULT_KEY = "ef_game_cbt_training_result";
 const BOARD_WIDTH = 760;
 const BOARD_HEIGHT = 455;
 const STONE_SIZE = CBT_TRAINING_STONE_SIZE;
-const WARMUP_STONE_SIZE = 250;
-
-const WARMUP_SEQUENCE = [0, 1];
+const TRAINING_LAYOUT = { width: BOARD_WIDTH, height: BOARD_HEIGHT };
 const PERSON_WALK_MS = 260;
 
 const MICRO_DIFFICULTY_ORDER = CBT_DIFFICULTY_ORDER;
@@ -1485,8 +1483,8 @@ export default function TrainingPage_CBT() {
   const [wrongIndex, setWrongIndex] = useState(null);
 
 
-  const [personIndex, setPersonIndex] = useState(null);
-  const [isWalking, setIsWalking] = useState(false);
+  const [, setPersonIndex] = useState(null);
+  const [, setIsWalking] = useState(false);
 
   const [timeLeft, setTimeLeft] = useState(CBT_ANSWER_TIME_SECONDS);
   const [, setMessage] = useState("");
@@ -1538,11 +1536,6 @@ export default function TrainingPage_CBT() {
   const config = getConfigByMicroDifficulty(currentMicroDifficulty);
   const difficulty = getMacroDifficultyFromMicro(currentMicroDifficulty);
   const achievementAssignment = useTrainingAchievementAssignment({ gameId: "CBT", difficulty: currentMicroDifficulty, difficultyLabel: config.label, trainingLevel, location });
-  useCbtStartCue(phase);
-  const isWarmup =
-    phase === "warmupShow" ||
-    phase === "warmupAnswer" ||
-    phase === "warmupFeedback";
 
   useEffect(() => {
     clickAudioRef.current = new Audio(clickSoundFile);
@@ -1611,6 +1604,8 @@ export default function TrainingPage_CBT() {
     userSequenceRef.current = [];
     stepReactionTimesRef.current = [];
     lastClickTimeRef.current = null;
+    answerStartRef.current = null;
+    answerDeadlineRef.current = null;
 
     setUserInput([]);
     setShowStep(0);
@@ -1667,13 +1662,6 @@ export default function TrainingPage_CBT() {
     if (resetBlocks) {
       setBlocks(createFixedCBTBlocks(config.blockCount));
     }
-  }
-
-  function startWarmup() {
-    resetTrainingSession();
-    setBlocks(createFixedCBTBlocks(config.blockCount));
-    setSequence(WARMUP_SEQUENCE);
-    setPhase("warmupShow");
   }
 
   function startTraining() {
@@ -1734,14 +1722,6 @@ export default function TrainingPage_CBT() {
     resetBoardState();
     setTimeLeft(roundConfig.answerTime);
     setPhase("show");
-  }
-
-  function replayWarmup() {
-    clearSequenceTimers();
-    setSequence(WARMUP_SEQUENCE);
-    setBlocks(createFixedCBTBlocks(config.blockCount));
-    resetBoardState();
-    setPhase("warmupShow");
   }
 
   function getReactionTimeMs() {
@@ -2184,44 +2164,13 @@ export default function TrainingPage_CBT() {
     }, PERSON_WALK_MS);
   }
 
-  function handleWarmupClick(index) {
-    if (phase !== "warmupAnswer") return;
-    if (walkingLockRef.current) return;
-
-    playClickSound();
-
-    const currentUserSeq = userSequenceRef.current;
-    const nextUserSeq = [...currentUserSeq, index];
-    const correctIndex = sequence[nextUserSeq.length - 1];
-
-    setSelectedIndex(index);
-    setPersonIndex(index);
-    setIsWalking(true);
-    walkingLockRef.current = true;
-
-    if (index !== correctIndex) {
-      setWrongIndex(index);
-      finishPersonWalk({
-        onComplete: () => {
-          setSequenceTimer(() => {
-            replayWarmup();
-          }, 590);
-        },
-      });
-
-      return;
-    }
-
-    finishPersonWalk({
-      onComplete: () => {
-        userSequenceRef.current = nextUserSeq;
-        setUserInput(nextUserSeq);
-
-        if (nextUserSeq.length === sequence.length) {
-          setPhase("warmupFeedback");
-        }
-      },
-    });
+  function openTrainingResponse() {
+    if (phase !== "answerCue") return;
+    setTimeLeft(config.answerTime);
+    answerStartRef.current = Date.now();
+    answerDeadlineRef.current = answerStartRef.current + CBT_ANSWER_TIME_SECONDS * 1000;
+    lastClickTimeRef.current = answerStartRef.current;
+    setPhase("answer");
   }
 
   function handleBlockClick(index) {
@@ -2316,7 +2265,7 @@ export default function TrainingPage_CBT() {
   }
 
   useEffect(() => {
-    if (phase !== "show" && phase !== "warmupShow") return;
+    if (phase !== "show") return;
     if (sequence.length === 0) return;
 
     if (showStep >= sequence.length) {
@@ -2327,17 +2276,10 @@ export default function TrainingPage_CBT() {
       userSequenceRef.current = [];
       setUserInput([]);
 
-      if (phase === "warmupShow") {
-        setPhase("warmupAnswer");
-      } else {
-        setTimeLeft(config.answerTime);
-        userSequenceRef.current = [];
-        stepReactionTimesRef.current = [];
-        answerStartRef.current = Date.now();
-        answerDeadlineRef.current = answerStartRef.current + CBT_ANSWER_TIME_SECONDS * 1000;
-        lastClickTimeRef.current = Date.now();
-        setPhase("answer");
-      }
+      stepReactionTimesRef.current = [];
+      answerStartRef.current = null;
+      answerDeadlineRef.current = null;
+      setPhase("answerCue");
 
       return;
     }
@@ -2353,13 +2295,13 @@ export default function TrainingPage_CBT() {
       gapTimer = setSequenceTimer(() => {
         setShowStep((prev) => prev + 1);
       }, GAP_SPEED);
-    }, isWarmup ? SHOW_SPEED : config.showSpeed);
+    }, config.showSpeed);
 
     return () => {
       clearSequenceTimer(showTimer);
       clearSequenceTimer(gapTimer);
     };
-  }, [phase, showStep, sequence, config.answerTime, config.showSpeed, isWarmup]);
+  }, [phase, showStep, sequence, config.showSpeed]);
 
   useEffect(() => {
     if (phase !== "answer") return;
@@ -2419,7 +2361,6 @@ export default function TrainingPage_CBT() {
       {phase === "ready" && (
         <main className="cbt-start-shell game-start-card-artwork cbt-opening-card-artwork" aria-label="記住跳石橋的密碼幫助鹿先生開始畫面">
           <h1 className="cbt-start-title">記住跳石橋的密碼幫助鹿先生</h1>
-          <p className="cbt-text">{config.label}</p>
 
           <div className="cbt-start-content">
             <div className="cbt-dialog-bubble">
@@ -2452,66 +2393,34 @@ export default function TrainingPage_CBT() {
         <VideoOnlyPage
           videoSrc={stepVideo}
           stepEndLayout
-          explainRule
-          onDone={startWarmup}
+          onDone={startTraining}
         />
       )}
 
-      {(phase === "warmupShow" || phase === "warmupAnswer") && (
+      {(phase === "show" || phase === "answerCue" || phase === "answer") && (
         <div className="cbt-card cbt-card--wide cbt-test-card cbt-play-card-minimal">
-          <CBTPhaseCue phase={phase} />
-          <CBTBoard
-            blocks={blocks}
-            phase={phase}
-            activeIndex={activeIndex}
-            selectedIndex={selectedIndex}
-            wrongIndex={wrongIndex}
-            personIndex={personIndex}
-            isWalking={isWalking}
-            disabled={phase !== "warmupAnswer"}
-            onBlockClick={handleWarmupClick}
-            stoneSize={WARMUP_STONE_SIZE}
-          />
-        </div>
-      )}
-
-      {phase === "warmupFeedback" && (
-        <div className="cbt-card cbt-card--small game-start-card-artwork cbt-feedback-card-artwork cbt-icon-only-feedback">
-          <GuidedImageButton
-            imgSrc={homeNextBtn}
-            imgAlt="下一步"
-            ariaLabel="進入正式訓練"
-            onClick={startTraining}
-            showMouse
-            variant="next"
-          />
-        </div>
-      )}
-
-      {(phase === "show" || phase === "answer") && (
-        <div className="cbt-card cbt-card--wide cbt-test-card cbt-play-card-minimal">
-          <CBTPhaseCue phase={phase} />
           <div style={{ height: config.environment ? 84 : 0 }}>
             <CBTEnvironment visible={phase === "show" && config.environment} />
           </div>
-          <CBTBoard
-            blocks={blocks}
-            phase={phase}
-            activeIndex={activeIndex}
-            selectedIndex={selectedIndex}
-            wrongIndex={wrongIndex}
-            personIndex={personIndex}
-            isWalking={isWalking}
-            disabled={lockedRef.current}
-            onBlockClick={handleBlockClick}
-            stoneSize={STONE_SIZE}
-            idleHintActive={idleHintActive}
-            mouseHintIndex={idleHintActive ? sequence[userSequenceRef.current.length] : answerHintIndex}
-            answerHintIndex={answerHintIndex}
-            promptCount={trialPromptCount}
-            earlyClickCount={trialEarlyClickCount}
-            onBoardClick={() => { if (phase === "show") recordEarlyClick(null); }}
-          />
+          <CBTAssessmentStage cue={phase === "answerCue"} onCueComplete={openTrainingResponse} layout={TRAINING_LAYOUT}>
+            <CBTBoard
+              blocks={blocks}
+              phase={phase}
+              activeIndex={activeIndex}
+              selectedIndex={selectedIndex}
+              wrongIndex={wrongIndex}
+              disabled={phase === "answerCue" || lockedRef.current}
+              onBlockClick={handleBlockClick}
+              stoneSize={STONE_SIZE}
+              idleHintActive={idleHintActive}
+              mouseHintIndex={idleHintActive ? sequence[userSequenceRef.current.length] : answerHintIndex}
+              answerHintIndex={answerHintIndex}
+              promptCount={trialPromptCount}
+              earlyClickCount={trialEarlyClickCount}
+              steppedIndices={userInput}
+              onBoardClick={() => { if (phase === "show") recordEarlyClick(null); }}
+            />
+          </CBTAssessmentStage>
         </div>
       )}
 
@@ -2599,10 +2508,9 @@ export default function TrainingPage_CBT() {
   );
 }
 
-function VideoOnlyPage({ videoSrc, onDone, showNext = true, explainRule = false, stepEndLayout = false }) {
+function VideoOnlyPage({ videoSrc, onDone, showNext = true, stepEndLayout = false }) {
   return (
-    <main className={`cbt-video-only-card game-start-card-artwork cbt-video-card-artwork ${stepEndLayout ? "test-video-card" : ""}`} aria-label="影片">
-      {explainRule && <p className="cbt-quiet-prompt">看完再點：先看完亮燈，聽到「可以開始點了」再照順序點石頭。</p>}
+    <main className="cbt-video-only-card game-start-card-artwork cbt-video-card-artwork test-video-card" aria-label="影片">
       <div className="cbt-video-wrapper test-video-frame">
         <video
           src={videoSrc}
@@ -2679,17 +2587,16 @@ function CBTBoard({
   activeIndex,
   selectedIndex,
   wrongIndex,
-  personIndex,
-  isWalking,
   disabled,
   onBlockClick,
-  stoneSize,
+  stoneSize = STONE_SIZE,
   idleHintActive = false,
   mouseHintIndex = null,
   answerHintIndex = null,
   promptCount = 0,
   earlyClickCount = 0,
   onBoardClick,
+  steppedIndices = [],
 }) {
   return (
     <div
@@ -2698,7 +2605,7 @@ function CBTBoard({
       data-phase={phase}
       data-prompt-count={promptCount}
       data-early-click-count={earlyClickCount}
-      onClick={(event) => { if (event.target === event.currentTarget) onBoardClick?.(); }}
+      onClick={(event) => { if (!disabled && event.target === event.currentTarget) onBoardClick?.(); }}
       style={{
         width: BOARD_WIDTH,
         height: BOARD_HEIGHT,
@@ -2710,6 +2617,7 @@ function CBTBoard({
         const isGlowing = activeIndex === index;
         const isSelected = selectedIndex === index;
         const isWrong = wrongIndex === index;
+        const isStepped = steppedIndices.includes(index);
 
         return (
           <button
@@ -2728,7 +2636,7 @@ function CBTBoard({
             aria-label={`第 ${index + 1} 顆石頭`}
           >
             <img
-              src={isGlowing ? stoneShinyImg : stoneImg}
+              src={isGlowing ? stoneShinyImg : isStepped ? stepStoneImg : stoneImg}
               alt={`第 ${index + 1} 顆石頭`}
               width="360"
               height="203"
@@ -2739,84 +2647,20 @@ function CBTBoard({
                 isGlowing ? "is-glowing" : "",
                 isSelected ? "is-selected" : "",
                 isWrong ? "is-wrong" : "",
+                isStepped ? "is-stepped" : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
-              style={getStoneStyle({
-                stoneSize,
-                isGlowing,
-                isSelected,
-                isWrong,
-              })}
+              style={{ width: stoneSize, height: "auto" }}
               draggable="false"
             />
             {mouseHintIndex === index && <img src={mouseGuideImg} alt="點擊石頭提示"
+              data-testid={answerHintIndex === index ? "cbt-answer-hint" : undefined}
               style={{ position: "absolute", right: 8, bottom: 35, width: 64, height: 64, objectFit: "contain", pointerEvents: "none" }} />}
-            {answerHintIndex === index && <span data-testid="cbt-answer-hint"
-              style={{ position: "absolute", left: "50%", bottom: 12, transform: "translateX(-50%)", color: "#fff", background: "#286d82", padding: "4px 10px", borderRadius: 12, fontSize: 18, whiteSpace: "nowrap", pointerEvents: "none" }}>
-              第二步是這顆
-            </span>}
           </button>
         );
       })}
 
-      {(phase === "answer" || phase === "warmupAnswer") &&
-        personIndex !== null && (
-          <img
-            src={personImg}
-            alt="沿著石頭路線前進的小朋友"
-            width="156"
-            height="126"
-            loading="lazy"
-            decoding="async"
-            className={["cbt-person", isWalking ? "is-walking" : ""]
-              .filter(Boolean)
-              .join(" ")}
-            style={{
-              left: blocks[personIndex]?.left ?? "50%",
-              top: (blocks[personIndex]?.top ?? 0) - 74,
-              transform: "translate(-50%, -50%)",
-            }}
-            draggable="false"
-          />
-        )}
     </div>
   );
 }
-
-function getStoneStyle({
-  stoneSize,
-  isGlowing,
-  isSelected,
-  isWrong,
-}) {
-  let filter = "drop-shadow(0 10px 18px rgba(70, 45, 25, 0.18))";
-  let transform = "scale(1)";
-  let opacity = 1;
-
-  if (isGlowing) {
-    filter = "drop-shadow(0 0 26px rgba(255, 210, 65, 0.96)) brightness(1.23)";
-    transform = "scale(1.12)";
-    opacity = 1;
-  }
-
-  if (isSelected) {
-    filter = "drop-shadow(0 0 22px rgba(76, 175, 80, 0.78)) brightness(1.12)";
-    transform = "scale(1.08)";
-  }
-
-  if (isWrong) {
-    filter = "drop-shadow(0 0 22px rgba(255, 80, 80, 0.85)) brightness(1.06)";
-    transform = "scale(1.08)";
-  }
-
-  return {
-    width: stoneSize,
-    height: "auto",
-    opacity,
-    filter,
-    transform,
-    transition: "transform 180ms ease, filter 180ms ease, opacity 180ms ease",
-  };
-}
-

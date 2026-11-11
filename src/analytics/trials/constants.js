@@ -1,5 +1,5 @@
 export const BEHAVIORAL_SCHEMA_VERSION = "1.0.0";
-export const TRIAL_PROCESSING_VERSION = "trial-normalizer-1.0.0";
+export const TRIAL_PROCESSING_VERSION = "trial-normalizer-1.1.0";
 
 export const TASK_CODES = Object.freeze(["CBT", "PM", "SRT", "ARI", "LB", "DCCS"]);
 
@@ -37,4 +37,13 @@ export function normalizeTaskCode(value) {
 export function normalizeSessionMode(value) {
   const mode = String(value || "").toLowerCase();
   return mode === "training" ? "training" : "assessment";
+}
+
+// Historical codes remain readable. No evidence supports ART/SSG/DPT => ARI.
+export function researchTaskCodeCompatibility(value) {
+  const originalCode = String(value || "").trim().toUpperCase();
+  const taskCode = normalizeTaskCode(value);
+  return { originalCode, taskCode, writable: TASK_CODES.includes(taskCode),
+    policy: TASK_CODES.includes(taskCode) ? "current_task"
+      : ["SSG", "DPT"].includes(originalCode) ? "legacy_read_only" : "unmapped" };
 }

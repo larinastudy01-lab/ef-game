@@ -1,13 +1,15 @@
-import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
+import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage, getGameTestingVersion } from "../temporaryGameTesting/runtime";
 // src/pages/TestPage_LB.jsx
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { getLBDoorplateImage } from "../utils/lbDoorplateAssets";
+import { useLocation, useNavigate } from "react-router-dom";
+import { getLBAssessmentImage } from "../utils/lbDoorplateAssets";
+import { buildLBAssessmentStages, getLBAssessmentVersion, LB_ASSESSMENT_COLOR_LABELS, LB_ASSESSMENT_VERSIONS } from "../config/lbAssessmentConfig";
+import { getNextLBTestVersion, markLBTestVersionUsed } from "../utils/lbAssessmentVersion";
 import calculateLBScore from "../utils/lbScoring";
 import { saveUnifiedResult } from "../utils/resultManager";
 import { useTestAttempt } from "../utils/useTestAttempt";
-import { LB_MODES, LB_PRACTICE_STAGES, buildLBPracticeItems } from "../utils/lbPracticeProtocol";
+import { LB_MODES, buildLBPracticeItems } from "../utils/lbPracticeProtocol";
 import useLBPracticeFlow from "../utils/useLBPracticeFlow";
 import { playLBFormalCue } from "../utils/lbPracticeAudio";
 import { getLBVoiceHighlightKey } from "../utils/lbVoiceGuide";
@@ -36,12 +38,6 @@ const LOCAL_KEY = "lbTestResult";
 
 const WALK_JUMP_DURATION_MS = 700;
 const WALK_HOME_DURATION_MS = 1000;
-
-function getDoorplateImage(item) {
-  return getLBDoorplateImage(item.color, item.number);
-}
-
-function usesColorFallback() { return false; }
 
 export const LB_TEST_STAGES = [
   {
@@ -77,8 +73,6 @@ export const LB_TEST_STAGES = [
     ],
   },
 ];
-
-const STAGES = LB_TEST_STAGES;
 
 function toPercentPosition(x, y) {
   return { left: `${x}%`, top: `${y}%` };
@@ -163,9 +157,8 @@ function hasStageInterference(stageId) {
 
 function getExpectedText(item) {
   if (!item) return "";
-  if (item.color === "yellow") return `黃色${item.number}`;
-  if (item.color === "blue") return `藍色${item.number}`;
-  if (item.color === "red") return `紅 ${item.number}`;
+  if (item.ariaLabel) return item.ariaLabel;
+  if (LB_ASSESSMENT_COLOR_LABELS[item.color]) return `${LB_ASSESSMENT_COLOR_LABELS[item.color]}${item.number}`;
   return `${item.number}`;
 }
 
@@ -246,7 +239,7 @@ function buildSimpleSummary({
   };
 }
 
-function createResultPayload({ trials, stageRecords, startedAt, completed }) {
+function createResultPayload({ trials, stageRecords, startedAt, completed, assessmentMetadata }) {
   const endedAt = nowISO();
   const totalSelectionTime = stageRecords.reduce(
     (sum, record) => sum + safeNumber(record.selectionTimeMs ?? record.durationMs, 0),
@@ -276,8 +269,10 @@ function createResultPayload({ trials, stageRecords, startedAt, completed }) {
   return {
     ...summary,
     ...(scoreResult || {}),
+    ...assessmentMetadata,
     summary: {
       ...summary,
+      ...assessmentMetadata,
       finalScore: scoreResult?.finalScore ?? summary.accuracy,
       stars: scoreResult?.stars ?? summary.stars,
     },
@@ -290,6 +285,7 @@ function createResultPayload({ trials, stageRecords, startedAt, completed }) {
     totalReactionTime: totalSelectionTime,
     totalResponseTime: totalSelectionTime,
     raw: {
+      ...assessmentMetadata,
       trials,
       stageRecords,
       startedAt,
@@ -301,7 +297,7 @@ function createResultPayload({ trials, stageRecords, startedAt, completed }) {
   };
 }
 
-function DoorplateButton({ item, disabled, completed, visited, isWrong, isCorrect, highlighted, onClick }) {
+function DoorplateButton({ item, testVersion, disabled, completed, visited, isWrong, isCorrect, highlighted, onClick }) {
   return (
     <button
       type="button"
@@ -329,8 +325,7 @@ function DoorplateButton({ item, disabled, completed, visited, isWrong, isCorrec
       aria-pressed={completed}
     >
       <img
-        className={usesColorFallback(item) ? "lb-doorplate-color-fallback" : ""}
-        src={getDoorplateImage(item)}
+        src={getLBAssessmentImage(testVersion, item.color, item.number)}
         alt={`${item.color} ${item.number}`}
         draggable="false"
       />
@@ -353,7 +348,17 @@ function LBVoiceCompanion({ visible, hasVisuals = true }) {
 
 function TestPageLB() {
   const navigate = useNavigate();
+  const { search } = useLocation();
+  const testingVersion = getGameTestingVersion(search, Object.keys(LB_ASSESSMENT_VERSIONS));
   const testAttempt = useTestAttempt({ gameId: "LB", route: "/test-linking-balloons" });
+  const [assessmentChildId, setAssessmentChildId] = useState(resolveCurrentChildId);
+  const [assessment, setAssessment] = useState(() => getLBAssessmentVersion(testingVersion || getNextLBTestVersion(assessmentChildId)));
+  const assessmentMetadata = useMemo(() => ({
+    testVersion: assessment.testVersion,
+    stimulusSetId: assessment.stimulusSetId,
+    stimulusName: assessment.stimulusName,
+  }), [assessment]);
+  const stages = useMemo(() => buildLBAssessmentStages(LB_TEST_STAGES, assessment), [assessment]);
 
   const [phase, setPhase] = useState("start");
   const [mode, setMode] = useState(LB_MODES.formalMode);
@@ -377,13 +382,14 @@ function TestPageLB() {
   const stageStartedAtRef = useRef(Date.now());
   const selectionLogsRef = useRef([]);
   const finishedRef = useRef(false);
+  const formalStartedRef = useRef(false);
   const timeoutRef = useRef(null);
   const walkerTimersRef = useRef([]);
   const tutorialVideoRef = useRef(null);
 
-  const practiceStage = LB_PRACTICE_STAGES[mode] || null;
+  const practiceStage = assessment.practiceStages[mode] || null;
   const isPractice = Boolean(practiceStage);
-  const currentStage = practiceStage || STAGES[stageIndex];
+  const currentStage = practiceStage || stages[stageIndex];
   const displayItems = useMemo(() => isPractice
     ? buildLBPracticeItems(currentStage)
     : buildStageItems(currentStage), [currentStage, isPractice]);
@@ -398,23 +404,26 @@ function TestPageLB() {
     const controller = new AbortController();
     const { signal } = controller;
     if (phase === "result") {
-      playLBFormalCue("complete", signal, setVoicePlayback);
+      playLBFormalCue("complete", signal, setVoicePlayback, assessment.formalAudio);
     } else {
       const introduce = async () => {
-        await playLBFormalCue(stageIndex === 0 ? "rule1" : "rule2", signal, setVoicePlayback);
+        await playLBFormalCue(stageIndex === 0 ? "rule1" : "rule2", signal, setVoicePlayback, assessment.formalAudio);
         if (signal.aborted) return;
         // Rule speech is outside the child's response time for both stages.
         stageStartedAtRef.current = Date.now();
-        if (stageIndex === 0) {
+        if (stageIndex === 0 && !formalStartedRef.current) {
+          formalStartedRef.current = true;
           startedAtRef.current = nowISO();
           testAttempt.begin();
+          testAttempt.checkpoint(assessmentMetadata);
+          markLBTestVersionUsed(assessmentChildId, assessment.testVersion);
         }
         setFormalReadyStage(stageIndex);
       };
       introduce();
     }
     return () => controller.abort();
-  }, [phase, mode, stageIndex, testAttempt]);
+  }, [phase, mode, stageIndex, testAttempt, assessment, assessmentMetadata, assessmentChildId]);
 
   useEffect(() => {
     if (phase === "playing" && mode === LB_MODES.formalMode && formalReadyStage === stageIndex) {
@@ -471,6 +480,7 @@ function TestPageLB() {
   const resetWholeTest = () => {
     window.clearTimeout(timeoutRef.current);
     finishedRef.current = false;
+    formalStartedRef.current = false;
     startedAtRef.current = nowISO();
     stageStartedAtRef.current = Date.now();
     selectionLogsRef.current = [];
@@ -492,6 +502,9 @@ function TestPageLB() {
   };
 
   const handleStart = () => {
+    const childId = resolveCurrentChildId();
+    setAssessmentChildId(childId);
+    setAssessment(getLBAssessmentVersion(testingVersion || getNextLBTestVersion(childId)));
     resetWholeTest();
     setGamePhase("tutorialVideo");
   };
@@ -531,6 +544,7 @@ function TestPageLB() {
   const practice = useLBPracticeFlow({
     stage: phase === "playing" ? practiceStage : null,
     displayItems,
+    audio: assessment.practiceAudio,
     onPlayback: setVoicePlayback,
     onRetry: () => {
       setRouteKeys([]);
@@ -631,6 +645,7 @@ function TestPageLB() {
         ? Math.max(0, finalSelectionLog.cumulativeTime)
         : Math.max(0, now - stageStartedAtRef.current);
     const stageRecord = {
+      ...assessmentMetadata,
       stageId: currentStage.id,
       stageTitle: currentStage.title,
       startedAt: new Date(stageStartedAtRef.current).toISOString(),
@@ -694,6 +709,7 @@ function TestPageLB() {
       const reactionTime = selectionLog?.reactionTime ?? fallbackReactionTime;
 
       return {
+        ...assessmentMetadata,
         gameId: "LB",
         mode: "test",
         stageId: currentStage.id,
@@ -736,7 +752,7 @@ function TestPageLB() {
 
     window.clearTimeout(timeoutRef.current);
     timeoutRef.current = window.setTimeout(() => {
-      if (nextStageIndex < STAGES.length) {
+      if (nextStageIndex < stages.length) {
         resetStageState(nextStageIndex);
         setGamePhase("playing");
         return;
@@ -763,6 +779,7 @@ function TestPageLB() {
       stageRecords: finalStageRecords,
       startedAt: startedAtRef.current,
       completed,
+      assessmentMetadata,
     }));
 
     try {
@@ -911,7 +928,8 @@ function TestPageLB() {
         isPractice && "lb-practice-panel",
         !isPractice && formalReadyStage === stageIndex && "lb-formal-fullscreen",
       ].filter(Boolean).join(" ")}
-        data-mode={mode} data-practice-status={isPractice ? practice.status : undefined}>
+        data-mode={mode} data-practice-status={isPractice ? practice.status : undefined}
+        data-test-version={assessment.testVersion} data-stimulus-set={assessment.stimulusSetId}>
         <LBVoiceCompanion visible={Boolean(voicePlayback)} hasVisuals={!speechOnly} />
         <section className="lb-play-board" hidden={speechOnly} onClick={handleBlankClick} aria-label={isPractice ? currentStage.title : "正式測驗"}>
           <img width={1024} height={1024} loading="lazy" className="lb-map-home" src={homeImg} alt="綿羊奶奶的房子" draggable="false" />
@@ -937,6 +955,7 @@ function TestPageLB() {
             <DoorplateButton
               key={item.key}
               item={item}
+              testVersion={assessment.testVersion}
               disabled={controlsLocked}
               completed={completedKeys.includes(item.key) || (isPractice && practice.demoKeys.includes(item.key))}
               visited={routeVisible && routeKeys.indexOf(item.key) <= walkerStepIndex && routeKeys.includes(item.key)}

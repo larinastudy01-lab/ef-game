@@ -6,6 +6,7 @@ import "./gameTesting.css";
 
 export default function GameTestingMenu() {
   const navigate = useNavigate();
+  const versionCount = GAME_TESTING_CATALOG.reduce((total, game) => total + (game.versions?.length || 0), 0);
   const launch = (path) => {
     resetGameTestingMemory();
     navigate(gameTestingUrl(path));
@@ -16,9 +17,9 @@ export default function GameTestingMenu() {
         <span className="game-testing-eyebrow">TEMPORARY PLAYGROUND</span>
         <h1>遊戲測試選單</h1>
         <p>自由選關，直接測試。遊戲結果、進度與獎勵只供本次預覽，關閉後即清除。</p>
-        <div className="game-testing-summary">6 款測驗 · 各遊戲全部難度 · 5 關帽子遊戲</div>
+        <div className="game-testing-summary">{GAME_TESTING_CATALOG.length} 款測驗 · {versionCount} 個測驗副本 · 各遊戲全部難度 · 5 關帽子遊戲</div>
       </header>
-      <section className="game-testing-grid" aria-label="所有測驗與訓練難度">
+      <section className="game-testing-grid" aria-label="所有測驗、副本與訓練難度">
         {GAME_TESTING_CATALOG.map((game) => (
           <article className="game-testing-card" key={game.id}>
             <span className="game-testing-code">{game.id}</span>
@@ -27,6 +28,18 @@ export default function GameTestingMenu() {
             <button className="game-testing-primary" onClick={() => launch(`/test-${game.slug}`)}>
               開啟測驗
             </button>
+            {game.versions?.length > 0 && (
+              <>
+                <h3>測驗副本</h3>
+                <div className="game-testing-levels game-testing-versions" role="group" aria-label={`${game.id} 測驗副本`}>
+                  {game.versions.map(({ version, label }) => (
+                    <button key={version} onClick={() => launch(`/test-${game.slug}?testVersion=${version}`)}>
+                      <span>{version}</span> {label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             <h3>訓練關卡與難度</h3>
             <div className="game-testing-levels">
               {game.levels.map(({ level, label, difficulty }) => (

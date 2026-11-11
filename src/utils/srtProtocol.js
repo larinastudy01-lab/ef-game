@@ -1,6 +1,6 @@
 // Intervals are stimulus onset-to-onset times, independent of response speed.
 export const SRT_PROTOCOL_VERSION = "2.0.0";
-export const SRT_TEST_PROTOCOL_VERSION = "2.1.0";
+export const SRT_TEST_PROTOCOL_VERSION = "2.2.0";
 export const SRT_ITEM_SIZE = 118;
 export const SRT_TEST_INTERVALS = [1000, 3000];
 export const SRT_TEST_VISIBLE_TIME = 500;

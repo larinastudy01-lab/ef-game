@@ -8,23 +8,23 @@ export function getDccsCorrectPosition(trial) {
   return null;
 }
 
-export function getDccsPreviousRulePosition(trial, rule) {
+export function getDccsPreviousRulePosition(trial, rule, boxReferences = DCCS_BOX_REFERENCES) {
   if (!trial || rule === "color") return null;
   const field = rule === "category" ? "color" : "type";
   const canonicalType = (value) => value === "tshirt" ? "shirt" : value;
   const key = (card) => field === "color" ? card.color : canonicalType(card.type);
-  return Object.keys(DCCS_BOX_REFERENCES).find((side) =>
-    key(DCCS_BOX_REFERENCES[side]) === key(trial.card)) || null;
+  return Object.keys(boxReferences).find((side) =>
+    key(boxReferences[side]) === key(trial.card)) || null;
 }
 
 // A separate practice bank borrows the original stimulus/target metadata without
 // mutating the formal bank. Prioritize conflicting cues and alternate sides.
-export function buildDccsPracticeTrials(trials, rule) {
+export function buildDccsPracticeTrials(trials, rule, boxReferences = DCCS_BOX_REFERENCES) {
   const conflicts = trials.filter((trial) => {
     const side = getDccsCorrectPosition(trial);
     // Practice must defeat perseverating on the references the child actually
-    // sees: blue shirt on the left and red hat on the right.
-    const oldSide = getDccsPreviousRulePosition(trial, rule);
+    // sees on the selected version's boxes.
+    const oldSide = getDccsPreviousRulePosition(trial, rule, boxReferences);
     return side && oldSide && side !== oldSide;
   });
   const hasBothSides = ["top", "bottom"].every((side) => conflicts.some((trial) => getDccsCorrectPosition(trial) === side));

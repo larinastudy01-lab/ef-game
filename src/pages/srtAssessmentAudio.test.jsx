@@ -54,10 +54,10 @@ test("all rules and start speech finish before the eight-minute clock; assessed 
   expect(chicken.querySelector(".srt-narrator-frame-open")).toHaveAttribute("src", "chicken.webp");
   expect(chicken.querySelector(".srt-narrator-frame-closed")).toHaveAttribute("src", "chicken01.webp");
   expect(within(intro).getByTestId("srt-rule-mouse")).toHaveAttribute("src", "mouse.webp");
-  expect(within(intro).getByRole("img", { name: "壞橡實上打叉，不要點擊" })).toContainElement(within(intro).getByTestId("srt-rule-cross"));
+  expect(within(intro).getByRole("img", { name: "壞葡萄上打叉，不要點擊" })).toContainElement(within(intro).getByTestId("srt-rule-cross"));
   for (const [filename, prompt, currentRule] of [
-    ["看到好的橡實，就快快點！.mp3", "看到好的橡實，就快快點！", "用手指點擊好橡實"],
-    ["看到壞掉的橡實，千萬不要點喔！.mp3", "看到壞掉的橡實，千萬不要點喔！", "壞橡實上打叉，不要點擊"],
+    ["看到好的葡萄，要記得點一下喔！.mp3", "看到好的葡萄，要記得點一下喔！", "用手指點擊好葡萄"],
+    ["看到好的葡萄，就快快點一下！看到壞掉的葡萄，不要點喔！.mp3", "看到好的葡萄，就快快點一下！看到壞掉的葡萄，不要點喔！", "壞葡萄上打叉，不要點擊"],
     ["準備好了嗎？看仔細，開始囉！.mp3", "準備好了嗎？看仔細，開始囉！", null],
   ]) {
     expect(audios.at(-1).getAttribute("src")).toBe(filename);
@@ -65,7 +65,7 @@ test("all rules and start speech finish before the eight-minute clock; assessed 
     expect(chicken).toHaveAttribute("data-speaking", "true");
     expect(within(intro).getByRole("status")).toHaveTextContent(prompt);
     if (currentRule) expect(within(intro).getByRole("img", { name: currentRule }).closest("li")).toHaveAttribute("aria-current", "step");
-    expect(within(intro).getByRole("img", { name: "用手指點擊好橡實" })).toHaveAttribute("data-animate", String(currentRule === "用手指點擊好橡實"));
+    expect(within(intro).getByRole("img", { name: "用手指點擊好葡萄" })).toHaveAttribute("data-animate", String(currentRule === "用手指點擊好葡萄"));
     await advance(1500);
     expect(useTestAttempt().begin).not.toHaveBeenCalled();
     expect(useTestAttempt().checkpoint).not.toHaveBeenCalled();
@@ -83,7 +83,7 @@ test("all rules and start speech finish before the eight-minute clock; assessed 
   fireEvent.click(screen.getByTestId("srt-game-area"));
   // Miss the next normal acorns and incorrectly click the rotten one.
   await advance(9000);
-  expect(screen.getByTestId("srt-stimulus")).toHaveAttribute("alt", "壞橡實");
+  expect(screen.getByTestId("srt-stimulus")).toHaveAttribute("alt", "壞葡萄");
   fireEvent.click(screen.getByTestId("srt-stimulus"));
   expect(audios).toHaveLength(3);
   await advance(480000 - (performance.now() - startedAt) - 1);
@@ -92,7 +92,7 @@ test("all rules and start speech finish before the eight-minute clock; assessed 
   await advance(1);
   expect(saveUnifiedResult.mock.calls[0][0].rawResult).toMatchObject({ durationMs: 480000, completionReason: "time_up" });
   expect(audios).toHaveLength(4);
-  expect(audios.at(-1).getAttribute("src")).toBe("完成囉！你真的很努力！.mp3");
+  expect(audios.at(-1).getAttribute("src")).toBe("完成囉！謝謝你幫忙收集葡萄！.mp3");
   expect(screen.getByTestId("srt-narrator")).toHaveAttribute("data-narration-event", "assessmentComplete");
   expect(screen.getByAltText("SRT 關卡圖示")).toBeInTheDocument();
   await finishAudio();
@@ -116,6 +116,7 @@ test.each(["error", "timeout", "rejection"])("intro %s keeps timing paused until
   }
   await advance(480000);
   expect(useTestAttempt().begin).not.toHaveBeenCalled();
+  expect(localStorage.getItem("srtTestLastVersion_child-srt")).toBeNull();
   expect(screen.getByTestId("srt-narrator")).toHaveAttribute("data-speaking", "false");
   expect(saveUnifiedResult).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "重新播放語音" }));
@@ -123,6 +124,25 @@ test.each(["error", "timeout", "rejection"])("intro %s keeps timing paused until
   await finishAudio();
   await finishAudio();
   expect(useTestAttempt().begin).toHaveBeenCalledTimes(1);
+});
+
+test("02 completes with apple audio and preserves its version in the result and detailed explanation", async () => {
+  localStorage.setItem("srtTestLastVersion_child-srt", "01");
+  enterIntro();
+  expect(within(screen.getByRole("img", { name: "用手指點擊好蘋果" })).getAllByAltText("")[0]).toHaveAttribute("src", "Apple_good.webp");
+  expect(audios.at(-1).getAttribute("src")).toBe("看到好的蘋果，要記得點一下喔！.mp3");
+  await finishAudio();
+  expect(audios.at(-1).getAttribute("src")).toBe("看到好的蘋果，就快快點一下！看到壞掉的蘋果，不要點喔！.mp3");
+  await finishAudio();
+  await finishAudio();
+  await advance(480000);
+  const result = saveUnifiedResult.mock.calls[0][0].rawResult;
+  expect(result).toMatchObject({ testVersion: "02", stimulusSetId: "test02", stimulusName: "蘋果",
+    protocol: { testVersion: "02", stimulusSetId: "test02" } });
+  expect(audios.at(-1).getAttribute("src")).toBe("太棒啦！謝謝你幫忙收集蘋果！.mp3");
+  fireEvent.click(screen.getByRole("button", { name: "詳細結果" }));
+  expect(screen.getByRole("heading", { name: "蘋果挑戰完成" })).toBeInTheDocument();
+  expect(screen.queryByText(/橡實/)).not.toBeInTheDocument();
 });
 
 test("leaving during introduction cancels speech and prevents late events from starting assessment", async () => {
@@ -134,4 +154,5 @@ test("leaving during introduction cancels speech and prevents late events from s
   await advance(500000);
   expect(useTestAttempt().begin).not.toHaveBeenCalled();
   expect(saveUnifiedResult).not.toHaveBeenCalled();
+  expect(localStorage.getItem("srtTestLastVersion_child-srt")).toBeNull();
 });

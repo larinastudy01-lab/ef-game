@@ -5,15 +5,15 @@ import mouseImg from "../asset/mouse.webp";
 import "../styles/SrtRuleIllustration.css";
 
 const stimuli = {
-  normal: { img: normalImg, width: 151, height: 194 },
-  rotten: { img: rottenImg, width: 166, height: 201 },
+  normal: { img: normalImg, label: "好橡實", width: 151, height: 194 },
+  rotten: { img: rottenImg, label: "壞橡實", width: 166, height: 201 },
 };
 
 export default function SrtRuleIllustration({ targetType, stimulus = stimuli[targetType], size, animate = false }) {
   const isGo = targetType === "normal";
   return (
     <span className="srt-rule-illustration" role="img"
-      aria-label={isGo ? "用手指點擊好橡實" : "壞橡實上打叉，不要點擊"}
+      aria-label={isGo ? `用手指點擊${stimulus.label}` : `${stimulus.label}上打叉，不要點擊`}
       data-animate={animate} style={size ? { "--srt-rule-size": `${size}px` } : undefined}>
       <img className="srt-rule-acorn" src={stimulus.img} width={stimulus.width} height={stimulus.height}
         alt="" draggable={false} />

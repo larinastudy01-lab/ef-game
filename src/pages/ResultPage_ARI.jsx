@@ -230,7 +230,7 @@ function normalizeResult(rawResult) {
     suggestedAction:
       source.suggestedAction ??
       aiAnalysis.suggestedAction ??
-      "建議持續練習「貓叫選狗、狗叫選貓」的相反規則。",
+      "建議持續練習「聽到聲音，要選另一隻動物」的相反規則。",
   };
 }
 
@@ -393,7 +393,7 @@ function getDetailedAriProfile(result = {}) {
       observation:
         "家長可以觀察孩子是否會自然選聲音對應的動物，而不是題目要求的相反動物。",
       advice:
-        "下一次可以先口頭提醒「聽到貓，要找狗；聽到狗，要找貓」，再逐漸減少提示。",
+        "下一次可以先口頭提醒「聽到聲音，要找另一隻動物」，再逐漸減少提示。",
     };
   }
 
@@ -455,7 +455,7 @@ function getDetailedAriProfile(result = {}) {
       meaning:
         "孩子對其中一種聲音比較穩，另一種聲音比較容易混淆，可能需要針對弱的一側多練習。",
       observation:
-        "家長可以觀察孩子是聽到貓聲比較穩，還是聽到狗聲比較穩。",
+        "家長可以觀察孩子對哪一種動物聲音的反應比較穩定。",
       advice:
         "下一次可以針對較不穩的聲音多做幾題，並搭配簡短口訣協助轉換。",
     };
@@ -621,7 +621,7 @@ function buildDetailedAriTrainingIndicators(result = {}) {
       status: result.sameAnimalErrorRate >= 25 ? "需練習" : "穩定",
       description: `相同動物錯誤率約 ${Math.round(result.sameAnimalErrorRate)}%。`,
       advice: result.sameAnimalErrorRate >= 25
-        ? "可用口訣協助：聽到貓找狗、聽到狗找貓。"
+        ? "可用口訣協助：聽到聲音，要找另一隻動物。"
         : "孩子多半能壓住直覺答案，改選相反動物。",
     },
     {
@@ -640,7 +640,7 @@ function buildDetailedAriTrainingIndicators(result = {}) {
       value: result.hasReliableSoundComparison ? clamp(100 - soundDifference) : 50,
       status: result.hasReliableSoundComparison ? `${Math.round(soundDifference)}%差距` : "資料不足",
       description: result.hasReliableSoundComparison
-        ? `貓聲與狗聲的正確率差距約 ${Math.round(soundDifference)}%。`
+        ? `兩種動物聲音的正確率差距約 ${Math.round(soundDifference)}%。`
         : "兩種聲音的題數還不足，暫不做強烈判斷。",
       advice: soundDifference >= 30
         ? "可針對較不穩的聲音多做幾題。"
@@ -696,7 +696,7 @@ function buildQuickStats(result) {
     {
       label: "相反規則正確率",
       value: `${Math.round(result.accuracyPercent)}%`,
-      helper: "貓叫選狗、狗叫選貓",
+      helper: "聽到聲音，要選另一隻動物",
     },
     {
       label: "代表性反應時間",
@@ -754,11 +754,11 @@ function buildHighlights(result) {
     {
       badge: !result.hasReliableSoundComparison ? "?" : soundDifference < 30 ? "✓" : "△",
       tone: !result.hasReliableSoundComparison ? "neutral" : soundDifference < 30 ? "good" : "watch",
-      title: "貓聲與狗聲表現一致嗎？",
+      title: "兩種動物聲音的表現一致嗎？",
       text: !result.hasReliableSoundComparison
         ? "兩種聲音題數尚不足，暫不單獨比較。"
         : soundDifference < 30
-          ? "孩子在貓叫與狗叫題型的表現大致平衡。"
+          ? "孩子在兩種動物聲音題型的表現大致平衡。"
           : `兩種聲音正確率相差約 ${Math.round(soundDifference)}%，可加強較弱的聲音題型。`,
     },
   ];
@@ -809,7 +809,7 @@ function getWeaknessText(weakness) {
     rule_understanding: "規則理解",
     sustained_attention: "持續注意",
     response_stability: "反應穩定度",
-    sound_discrimination: "貓聲與狗聲辨識",
+    sound_discrimination: "動物聲音辨識",
     side_bias: "左右側作答平衡",
     insufficient_data: "資料不足",
   };
@@ -841,7 +841,7 @@ function getDataQualityNotes(result) {
     notes.push("有效正確反應時間題數較少，速度表現建議搭配多次紀錄觀察。");
   }
   if (!summary.hasReliableSoundComparison) {
-    notes.push("貓叫與狗叫題型尚未達到可靠比較題數，兩者差異僅供參考。");
+    notes.push("兩種動物聲音題型尚未達到可靠比較題數，兩者差異僅供參考。");
   }
   if (!summary.hasReliableHalfComparison) {
     notes.push("前後半段題數不足，暫不單獨解讀注意力變化。");
@@ -1112,8 +1112,8 @@ export default function ResultPage_ARI() {
                 <ComparisonChart
                   title="不同聲音題型"
                   items={[
-                    { label: "貓叫題", value: result.catSoundAccuracy },
-                    { label: "狗叫題", value: result.dogSoundAccuracy },
+                    { label: `${result.stimulusAnimalLabels?.cat || "貓"}叫題`, value: result.catSoundAccuracy },
+                    { label: `${result.stimulusAnimalLabels?.dog || "狗"}叫題`, value: result.dogSoundAccuracy },
                   ]}
                 />
               )}

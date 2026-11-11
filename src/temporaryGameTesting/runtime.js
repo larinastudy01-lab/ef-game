@@ -72,6 +72,13 @@ export function gameTestingUrl(path) {
   return `${pathname}?${params}`;
 }
 
+// Explicit copy selection belongs to the isolated playground only.
+export function getGameTestingVersion(search, versions) {
+  if (!isTemporaryGameTesting()) return null;
+  const version = new URLSearchParams(search).get("testVersion");
+  return versions.includes(version) ? version : null;
+}
+
 const GAME_PATHS = new Set([
   GAME_TESTING_ROUTE, "/hat-sticker-game",
   ...["srt", "picture-memory", "cbt", "linking-balloons", "ari", "dccs"].flatMap(

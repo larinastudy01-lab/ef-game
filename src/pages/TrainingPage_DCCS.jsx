@@ -35,8 +35,8 @@ import {
 } from "../utils/dccsCardUtils";
 
 import peacockImg from "../asset/DCCS/dccs_peacock.webp";
-import basketTopImg from "../asset/DCCS/box_left.webp";
-import basketBottomImg from "../asset/DCCS/box_right.webp";
+import basketTopImg from "../asset/DCCS/training/box_left.webp";
+import basketBottomImg from "../asset/DCCS/training/box_right.webp";
 
 import {
   dccsClothingCards,
@@ -46,13 +46,13 @@ import {
   typeLabels as clothingTypeLabels,
 } from "../config/dccsClothingData";
 
-import redHatImg from "../asset/DCCS/red hat.webp";
-import blueShirtImg from "../asset/DCCS/blue shirt.webp";
 import "../styles/TestStepVideo.css";
 import { DCCS_DIFFICULTY_ORDER, DCCS_TRAINING_CONFIG, DCCS_TRAINING_PROTOCOL_VERSION,
   getDccsTrainingConfig, normalizeDccsTrainingDifficulty, getDccsTrainingCorrectPosition,
   getDccsWindState } from "../utils/dccsTrainingProtocol";
 import DccsWindEffect from "../components/DccsWindEffect";
+import DccsTrainingNarrator from "../components/DccsTrainingNarrator";
+import { createDccsTrainingAudioPlayer } from "../utils/dccsTrainingAudio";
 import "../styles/DccsTrainingProtocol.css";
 
 const MENU_ROUTE = "/game-menu";
@@ -1234,6 +1234,16 @@ function TrainingPage_DCCS() {
   const [finalResult, setFinalResult] = useState(null);
   const [hintVisible, setHintVisible] = useState(false);
   const [windActive, setWindActive] = useState(false);
+  const [narration, setNarration] = useState({ cue: null, speaking: false, ready: false, failed: false });
+  const voicePlayer = useMemo(() => createDccsTrainingAudioPlayer((speaking) =>
+    setNarration((previous) => ({ ...previous, speaking }))), []);
+  const playNarration = useCallback((cue) => {
+    setNarration({ cue, speaking: false, ready: false, failed: false });
+    voicePlayer.play(cue, {
+      onEnded: () => setNarration({ cue, speaking: false, ready: true, failed: false }),
+      onError: () => setNarration({ cue, speaking: false, ready: false, failed: true }),
+    });
+  }, [voicePlayer]);
 
   const trialStartTimeRef = useRef(null);
   const attemptIdRef = useRef(null);
@@ -1299,6 +1309,15 @@ function TrainingPage_DCCS() {
     return currentLevel.trials[trialIndex] || null;
   }, [currentLevel, trialIndex]);
 
+  const ruleCue = phase === PHASE.INITIAL_RULE
+    ? (currentLevel.windEnabled ? "colorWithWind" : "color")
+    : phase === PHASE.SWITCH_RULE ? "type" : phase === PHASE.BAG_RULE ? "bag" : null;
+  const ruleNarrationReady = narration.cue === ruleCue && narration.ready;
+  useEffect(() => {
+    if (ruleCue) playNarration(ruleCue);
+    return () => voicePlayer.stop();
+  }, [ruleCue, playNarration, voicePlayer]);
+
   useEffect(() => {
     if (phase !== PHASE.PLAYING || isLocked || !currentTrial) return;
     setHintVisible(false);
@@ -1348,6 +1367,7 @@ function TrainingPage_DCCS() {
       if (wind.active !== previous) {
         windEventsRef.current.push({ active: wind.active, timestamp: now, elapsedMs: now - epoch });
         previous = wind.active;
+        playNarration(wind.active ? "windReverse" : "windRestore");
       }
       setWindActive(wind.active);
       timer = window.setTimeout(update, wind.nextChangeMs);
@@ -1358,8 +1378,9 @@ function TrainingPage_DCCS() {
       windElapsedRef.current = Date.now() - epoch;
       windEpochRef.current = null;
       if (previous) windEventsRef.current.push({ active: false, timestamp: Date.now(), reason: "phase_end" });
+      voicePlayer.stop();
     };
-  }, [phase, currentLevel]);
+  }, [phase, currentLevel, playNarration, voicePlayer]);
 
   const handleStart = () => {
     clearPendingTiming();
@@ -1383,6 +1404,7 @@ function TrainingPage_DCCS() {
   };
 
   const startPlaying = () => {
+    if (!ruleNarrationReady) return;
     clearPendingTiming();
     setPhase(PHASE.PLAYING);
     setTrialIndex(0);
@@ -1421,45 +1443,6 @@ function TrainingPage_DCCS() {
     return null;
   };
 
-
-  const getWrongFeedbackText = ({ isOldRuleInterference, rule, ruleStage }) => {
-    const mode = currentLevel.feedbackMode;
-
-    if (mode === "resultOnly") return "";
-
-    if (ruleStage === "dualRule") {
-      if (isOldRuleInterference) {
-        return "剛剛被另一個規則干擾了，再看一次袋子線索。";
-      }
-      return mode === "full"
-        ? "有袋子時看顏色，沒有袋子時看衣服種類。"
-        : "請先看有沒有袋子，再選規則。";
-    }
-
-    if (ruleStage === "bagColor") {
-      if (isOldRuleInterference) {
-        return "現在要看袋子的顏色，不是衣服種類。";
-      }
-      return mode === "full"
-        ? "衣服裝進袋子後，請選和袋子顏色一樣的籃子。"
-        : "請看袋子的顏色。";
-    }
-
-    if (isOldRuleInterference) {
-      if (mode === "simple") return "規則已經換了，請跟著新規則。";
-      return "先停一下，現在要使用新的分類規則。";
-    }
-
-    if (rule === "color") {
-      return mode === "full"
-        ? "請看衣服的顏色，選相同顏色的籃子。"
-        : "請看顏色。";
-    }
-
-    if (mode === "guided") return "請看衣服種類，不要被顏色影響。";
-    if (mode === "simple") return "請看衣服種類。";
-    return "請選相同種類的籃子。";
-  };
 
   const getRuleTransition = (nextTrialIndex) => {
     const current = currentLevel.trials[trialIndex];
@@ -1592,23 +1575,7 @@ function TrainingPage_DCCS() {
     const nextLogs = [...logs, nextLog];
     setLogs(nextLogs);
 
-    if (isCorrect) {
-      setFeedback({
-        type: "correct",
-        title: "答對了！",
-        text: "",
-      });
-    } else {
-      setFeedback({
-        type: "wrong",
-        title: isOldRuleInterference ? "還在用舊規則" : "再想一下",
-        text: isTimeout ? "" : getWrongFeedbackText({
-          isOldRuleInterference,
-          rule: currentTrial.rule,
-          ruleStage: currentTrial.ruleStage,
-        }),
-      });
-    }
+    setFeedback({ type: isCorrect ? "correct" : "wrong" });
 
     if (nextTrialTimerRef.current) {
       window.clearTimeout(nextTrialTimerRef.current);
@@ -1744,6 +1711,7 @@ function TrainingPage_DCCS() {
   };
 
   const continueAfterSwitchRule = () => {
+    if (!ruleNarrationReady) return;
     clearPendingTiming();
     setPhase(PHASE.PLAYING);
     setFeedback(null);
@@ -1830,8 +1798,8 @@ function TrainingPage_DCCS() {
   const renderVideoPage = ({ src, title, buttonText, onDone, showNext = true }) => {
     return (
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
-        <main className={`Dcss-center-shell Dcss-video-shell ${phase !== PHASE.VIDEO_INTRO ? "test-video-layout" : ""}`}>
-          <section className={`Dcss-soft-panel Dcss-video-card game-start-card-artwork dccs-video-card-artwork ${phase !== PHASE.VIDEO_INTRO ? "test-video-card" : ""}`} aria-label={title}>
+        <main className="Dcss-center-shell Dcss-video-shell test-video-layout">
+          <section className="Dcss-soft-panel Dcss-video-card game-start-card-artwork dccs-video-card-artwork test-video-card" aria-label={title}>
             <div className="Dcss-video-frame test-video-frame">
               <video
                 className="Dcss-guide-video test-video"
@@ -1875,176 +1843,35 @@ function TrainingPage_DCCS() {
     );
   };
 
-  const renderSwitchRulePage = () => {
-    return (
-      <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
-        <div className="Dcss-switch-card Dcss-picture-rule-card Dcss-rule-guide-centered game-start-card-artwork dccs-rule-card-artwork">
+  const renderReplayButton = (cue) => (
+    <button type="button" className="dccs-training-voice-button"
+      data-failed={narration.failed} aria-label={narration.failed ? "重試規則語音" : "重聽規則"}
+      onClick={() => playNarration(cue)}>
+      <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+        <path d="M8 19h8l10-9v28l-10-9H8z" fill="currentColor" />
+        <path d="M32 17c5 4 5 10 0 14m5-21c10 8 10 20 0 28" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+      </svg>
+    </button>
+  );
 
-          <div className="Dcss-rule-content Dcss-picture-rule-content">
-            <div className="Dcss-tag danger">換規則</div>
-            <h1 className="Dcss-switch-title">接下來改看衣服種類</h1>
-
-            <div className="Dcss-picture-rule-row">
-              <div className="Dcss-mini-example">
-                <img src={blueShirtImg} alt="藍色上衣" width="326" height="324" loading="lazy" />
-                <span className="Dcss-big-arrow" aria-hidden="true">↓</span>
-                <div className="Dcss-demo-target Dcss-demo-target-type">
-                  <img src={basketTopImg} alt="上衣分類箱" width="319" height="131" loading="lazy" />
-                </div>
-              </div>
-
-              <div className="Dcss-mini-example">
-                <img src={redHatImg} alt="紅色帽子" width="244" height="202" loading="lazy" />
-                <span className="Dcss-big-arrow" aria-hidden="true">↓</span>
-                <div className="Dcss-demo-target Dcss-demo-target-type">
-                  <img src={basketBottomImg} alt="帽子分類箱" width="319" height="131" loading="lazy" />
-                </div>
-              </div>
-            </div>
-
-            <div className="Dcss-guided-action Dcss-guided-rule">
-              <button
-                type="button"
-                className="Dcss-forest-button Dcss-image-button Dcss-btn-next"
-                onClick={continueAfterSwitchRule}
-                aria-label="繼續"
-              >
-                <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="繼續" />
-              </button>
-              <img width={1024} height={1024} loading="lazy" className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊" aria-hidden="true" />
-            </div>
-          </div>
+  const renderRulePage = () => (
+    <div className="Dcss-page Dcss-srt-like-page dccs-training-rule-page" style={pageBackgroundStyle}
+      data-testid="dccs-training-rule" data-rule={ruleCue}>
+      <main className="dccs-training-rule-scene">
+        <DccsTrainingNarrator speaking={narration.speaking} cue={ruleCue} />
+        <div className="dccs-training-voice-actions">
+          {renderReplayButton(ruleCue)}
+          <button type="button" className="dccs-training-voice-button dccs-training-voice-next"
+            disabled={!ruleNarrationReady} aria-label={phase === PHASE.INITIAL_RULE ? "開始本關" : "繼續"}
+            onClick={phase === PHASE.INITIAL_RULE ? startPlaying : continueAfterSwitchRule}>
+            <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+              <path d="M9 24h28M25 12l12 12-12 12" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
         </div>
-      </div>
-    );
-  };
-
-  const renderInitialRulePage = () => {
-    const firstRule = currentLevel.trials[0]?.rule === "type" ? "type" : "color";
-    const examples = currentLevel.trials
-      .filter((trial) => trial.rule === firstRule)
-      .slice(0, 2);
-    const isTypeRule = firstRule === "type";
-
-    return (
-      <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
-        <div className="Dcss-switch-card Dcss-picture-rule-card Dcss-rule-guide-centered game-start-card-artwork dccs-rule-card-artwork">
-          <div className="Dcss-rule-content Dcss-picture-rule-content">
-            <div className="Dcss-tag">本關規則</div>
-            <p>{currentLevel.label} · 每題 {currentLevel.answerTimeLimitMs / 1000} 秒</p>
-            {currentLevel.windEnabled && <p>風來時選相反的分類箱，風停後恢復原本規則。</p>}
-            {isTypeRule && <h1 className="Dcss-switch-title">看衣服種類</h1>}
-            <p className={`Dcss-switch-description${isTypeRule ? "" : " Dcss-rule-primary-instruction"}`}>
-              {isTypeRule ? "不看顏色，把衣服放進相同種類的籃子。" : "把衣服放進相同顏色的籃子。"}
-            </p>
-            <div className="Dcss-picture-rule-row">
-              {examples.map((example) => {
-                const correctPosition = getCorrectPosition(example);
-                const correctTarget = correctPosition === "top" ? example.topTarget : example.bottomTarget;
-                return (
-                  <div className="Dcss-mini-example" key={example.id}>
-                    <img src={getCardImage(example.card, "normal")} alt={`${example.card.colorText}${example.card.typeText}`} width="330" height="330" loading="lazy" />
-                    <span className="Dcss-big-arrow" aria-hidden="true">↓</span>
-                    <div className="Dcss-demo-target Dcss-demo-target-type">
-                      <img src={correctPosition === "top" ? basketTopImg : basketBottomImg} alt={`${correctTarget?.label || "服飾"}籃子`} width="319" height="131" loading="lazy" />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="Dcss-guided-action Dcss-guided-rule">
-              <button type="button" className="Dcss-forest-button Dcss-image-button Dcss-btn-next" onClick={startPlaying} aria-label="開始本關">
-                <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" />
-              </button>
-              <img width={1024} height={1024} loading="lazy" className="Dcss-mouse-guide Dcss-mouse-on-button" src={mouseGuideImg} alt="提示點擊下一步" aria-hidden="true" />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderBagRulePage = () => {
-    const examples = currentLevel.trials
-      .filter(
-        (trial) => trial.ruleStage === "bagColor" || trial.ruleStage === "dualRule"
-      )
-      .slice(0, 2);
-
-    return (
-      <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
-        <div className="Dcss-switch-card Dcss-picture-rule-card Dcss-rule-guide-centered game-start-card-artwork dccs-rule-card-artwork">
-
-          <div className="Dcss-rule-content Dcss-picture-rule-content">
-            <div className="Dcss-tag danger">再換一次規則</div>
-            <h1 className="Dcss-switch-title">先看衣服有沒有裝袋</h1>
-            <p className="Dcss-switch-description">
-              有透明袋子時，看袋內衣服的顏色；沒有袋子時，看衣服種類。
-            </p>
-
-            <div className="Dcss-picture-rule-row">
-              {examples.map((example) => {
-                const correctPosition = getCorrectPosition(example);
-                const correctTarget =
-                  correctPosition === "top"
-                    ? example.topTarget
-                    : example.bottomTarget;
-
-                return (
-                  <div className="Dcss-mini-example" key={example.id}>
-                    <img
-                      src={getCardImage(example.card, example.imageVariant)}
-                      alt={`${example.imageVariant === "bag" ? "裝袋的" : ""}${example.card.colorText}${example.card.typeText}`}
-                      className="Dcss-rule-bagged-cloth"
-                      width="330"
-                      height="330"
-                      loading="lazy"
-                    />
-                    <span className="Dcss-big-arrow" aria-hidden="true">↓</span>
-                    <div className="Dcss-demo-target Dcss-demo-target-type">
-                      <img
-                        src={correctPosition === "top" ? basketTopImg : basketBottomImg}
-                        alt={`${correctTarget?.label || "正確顏色"}籃子`}
-                        width="319"
-                        height="131"
-                        loading="lazy"
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {examples.length === 0 && (
-              <div className="Dcss-data-warning">
-                dccsClothingData.js 目前沒有可用的 bagImg，無法顯示裝袋規則範例。
-              </div>
-            )}
-
-            <div className="Dcss-guided-action Dcss-guided-rule">
-              <button
-                type="button"
-                className="Dcss-forest-button Dcss-image-button Dcss-btn-next"
-                onClick={continueAfterSwitchRule}
-                aria-label="繼續"
-                disabled={examples.length === 0}
-              >
-                <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="繼續" />
-              </button>
-              {examples.length > 0 && (
-                <img width={1024} height={1024} loading="lazy"
-                  className="Dcss-mouse-guide Dcss-mouse-on-button"
-                  src={mouseGuideImg}
-                  alt="提示點擊"
-                  aria-hidden="true"
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
+      </main>
+    </div>
+  );
 
   const getResultStars = () => {
     if (finalResult?.scoring?.stars) {
@@ -2153,10 +1980,7 @@ function TrainingPage_DCCS() {
     });
   }
 
-  if (phase === PHASE.INITIAL_RULE) return renderInitialRulePage();
-
-  if (phase === PHASE.SWITCH_RULE) return renderSwitchRulePage();
-  if (phase === PHASE.BAG_RULE) return renderBagRulePage();
+  if (ruleCue) return renderRulePage();
 
   if (phase === PHASE.END_VIDEO) {
     return renderVideoPage({
@@ -2178,16 +2002,10 @@ function TrainingPage_DCCS() {
       data-wind-active={windActive}>
       {windActive && <DccsWindEffect />}
       <div className="Dcss-test-shell Dcss-test-shell-visual Dcss-training-shell Dcss-training-shell-visual">
-        <div className="Dcss-top-bar Dcss-top-bar-compact">
-          <div className="Dcss-top-spacer" aria-hidden="true" />
-
-          <div className="Dcss-progress-pill">
-            {currentLevel.label} · 練習 {trialIndex + 1} / {currentLevel.trials.length} · 每題 {currentLevel.answerTimeLimitMs / 1000} 秒
-          </div>
-        </div>
-        {currentLevel.windEnabled && <div className="dccs-training-rule-status" role="status">
-          {windActive ? "風來了，選相反的分類箱" : "按照原本規則分類"}
-        </div>}
+        {narration.cue?.startsWith("wind") && !narration.ready && <aside className="dccs-training-wind-guide">
+          <DccsTrainingNarrator speaking={narration.speaking} cue={narration.cue} />
+          {narration.failed && renderReplayButton(narration.cue)}
+        </aside>}
 
         <div className="Dcss-main-area Dcss-main-area-bottom-baskets Dcss-main-area-visual Dcss-training-main-area Dcss-training-main-area-visual">
           <div className="Dcss-play-row">
@@ -2255,14 +2073,6 @@ function TrainingPage_DCCS() {
                 src={mouseGuideImg} alt="MOUSE 提示點擊正確分類箱" />}
             </button>
           </div>
-
-          {feedback && feedback.text && (
-            <div className={`Dcss-feedback ${feedback.type}`}>
-              {feedback.text}
-            </div>
-          )}
-
-
         </div>
       </div>
     </div>

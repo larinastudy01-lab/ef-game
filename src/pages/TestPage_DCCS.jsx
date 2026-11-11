@@ -1,4 +1,4 @@
-import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
+import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage, getGameTestingVersion } from "../temporaryGameTesting/runtime";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { averageFiniteRounded } from "../utils/numericUtils";
 import {
@@ -10,11 +10,13 @@ import {
   normalizeDccsToken as normalizeToken,
   pickDiverseDccsCards as pickDiverseCards,
 } from "../utils/dccsCardUtils";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/GamePage_DCCS.css";
 import "../styles/DccsAssessment.css";
 import DccsAssessmentBoard from "../components/DccsAssessmentBoard";
-import { DCCS_ASSESSMENT_CONFIG as TIMING, DCCS_RULES, DCCS_BOX_REFERENCES } from "../config/dccsAssessmentConfig";
+import { DCCS_ASSESSMENT_CONFIG as TIMING, DCCS_RULES } from "../config/dccsAssessmentConfig";
+import { DCCS_ASSESSMENT_VERSIONS, DCCS_ASSESSMENT_TYPE_LABELS, getDccsAssessmentVersion } from "../config/dccsAssessmentVersions";
+import { getNextDccsTestVersion, markDccsTestVersionUsed } from "../utils/dccsAssessmentVersion";
 import { buildDccsPracticeTrials, getDccsCorrectPosition, getDccsPreviousRulePosition, nextDccsPracticeProgress } from "../utils/dccsAssessmentProtocol";
 import { createDccsAudioPlayer } from "../utils/dccsAssessmentAudio";
 import { createBehavioralId } from "../analytics/trials/buildBehavioralHierarchy";
@@ -39,15 +41,6 @@ import { calculateDccsScore } from "../utils/dccsScoring";
 
 import peacockImg from "../asset/DCCS_icon.webp";
 
-// 所有一般服飾與裝袋服飾統一由此資料檔提供。
-// 直接使用 dccsClothingData.js 實際存在的具名匯出，避免 Webpack 對不存在匯出的編譯錯誤。
-import {
-  dccsClothingCards,
-  normalCards,
-  baggedCards,
-  colorLabels as clothingColorLabels,
-  typeLabels as clothingTypeLabels,
-} from "../config/dccsClothingData";
 import "../styles/TestStepVideo.css";
 
 const RESULT_ROUTE = "/result-dccs";
@@ -91,21 +84,6 @@ const COLOR_PRIORITY = [
   "orange",
 ];
 
-const TYPE_PRIORITY = [
-  "tshirt",
-  "dress",
-  "gloves",
-  "jacket",
-  "scarf",
-  "shorts",
-  "skirt",
-  "sneakers",
-  "socks",
-  "hat",
-  "pants",
-  "shirt",
-];
-
 const DEFAULT_COLOR_LABELS = {
   pink: "粉紅色",
   blue: "藍色",
@@ -133,12 +111,11 @@ const DEFAULT_TYPE_LABELS = {
 
 const colorLabels = {
   ...DEFAULT_COLOR_LABELS,
-  ...(clothingColorLabels || {}),
 };
 
 const typeLabels = {
   ...DEFAULT_TYPE_LABELS,
-  ...(clothingTypeLabels || {}),
+  ...DCCS_ASSESSMENT_TYPE_LABELS,
 };
 
 function normalizeColor(value = "") {
@@ -246,15 +223,6 @@ function inferType(raw = {}) {
   return normalizeType(sourceText);
 }
 
-function collectRawCards() {
-  const rawCards = [dccsClothingCards, normalCards, baggedCards]
-    .filter(Array.isArray)
-    .flat()
-    .filter((item) => item && typeof item === "object");
-
-  return Array.from(new Set(rawCards));
-}
-
 function normalizeClothingCards(rawCards = []) {
   const grouped = new Map();
 
@@ -311,15 +279,13 @@ function normalizeClothingCards(rawCards = []) {
     .filter((card) => card.img);
 }
 
-const allCards = normalizeClothingCards(collectRawCards());
-
 function getCardImage(card, variant = "normal") {
   if (!card) return null;
   if (variant === "bag") return card.bagImg || card.normalImg || card.img;
   return card.normalImg || card.img || card.bagImg;
 }
 
-function getAvailableValues(field, priority = []) {
+function getAvailableValues(allCards, field, priority = []) {
   const values = Array.from(
     new Set(allCards.map((card) => card?.[field]).filter(Boolean))
   );
@@ -330,7 +296,7 @@ function getAvailableValues(field, priority = []) {
   ];
 }
 
-function findCard({
+function findAssessmentCard(allCards, {
   color,
   type,
   excludeId,
@@ -378,8 +344,8 @@ function makeTarget(card, matchBy) {
 
 function assignFixedBoxTargets(firstTarget, secondTarget, leftKey) {
   const targets = [firstTarget, secondTarget].filter(Boolean);
-  // Card normalization maps shirt -> tshirt. Use the same key for the fixed
-  // shirt box; otherwise both lookups can return targets[0].
+  // Normalize the printed reference and target keys consistently before
+  // assigning the fixed left/right boxes.
   const canonicalLeftKey = normalizeType(leftKey);
   return {
     // 程式沿用 top/bottom 欄位名稱；畫面上分別是 box_left / box_right。
@@ -389,15 +355,17 @@ function assignFixedBoxTargets(firstTarget, secondTarget, leftKey) {
   };
 }
 
-export function buildDccsTrialSets() {
-  const availableColors = getAvailableValues("color", COLOR_PRIORITY);
-  const availableTypes = getAvailableValues("type", TYPE_PRIORITY);
+export function buildDccsTrialSets(assessment = getDccsAssessmentVersion("01")) {
+  const allCards = normalizeClothingCards(assessment.cards);
+  const findCard = (options) => findAssessmentCard(allCards, options);
+  const availableColors = getAvailableValues(allCards, "color", COLOR_PRIORITY);
+  const availableTypes = getAvailableValues(allCards, "type", assessment.types);
   const normalCards = allCards.filter((card) => card.normalImg);
   const bagCards = allCards.filter((card) => card.bagImg);
 
   if (normalCards.length < 2 || availableColors.length < 2) {
     console.warn(
-      "dccsClothingData.js 至少需要兩種顏色、兩張一般服飾圖片。"
+      "DCCS 測驗副本至少需要兩種顏色、兩張一般服飾圖片。"
     );
   }
 
@@ -516,7 +484,7 @@ export function buildDccsTrialSets() {
     const targets = assignFixedBoxTargets(
       makeTarget(correctSample, "type"),
       makeTarget(wrongSample, "type"),
-      "shirt"
+      assessment.boxReferences.top.type
     );
 
     return {
@@ -780,6 +748,14 @@ function positionToLegacySide(position) {
 
 function TestPage_DCCS() {
   const navigate = useNavigate();
+  const { search } = useLocation();
+  const testingVersion = getGameTestingVersion(search, Object.keys(DCCS_ASSESSMENT_VERSIONS));
+  const [assessmentChildId, setAssessmentChildId] = useState(() => getStoredCurrentChild()?.childId || null);
+  const [assessment, setAssessment] = useState(() =>
+    getDccsAssessmentVersion(testingVersion || getNextDccsTestVersion(assessmentChildId)));
+  const assessmentMetadata = useMemo(() => ({
+    testVersion: assessment.testVersion, stimulusSetId: assessment.stimulusSetId, stimulusName: assessment.stimulusName,
+  }), [assessment]);
   const testAttempt = useTestAttempt({ gameId: "DCCS", route: "/test-dccs" });
 
   const [phase, setPhase] = useState(PHASE.START);
@@ -801,6 +777,7 @@ function TestPage_DCCS() {
   const lockedRef = useRef(true);
   const finishedRef = useRef(false);
   const videoDoneRef = useRef(false);
+  const versionMarkedRef = useRef(false);
   const pageActiveRef = useRef(true);
   const formalLogsRef = useRef([]);
   const practiceLogsRef = useRef([]);
@@ -809,12 +786,12 @@ function TestPage_DCCS() {
   const sceneActionsRef = useRef({});
   const clickBehaviorRef = useRef({ randomClick: 0, repeatedClick: 0 });
   const audioPlayer = useMemo(() => createDccsAudioPlayer(setSpeaking), []);
-  const trialSets = useMemo(() => buildDccsTrialSets(), []);
+  const trialSets = useMemo(() => buildDccsTrialSets(assessment), [assessment]);
   const { colorTestTrials, typeTestTrials, bagColorTestTrials } = trialSets;
   const formalSets = useMemo(() => [colorTestTrials, typeTestTrials, bagColorTestTrials],
     [colorTestTrials, typeTestTrials, bagColorTestTrials]);
   const practiceSets = useMemo(() => formalSets.map((trials, index) =>
-    buildDccsPracticeTrials(trials, DCCS_RULES[index].id)), [formalSets]);
+    buildDccsPracticeTrials(trials, DCCS_RULES[index].id, assessment.boxReferences)), [formalSets, assessment]);
   const rule = DCCS_RULES[ruleIndex];
   const isPractice = phase.startsWith("practice_");
   const currentTrials = isPractice ? practiceSets[ruleIndex] : formalSets[ruleIndex];
@@ -829,6 +806,7 @@ function TestPage_DCCS() {
     }),
   }));
   const checkpoint = (extra = {}) => testAttempt.checkpoint({
+    ...assessmentMetadata,
     phase, rule_type: rule.id, trials: formalLogsRef.current,
     practiceLogs: practiceLogsRef.current, practiceSummary: practiceSummary(),
     audioEvents: audioEventsRef.current, ...extra,
@@ -844,6 +822,11 @@ function TestPage_DCCS() {
   const onAssetsReady = useCallback(() => setAssetsReady(true), []);
 
   const handleStart = () => {
+    const child = getStoredCurrentChild();
+    const childId = child?.childId || null;
+    setAssessmentChildId(childId);
+    setAssessment(getDccsAssessmentVersion(testingVersion || getNextDccsTestVersion(childId)));
+    versionMarkedRef.current = false;
     audioPlayer.stop();
     resetPresentation();
     setRuleIndex(0); setTrialIndex(0); setPendingResult(null);
@@ -852,7 +835,7 @@ function TestPage_DCCS() {
     pageActiveRef.current = true;
     videoDoneRef.current = false;
     clickBehaviorRef.current = { randomClick: 0, repeatedClick: 0 };
-    const attempt = testAttempt.begin(getStoredCurrentChild()) || {};
+    const attempt = testAttempt.begin(child) || {};
     attemptIdRef.current = attempt.resultId || createBehavioralId();
     sessionIdRef.current = attempt.behavioral?.sessionId || attemptIdRef.current;
     setPhase(PHASE.VIDEO_STEP);
@@ -879,6 +862,10 @@ function TestPage_DCCS() {
       frame = window.requestAnimationFrame(() => {
         frame = window.requestAnimationFrame(() => {
           if (cancelled || !pageActiveRef.current) return;
+          if (phase === PHASE.FORMAL_QUESTION && !versionMarkedRef.current) {
+            markDccsTestVersionUsed(assessmentChildId, assessment.testVersion);
+            versionMarkedRef.current = true;
+          }
           trialStartTimeRef.current = performance.now();
           presentedAtRef.current = new Date().toISOString();
           lockedRef.current = false;
@@ -887,7 +874,7 @@ function TestPage_DCCS() {
       });
     }, TIMING.revealMs);
     return () => { cancelled = true; clearTimeout(timer); window.cancelAnimationFrame(frame); };
-  }, [phase, assetsReady, presentationKey]);
+  }, [phase, assetsReady, presentationKey, assessment, assessmentChildId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1171,6 +1158,8 @@ function TestPage_DCCS() {
       ...baseResult,
       ...performanceResult,
       ...errorResult,
+      ...assessmentMetadata,
+      protocol: { ...assessmentMetadata },
       resultId: attemptIdRef.current,
       session_id: sessionIdRef.current,
       practiceLogs: practiceLogsRef.current,
@@ -1335,6 +1324,7 @@ function TestPage_DCCS() {
       practiceProgressRef.current[rule.id] = progress;
       practiceLogsRef.current = [...practiceLogsRef.current, {
         session_id: sessionIdRef.current, task: "DCCS", mode: "practice",
+        ...assessmentMetadata,
         practice_rule: rule.id, practice_trial_index: progress.attempts,
         stimulus_id: currentTrial.card.id, selected_target: positionToLegacySide(position),
         is_correct: isCorrect, consecutive_correct_after_trial: progress.consecutiveCorrect,
@@ -1348,11 +1338,12 @@ function TestPage_DCCS() {
       return;
     }
     const formalPhase = rule.formalPhase;
-    const displayedOldRulePosition = getDccsPreviousRulePosition(currentTrial, rule.id);
+    const displayedOldRulePosition = getDccsPreviousRulePosition(currentTrial, rule.id, assessment.boxReferences);
     const isAfterRuleSwitch = ruleIndex > 0;
     const isPerseverativeError = isAfterRuleSwitch && !isCorrect && position === oldRulePosition;
     const formalTrialNumber = formalSets.slice(0, ruleIndex).reduce((count, trials) => count + trials.length, 0) + trialIndex + 1;
     const log = {
+      ...assessmentMetadata,
       trialIndex: formalTrialNumber,
 
       phase: formalPhase,
@@ -1442,8 +1433,8 @@ function TestPage_DCCS() {
       rule_type: rule.id,
       trial_index: formalTrialNumber,
       stimulus_id: currentTrial.card.id,
-      left_target_id: DCCS_BOX_REFERENCES.top.id,
-      right_target_id: DCCS_BOX_REFERENCES.bottom.id,
+      left_target_id: assessment.boxReferences.top.id,
+      right_target_id: assessment.boxReferences.bottom.id,
       correct_target: positionToLegacySide(correctPosition),
       selected_target: positionToLegacySide(position),
       is_correct: isCorrect,
@@ -1574,6 +1565,7 @@ function TestPage_DCCS() {
   const renderTrialPage = () => (
     <div className="Dcss-page Dcss-srt-like-page Dccs-assessment-page" style={pageBackgroundStyle}>
       <DccsAssessmentBoard key={rule.id} rule={rule} ruleIndex={ruleIndex} phase={phase}
+        assessment={assessment}
         trial={currentTrial} presentationKey={presentationKey} onAssetsReady={onAssetsReady}
         onAnswer={handleAnswer} locked={isLocked} selected={selectedPosition}
         feedback={feedback} feedbackShown={feedbackShown}
