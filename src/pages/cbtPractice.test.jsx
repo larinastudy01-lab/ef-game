@@ -108,6 +108,7 @@ function enterAssessment() {
   pass();
   endVoice(cues.passed);
   fireEvent.click(screen.getByRole("button", { name: "開始正式評測" }));
+  finishCountdown();
   expect(board()).toHaveAttribute("data-phase", "show");
   return view;
 }
@@ -123,6 +124,7 @@ function enterTraining(difficulty = "beginner", entry = "ended") {
   if (entry === "ended") fireEvent.ended(document.querySelector("video"));
   else fireEvent.click(screen.getByRole("button", { name: entry }));
   expect(saveUnifiedResult).not.toHaveBeenCalled();
+  finishCountdown();
   expect(board()).toHaveAttribute("data-phase", "show");
   expect(screen.queryByTestId("cbt-practice")).toBeNull();
   return view;
@@ -132,7 +134,7 @@ test.each([
   ["beginner", "ended", 5], ["easy", "跳過動畫", 6], ["medium", "下一步", 7],
   ["hard", "ended", 8], ["expert", "ended", 9],
 ])(
-  "%s training enters formal play directly after STEP %s with %s stones", (difficulty, entry, count) => {
+  "%s training enters formal play after the STEP %s countdown with %s stones", (difficulty, entry, count) => {
     enterTraining(difficulty, entry);
     expect(stones()).toHaveLength(count);
     expect(screen.getByTestId("cbt-assessment-stage").textContent).toBe("");
@@ -168,7 +170,7 @@ test("training chicken narration gates the full answer deadline and keeps second
   advance(14739);
   expect(board()).toHaveAttribute("data-phase", "answer");
   advance(1);
-  expect(screen.getByRole("button", { name: "進入下一題" })).toBeInTheDocument();
+  expect(screen.getByRole("timer", { name: "準備倒數" })).toHaveTextContent("5");
 });
 
 test("blocked training narration retries through the chicken before the answer deadline starts", async () => {
@@ -184,7 +186,7 @@ test("blocked training narration retries through the chicken before the answer d
   advance(14999);
   expect(board()).toHaveAttribute("data-phase", "answer");
   advance(1);
-  expect(screen.getByRole("button", { name: "進入下一題" })).toBeInTheDocument();
+  expect(screen.getByRole("timer", { name: "準備倒數" })).toHaveTextContent("5");
 });
 
 function showTrainingSequence() {
@@ -485,13 +487,26 @@ test.each(["NotAllowedError", "NetworkError"])("a %s offers an explicit click to
   showSequence();
 });
 
-test("the passed button starts formal stones immediately and records only formal trials", () => {
+function finishCountdown() {
+  expect(screen.queryByTestId("cbt-board")).toBeNull();
+  expect(screen.queryByRole("button", { name: "進入下一題" })).toBeNull();
+  for (const count of [5, 4, 3, 2, 1]) {
+    expect(screen.getByRole("timer", { name: "準備倒數" })).toHaveTextContent(String(count));
+    advance(1000);
+  }
+  expect(screen.queryByRole("timer")).toBeNull();
+}
+
+test("the passed button counts down before formal stones and records only formal trials", () => {
   start();
   pass();
   endVoice(cues.passed);
   const button = screen.getByRole("button", { name: "開始正式評測" });
   fireEvent.click(button);
   fireEvent.click(button);
+  expect(attempt.begin).not.toHaveBeenCalled();
+  expect(attempt.checkpoint).not.toHaveBeenCalled();
+  finishCountdown();
   expect(attempt.begin).toHaveBeenCalledTimes(1);
   expect(screen.queryByTestId("cbt-practice")).toBeNull();
   expect(document.querySelector('img[src="mouse.webp"]')).toBeNull();
@@ -572,7 +587,7 @@ test.each([true, false])("formal taps use step.webp for both correct=%s outcomes
   const trials = attempt.checkpoint.mock.calls.flatMap(([payload]) => payload.trials || []);
   expect(trials).toHaveLength(1);
   expect(trials[0]).toMatchObject({ correct, userSequence: [sequence[0], second], earlyClickCount: 1 });
-  fireEvent.click(screen.getByRole("button", { name: "進入下一題" }));
+  finishCountdown();
   expect(board()).toHaveAttribute("data-phase", "show");
   expect(footprints()).toHaveLength(0);
 });

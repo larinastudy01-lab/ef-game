@@ -6,11 +6,12 @@ import changeAgain from "../asset/voice/又要換新玩法囉！.mp3";
 
 // Reuse the recordings. The conditional and wind instructions have no matching
 // recording in voice/, so speak only those missing lines in Traditional Chinese.
-const windRule = { text: "風吹來的時候，要選另一個籃子。風停後，再照原本的規則分類。" };
+const windRule = { text: "風吹來的時候，這一題要選另一個籃子。這一題結束，風就會停，下一題再照原本的規則分類。" };
 export const DCCS_TRAINING_AUDIO = Object.freeze({
   color: [{ src: color }],
   colorWithWind: [{ src: color }, windRule],
   type: [{ src: change }, { src: category }],
+  bagColor: [{ src: changeAgain }, { src: bag }],
   bag: [{ src: changeAgain }, { src: bag },
     { text: "沒有透明袋子時，就看衣服種類。上衣放到上衣的籃子，帽子放到帽子的籃子。" }],
   windReverse: [{ text: "風來了，選另一個籃子。" }],

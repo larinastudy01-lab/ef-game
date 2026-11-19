@@ -305,7 +305,6 @@ export default function TestPage_PM() {
   const timeoutRef = useRef(null);
   const answerTimeoutRef = useRef(null);
   const answerStartFrameRef = useRef(null);
-  const levelTransitionRef = useRef(null);
   const stopReasonRef = useRef(null);
   const testStartedAtRef = useRef(null);
   const resultIdRef = useRef(null);
@@ -314,7 +313,8 @@ export default function TestPage_PM() {
   const formalStartedRef = useRef(false);
 
   const [phase, setPhase] = useState("rules");
-  // rules -> stepVideo -> practice -> memorize -> answer -> feedback -> result
+  // rules -> stepVideo -> practice -> readyCountdown -> memorize -> answer -> readyCountdown/result
+  const [readyCountdown, setReadyCountdown] = useState(5);
 
   const [currentLevelIndex, setCurrentLevelIndex] = useState(0);
   const [currentMemorizeItems, setCurrentMemorizeItems] = useState([]);
@@ -351,12 +351,6 @@ export default function TestPage_PM() {
     answerStartFrameRef.current = null;
   }, []);
 
-  const clearAllTimers = useCallback(() => {
-    clearAnswerTimers();
-    if (levelTransitionRef.current) clearTimeout(levelTransitionRef.current);
-    levelTransitionRef.current = null;
-  }, [clearAnswerTimers]);
-
   const writePmTestResult = useCallback((result) => {
     const serializedResult = JSON.stringify(result);
     const childKey = result.childId ? `pmTestResult_${result.childId}` : "pmTestResult_unassigned";
@@ -374,8 +368,8 @@ export default function TestPage_PM() {
   }, []);
 
   useEffect(() => {
-    return clearAllTimers;
-  }, [clearAllTimers]);
+    return clearAnswerTimers;
+  }, [clearAnswerTimers]);
 
   useEffect(() => {
     selectedIdsRef.current = selectedIds;
@@ -408,7 +402,7 @@ export default function TestPage_PM() {
   }, [phase, currentLevel, clearAnswerTimers]);
 
 
-  const resetRuntimeRefs = () => {
+  const resetRuntimeRefs = useCallback(() => {
     clearAnswerTimers();
     answerStartRef.current = null;
     answerDeadlineRef.current = null;
@@ -416,6 +410,15 @@ export default function TestPage_PM() {
     selectedIdsRef.current = [];
     lastResultRef.current = null;
     hasSubmittedRef.current = false;
+  }, [clearAnswerTimers]);
+
+  const enterReadyCountdown = () => {
+    resetRuntimeRefs();
+    setCurrentMemorizeItems([]);
+    setCurrentOptions([]);
+    setSelectedIds([]);
+    setReadyCountdown(5);
+    setPhase("readyCountdown");
   };
 
   const pushRecord = (record) => {
@@ -424,7 +427,7 @@ export default function TestPage_PM() {
     checkpoint({ trials: recordsRef.current });
   };
 
-  const setupLevel = (levelConfig) => {
+  const setupLevel = useCallback((levelConfig) => {
     if (!levelConfig) return;
 
     const question = buildPMQuestion(levelConfig.memoryCount, { mode: "test", categoryKeys: stimulus.categoryKeys });
@@ -436,14 +439,26 @@ export default function TestPage_PM() {
     setCurrentOptions(options);
     setSelectedIds([]);
     setPhase("memorize");
-  };
+  }, [resetRuntimeRefs, stimulus.categoryKeys]);
+
+  useEffect(() => {
+    if (phase !== "readyCountdown") return undefined;
+
+    if (readyCountdown <= 0) {
+      setupLevel(currentLevel);
+      return undefined;
+    }
+
+    const timer = setTimeout(() => setReadyCountdown((count) => count - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [phase, readyCountdown, currentLevel, setupLevel]);
 
   const handleStart = () => {
     const childId = resolveCurrentChildId();
     setStimulusChildId(childId);
     setStimulus(PM_ASSESSMENT_VERSIONS[testingVersion] || getNextPMStimulus(childId, "test"));
     exposureRef.current.clear();
-    clearAllTimers();
+    clearAnswerTimers();
     recordsRef.current = [];
     pendingResultRef.current = null;
     stopReasonRef.current = null;
@@ -473,7 +488,7 @@ export default function TestPage_PM() {
     testStartedAtRef.current = new Date().toISOString();
     resultIdRef.current = testAttempt.begin().resultId;
     checkpoint({});
-    setupLevel(TEST_TRIALS[0]);
+    enterReadyCountdown();
   };
 
   const trackRandomClick = () => {
@@ -633,7 +648,7 @@ export default function TestPage_PM() {
     hasSubmittedRef.current = true;
     pushRecord(record);
 
-    setPhase("feedback");
+    advanceAfterAnswer();
   };
   finalizeAnswerRef.current = finalizeAnswer;
 
@@ -910,26 +925,21 @@ export default function TestPage_PM() {
     });
   };
 
-  const handleNext = () => {
+  const advanceAfterAnswer = () => {
     const lastRecord = lastResultRef.current;
     if (!lastRecord) return;
-    if (levelTransitionRef.current) return;
 
     const records = recordsRef.current;
     const nextIndex = currentLevelIndex + 1;
     const stopReason = getPMStopReason({ records, nextIndex });
 
-    levelTransitionRef.current = setTimeout(() => {
-      levelTransitionRef.current = null;
+    if (stopReason) {
+      goResult(stopReason);
+      return;
+    }
 
-      if (stopReason) {
-        goResult(stopReason);
-        return;
-      }
-
-      setCurrentLevelIndex(nextIndex);
-      setupLevel(TEST_TRIALS[nextIndex]);
-    }, 200);
+    setCurrentLevelIndex(nextIndex);
+    enterReadyCountdown();
   };
 
   const resultStars = Math.max(0, Math.min(3, Number(pendingResultRef.current?.stars) || 0));
@@ -969,11 +979,11 @@ export default function TestPage_PM() {
         <div className={phase === "stepVideo" ? "test-video-layout" : undefined} style={styles.container}>
           {phase === "rules" && (
             <div className="game-start-card-artwork pm-opening-card-artwork" style={styles.startPanel}>
-              <div style={styles.gameTitle}>找出兔子妹妹遺失的物品</div>
+              <div style={styles.gameTitle}>兔妹妹的遺失物</div>
 
               <div style={styles.startContent}>
                 <div style={styles.dialogBubble}>
-                  幫兔子妹妹記住湖邊的小物品。
+                  幫兔妹妹找回小物品！
                 </div>
                 <div style={styles.roundIcon}>
                   <img width={512} height={512} src={rabbitAvatar} alt="兔子妹妹" style={styles.roundIconImage} />
@@ -1016,6 +1026,12 @@ export default function TestPage_PM() {
           )}
 
           {phase === "practice" && <PMPractice onComplete={handleAssessmentStart} categoryKeys={stimulus.categoryKeys} />}
+
+          {phase === "readyCountdown" && (
+            <div style={styles.card}>
+              <div role="timer" aria-label="準備倒數" style={styles.bigCountdown}>{readyCountdown}</div>
+            </div>
+          )}
 
           {phase === "memorize" && currentLevel && (
             <div style={styles.card}>
@@ -1078,14 +1094,6 @@ export default function TestPage_PM() {
                   alt="放進小籃子"
                   style={styles.imageButtonImg}
                 />
-              </button>
-            </div>
-          )}
-
-          {phase === "feedback" && (
-            <div style={styles.guidedAction}>
-              <button type="button" style={styles.imageButton} onClick={handleNext} aria-label="下一步">
-                <img width={1024} height={341} loading="lazy" src={homeNextBtn} alt="下一步" style={styles.imageButtonImg} />
               </button>
             </div>
           )}
@@ -1308,6 +1316,15 @@ const styles = {
     boxShadow: "none",
     textAlign: "center",
     boxSizing: "border-box",
+  },
+
+  bigCountdown: {
+    color: "#f3a536",
+    fontSize: "clamp(58px, 8vw, 94px)",
+    fontWeight: 900,
+    lineHeight: 1,
+    margin: "8px 0 18px",
+    textShadow: "0 4px 0 rgba(255,255,255,0.75)",
   },
 
   mediumCard: {

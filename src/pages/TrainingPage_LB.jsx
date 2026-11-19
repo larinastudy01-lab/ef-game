@@ -13,7 +13,7 @@ import {
 
 import backgroundImg from "../asset/LB/LB_background.webp";
 import homeImg from "../asset/LB/grandma_sheep_house.webp";
-import blowingBubblesImg from "../asset/LB/walk/blowing_bubbles.webp";
+import lbIconImg from "../asset/LB_icon.webp";
 import walkImg from "../asset/LB/walk/walk.webp";
 import introVideo from "../asset/optimized/mp4/LB_start.mp4";
 import stepVideo from "../asset/optimized/mp4/LB_step.mp4";
@@ -24,6 +24,7 @@ import homeNextBtn from "../asset/home/next.webp";
 import homeSendBtn from "../asset/home/send.webp";
 import homeBackBtn from "../asset/home/back.webp";
 import homeAgainBtn from "../asset/home/again.webp";
+import homeResultBtn from "../asset/home/result.webp";
 import changeImg from "../asset/home/change.webp";
 import mouseGuideImg from "../asset/mouse.webp";
 import "../styles/TestStepVideo.css";
@@ -33,6 +34,8 @@ const LOCAL_KEY = "lbTrainingResult";
 const COMPLETED_LEVELS_STORAGE_KEY = "ef_game_completed_training_levels";
 const LB_STAGE_STAR_STORAGE_KEY = "ef_game_training_stage_stars";
 const TRAINING_TOTAL_ROUNDS = 1;
+const WALK_JUMP_DURATION_MS = 700;
+const WALK_HOME_DURATION_MS = 1000;
 
 const clampNumber = (value, min, max) => {
   const number = Number(value);
@@ -65,7 +68,6 @@ const TRAINING_CONFIG = {
   hintDelayMs: 3000,
   feedbackDelayCorrectMs: 420,
   feedbackDelayWrongMs: 680,
-  reviewStepMs: 520,
 };
 
 const TASK_TYPES = {
@@ -93,48 +95,40 @@ const DOORPLATE_POSITIONS_5 = [
 ];
 
 const DOORPLATE_POSITIONS_10 = [
-  { x: 12, y: 68, r: -4 },
-  { x: 22, y: 55, r: 3 },
-  { x: 32, y: 66, r: -3 },
-  { x: 42, y: 53, r: 4 },
-  { x: 52, y: 64, r: -4 },
-  { x: 62, y: 51, r: 3 },
-  { x: 72, y: 62, r: -3 },
-  { x: 80, y: 49, r: 4 },
-  { x: 87, y: 36, r: -3 },
-  { x: 91, y: 54, r: 3 },
+  { x: 10, y: 24, r: -4 },
+  { x: 30, y: 27, r: 3 },
+  { x: 50, y: 23, r: -3 },
+  { x: 70, y: 27, r: 4 },
+  { x: 90, y: 24, r: -4 },
+  { x: 90, y: 59, r: 3 },
+  { x: 70, y: 63, r: -3 },
+  { x: 50, y: 59, r: 4 },
+  { x: 30, y: 63, r: -3 },
+  { x: 10, y: 59, r: 3 },
 ];
 
 const DOORPLATE_POSITIONS_20 = [
-  { x: 10, y: 30, r: -4 },
-  { x: 19, y: 28, r: 3 },
-  { x: 28, y: 30, r: -3 },
-  { x: 37, y: 28, r: 4 },
-  { x: 46, y: 30, r: -4 },
-  { x: 55, y: 28, r: 3 },
-  { x: 64, y: 30, r: -3 },
-  { x: 73, y: 28, r: 4 },
-  { x: 82, y: 31, r: -3 },
-  { x: 90, y: 40, r: 3 },
-  { x: 82, y: 49, r: -4 },
-  { x: 73, y: 47, r: 3 },
-  { x: 64, y: 49, r: -3 },
-  { x: 55, y: 47, r: 4 },
-  { x: 46, y: 49, r: -4 },
-  { x: 37, y: 47, r: 3 },
-  { x: 28, y: 53, r: -3 },
-  { x: 46, y: 66, r: 4 },
-  { x: 66, y: 66, r: -3 },
-  { x: 86, y: 70, r: 3 },
+  { x: 10, y: 20, r: -4 },
+  { x: 30, y: 22, r: 3 },
+  { x: 50, y: 19, r: -3 },
+  { x: 70, y: 22, r: 4 },
+  { x: 90, y: 20, r: -4 },
+  { x: 90, y: 42, r: 3 },
+  { x: 70, y: 44, r: -3 },
+  { x: 50, y: 41, r: 4 },
+  { x: 30, y: 44, r: -3 },
+  { x: 10, y: 42, r: 3 },
+  { x: 10, y: 64, r: -4 },
+  { x: 30, y: 66, r: 3 },
+  { x: 50, y: 63, r: -3 },
+  { x: 70, y: 66, r: 4 },
+  { x: 90, y: 64, r: -4 },
+  { x: 66, y: 86, r: 3 },
+  { x: 52, y: 88, r: -3 },
+  { x: 38, y: 85, r: 4 },
+  { x: 24, y: 88, r: -3 },
+  { x: 10, y: 86, r: 3 },
 ];
-
-const HOME_PATH_POINT = {
-  key: "home",
-  number: null,
-  color: "home",
-  label: "home",
-  position: { x: 92, y: 78, r: 0 },
-};
 
 const TRAINING_LEVELS = LB_DIFFICULTY_ORDER.map(getLBTrainingConfig);
 const MAX_LEVEL_PER_GAME = TRAINING_LEVELS.length;
@@ -286,29 +280,18 @@ function getPositionsForCount(count) {
   return DOORPLATE_POSITIONS_20;
 }
 
-function withDoorplateMeta(items, positions, sequence = []) {
-  const positionByKey = new Map();
-  let nextPositionIndex = 0;
+function withDoorplateMeta(items, positions) {
+  // Shuffle among separated slots once per attempt, independently of the answer.
+  const shuffledItems = [...items];
+  for (let index = shuffledItems.length - 1; index > 0; index -= 1) {
+    const other = Math.floor(Math.random() * (index + 1));
+    [shuffledItems[index], shuffledItems[other]] = [shuffledItems[other], shuffledItems[index]];
+  }
 
-  sequence.forEach((sequenceItem) => {
-    if (!sequenceItem?.key || positionByKey.has(sequenceItem.key)) return;
-    positionByKey.set(
-      sequenceItem.key,
-      positions[nextPositionIndex % positions.length]
-    );
-    nextPositionIndex += 1;
-  });
-
-  items.forEach((item) => {
-    if (!item?.key || positionByKey.has(item.key)) return;
-    positionByKey.set(item.key, positions[nextPositionIndex % positions.length]);
-    nextPositionIndex += 1;
-  });
-
-  return items.map((item, index) => ({
+  return shuffledItems.map((item, index) => ({
     ...item,
     plateImg: getDoorplateImage(item.color, item.number),
-    position: positionByKey.get(item.key) || positions[index % positions.length],
+    position: positions[index % positions.length],
   }));
 }
 
@@ -377,7 +360,6 @@ function buildSequence(level) {
 }
 
 function buildDisplayItems(level) {
-  const sequence = buildSequence(level);
   let baseItems = [];
 
   if (level.ruleType === RULE_TYPES.FORWARD || level.ruleType === RULE_TYPES.BACKWARD) {
@@ -398,12 +380,12 @@ function buildDisplayItems(level) {
     }).flat();
   }
 
-  return withDoorplateMeta(baseItems, getPositionsForCount(baseItems.length), sequence);
+  return withDoorplateMeta(baseItems, getPositionsForCount(baseItems.length));
 }
 
 function getExpectedText(expectedItem) {
   if (!expectedItem) return "";
-  if (expectedItem.expectedColor === "red") return `紅色 ${expectedItem.number}`;
+  if (expectedItem.expectedColor === "red") return `黃色 ${expectedItem.number}`;
   if (expectedItem.expectedColor === "blue") return `藍色 ${expectedItem.number}`;
   return `${expectedItem.number}`;
 }
@@ -412,9 +394,9 @@ function getExpectedText(expectedItem) {
 function getRuleIcon(level) {
   if (level.ruleType === RULE_TYPES.FORWARD) return "① → ② → ③";
   if (level.ruleType === RULE_TYPES.BACKWARD) return "⑩ → ⑨ → ⑧";
-  if (level.ruleType === RULE_TYPES.BLUE_RED) return "🔵1 → 🔴1 → 🔵2";
-  if (level.reverseNumbers) return "🔴5 → 🔵5 → 🔴4";
-  return "🔴1 → 🔵1 → 🔴2";
+  if (level.ruleType === RULE_TYPES.BLUE_RED) return "🔵1 → 🟡1 → 🔵2";
+  if (level.reverseNumbers) return "🟡5 → 🔵5 → 🟡4";
+  return "🟡1 → 🔵1 → 🟡2";
 }
 
 function isCorrectStep(clickedItem, expectedItem) {
@@ -494,6 +476,7 @@ function DoorplateButton({
   activeWrong,
   activeCorrect,
   activeHint,
+  visited,
   memoryHidden,
   onClick,
 }) {
@@ -512,6 +495,7 @@ function DoorplateButton({
         activeCorrect ? "lb-doorplate-node-correct-flash lb-training-correct" : "",
         activeWrong ? "lb-doorplate-node-wrong lb-number-node-wrong" : "",
         activeHint ? "lb-training-hint-target" : "",
+        visited ? "lb-training-visited" : "",
         memoryHidden ? "lb-training-memory-hidden" : "",
       ]
         .filter(Boolean)
@@ -530,11 +514,11 @@ function DoorplateButton({
         event.stopPropagation();
         onClick(item);
       }}
-      aria-label={`${item.color === "red" ? "紅色" : item.color === "blue" ? "藍色" : "門牌"}${item.label}`}
+      aria-label={`${item.color === "red" ? "黃色" : item.color === "blue" ? "藍色" : "門牌"}${item.label}`}
     >
       <img
         src={item.plateImg}
-        alt={`${item.color === "red" ? "紅色" : item.color === "blue" ? "藍色" : "綠色"}${item.label}號門牌`}
+        alt={`${item.color === "blue" ? "藍色" : "黃色"}${item.label}號門牌`}
         className={`lb-doorplate-art ${hidePlateNumber ? "lb-doorplate-art-hidden" : ""}`}
         draggable="false"
       />
@@ -545,33 +529,18 @@ function DoorplateButton({
   );
 }
 
-function LBPathOverlay({ points, active = true }) {
-  if (!points || points.length < 2) return null;
-
-  const polylinePoints = points
-    .map((item) => `${item.position?.x || 50},${item.position?.y || 50}`)
-    .join(" ");
-
-  return (
-    <svg className="lb-connect-line-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-      <polyline className="lb-connect-line-outline" points={polylinePoints} />
-      <polyline className={active ? "lb-connect-line lb-connect-line-active" : "lb-connect-line"} points={polylinePoints} />
-    </svg>
-  );
-}
-
-function WalkingPerson({ point }) {
+function WalkingPerson({ point, enteringHome }) {
   if (!point?.position) return null;
 
   return (
     <img loading="lazy"
       src={walkImg}
       alt="綿羊奶奶走路"
-      className="lb-walking-person"
+      className={`lb-walking-person ${enteringHome ? "is-entering-home" : "is-jumping"}`}
       draggable="false"
       style={{
-        "--person-x": `${point.position.x}%`,
-        "--person-y": `${point.position.y}%`,
+        "--person-x": enteringHome ? "calc(99% - var(--lb-training-home-size) * .52)" : `${point.position.x}%`,
+        "--person-y": enteringHome ? "calc(100% - var(--lb-training-home-size) * .27)" : `${point.position.y}%`,
       }}
     />
   );
@@ -588,13 +557,30 @@ function TrainingInlineStyle() {
       }
 
       .lb-page {
+        --lb-training-viewport-top: 0px;
+        --lb-training-viewport-height: calc(100dvh - var(--lb-training-viewport-top));
+        --lb-training-card-top-space: clamp(16px, 2svh, 24px);
+        --lb-training-card-bottom-space: var(--lb-training-card-top-space);
+        --lb-training-action-width: clamp(152px, 16vw, 220px);
+        --lb-training-action-bottom: clamp(32px, 5svh, 52px);
+        --lb-training-footer-space: calc(var(--lb-training-action-width) * .733 + var(--lb-training-action-bottom) + 20px);
+        position: fixed !important;
+        inset: var(--lb-training-viewport-top) 0 0 !important;
         width: 100vw !important;
-        height: 100vh !important;
-        height: 100svh !important;
+        height: var(--lb-training-viewport-height) !important;
+        min-height: 0 !important;
         margin: 0 !important;
         padding: 0 !important;
         overflow: hidden !important;
         box-sizing: border-box !important;
+      }
+
+      .game-testing-active .lb-page {
+        --lb-training-viewport-top: 64px;
+      }
+
+      body .lb-page.lb-training-card-page {
+        height: var(--lb-training-viewport-height) !important;
       }
 
       .lb-page-with-bg {
@@ -740,6 +726,12 @@ function TrainingInlineStyle() {
       }
 
       .lb-floating-doorplate-layer {
+        --lb-training-plate-preferred-size: clamp(52px, 4.8vw, 84px);
+        --lb-training-width-divisor: 8;
+        --lb-training-height-divisor: 7.4;
+        /* Landmark images are about 1.5 times as tall as they are wide. */
+        --lb-training-plate-size: min(var(--lb-training-plate-preferred-size), calc(var(--lb-training-board-width) / var(--lb-training-width-divisor)), calc(var(--lb-training-board-height) / var(--lb-training-height-divisor)));
+        --lb-training-home-size: calc(var(--lb-training-plate-size) * 2.4);
         position: absolute !important;
         inset: clamp(28px, 3.5vw, 58px) clamp(34px, 4vw, 70px) clamp(28px, 3.5vw, 58px) clamp(34px, 4vw, 70px) !important;
         z-index: 6 !important;
@@ -747,8 +739,17 @@ function TrainingInlineStyle() {
         overflow: visible !important;
       }
 
+      .lb-floating-doorplate-layer[data-plate-count="20"] {
+        --lb-training-plate-preferred-size: clamp(44px, 4vw, 72px);
+        --lb-training-width-divisor: 10.4;
+        --lb-training-height-divisor: 8.4;
+      }
+
       .lb-doorplate-node {
         position: absolute !important;
+        width: var(--lb-training-plate-size) !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
         left: var(--door-x, 50%) !important;
         top: var(--door-y, 50%) !important;
         padding: 0 !important;
@@ -767,7 +768,7 @@ function TrainingInlineStyle() {
       }
 
       .lb-doorplate-art {
-        width: clamp(60px, 6.2vw, 104px) !important;
+        width: var(--lb-training-plate-size) !important;
         height: auto !important;
         display: block !important;
         pointer-events: none !important;
@@ -792,77 +793,65 @@ function TrainingInlineStyle() {
         pointer-events: none !important;
       }
 
-      .lb-doorplate-node-red .lb-doorplate-number { color: #b74030 !important; }
+      .lb-doorplate-node-red .lb-doorplate-number { color: #6b3a16 !important; }
       .lb-doorplate-node-blue .lb-doorplate-number { color: #2f68a7 !important; }
       .lb-training-distractor-node .lb-doorplate-art { filter: grayscale(.28) drop-shadow(0 10px 8px rgba(89,58,22,.16)) !important; opacity: .9 !important; }
       .lb-training-distractor-node .lb-doorplate-number { color: #8a7a69 !important; }
-      .lb-doorplate-node-completed { opacity: 0.68 !important; }
+      .lb-doorplate-node-completed { opacity: 0.68 !important; filter: none !important; }
+      .lb-doorplate-node.lb-training-visited {
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
       .lb-doorplate-node-correct-flash { filter: drop-shadow(0 0 18px rgba(255, 222, 96, 0.95)) !important; }
       .lb-doorplate-node-wrong { filter: drop-shadow(0 0 14px rgba(255, 92, 92, 0.95)) !important; }
       .lb-training-hint-target { z-index: 15 !important; filter: drop-shadow(0 0 22px rgba(255, 225, 73, 1)) drop-shadow(0 0 12px rgba(255, 153, 44, .75)) !important; }
-      .lb-doorplate-node-red .lb-doorplate-art { filter: sepia(1) saturate(5.5) hue-rotate(320deg) brightness(1.02) drop-shadow(0 10px 8px rgba(89,58,22,.16)) !important; }
       .lb-answer-mouse { position: absolute; width: 75%; height: auto; right: -35%; bottom: -40%; z-index: 30; pointer-events: none; }
       .lb-training-memory-hidden .lb-doorplate-number:empty::after { content: "?"; color: rgba(107, 58, 22, .35); }
 
       .lb-map-home-img {
         position: absolute !important;
-        left: 92% !important;
-        top: 78% !important;
-        width: clamp(78px, 8.8vw, 136px) !important;
+        right: 1% !important;
+        bottom: 0 !important;
+        width: var(--lb-training-home-size) !important;
         height: auto !important;
         object-fit: contain !important;
-        transform: translate(-50%, -50%) !important;
         z-index: 3 !important;
         filter: drop-shadow(0 13px 14px rgba(80, 50, 18, 0.22));
         user-select: none !important;
         pointer-events: none !important;
       }
 
-      .lb-connect-line-svg {
-        position: absolute !important;
-        inset: 0 !important;
-        width: 100% !important;
-        height: 100% !important;
-        z-index: 2 !important;
-        pointer-events: none !important;
-        overflow: visible !important;
-      }
-
-      .lb-connect-line-outline {
-        fill: none !important;
-        stroke: rgba(255, 255, 232, 0.95) !important;
-        stroke-width: 9.4 !important;
-        stroke-linecap: round !important;
-        stroke-linejoin: round !important;
-        vector-effect: non-scaling-stroke;
-        filter: drop-shadow(0 4px 5px rgba(62, 42, 18, 0.34));
-      }
-
-      .lb-connect-line {
-        fill: none !important;
-        stroke: rgba(255, 137, 38, 0.98) !important;
-        stroke-width: 5.4 !important;
-        stroke-linecap: round !important;
-        stroke-linejoin: round !important;
-        vector-effect: non-scaling-stroke;
-        filter: drop-shadow(0 0 5px rgba(255, 218, 82, 0.70));
-      }
-
-      .lb-connect-line-active {
-        stroke: rgba(255, 91, 36, 1) !important;
-        stroke-width: 6.4 !important;
-      }
-
       .lb-walking-person {
         position: absolute !important;
         left: var(--person-x, 50%) !important;
         top: var(--person-y, 50%) !important;
-        width: clamp(48px, 5.8vw, 86px) !important;
+        width: calc(var(--lb-training-plate-size) * 1.45) !important;
+        max-height: min(22vh, calc(var(--lb-training-board-height) * .14));
+        object-fit: contain;
         z-index: 8 !important;
-        transform: translate(-50%, -92%) !important;
         pointer-events: none !important;
         filter: drop-shadow(0 8px 10px rgba(70, 45, 18, 0.22));
-        transition: left 520ms ease, top 520ms ease;
+      }
+
+      .lb-walking-person.is-jumping {
+        animation: lbTrainingWalkerJump ${WALK_JUMP_DURATION_MS}ms cubic-bezier(.2, .75, .32, 1) both;
+      }
+
+      .lb-walking-person.is-entering-home {
+        animation: lbTrainingWalkerEnterHome ${WALK_HOME_DURATION_MS}ms ease-in both;
+      }
+
+      @keyframes lbTrainingWalkerJump {
+        0% { opacity: .82; transform: translate(-50%, -78%) scale(.9); }
+        48% { opacity: 1; transform: translate(-50%, -128%) scale(1.05); }
+        100% { opacity: 1; transform: translate(-50%, -78%) scale(1); }
+      }
+
+      @keyframes lbTrainingWalkerEnterHome {
+        0% { opacity: 1; transform: translate(-50%, -78%) scale(1); }
+        70% { opacity: .9; transform: translate(-50%, -65%) scale(.62); }
+        100% { opacity: 0; transform: translate(-50%, -58%) scale(.18); }
       }
 
       .lb-training-footer {
@@ -900,9 +889,10 @@ function TrainingInlineStyle() {
       .lb-training-button:disabled { opacity: 0.48 !important; cursor: not-allowed !important; }
 
       .lb-training-card-page {
-        display: grid !important;
-        place-items: center !important;
-        padding: clamp(10px, 1.6vw, 26px) !important;
+        display: flex !important;
+        align-items: stretch !important;
+        justify-content: center !important;
+        padding: 0 !important;
       }
 
       .lb-training-card {
@@ -967,14 +957,12 @@ function TrainingInlineStyle() {
         .lb-training-header h1 { font-size: clamp(24px, 6vw, 34px) !important; }
         .lb-training-header p { font-size: clamp(14px, 3.3vw, 18px) !important; margin-top: 4px !important; }
         .lb-floating-doorplate-layer { inset: 22px 30px 26px 30px !important; }
-        .lb-doorplate-art { width: clamp(52px, 8.4vw, 82px) !important; }
         .lb-doorplate-art-hidden {
         opacity: 0.18 !important;
         filter: grayscale(1) brightness(1.35) !important;
       }
 
       .lb-doorplate-number { font-size: clamp(18px, 3vw, 29px) !important; }
-        .lb-map-home-img { width: clamp(66px, 11vw, 98px) !important; }
         .lb-training-level-grid,
         .lb-training-result-list { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
       }
@@ -1001,14 +989,16 @@ function TrainingInlineStyle() {
 
       .lb-center-shell {
         width: min(88vw, 1180px);
-        min-height: 100vh;
-        min-height: 100svh;
+        height: 100%;
+        min-height: 0;
         margin: 0 auto;
         display: flex;
+        flex-direction: column;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start;
         box-sizing: border-box;
-        padding: 28px 0;
+        padding: var(--lb-training-card-top-space) 0 var(--lb-training-card-bottom-space);
+        overflow-y: auto;
         position: relative;
         z-index: 1;
       }
@@ -1020,6 +1010,8 @@ function TrainingInlineStyle() {
       }
 
       .lb-soft-panel {
+        flex: none;
+        margin-block: auto;
         width: 100%;
         position: relative;
         box-sizing: border-box;
@@ -1072,6 +1064,7 @@ function TrainingInlineStyle() {
       }
 
       .lb-game-title {
+        margin: 0;
         position: relative;
         z-index: 2;
         display: inline-flex;
@@ -1196,23 +1189,17 @@ function TrainingInlineStyle() {
         justify-content: center;
         overflow: hidden;
         box-sizing: border-box;
-        padding: 14px;
+        padding: 0;
         box-shadow: 0 10px 0 rgba(42, 112, 165, 0.20), 0 18px 24px rgba(53, 91, 123, 0.18);
       }
-      .lb-round-icon::after {
-        content: "★";
-        position: absolute;
-        right: 4px;
-        bottom: 2px;
-        color: #ffd948;
-        font-size: 36px;
-        -webkit-text-stroke: 2px #e29b21;
-        text-shadow: 0 3px 0 rgba(139, 96, 20, 0.14);
-      }
+      /* Match test's crop of the icon's built-in transparent margins. */
       .lb-round-icon img {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
+        flex: none;
+        width: 124%;
+        height: 124%;
+        max-width: none;
+        object-fit: cover;
+        transform: translateY(5.5%);
         display: block;
       }
 
@@ -1291,6 +1278,15 @@ function TrainingInlineStyle() {
       .lb-video-panel {
         width: min(84vw, 1020px);
         padding: 30px 34px 92px;
+      }
+      body .lb-training-card-page > .test-video-layout {
+        height: 100% !important;
+        padding-top: max(var(--lb-training-card-top-space), env(safe-area-inset-top)) !important;
+        padding-bottom: max(var(--lb-training-card-bottom-space), env(safe-area-inset-bottom)) !important;
+      }
+      body .lb-training-card-page > .test-video-layout > .test-video-card {
+        --video-available-height: calc(var(--lb-training-viewport-height) - max(var(--lb-training-card-top-space), env(safe-area-inset-top)) - max(var(--lb-training-card-bottom-space), env(safe-area-inset-bottom)));
+        margin: 0 !important;
       }
       .lb-video-frame {
         position: relative;
@@ -1378,7 +1374,15 @@ function TrainingInlineStyle() {
         transform: translateX(-50%);
       }
       .lb-result-panel .lb-result-actions {
-        margin-top: 8px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        width: min(100%, 616px);
+        margin: 8px auto 0;
+      }
+      .lb-result-panel .lb-result-actions .lb-image-button img {
+        width: 100%;
+        max-width: 188px;
+        margin-inline: auto;
       }
       .lb-result-metrics {
         position: relative;
@@ -1406,7 +1410,7 @@ function TrainingInlineStyle() {
       .lb-training-simple-frame {
         position: relative;
         width: 100vw;
-        height: 100svh;
+        height: 100%;
         padding: 0;
         box-sizing: border-box;
         display: grid;
@@ -1421,13 +1425,15 @@ function TrainingInlineStyle() {
       }
 
       .lb-training-simple-play .lb-floating-doorplate-layer {
-        inset: 28px 34px 96px;
+        --lb-training-board-width: calc(100vw - 68px);
+        --lb-training-board-height: calc(var(--lb-training-viewport-height) - 28px - var(--lb-training-footer-space));
+        inset: 28px 34px var(--lb-training-footer-space) !important;
       }
 
       .lb-training-simple-bottom {
-        position: fixed;
+        position: absolute;
         left: 50%;
-        bottom: clamp(14px, 2.4vh, 28px);
+        bottom: var(--lb-training-action-bottom);
         transform: translateX(-50%);
         z-index: 20;
         display: flex;
@@ -1448,15 +1454,18 @@ function TrainingInlineStyle() {
       }
       .lb-training-simple-finish img {
         display: block;
-        width: clamp(152px, 16vw, 220px);
+        width: var(--lb-training-action-width);
         height: auto;
         object-fit: contain;
         filter: drop-shadow(0 10px 12px rgba(80, 50, 18, 0.22));
       }
 
       @media (max-width: 760px) {
-        .lb-training-simple-play .lb-floating-doorplate-layer { inset: 18px 12px 92px; }
-        .lb-training-simple-bottom { bottom: 12px; }
+        .lb-training-simple-play .lb-floating-doorplate-layer {
+          --lb-training-board-width: calc(100vw - 24px);
+          --lb-training-board-height: calc(var(--lb-training-viewport-height) - 18px - var(--lb-training-footer-space));
+          inset: 18px 12px var(--lb-training-footer-space) !important;
+        }
       }
 
       @keyframes lbMouseTap {
@@ -1473,7 +1482,7 @@ function TrainingInlineStyle() {
       }
 
       @media (max-width: 768px) {
-        .lb-center-shell { width: min(94vw, 720px); padding: 16px 0; }
+        .lb-center-shell { width: min(94vw, 720px); }
         .lb-start-shell, .lb-result-shell, .lb-rule-shell { width: 94vw; }
         .lb-start-panel, .lb-result-panel, .lb-rule-panel { min-height: 0; padding: 34px 24px 54px; border-radius: 40px; }
         .lb-result-panel { padding-top: 132px; }
@@ -1525,6 +1534,7 @@ export default function TrainingPage_LB() {
   const [memoryHidden, setMemoryHidden] = useState(false);
   const [showRuleChange, setShowRuleChange] = useState(false);
   const [walkingIndex, setWalkingIndex] = useState(0);
+  const [walkerEnteringHome, setWalkerEnteringHome] = useState(false);
   const [summary, setSummary] = useState(null);
 
   const delayTimerRef = useRef(null);
@@ -1660,6 +1670,7 @@ export default function TrainingPage_LB() {
     pendingPromptEventsRef.current = [];
     setIsLocked(false);
     setWalkingIndex(0);
+    setWalkerEnteringHome(false);
     setMemoryHidden(false);
     setShowRuleChange(false);
     wrongStepCountRef.current = 0;
@@ -1837,7 +1848,7 @@ export default function TrainingPage_LB() {
       setCompletedKeys(nextCompleted);
 
       const isLastStep = nextCompleted.length >= currentSequence.length;
-      const nextPath = isLastStep ? [...clickedPathRef.current, item, HOME_PATH_POINT] : [...clickedPathRef.current, item];
+      const nextPath = [...clickedPathRef.current, item];
       clickedPathRef.current = nextPath;
       setClickedPath(nextPath);
 
@@ -1854,7 +1865,7 @@ export default function TrainingPage_LB() {
         if (nextStep === Number(currentLevel.ruleChangeAfterStep)) {
           setHintKey(null);
           setShowRuleChange(true);
-          setFooterMessage("規則改變！接下來改成藍色、紅色交替");
+          setFooterMessage("規則改變！接下來改成藍色、黃色交替");
           delayTimerRef.current = setTimeout(() => {
             setShowRuleChange(false);
             setStepIndex(nextStep);
@@ -1862,13 +1873,6 @@ export default function TrainingPage_LB() {
             setIsLocked(false);
           }, 1600);
           return;
-        }
-
-        if (currentLevel.shuffleAfterSteps?.includes(nextStep)) {
-          setDisplayItems((prev) =>
-            withDoorplateMeta(prev, getPositionsForCount(prev.length), currentSequence)
-          );
-          setFooterMessage("門牌位置已整理，繼續照順序找");
         }
 
         setStepIndex(nextStep);
@@ -1881,7 +1885,7 @@ export default function TrainingPage_LB() {
     setWrongKey(item.key);
 
     const messageMap = {
-      colorError: "顏色不對，先看紅藍順序",
+      colorError: "顏色不對，先看黃藍順序",
       numberError: "數字不對，找同一個順序的數字",
       distractorClick: "這是假門牌，換一個看看",
       sequenceError: "方向不對，再看下一個數字",
@@ -1904,26 +1908,29 @@ export default function TrainingPage_LB() {
     setIsLocked(true);
     setTrainingPhase("reviewing");
     setWalkingIndex(0);
+    setWalkerEnteringHome(false);
     setFooterMessage("綿羊奶奶沿著你連好的路走回家");
 
     let index = 0;
     const pathLength = clickedPathRef.current.length;
     reviewIntervalRef.current = setInterval(() => {
       index += 1;
-      setWalkingIndex(Math.min(index, pathLength - 1));
-
-      if (index >= pathLength - 1) {
+      if (index < pathLength) {
+        setWalkingIndex(index);
+      } else {
         clearInterval(reviewIntervalRef.current);
         reviewIntervalRef.current = null;
+        setWalkerEnteringHome(true);
 
         reviewEndTimerRef.current = setTimeout(() => {
           finishTraining();
-        }, 620);
+        }, WALK_HOME_DURATION_MS);
       }
-    }, activeFeedbackConfig.reviewStepMs || TRAINING_CONFIG.reviewStepMs);
+    }, WALK_JUMP_DURATION_MS);
   }
 
   function skipToNextLevel() {
+    if (phase !== "playing" || isLocked) return;
     const completedStepCount = completedKeysRef.current.length;
 
     if (completedStepCount < currentSequence.length) {
@@ -1931,7 +1938,7 @@ export default function TrainingPage_LB() {
       return;
     }
 
-    if (clickedPathRef.current.length > 0 && phase !== "reviewing") {
+    if (clickedPathRef.current.length > 0) {
       reviewPathThenNext();
       return;
     }
@@ -2069,19 +2076,32 @@ export default function TrainingPage_LB() {
     setTrainingPhase("endingVideo");
   }
 
+  function goDetailedResult() {
+    if (!summary) return;
+    navigate("/result-lb", {
+      replace: true,
+      state: {
+        ...summary,
+        result: summary,
+        gameId: "LB",
+        mode: TRAINING_CONFIG.mode,
+      },
+    });
+  }
+
   if (phase === "start") {
     return (
       <div className="lb-page lb-page-with-bg lb-training-card-page lb-srt-skin" style={{ "--lb-bg-image": `url(${backgroundImg})` }}>
         <TrainingInlineStyle />
         <main className="lb-center-shell lb-start-shell">
           <section className="lb-soft-panel lb-start-panel game-start-card-artwork lb-opening-card-artwork" aria-label="LB 訓練開始">
-            <h1 className="lb-game-title">幫助迷路的綿羊奶奶</h1>
+            <h1 className="lb-game-title">綿羊奶奶回家</h1>
             <div className="lb-start-content">
               <div className="lb-dialog-bubble lb-opening-bubble">
-                {currentLevel.difficultyLabel}：{currentLevel.title}。每個門牌有 {currentLevel.answerTimeLimit} 秒作答時間，照順序把小路連回家。
+                按照順序找門牌，送奶奶回家！
               </div>
               <div className="lb-round-icon lb-start-avatar">
-                <img width={1024} height={1024} loading="lazy" src={blowingBubblesImg} alt="綿羊奶奶和朋友們" draggable="false" />
+                <img width={1024} height={1024} loading="lazy" src={lbIconImg} alt="LB 遊戲圖示" draggable="false" />
               </div>
             </div>
             <div className="lb-guided-action lb-guided-start">
@@ -2215,7 +2235,7 @@ export default function TrainingPage_LB() {
                 {summary?.completed ? "訓練完成！你幫綿羊奶奶完成這一關的小路。" : "這次時間到了，休息一下，再陪綿羊奶奶試一次吧！"}
               </div>
               <div className="lb-round-icon lb-result-icon">
-                <img width={1024} height={1024} loading="lazy" src={homeImg} alt="LB 訓練圖示" draggable="false" />
+                <img width={1024} height={1024} loading="lazy" src={lbIconImg} alt="LB 遊戲圖示" draggable="false" />
               </div>
             </div>
             <div className="lb-result-actions">
@@ -2224,6 +2244,9 @@ export default function TrainingPage_LB() {
               </button>
               <button type="button" className="lb-forest-button lb-image-button lb-btn-replay" onClick={() => startTraining(adaptiveStartIndex)} aria-label="再玩一次">
                 <img width={1024} height={341} loading="lazy" src={homeAgainBtn} alt="再玩一次" draggable="false" />
+              </button>
+              <button type="button" className="lb-forest-button lb-image-button lb-btn-detail" onClick={goDetailedResult} aria-label="詳細結果">
+                <img width={1024} height={341} loading="lazy" src={homeResultBtn} alt="詳細結果" draggable="false" />
               </button>
             </div>
           </section>
@@ -2260,10 +2283,9 @@ export default function TrainingPage_LB() {
               />
             </div>
           )}
-          <div className="lb-floating-doorplate-layer" aria-label="訓練門牌遊戲區">
-            <LBPathOverlay points={clickedPath} active={phase === "reviewing"} />
+          <div className="lb-floating-doorplate-layer" data-plate-count={displayItems.length} aria-label="訓練門牌遊戲區">
             <img width={1024} height={1024} loading="lazy" src={homeImg} alt="小屋" className="lb-map-home-img" draggable="false" />
-            {phase === "reviewing" && <WalkingPerson point={clickedPath[walkingIndex]} />}
+            {phase === "reviewing" && <WalkingPerson key={`${walkingIndex}-${walkerEnteringHome}`} point={clickedPath[walkingIndex]} enteringHome={walkerEnteringHome} />}
             {displayItems.map((item) => (
               <DoorplateButton
                 key={item.key}
@@ -2273,6 +2295,7 @@ export default function TrainingPage_LB() {
                 activeWrong={wrongKey === item.key}
                 activeCorrect={correctGlowKey === item.key}
                 activeHint={hintKey === item.key}
+                visited={phase === "reviewing" && completedKeys.indexOf(item.key) >= 0 && completedKeys.indexOf(item.key) <= walkingIndex}
                 memoryHidden={memoryHidden}
                 onClick={handleDoorplateClick}
               />
@@ -2281,7 +2304,7 @@ export default function TrainingPage_LB() {
         </main>
 
         <footer className="lb-training-simple-bottom">
-          <button type="button" className="lb-forest-button lb-training-simple-finish" onClick={skipToNextLevel} aria-label="完成作答">
+          <button type="button" className="lb-forest-button lb-training-simple-finish" onClick={skipToNextLevel} disabled={phase === "reviewing" || isLocked} aria-label="完成作答">
             <img src={homeSendBtn} alt="完成作答" draggable="false" />
           </button>
         </footer>

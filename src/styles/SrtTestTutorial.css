@@ -17,12 +17,14 @@
   pointer-events: none;
 }
 .srt-practice-progress { display: flex; justify-content: center; gap: 16px; }
-.srt-practice-progress img { width: clamp(30px, 5vw, 44px); height: auto; opacity: 0.25; filter: grayscale(1); }
+.srt-practice-progress img { width: calc(clamp(30px, 5vw, 44px) * var(--srt-stimulus-scale, 1)); height: auto; opacity: 0.25; filter: grayscale(1); }
 .srt-practice-progress img.is-complete { opacity: 1; filter: none; }
 .srt-practice-target {
   position: absolute;
   transform: translate(-50%, -50%);
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 0;
   border: 0;
   background: transparent;
@@ -30,7 +32,9 @@
   touch-action: manipulation;
   z-index: 2;
 }
-.srt-practice-target img { display: block; width: 100%; height: auto; pointer-events: none; }
+.srt-practice-target img { display: block; max-height: 100%; height: auto; pointer-events: none; transition: transform 0.1s ease-out; }
+.srt-practice-target:hover img { transform: scale(1.025); }
+.srt-practice-target:active img { transform: scale(0.97); }
 .srt-practice-target[data-visible="false"] { outline: none; }
 .srt-practice-rule-example {
   position: absolute;
@@ -40,21 +44,6 @@
   z-index: 2;
   pointer-events: none;
 }
-.srt-practice-response-feedback {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: #f7ffe2;
-  color: #5c8b38;
-  font-size: 24px;
-  z-index: 3;
-  pointer-events: none;
-}
-.srt-practice-response-feedback.is-gentle { background: #fff7dc; }
 .srt-practice-assistance {
   position: absolute;
   top: 50%;

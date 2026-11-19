@@ -13,7 +13,8 @@ import tutorialAvatar from "../asset/SRT/chicken.webp";
 import introVideo from "../asset/optimized/mp4/SRT_start.mp4";
 import tutorialVideo from "../asset/optimized/mp4/SRT_step.mp4";
 import endingVideo from "../asset/optimized/mp4/SRT_end.mp4";
-import clickSoundFile from "../asset/Click.mp3";
+import useSrtClickSound from "../utils/useSrtClickSound";
+import SrtTargetFeedback from "../components/SrtTargetFeedback";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
 import homeNextBtn from "../asset/home/next.webp";
@@ -332,7 +333,7 @@ const TrainingPage_SRT = () => {
   const spawnAnimationFrameRef = useRef(null);
   const warmupTimeoutRef = useRef(null);
 
-  const clickAudioRef = useRef(null);
+  const playClickSound = useSrtClickSound();
 
   const config = difficultySettings[difficulty] || difficultySettings.beginner;
 
@@ -346,9 +347,6 @@ const TrainingPage_SRT = () => {
   }, [initialDifficulty]);
 
   useEffect(() => {
-    clickAudioRef.current = new Audio(clickSoundFile);
-    clickAudioRef.current.volume = 1.0;
-
     return () => {
       clearAllTimers();
     };
@@ -384,13 +382,6 @@ const TrainingPage_SRT = () => {
     falseStartWarningTimeoutRef.current = null;
     spawnAnimationFrameRef.current = null;
     warmupTimeoutRef.current = null;
-  };
-
-  const playClickSound = () => {
-    if (!clickAudioRef.current) return;
-
-    clickAudioRef.current.currentTime = 0;
-    clickAudioRef.current.play().catch(() => {});
   };
 
   const resetTraining = () => {
@@ -2268,7 +2259,7 @@ const TrainingPage_SRT = () => {
               />
             )}
 
-            {effect && <div className="srt-test-effect" style={{ left: `${effect.x}%`, top: `${effect.y}%` }} />}
+            <SrtTargetFeedback position={effect} />
           </div>
         </main>
       )}

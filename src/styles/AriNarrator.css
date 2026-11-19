@@ -31,17 +31,6 @@
   50% { opacity: 0; }
 }
 
-/* The result character has its own grid cell, above the navigation buttons. */
-.ari-result-content.ari-result-with-narrator {
-  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
-  gap: 20px;
-}
-.ari-result-with-narrator .ari-narrator { max-width: 480px; justify-self: center; }
-
-@media (max-width: 768px) {
-  .ari-result-content.ari-result-with-narrator { grid-template-columns: minmax(0, 1fr); }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .ari-narrator[data-speaking="true"] .ari-narrator-frame { animation: none; }
 }

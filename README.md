@@ -992,7 +992,7 @@ npm start
 npm run server
 ```
 
-開啟 `http://localhost:3001` 應顯示 `Clinical Assistant API is running.`。此訊息只代表 HTTP 程序啟動，不代表授權、檢索或模型呼叫已成功。前端透過 `package.json` 的開發 proxy 將 `/api` 轉送到 3001；若調整 API port，需同步修改 proxy。
+開啟 `http://localhost:3001` 應顯示 `Clinical Assistant API is running.`。本機 `.env` 使用 `PORT=3000`（前端）及 `CLINICAL_API_PORT=3001`（API），避免前端佔用 API 連接埠而將請求代理回自己。此訊息只代表 HTTP 程序啟動，不代表授權、檢索或模型呼叫已成功。前端透過 `package.json` 的開發 proxy 將 `/api` 轉送到 3001；若調整 API port，需同步修改 proxy。
 
 ### 13.2 環境變數
 
@@ -1002,8 +1002,8 @@ npm run server
 | `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY` | `.env.rag`／伺服器環境 | 後端與匯入腳本使用，不可加 `REACT_APP_` 前綴或放入前端 |
 | `OPENAI_API_KEY` | `.env.rag`／伺服器環境 | 醫療 AI 必填；未設定時不要啟動 AI API |
 | `OPENAI_MODEL` | 同上 | 程式預設 `gpt-5-mini`，需使用帳號可存取的模型 |
-| `ALLOWED_ORIGINS` | `.env`／伺服器環境 | 逗號分隔來源；正式環境填 HTTPS origin，不含 `/ef-game` 等路徑 |
-| `PORT` | 伺服器環境 | API 預設 3001 |
+| `ALLOWED_ORIGINS` | `.env`／伺服器環境 | 逗號分隔來源；本機明確設定時也加入 CRA 代理改寫後的 `http://localhost:3001`；正式環境只填部署的 HTTPS origin，不含 `/ef-game` 等路徑 |
+| `PORT`、`CLINICAL_API_PORT` | 本機 `.env`／伺服器環境 | 本機前端 `PORT=3000`、API `CLINICAL_API_PORT=3001`；API 優先讀取 `CLINICAL_API_PORT`，未設定時沿用部署環境的 `PORT`，兩者皆無則用 3001 |
 | `CLINICAL_API_REQUEST_LIMIT` | `.env`／伺服器環境 | 預設 `256kb` |
 | `CLINICAL_API_RATE_WINDOW_MS`、`CLINICAL_API_RATE_MAX` | 同上 | 預設 60000 ms 內最多 20 次 |
 | `HUGGINGFACE_EMBEDDING_MODEL` | `.env.rag` | 預設 `Xenova/multilingual-e5-small`；匯入與查詢必須一致 |
@@ -1011,6 +1011,8 @@ npm run server
 | `HUGGINGFACE_CACHE_PATH` | `.env.rag` | 匯入／搜尋腳本快取；與 API 使用不同變數名稱 |
 | `KNOWLEDGE_BASE_PATH` | `.env.rag` | PDF 來源，預設 `./knowledge_base` |
 | `IMPORT_MODE`、`IMPORT_LIMIT` | `.env.rag` | `all` 或 `one_per_category`；腳本預設上限 239，`all` 下 0 表示不限 |
+| `IMPORT_BATCH_SIZE` | `.env.rag` | 每批寫入的向量段落數，預設 16、可設定 1～64；不改變切段或向量模型 |
+| `IMPORT_EMBEDDING_CONCURRENCY` | `.env.rag` | 同時產生向量的段落數，預設 4、可設定 1～8；記憶體不足時調低 |
 | `SUPABASE_RAG_RPC` | 伺服器環境 | 預設 `match_clinical_knowledge` |
 
 API 先載入 `.env` 再載入 `.env.rag`，dotenv 不覆蓋既有值；同名值以程序環境、`.env`、`.env.rag` 的順序優先。匯入與搜尋腳本只載入 `.env.rag`。不要在兩份檔案填不同專案的同名設定。

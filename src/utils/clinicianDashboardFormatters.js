@@ -1,7 +1,9 @@
+import { formatDateTime } from "./professionalFormatters";
 export function calculateAge(birthDate, today = new Date()) {
-  if (!birthDate) return "-";
+  if (!birthDate) return "未記錄";
 
   const birth = new Date(birthDate);
+  if (Number.isNaN(birth.getTime()) || Number.isNaN(today.getTime()) || birth > today) return "未記錄";
   let years = today.getFullYear() - birth.getFullYear();
   let months = today.getMonth() - birth.getMonth();
 
@@ -22,17 +24,7 @@ export function formatGender(gender) {
 }
 
 export function formatDate(value, includeSeconds = false) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString("zh-TW", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    ...(includeSeconds ? { second: "2-digit" } : {}),
-  });
+  return formatDateTime(value, { seconds: includeSeconds });
 }
 
 export function daysSince(value, now = Date.now()) {
@@ -42,18 +34,4 @@ export function daysSince(value, now = Date.now()) {
   return Math.floor((now - date.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-export function formatTrendRecordDate(value) {
-  if (!value) return "時間未知";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-
-  return date.toLocaleString("zh-TW", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
+export function formatTrendRecordDate(value) { return formatDateTime(value); }

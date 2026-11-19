@@ -1,6 +1,7 @@
+import { researchTaskLabel } from "../utils/professionalLabels";
 import { ChartContainer, MetricCard, PageHeader, ResearchDataTable, ResearchNotice } from "../components/research/ResearchStudioUI";
 import { useResearchData, useResearchSelection, useResearchWorkspace } from "../components/research/ResearchWorkspaceContext";
-import { matchesResearchScope, researchTaskLabel } from "../config/researchTasks";
+import { matchesResearchScope } from "../config/researchTasks";
 import { buildResearchQualityAlerts, RESEARCH_METRICS, researchNumber, researchPercent } from "../utils/researchPresentation";
 import { ResearchAlerts, ResearchPage } from "../components/research/ResearchPresentation";
 import { useMemo, useState } from "react";
@@ -15,7 +16,7 @@ const LABELS = { accuracy: "正確率（%）", rt_mean: "平均反應時間 RT�
 const format = researchNumber;
 const metricValue = (feature, value) => RESEARCH_METRICS[feature]?.format(value) ?? format(value);
 const metricSpread = (feature, value) => ["accuracy", "error_rate"].includes(feature)
-  ? `${value == null ? "—" : format(value * 100, 1)} 百分點` : metricValue(feature, value);
+  ? `${value == null ? "未記錄" : format(value * 100, 1)} 百分點` : metricValue(feature, value);
 
 export default function ResearchStatistics() {
   const workspace = useResearchWorkspace();
@@ -56,7 +57,7 @@ export default function ResearchStatistics() {
           {!selectedStatistics.length && <p>尚無可用的分布資料。</p>}
           {selectedStatistics.map((statistic) => <div key={statistic.task_code}><h3>{researchTaskLabel(statistic.task_code)} · {statistic.n} 筆有效場次</h3>{statistic.n < 2 ? <p>{statistic.n === 1 ? `僅 1 筆有效場次：${metricValue(selectedFeature, statistic.mean)}；尚無可比較的分布。` : "目前沒有可繪製的數值觀察。"}</p> : <><p>{statistic.distribution_summary}</p><div className="research-chart"><ResponsiveContainer width="100%" height={260}><BarChart data={statistic.histogram || []}><CartesianGrid vertical={false} stroke="var(--research-border)"/><XAxis dataKey="lower" tickFormatter={(value) => metricValue(selectedFeature, value)} tick={{ fill: "var(--research-muted)" }}/><YAxis allowDecimals={false} tick={{ fill: "var(--research-muted)" }}/><Tooltip contentStyle={{ background: "var(--research-card)", borderColor: "var(--research-border)", color: "var(--research-ink)" }} labelFormatter={(value, payload) => { const bin = payload?.[0]?.payload; return bin ? metricValue(selectedFeature, bin.lower) + "–" + metricValue(selectedFeature, bin.upper) : value; }}/><Legend/><Bar dataKey="count" name="場次數" fill="var(--research-chart-observed)" isAnimationActive={false}/></BarChart></ResponsiveContainer></div></>}</div>)}
         </article>
-        <article className="research-panel"><h2>箱型圖與離群值</h2>{selectedStatistics.map((statistic) => <div key={statistic.task_code}><h3>{researchTaskLabel(statistic.task_code)} · {statistic.n} 筆有效場次</h3>{statistic.n < 2 ? <p>至少需要 2 筆有效場次才能呈現分布。</p> : <><BoxPlot summary={statistic.box_plot} feature={selectedFeature}/><dl className="research-metric-list"><div><dt>缺失值</dt><dd>{statistic.missing_count ?? "—"}</dd></div><div><dt>圖基離群值</dt><dd>{statistic.outlier_count ?? "—"}</dd></div><div><dt>離群率</dt><dd>{researchPercent(statistic.outlier_rate)}</dd></div></dl></>}</div>)}</article>
+        <article className="research-panel"><h2>箱型圖與離群值</h2>{selectedStatistics.map((statistic) => <div key={statistic.task_code}><h3>{researchTaskLabel(statistic.task_code)} · {statistic.n} 筆有效場次</h3>{statistic.n < 2 ? <p>至少需要 2 筆有效場次才能呈現分布。</p> : <><BoxPlot summary={statistic.box_plot} feature={selectedFeature}/><dl className="research-metric-list"><div><dt>缺失值</dt><dd>{statistic.missing_count ?? "未記錄"}</dd></div><div><dt>圖基離群值</dt><dd>{statistic.outlier_count ?? "未記錄"}</dd></div><div><dt>離群率</dt><dd>{researchPercent(statistic.outlier_rate)}</dd></div></dl></>}</div>)}</article>
       </section>
       </details>
       <section className="studio-card"><h2>詳細描述性統計</h2><ResearchDataTable title="描述性統計" rows={primaryStatistics} getKey={(row) => row.task_code + "-" + row.feature} columns={[

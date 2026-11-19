@@ -77,6 +77,17 @@ const GAME_KEYS = new Set([
   "COMMON",
 ]);
 
+// Stored knowledge uses importer keys, while the dashboard displays Chinese
+// ability labels. Never send display text as an exact database filter.
+const RAG_ABILITIES_BY_GAME = {
+  SRT: "reaction_time_processing_speed",
+  PM: "visual_working_memory",
+  CBT: "sequence_spatial_working_memory",
+  ARI: "selective_attention_response_inhibition",
+  DCCS: "cognitive_flexibility_task_switching",
+  LB: "rule_sequence_planning",
+};
+
 const SYSTEM_INSTRUCTIONS = `
 你是「執行功能訓練系統」中的 AI 臨床資料摘要助手。
 
@@ -670,7 +681,7 @@ function sanitizeComputedAnalysis(
   );
 }
 
-function resolveRagFilters(context) {
+export function resolveRagFilters(context) {
   const selectedGameKey =
     normalizeGameKey(
       context?.selectedRecord
@@ -695,18 +706,7 @@ function resolveRagFilters(context) {
     comparisonGameKey ||
     null;
 
-  const ability =
-    safeString(
-      context?.selectedRecord
-        ?.ability,
-      200
-    ) ||
-    safeString(
-      context?.latestRecord
-        ?.ability,
-      200
-    ) ||
-    null;
+  const ability = RAG_ABILITIES_BY_GAME[gameKey] || null;
 
   return {
     gameKey,
@@ -1263,6 +1263,9 @@ function getSafeErrorMessage(
   }
 
   if (status === 429) {
+    if (["credit_balance_exhausted", "insufficient_quota"].includes(error?.code)) {
+      return "AI 服務額度不足，請管理員補足 API 額度或更新可用的 API Key。";
+    }
     return "AI 服務目前請求過多，請稍後再試。";
   }
 

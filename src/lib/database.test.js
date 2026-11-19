@@ -28,6 +28,35 @@ test("an account change before upload never writes under the other account", asy
   expect(supabase.from).not.toHaveBeenCalled();
 });
 
+test("research reads retain an expired-session error for reauthentication", async () => {
+  const expired = { code: "PGRST301", status: 401, message: "JWT expired" };
+  store.once("behavioral_task_sessions", "read", () => ({ data: null, error: expired }));
+  store.once("game_results", "read", networkError);
+  await expect(getResearchFeatureInputsFromCloud()).rejects.toBe(expired);
+});
+
+test("research loading isolates duplicated LB operation keys while retaining valid sessions and exact sources", async () => {
+  await saveGameResultToCloud(behavioralResult("PM", 4));
+  const legacy = behavioralResult("LB", 2);
+  legacy.resultId = "legacy-lb-duplicate-operations";
+  legacy.session.mode = "training";
+  legacy.behavioral = { sessionId: "legacy-lb-session", taskSessionId: "legacy-lb-task", trialIds: ["legacy-op-1", "legacy-op-2"] };
+  legacy.trials = [
+    { trialId: "1-4-5", levelId: "1-4", stepInLevel: 5, clickedNumber: 4, expectedNumber: 5, isCorrect: false, reactionTime: 400 },
+    { trialId: "1-4-5", levelId: "1-4", stepInLevel: 5, clickedNumber: 5, expectedNumber: 5, isCorrect: true, reactionTime: 600 },
+  ];
+  legacy.rawResult.trialLogs = JSON.parse(JSON.stringify(legacy.trials));
+  store.tables.game_results.push({ id: legacy.resultId, patient_id: "child-1", game_id: "LB", mode: "training", payload: legacy });
+  const before = JSON.stringify(store.tables);
+  const writes = store.writes.length;
+  const result = await getResearchFeatureInputsFromCloud({ includeDiagnostics: true });
+  expect(result.inputs).toHaveLength(1);
+  expect(result.inputs[0].taskSession.task_code).toBe("PM");
+  expect(result.issues).toEqual([expect.objectContaining({ resultId: legacy.resultId, gameId: "LB", code: "DUPLICATE_SOURCE_KEY" })]);
+  expect(JSON.stringify(store.tables)).toBe(before);
+  expect(store.writes).toHaveLength(writes);
+});
+
 test.each(["LB", "PM"])("complete %s upload verifies every raw/derived trial and idempotently reads back", async (task) => {
   const record = behavioralResult(task);
   const before = JSON.stringify(record);

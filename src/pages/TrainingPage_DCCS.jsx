@@ -34,7 +34,7 @@ import {
   pickDiverseDccsCards as pickDiverseCards,
 } from "../utils/dccsCardUtils";
 
-import peacockImg from "../asset/DCCS/dccs_peacock.webp";
+import peacockImg from "../asset/DCCS_icon.webp";
 import basketTopImg from "../asset/DCCS/training/box_left.webp";
 import basketBottomImg from "../asset/DCCS/training/box_right.webp";
 
@@ -1003,6 +1003,18 @@ const createTypeTrials = (count, options = {}) => {
     .filter(Boolean);
 };
 
+const createBagColorTrials = (count) => createColorTrials(count).map((trial) => ({
+  ...trial,
+  id: `training_bag_color_${trial.id}`,
+  ruleStage: "bagColor",
+  imageVariant: "bag",
+  previousRule: "type",
+  cue: "bagged",
+  inactiveRule: "type",
+  isBagColorTrial: true,
+  wasAfterRuleSwitch: true,
+}));
+
 const createDualRuleTrials = (count, options = {}) => {
   const availableColors = getAvailableValues("color", COLOR_PRIORITY);
   const availableTypes = getAvailableValues("type", TYPE_PRIORITY);
@@ -1148,7 +1160,7 @@ const buildLevelTrials = ({
     });
   }
 
-  if (ruleSequence.includes("dualRule")) {
+  if (ruleSequence.includes("bagColor") || ruleSequence.includes("dualRule")) {
     const firstEnd = clampNumber(
       firstSwitchPoint ?? switchPoint ?? Math.floor(totalTrials / 3),
       1,
@@ -1161,7 +1173,7 @@ const buildLevelTrials = ({
     );
     const colorCount = firstEnd;
     const typeCount = Math.max(1, secondEnd - firstEnd);
-    const dualCount = Math.max(1, totalTrials - secondEnd);
+    const bagCount = Math.max(1, totalTrials - secondEnd);
 
     return [
       ...createColorTrials(colorCount),
@@ -1169,9 +1181,9 @@ const buildLevelTrials = ({
         interferenceRate,
         wasAfterRuleSwitch: true,
       }),
-      ...createDualRuleTrials(dualCount, {
+      ...(ruleSequence.includes("bagColor") ? createBagColorTrials(bagCount) : createDualRuleTrials(bagCount, {
         interferenceRate: bagInterferenceRate || interferenceRate,
-      }),
+      })),
     ];
   }
 
@@ -1187,10 +1199,24 @@ const buildLevelTrials = ({
   ];
 };
 
+// The artwork already labels the left box with a blue shirt and the right
+// box with a red hat. Answers must follow those fixed, visible references.
 const createLevelConfig = (config) => ({
   ...config,
   totalText: `${config.totalTrials} 題`,
-  trials: buildLevelTrials(config),
+  trials: buildLevelTrials(config).map((trial) => {
+    const targets = {
+      topTarget: makeTarget(findCard({ color: "blue", type: "tshirt" }), trial.matchBy),
+      bottomTarget: makeTarget(findCard({ color: "red", type: "hat" }), trial.matchBy),
+    };
+    const correctSide = getTargetSideForKey(targets, "key", trial.card[trial.matchBy]);
+    const previousMatchBy = trial.previousRule === "type" ? "typeKey" : "colorKey";
+    const previousSide = trial.previousRule
+      ? getTargetSideForKey(targets, previousMatchBy, trial.card[trial.previousRule])
+      : null;
+    return { ...trial, ...targets,
+      isInterferenceTrial: Boolean(previousSide && previousSide !== correctSide) };
+  }),
 });
 
 export const DCCS_TRAINING_LEVELS = Object.fromEntries(DCCS_DIFFICULTY_ORDER.map((id) => [
@@ -1257,6 +1283,8 @@ function TrainingPage_DCCS() {
   const promptEventsRef = useRef([]);
   const windEpochRef = useRef(null);
   const windElapsedRef = useRef(0);
+  const windTimerRef = useRef(null);
+  const windActiveRef = useRef(false);
   const windEventsRef = useRef([]);
 
   const pageBackgroundStyle = useMemo(() => ({
@@ -1280,6 +1308,8 @@ function TrainingPage_DCCS() {
     window.clearTimeout(answerTimerRef.current);
     hintTimerRef.current = null;
     answerTimerRef.current = null;
+    window.clearTimeout(windTimerRef.current);
+    windTimerRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -1311,12 +1341,24 @@ function TrainingPage_DCCS() {
 
   const ruleCue = phase === PHASE.INITIAL_RULE
     ? (currentLevel.windEnabled ? "colorWithWind" : "color")
-    : phase === PHASE.SWITCH_RULE ? "type" : phase === PHASE.BAG_RULE ? "bag" : null;
+    : phase === PHASE.SWITCH_RULE ? "type"
+    : phase === PHASE.BAG_RULE ? (currentLevel.ruleSequence.includes("bagColor") ? "bagColor" : "bag") : null;
   const ruleNarrationReady = narration.cue === ruleCue && narration.ready;
   useEffect(() => {
     if (ruleCue) playNarration(ruleCue);
+    else setNarration({ cue: null, speaking: false, ready: false, failed: false });
     return () => voicePlayer.stop();
   }, [ruleCue, playNarration, voicePlayer]);
+
+  useEffect(() => {
+    if (!ruleCue || !ruleNarrationReady) return;
+    clearPendingTiming();
+    if (phase === PHASE.INITIAL_RULE) setTrialIndex(0);
+    setFeedback(null);
+    setSelectedPosition(null);
+    setIsLocked(false);
+    setPhase(PHASE.PLAYING);
+  }, [ruleCue, ruleNarrationReady, phase, clearPendingTiming]);
 
   useEffect(() => {
     if (phase !== PHASE.PLAYING || isLocked || !currentTrial) return;
@@ -1353,34 +1395,36 @@ function TrainingPage_DCCS() {
   }, [phase, trialIndex, currentTrial, currentLevel, isLocked]);
 
   useEffect(() => {
-    setWindActive(false);
-    windEpochRef.current = null;
-    if (phase !== PHASE.PLAYING || !currentLevel.windEnabled) return;
-    // Pause the wind clock during rule explanations; resume the same cycle.
+    if (phase !== PHASE.PLAYING || isLocked || !currentLevel.windEnabled) return;
+    // Count calm time only while a question is open. Each wind belongs to
+    // that question and is ended synchronously by its first accepted answer.
     const epoch = Date.now() - windElapsedRef.current;
     windEpochRef.current = epoch;
-    let timer;
-    let previous = false;
-    const update = () => {
+    const startWind = () => {
+      if (windEpochRef.current !== epoch) return;
       const now = Date.now();
-      const wind = getDccsWindState(now - epoch, currentLevel);
-      if (wind.active !== previous) {
-        windEventsRef.current.push({ active: wind.active, timestamp: now, elapsedMs: now - epoch });
-        previous = wind.active;
-        playNarration(wind.active ? "windReverse" : "windRestore");
-      }
-      setWindActive(wind.active);
-      timer = window.setTimeout(update, wind.nextChangeMs);
+      windTimerRef.current = null;
+      windActiveRef.current = true;
+      windEventsRef.current.push({ active: true, timestamp: now, elapsedMs: now - epoch, trialNumber: trialIndex + 1 });
+      setWindActive(true);
+      playNarration("windReverse");
     };
-    update();
+    const wind = getDccsWindState(Date.now() - epoch, currentLevel);
+    if (wind.active) startWind();
+    else windTimerRef.current = window.setTimeout(startWind, wind.nextChangeMs);
     return () => {
-      window.clearTimeout(timer);
-      windElapsedRef.current = Date.now() - epoch;
+      window.clearTimeout(windTimerRef.current);
+      windTimerRef.current = null;
+      if (windEpochRef.current != null) windElapsedRef.current = Date.now() - epoch;
       windEpochRef.current = null;
-      if (previous) windEventsRef.current.push({ active: false, timestamp: Date.now(), reason: "phase_end" });
-      voicePlayer.stop();
+      if (windActiveRef.current) {
+        windActiveRef.current = false;
+        windElapsedRef.current = 0;
+        setWindActive(false);
+        windEventsRef.current.push({ active: false, timestamp: Date.now(), reason: "phase_end", trialNumber: trialIndex + 1 });
+      }
     };
-  }, [phase, currentLevel, playNarration, voicePlayer]);
+  }, [phase, isLocked, trialIndex, currentLevel, playNarration]);
 
   const handleStart = () => {
     clearPendingTiming();
@@ -1401,16 +1445,6 @@ function TrainingPage_DCCS() {
   const handleEndingVideoDone = () => {
     clearPendingTiming();
     setPhase(PHASE.FINISH);
-  };
-
-  const startPlaying = () => {
-    if (!ruleNarrationReady) return;
-    clearPendingTiming();
-    setPhase(PHASE.PLAYING);
-    setTrialIndex(0);
-    setFeedback(null);
-    setSelectedPosition(null);
-    setIsLocked(false);
   };
 
   const getCorrectPosition = (trial) => getDccsTrainingCorrectPosition(trial);
@@ -1479,10 +1513,19 @@ function TrainingPage_DCCS() {
     const reactionTime = Math.max(0, now - trialStartTimeRef.current);
     const isTimeout = position == null || reactionTime >= currentLevel.answerTimeLimitMs;
     if (isTimeout) position = null;
-    const answerWindActive = windEpochRef.current != null && getDccsWindState(now - windEpochRef.current, currentLevel).active;
+    const answerWindActive = windActiveRef.current;
     const correctPosition = getDccsTrainingCorrectPosition(currentTrial, answerWindActive);
     const oldRulePosition = getOldRulePosition(currentTrial);
     clearPendingTiming();
+    if (answerWindActive) {
+      windActiveRef.current = false;
+      windEpochRef.current = null;
+      windElapsedRef.current = 0;
+      setWindActive(false);
+      windEventsRef.current.push({ active: false, timestamp: now,
+        reason: isTimeout ? "trial_timeout" : "trial_answer", trialNumber: trialIndex + 1 });
+      playNarration("windRestore");
+    }
 
     const isCorrect = position === correctPosition;
     const isOldRuleInterference =
@@ -1660,12 +1703,11 @@ function TrainingPage_DCCS() {
         protocol: { version: DCCS_TRAINING_PROTOCOL_VERSION, answerTimeLimitMs: currentLevel.answerTimeLimitMs,
           hintDelayMs: currentLevel.hintDelayMs, ruleSequence: currentLevel.ruleSequence,
           windEnabled: Boolean(currentLevel.windEnabled), windCalmMs: currentLevel.windCalmMs ?? null,
-          windDurationMs: currentLevel.windDurationMs ?? null },
+          windDurationMs: currentLevel.windDurationMs ?? null, windEndPolicy: currentLevel.windEndPolicy ?? null },
         promptCount: promptEventsRef.current.length,
         hintCount: promptEventsRef.current.length,
         promptEvents: [...promptEventsRef.current],
-        windEvents: [...windEventsRef.current,
-          ...(windActive ? [{ active: false, timestamp: Date.now(), reason: "session_end" }] : [])],
+        windEvents: [...windEventsRef.current],
         reverseRuleTrials: nextLogs.filter((log) => log.isReverseRule).length,
         resultId: attemptIdRef.current,
         stars,
@@ -1687,6 +1729,7 @@ function TrainingPage_DCCS() {
       saveTrainingResult(resultWithStage, stars);
 
       clearPendingTiming();
+      voicePlayer.stop();
       setPhase(PHASE.END_VIDEO);
       return;
     }
@@ -1710,15 +1753,6 @@ function TrainingPage_DCCS() {
     setTrialIndex(nextIndex);
   };
 
-  const continueAfterSwitchRule = () => {
-    if (!ruleNarrationReady) return;
-    clearPendingTiming();
-    setPhase(PHASE.PLAYING);
-    setFeedback(null);
-    setSelectedPosition(null);
-    setIsLocked(false);
-  };
-
   const restartTraining = () => {
     clearPendingTiming();
     setPhase(PHASE.START);
@@ -1735,30 +1769,10 @@ function TrainingPage_DCCS() {
     trialPromptEventsRef.current = [];
     windEventsRef.current = [];
     windElapsedRef.current = 0;
+    windActiveRef.current = false;
+    windEpochRef.current = null;
     answerLockRef.current = true;
     trialStartTimeRef.current = null;
-  };
-
-  const renderTargetVisual = (target) => {
-    if (!currentTrial || !target?.image) return null;
-
-    const matchBy =
-      currentTrial.matchBy || (currentTrial.rule === "type" ? "type" : "color");
-
-    return (
-      <div
-        className={`Dcss-visual-target Dcss-target-clothing ${
-          matchBy === "type"
-            ? "Dcss-type-target-clothing"
-            : "Dcss-color-target-clothing"
-        }`}
-      >
-        <img loading="lazy"
-          src={target.image}
-          alt={matchBy === "type" ? `${target.label}種類目標` : `${target.label}顏色目標`}
-        />
-      </div>
-    );
   };
 
   const renderStartPage = () => {
@@ -1766,11 +1780,11 @@ function TrainingPage_DCCS() {
       <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}>
         <main className="Dcss-center-shell Dcss-start-shell">
           <section className="Dcss-soft-panel Dcss-start-panel game-start-card-artwork dccs-opening-card-artwork" aria-label="開始練習">
-            <div className="Dcss-game-title">孔雀衣櫃分類練習</div>
+            <div className="Dcss-game-title">孔雀小姐的服飾店</div>
 
             <div className="Dcss-start-content">
               <div className="Dcss-dialog-bubble Dcss-opening-bubble">
-                幫孔雀小姐整理衣服，依照目前規則放到正確的籃子裡。
+                按照規則，幫孔雀小姐整理衣服！
               </div>
 
               <div className="Dcss-round-icon Dcss-start-icon">
@@ -1859,16 +1873,9 @@ function TrainingPage_DCCS() {
       data-testid="dccs-training-rule" data-rule={ruleCue}>
       <main className="dccs-training-rule-scene">
         <DccsTrainingNarrator speaking={narration.speaking} cue={ruleCue} />
-        <div className="dccs-training-voice-actions">
+        {narration.failed && <div className="dccs-training-voice-actions">
           {renderReplayButton(ruleCue)}
-          <button type="button" className="dccs-training-voice-button dccs-training-voice-next"
-            disabled={!ruleNarrationReady} aria-label={phase === PHASE.INITIAL_RULE ? "開始本關" : "繼續"}
-            onClick={phase === PHASE.INITIAL_RULE ? startPlaying : continueAfterSwitchRule}>
-            <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-              <path d="M9 24h28M25 12l12 12-12 12" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        </div>
+        </div>}
       </main>
     </div>
   );
@@ -1997,7 +2004,7 @@ function TrainingPage_DCCS() {
   if (!currentTrial) return null;
 
   return (
-    <div className="Dcss-page Dcss-srt-like-page" style={pageBackgroundStyle}
+    <div className="Dcss-page Dcss-srt-like-page dccs-training-play-page" style={pageBackgroundStyle}
       data-testid="dccs-training" data-difficulty={levelId} data-trial={trialIndex + 1} data-rule={currentTrial.ruleStage}
       data-wind-active={windActive}>
       {windActive && <DccsWindEffect />}
@@ -2042,9 +2049,6 @@ function TrainingPage_DCCS() {
               aria-label="左側分類箱"
               disabled={isLocked}
             >
-              <div className="Dcss-basket-choice-label">
-                {renderTargetVisual(currentTrial.topTarget)}
-              </div>
               <div className="Dcss-basket-choice-image">
                 <img loading="lazy" src={basketTopImg} alt="左側分類箱" width="319" height="131" />
               </div>
@@ -2062,9 +2066,6 @@ function TrainingPage_DCCS() {
               aria-label="右側分類箱"
               disabled={isLocked}
             >
-              <div className="Dcss-basket-choice-label">
-                {renderTargetVisual(currentTrial.bottomTarget)}
-              </div>
               <div className="Dcss-basket-choice-image">
                 <img loading="lazy" src={basketBottomImg} alt="右側分類箱" width="319" height="131" />
               </div>
@@ -2757,15 +2758,8 @@ const dccsTrainingPageCss = `
 
 .Dcss-game-title::before,
 .Dcss-game-title::after {
-  content: "?";
-  position: absolute;
-  top: 50%;
-  font-size: 28px;
-  transform: translateY(-50%);
+  content: none;
 }
-
-.Dcss-game-title::before { left: 18px; }
-.Dcss-game-title::after { right: 18px; transform: translateY(-50%) scaleX(-1); }
 
 .Dcss-dialog-bubble {
   z-index: 2;

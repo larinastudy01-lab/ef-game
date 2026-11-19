@@ -44,10 +44,11 @@
   width: min(100%, 1100px, calc((var(--dccs-training-height) - 32px) * 1.25));
   height: min(calc(var(--dccs-training-height) - 32px), 850px);
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
   justify-items: center;
   gap: clamp(16px, 3vh, 32px);
 }
+.dccs-training-rule-scene:has(.dccs-training-voice-actions) { grid-template-rows: minmax(0, 1fr) auto; }
 .dccs-training-narrator {
   display: grid;
   grid-template-areas: "frame";
@@ -89,8 +90,6 @@
   touch-action: manipulation;
 }
 .dccs-training-voice-button svg { display: block; width: 100%; height: 100%; }
-.dccs-training-voice-next { background: #ffd56c; }
-.dccs-training-voice-button:disabled { opacity: .4; cursor: default; }
 .dccs-training-voice-button[data-failed="true"] { border-color: #b34f36; }
 .dccs-training-voice-button:focus-visible { outline: 4px solid #297d9b; outline-offset: 6px; }
 .dccs-training-wind-guide {
@@ -106,6 +105,83 @@
 .dccs-training-wind-guide .dccs-training-narrator { aspect-ratio: 1408 / 1126; height: auto; }
 .game-testing-active .dccs-training-wind-guide { top: calc(64px + max(12px, env(safe-area-inset-top))); }
 .dccs-training-wind-guide .dccs-training-voice-button { width: 48px; height: 48px; padding: 8px; }
+
+/* Keep the stimulus above the two printed boxes on one proportional canvas. */
+.Dcss-page.dccs-training-play-page {
+  --dccs-training-height: 100svh;
+  display: grid;
+  /* Absolute children have no intrinsic width. Give the centered canvas a
+     full-width track so its percentage width cannot resolve to zero. */
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  place-items: center;
+  min-height: var(--dccs-training-height);
+  height: var(--dccs-training-height);
+  padding: 16px;
+  box-sizing: border-box;
+}
+.game-testing-active .dccs-training-play-page { --dccs-training-height: calc(100svh - 64px); }
+.Dcss-page.dccs-training-play-page .Dcss-training-shell-visual {
+  position: relative !important;
+  display: block !important;
+  width: min(100%, 1360px, calc((var(--dccs-training-height) - 32px) * 16 / 9)) !important;
+  aspect-ratio: 16 / 9;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.dccs-training-play-page .Dcss-training-main-area-visual {
+  position: absolute !important;
+  inset: 0 !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.dccs-training-play-page .Dcss-training-main-area-visual .Dcss-card-stage {
+  position: absolute !important;
+  left: 50% !important;
+  top: 33% !important;
+  width: 30% !important;
+  height: auto !important;
+  translate: -50% -50%;
+}
+.dccs-training-play-page .Dcss-training-main-area-visual .Dcss-card-stage-visual .Dcss-cloth-card {
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 1;
+  padding: 0 !important;
+}
+.dccs-training-play-page .Dcss-training-main-area-visual .Dcss-baskets-bottom {
+  position: absolute !important;
+  left: 4% !important;
+  bottom: 2% !important;
+  width: 92% !important;
+  max-width: none !important;
+  gap: 5% !important;
+}
+.dccs-training-play-page .Dcss-training-main-area-visual .Dcss-visual-basket-btn {
+  min-height: 0 !important;
+  height: auto !important;
+  aspect-ratio: 319 / 131;
+  gap: 0 !important;
+  padding: 0 !important;
+}
+.dccs-training-play-page .Dcss-basket-choice-image {
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 319 / 131;
+}
+.dccs-training-play-page .Dcss-basket-choice-image > img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: contain !important;
+}
+.dccs-training-play-page .Dcss-visual-basket-btn:focus-visible { outline: 3px solid #705936 !important; outline-offset: 5px; }
 @media (prefers-reduced-motion: reduce) {
   .dccs-training-gust { animation: none; opacity: .75; transform: translateX(20%); }
   [data-testid="dccs-training"] .Dcss-visual-basket-btn > .dccs-training-answer-hint { animation: none; }

@@ -1,4 +1,5 @@
-// Landmark art is reserved for training, including its recolored red signs.
+// Training uses the original yellow/blue landmark art without recoloring.
+// The legacy "red" key still selects yellow art for stored-result compatibility.
 const assets = require.context("../asset/LB", true, /^\.\/(?:blue|yellow)_landmark\/(?:blue|yellow)_\d{2}\.webp$/);
 const assessmentAssets = require.context("../asset/LB", true, /^\.\/(?:lightgray_rock|gray_rock|red_mailbox|purple_mailbox)\/\d+\.webp$/);
 

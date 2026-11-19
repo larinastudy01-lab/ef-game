@@ -11,7 +11,7 @@ import { completeActiveRecommendation } from "../analytics/recommendation/online
 
 jest.mock("../utils/achievementAssets", () => ({ getAchievementAsset: (id, level) => `${id}-${level}.webp` }));
 jest.mock("../utils/lbDoorplateAssets", () => ({ getLBDoorplateImage: (color, number) => `${color}-${number}.webp` }));
-jest.mock("../utils/resultSync", () => ({ queueGameResult: jest.fn() }));
+jest.mock("../utils/resultSync", () => ({ queueGameResult: jest.fn(), reportResultStorageFailure: jest.fn(), reportResultStorageRecovered: jest.fn() }));
 jest.mock("../utils/economyManager", () => ({ awardTrainingCoins: jest.fn() }));
 jest.mock("../analytics/recommendation/onlineRecommendation", () => ({ completeActiveRecommendation: jest.fn() }));
 jest.mock("../ai/lbTrainingAnalyzer", () => ({
@@ -78,11 +78,12 @@ test("finishing an assigned LB route grants exactly one persisted credit and upl
   act(() => jest.advanceTimersToNextTimer());
   for (let number = 1; number <= 10; number += 1) {
     advance(100);
-    fireEvent.click(screen.getByRole("button", { name: `${number % 2 ? "紅色" : "藍色"}${number}`, exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: `${number % 2 ? "黃色" : "藍色"}${number}`, exact: true }));
     advance(420);
     if (number < 10) act(() => jest.advanceTimersToNextTimer());
   }
-  advance(5820);
+  // Wait for all ten 700 ms path-review hops and the 1,000 ms walk home.
+  advance(8000);
   expect(readAchievementProgress("child-1").credits).toHaveLength(1);
   expect(queueGameResult).toHaveBeenCalledTimes(1);
   const uploaded = queueGameResult.mock.calls[0][0];

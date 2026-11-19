@@ -1,5 +1,5 @@
 import { gameLocalStorage as localStorage, gameSessionStorage as sessionStorage } from "../temporaryGameTesting/runtime";
-import { queueGameResult, reportResultStorageFailure } from "./resultSync";
+import { queueGameResult, reportResultStorageFailure, reportResultStorageRecovered } from "./resultSync";
 import { isTemporaryGameTesting } from "../temporaryGameTesting/runtime";
 import { createBehavioralId } from "../analytics/trials/buildBehavioralHierarchy";
 import { awardTrainingCoins } from "./economyManager";
@@ -500,7 +500,40 @@ export const saveUnifiedResult = ({
     normalized?.session?.mode || mode
   }`;
 
+  const saveDisplayCache = (syncUpdate) => {
+    if (syncUpdate) {
+      normalized.syncStatus = syncUpdate.syncStatus;
+      normalized.syncState = syncUpdate.syncState;
+      normalized.rawResult = { ...normalized.rawResult, syncStatus: syncUpdate.syncStatus };
+    }
+    // Retrying a display cache never queues another acquisition or awards a reward.
+    // Read current history again so a delayed retry cannot replace newer results.
+    for (const storage of [localStorage, sessionStorage]) {
+      for (const key of [unifiedLatestKey, childScopedLatestKey]) {
+        const current = safeParse(storage?.getItem(key));
+        if (!current || getResultTimestamp(current) <= getResultTimestamp(normalized)) {
+          storage?.setItem(key, JSON.stringify(normalized));
+        }
+      }
+    }
+    if (saveLegacy) {
+      const current = safeParse(localStorage?.getItem(legacyKey));
+      if (!current || getResultTimestamp(current) <= getResultTimestamp(normalized)) {
+        localStorage?.setItem(legacyKey, JSON.stringify(normalized.rawResult));
+      }
+    }
+    const history = safeArray(safeParse(localStorage?.getItem(ALL_RESULTS_KEY), []));
+    const nextResults = [normalized, ...history]
+      .map((item) => sanitizeForStorage(item))
+      .filter((item) => item?.resultId)
+      .filter((item, index, array) => array.findIndex((candidate) => candidate.resultId === item.resultId) === index)
+      .sort((a, b) => getResultTimestamp(b) - getResultTimestamp(a))
+      .slice(0, MAX_LOCAL_RESULTS);
+    localStorage?.setItem(ALL_RESULTS_KEY, JSON.stringify(nextResults));
+  };
+
   let queued = false;
+  let queueAttempted = false;
   try {
     const allResults = safeArray(
       safeParse(localStorage?.getItem(ALL_RESULTS_KEY), [])
@@ -552,32 +585,12 @@ export const saveUnifiedResult = ({
 
     normalized.syncStatus = "pending";
     normalized.rawResult.syncStatus = "pending";
+    queueAttempted = true;
     queueGameResult(normalized);
     queued = true;
 
-    localStorage?.setItem(unifiedLatestKey, JSON.stringify(normalized));
-    sessionStorage?.setItem(unifiedLatestKey, JSON.stringify(normalized));
-    localStorage?.setItem(childScopedLatestKey, JSON.stringify(normalized));
-    sessionStorage?.setItem(childScopedLatestKey, JSON.stringify(normalized));
-
-    if (saveLegacy) {
-      localStorage?.setItem(legacyKey, JSON.stringify(safeRawResult));
-    }
-
-    const nextResults = [normalized, ...allResults]
-      .map((item) => sanitizeForStorage(item))
-      .filter((item) => item?.resultId)
-      .filter((item, index, array) => {
-        return (
-          array.findIndex(
-            (candidate) => candidate?.resultId === item?.resultId
-          ) === index
-        );
-      })
-      .sort((a, b) => getResultTimestamp(b) - getResultTimestamp(a))
-      .slice(0, MAX_LOCAL_RESULTS);
-
-    localStorage?.setItem(ALL_RESULTS_KEY, JSON.stringify(nextResults));
+    saveDisplayCache();
+    reportResultStorageRecovered(`cache:${normalized.resultId}`);
 
     if (normalized?.session?.mode === "training") {
       completeActiveRecommendation(normalized).catch((recommendationError) => {
@@ -586,7 +599,8 @@ export const saveUnifiedResult = ({
     }
   } catch (error) {
     console.warn("統一結果資料儲存失敗：", error);
-    reportResultStorageFailure();
+    if (queued) reportResultStorageFailure(error, { source: `cache:${normalized.resultId}`, retry: saveDisplayCache });
+    else if (!queueAttempted) reportResultStorageFailure(error, { source: "read" });
     if (!queued) throw error;
   }
 

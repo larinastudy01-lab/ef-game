@@ -24,7 +24,7 @@ jest.mock("recharts", () => {
 
 let container, root;
 const inputs = ["CBT", "PM"].flatMap((task) => [1, 2, 3].map((day) => ({ participantId: "anonymous-a", sessionId: `session-${day}`,
-  taskSession: { id: `${task}-${day}`, task_code: task, difficulty: 1, completion_status: "completed" },
+  taskSession: { id: `${task}-${day}`, task_code: task, difficulty: 1, raw_data: { protocolVersion: "fixture-v1" }, completion_status: "completed" },
   sessionMetadata: { assessment_or_training: "assessment", session_started_at: `2026-10-0${day}T00:00:00Z` },
   trials: [1, 2, 3, 4].map((index) => ({ trial_index: index, is_correct: index <= day, reaction_time_ms: day * 100 + index, valid_trial: true })) })));
 
@@ -38,7 +38,7 @@ test("all-task statistics show distributions for every task with visible units",
   await renderPage(ResearchStatistics);
   expect(screen.getByText("進階分布、箱型圖與離群值").closest("details")).not.toHaveAttribute("open");
   act(() => fireEvent.click(screen.getByText("進階分布、箱型圖與離群值")));
-  expect(screen.getAllByRole("heading", { name: "石頭記憶（CBT） · 3 筆有效場次" })).toHaveLength(2);
+  expect(screen.getAllByRole("heading", { name: "跳石橋（CBT） · 3 筆有效場次" })).toHaveLength(2);
   expect(screen.getAllByRole("heading", { name: "圖片記憶（PM） · 3 筆有效場次" })).toHaveLength(2);
   expect(screen.getByRole("heading", { name: "資料分布 · 正確率（%）" })).toBeInTheDocument();
 });
@@ -62,18 +62,19 @@ test.each([[ResearchProfessionalDashboard, "研究總覽"], [LongitudinalDashboa
 
 test("AI never silently substitutes simulations for insufficient observations", async () => {
   await renderPage(AIBehavioralAnalysis);
-  expect(screen.getByRole("heading", { name: "觀察模型尚未就緒" })).toBeInTheDocument();
-  expect(screen.queryByText("模擬資料｜非實際研究結果")).not.toBeInTheDocument();
-  await act(async () => fireEvent.click(screen.getByRole("button", { name: "使用模擬資料預覽" })));
-  expect(screen.getByText("模擬資料｜非實際研究結果")).toBeInTheDocument();
+  expect(screen.getAllByText("尚未建立正式模型")[0]).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "特徵重要性" })).not.toBeInTheDocument();
+  expect(screen.queryByText("模擬資料，不代表真實幼兒分析結果。")).not.toBeInTheDocument();
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "模擬預覽" })));
+  expect(screen.getByText("模擬資料，不代表真實幼兒分析結果。")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "預測與模型表現" })).toBeInTheDocument();
-  await act(async () => fireEvent.click(screen.getByRole("button", { name: "返回實際觀察資料" })));
-  expect(screen.getByRole("heading", { name: "觀察模型尚未就緒" })).toBeInTheDocument();
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "真實資料" })));
+  expect(screen.getAllByText("尚未建立正式模型")[0]).toBeInTheDocument();
 });
 
 test("adaptive research retains separate simulation and observed sections", async () => {
   await renderPage(AdaptiveRecommendationResearch);
-  expect(screen.getByRole("heading", { name: "策略比較・模擬" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "策略摘要・模擬" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "建議歷程・實際資料" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "暗色模式" })).toBeInTheDocument();
 });

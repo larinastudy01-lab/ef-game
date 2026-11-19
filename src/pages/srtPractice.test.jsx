@@ -11,6 +11,7 @@ jest.mock("../utils/resultManager", () => ({ saveUnifiedResult: jest.fn() }));
 jest.mock("../utils/useTestAttempt", () => ({ useTestAttempt: jest.fn() }));
 
 let audios;
+let clickAudios;
 const advance = async (ms) => { await act(async () => { jest.advanceTimersByTime(ms); }); };
 const practice = () => screen.getByRole("main", { name: "SRT 試玩" });
 const result = () => JSON.parse(localStorage.getItem("srtPracticeResult_child-srt"));
@@ -64,12 +65,13 @@ beforeEach(() => {
   useTestAttempt.mockReturnValue({ begin: jest.fn(), checkpoint: jest.fn(), complete: (raw) => raw });
   jest.spyOn(Math, "random").mockReturnValue(0.99);
   audios = [];
+  clickAudios = [];
   jest.spyOn(window, "Audio").mockImplementation((src) => {
     const audio = document.createElement("audio");
     audio.setAttribute("src", src);
     audio.play = jest.fn().mockResolvedValue(undefined);
     audio.pause = jest.fn();
-    audios.push(audio);
+    (src === "Click.mp3" ? clickAudios : audios).push(audio);
     return audio;
   });
 });
@@ -84,7 +86,8 @@ test("a go tap after 1.5 seconds still updates progress, and repeated taps only 
   mount();
   await reachStage("trial");
   expect(stimulus()).toHaveAttribute("data-target-type", "normal");
-  expect(stimulus()).toHaveStyle({ width: "118px", left: "36%", top: "48%" });
+  expect(stimulus()).toHaveStyle({ width: "168px", height: "168px", left: "36%", top: "48%" });
+  expect(stimulus().querySelector("img")).toHaveStyle({ width: "118px" });
   expect(stimulus().querySelector("img")).toHaveAttribute("src", "acorn.webp");
   expect(screen.queryByTestId("srt-hand-hint")).not.toBeInTheDocument();
   expect(document.querySelector(".srt-practice-header").textContent).toBe("");
@@ -92,13 +95,19 @@ test("a go tap after 1.5 seconds still updates progress, and repeated taps only 
   await advance(1500);
   const target = stimulus();
   await act(async () => { fireEvent.click(target); fireEvent.click(target); });
-  expect(stimulus()).toHaveAttribute("data-visible", "true");
-  expect(document.querySelector(".srt-practice-response-feedback")).not.toBeInTheDocument();
+  expect(screen.queryByTestId("srt-practice-target")).not.toBeInTheDocument();
+  expect(document.querySelector(".srt-target-feedback")).toHaveStyle({ left: "36%", top: "48%" });
+  expect(clickAudios).toHaveLength(1);
+  expect(clickAudios[0].play).toHaveBeenCalledTimes(1);
   expect(practice()).not.toHaveTextContent("✓");
   expect(progress()).toHaveAttribute("aria-valuenow", "1");
   expect(result()).toBeNull();
-  await advance(499);
-  expect(stimulus()).toHaveAttribute("data-visible", "true");
+  await advance(219);
+  expect(document.querySelector(".srt-target-feedback")).toBeInTheDocument();
+  await advance(1);
+  expect(document.querySelector(".srt-target-feedback")).not.toBeInTheDocument();
+  await advance(279);
+  expect(result()).toBeNull();
   await advance(1);
   expect(screen.queryByTestId("srt-practice-target")).not.toBeInTheDocument();
   expect(result()).toMatchObject({ practice_attempt_count: 1, practice_correct_count: 1, practice_passed: false });
@@ -114,6 +123,8 @@ test("the guided example also responds immediately, without awarding independent
   await act(async () => { fireEvent.click(example); });
   expect(screen.queryByTestId("srt-practice-example")).not.toBeInTheDocument();
   expect(screen.queryByTestId("srt-hand-hint")).not.toBeInTheDocument();
+  expect(document.querySelector(".srt-target-feedback")).toBeInTheDocument();
+  expect(clickAudios[0].play).toHaveBeenCalledTimes(1);
   expect(practice()).not.toHaveTextContent("✓");
   expect(progress()).toHaveAttribute("aria-valuenow", "0");
   expect(result()).toBeNull();
@@ -200,7 +211,7 @@ test("leaving during the example cancels both hand and display timers", async ()
   expect(result()).toMatchObject({ status: "interrupted", practice_attempt_count: 0, practice_passed: false });
 });
 
-test("success speech waits for the acorn to disappear, and the next trial waits for speech", async () => {
+test("a tap hides the target immediately, while success speech waits for the original trial end", async () => {
   await startVoicedPractice();
   expect(screen.queryByTestId("srt-narrator")).not.toBeInTheDocument();
   const cueCount = audios.length;
@@ -208,7 +219,7 @@ test("success speech waits for the acorn to disappear, and the next trial waits 
   await act(async () => { fireEvent.click(stimulus()); });
   await advance(1899);
   expect(audios).toHaveLength(cueCount);
-  expect(stimulus()).toHaveAttribute("data-visible", "true");
+  expect(screen.queryByTestId("srt-practice-target")).not.toBeInTheDocument();
   await advance(1);
   expect(screen.queryByTestId("srt-practice-target")).not.toBeInTheDocument();
   expect(audios.at(-1).getAttribute("src")).toBe("太棒了！你真厲害！.mp3");
@@ -351,6 +362,7 @@ test.each(["01", "02"])("copy %s uses matching rules, practice feedback and form
   await finishAudio();
   expect(audios.at(-1).getAttribute("src")).toBe(assessment.audio.events.ruleGo);
   expect(within(screen.getByTestId("srt-practice-example")).getByAltText("")).toHaveAttribute("src", assessment.stimuli.normal.img);
+  expect(within(screen.getByTestId("srt-practice-example")).getByAltText("")).toHaveStyle({ width: "177px" });
   expect(screen.getByTestId("srt-hand-hint")).toBeInTheDocument();
   await advance(2000);
   // The teaching example ends before the separate, timed practice trials.

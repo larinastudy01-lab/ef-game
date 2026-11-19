@@ -1,6 +1,6 @@
 const primaryButtonStyle = {
   padding: "10px 16px", borderRadius: "12px", border: "none",
-  background: "linear-gradient(135deg, #2f8f70, #22785d)", color: "#fff",
+  background: "#163B59", color: "#fff",
   fontSize: "14px", fontWeight: "900", cursor: "pointer",
 };
 const secondaryButtonStyle = {
@@ -12,8 +12,8 @@ export function ClinicianDashboardHeader({ clinicianName, onAddPatient, onRefres
   return (
     <header className="clinician-dashboard-header" style={headerStyle}>
       <div>
-        <h1 style={titleStyle}>EF 幼兒認知訓練平台</h1>
-        <p style={subtitleStyle}>醫療端｜個案追蹤、風險分級、回診提醒與詳細資料分析</p>
+        <h1 style={titleStyle}>蒐秘密｜專業分析平台</h1>
+        <p style={subtitleStyle}>Clinical & Research Workspace｜個案工作區</p>
       </div>
       <div className="clinician-dashboard-header-actions" style={headerActionsStyle}>
         <span style={userTextStyle}>您好，{clinicianName || "醫療人員"}</span>
@@ -85,14 +85,14 @@ const STAT_ITEMS = [
   ["totalTests", "測驗紀錄", "正式測驗資料筆數"],
   ["totalTraining", "訓練紀錄", "訓練歷程資料筆數"],
   ["newRecords", "近 7 天新資料", "待醫療人員查看"],
-  ["needFollowUp", "需要處理", "需要提醒或追蹤", true],
+  ["needFollowUp", "資料待確認", "有待核對或異常紀錄", true],
 ];
 
 export function DashboardStats({ stats }) {
   return (
     <section className="clinician-dashboard-stats" style={statsGridStyle}>
       {STAT_ITEMS.map(([key, title, desc, danger]) => (
-        <div key={key} style={{ ...statCardStyle, ...(danger ? statCardDangerStyle : {}) }}>
+        <div className="clinician-dashboard-stat-card" key={key} style={{ ...statCardStyle, ...(danger ? statCardDangerStyle : {}) }}>
           <p style={statTitleStyle}>{title}</p><h2 style={statValueStyle}>{stats[key]}</h2>
           <p style={statDescStyle}>{desc}</p>
         </div>
@@ -124,7 +124,7 @@ const loadErrorStyle = { position: "relative", zIndex: 2, marginBottom: "16px", 
 const loadErrorTextStyle = { display: "grid", gap: "3px" };
 const statsGridStyle = { position: "relative", zIndex: 1, display: "grid", gridTemplateColumns: "repeat(5, minmax(150px, 1fr))", gap: "14px", marginBottom: "18px" };
 const statCardStyle = { background: "rgba(255, 253, 244, 0.96)", borderRadius: "22px", padding: "16px 18px", boxShadow: "0 14px 30px rgba(51, 65, 85, 0.10)", border: "1px solid rgba(148, 163, 184, 0.22)", borderLeft: "5px solid rgba(43, 108, 176, 0.42)" };
-const statCardDangerStyle = { border: "1px solid #fecaca", borderLeft: "5px solid #ef4444", background: "#fff8f8" };
+const statCardDangerStyle = { border: "1px solid #FFF1D7", borderLeft: "5px solid #98640C", background: "#FFF1D7" };
 const statTitleStyle = { margin: 0, color: "#64748b", fontSize: "14px", fontWeight: "800" };
 const statValueStyle = { margin: "8px 0 4px", color: "#1f5f8b", fontSize: "30px" };
 const statDescStyle = { margin: 0, color: "#7c5b2a", fontSize: "13px" };

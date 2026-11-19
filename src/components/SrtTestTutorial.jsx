@@ -1,7 +1,9 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import HandPointerHint from "./HandPointerHint";
 import SrtRuleIllustration from "./SrtRuleIllustration";
 import SrtNarrator from "./SrtNarrator";
+import SrtTargetFeedback from "./SrtTargetFeedback";
+import useSrtClickSound from "../utils/useSrtClickSound";
 import homeAgainBtn from "../asset/home/again.webp";
 import homeTestMapBtn from "../asset/home/testmap.webp";
 import {
@@ -12,12 +14,22 @@ import { playSrtCue, waitForSrtPractice } from "../utils/srtPracticeAudio";
 import "../styles/SrtTestTutorial.css";
 
 const randomPosition = () => ({ x: 18 + Math.random() * 64, y: 24 + Math.random() * 54 });
-const initialView = () => ({ stage: "enter", item: null, visible: false, hintVisible: false, progress: emptySrtPracticeProgress(), feedback: null, responseFeedback: null, narrationEvent: null });
+const initialView = () => ({ stage: "enter", item: null, visible: false, hintVisible: false, progress: emptySrtPracticeProgress(), feedback: null, narrationEvent: null });
 
 export default function SrtTestTutorial({ onReady, onExit, childId, assessmentTiming, config, getPosition = randomPosition }) {
   const [settings] = useState(() => resolveSrtPracticeConfig(config, assessmentTiming));
   const [view, setView] = useState(initialView);
   const [session, setSession] = useState(0);
+  const [clickEffect, setClickEffect] = useState(null);
+  const effectTimerRef = useRef(null);
+  const playClickSound = useSrtClickSound();
+  const showClickFeedback = useCallback((position) => {
+    playClickSound();
+    setClickEffect(position);
+    clearTimeout(effectTimerRef.current);
+    effectTimerRef.current = setTimeout(() => setClickEffect(null), 220);
+  }, [playClickSound]);
+  useEffect(() => () => clearTimeout(effectTimerRef.current), []);
   const respondRef = useRef(null);
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
@@ -60,10 +72,11 @@ export default function SrtTestTutorial({ onReady, onExit, childId, assessmentTi
       show({ stage: "demonstration", item: { targetType: "normal", x: 50, y: 50 },
         visible: true, hintVisible: settings.handAnimation.enabled, feedback: null });
       // The example responds to a child's tap, but never counts as an independent trial.
-      respondRef.current = ({ hit }) => {
+      respondRef.current = ({ hit, position }) => {
         if (!hit || clicked || signal.aborted) return;
         clicked = true;
         respondRef.current = null;
+        showClickFeedback(position || { x: 50, y: 50 });
         show({ stage: "demonstrationFeedback", item: null, visible: false, hintVisible: false, feedback: true });
         stopDemonstration();
       };
@@ -98,7 +111,7 @@ export default function SrtTestTutorial({ onReady, onExit, childId, assessmentTi
         respondRef.current = null;
       };
       const abort = () => { locked = true; cleanup(); resolve(null); };
-      const settle = ({ clicked = false, hit = false } = {}) => {
+      const settle = ({ clicked = false, hit = false, position } = {}) => {
         if (locked || signal.aborted || onset == null) return;
         locked = true;
         const elapsed = performance.now() - onset;
@@ -120,15 +133,19 @@ export default function SrtTestTutorial({ onReady, onExit, childId, assessmentTi
           positionX: item.x, positionY: item.y,
         };
         if (validClick) {
-          show({ responseFeedback: isCorrect, progress: updateSrtPracticeProgress(progress, record, settings) });
+          show({ progress: updateSrtPracticeProgress(progress, record, settings) });
+          if (hit) {
+            showClickFeedback(position || item);
+            show({ item: null, visible: false });
+          }
         }
         const finish = () => {
           cleanup();
-          show({ item: null, visible: false, responseFeedback: null });
+          show({ item: null, visible: false });
           lastOnset = onset;
           resolve(record);
         };
-        // A tap is acknowledged immediately; the acorn still completes its display.
+        // Hide a tapped target immediately, but preserve the trial's original end time.
         const remainingDisplayMs = settings.stimulusDurationMs - elapsed;
         if (remainingDisplayMs > 0) displayEndTimer = setTimeout(finish, remainingDisplayMs);
         else finish();
@@ -136,7 +153,7 @@ export default function SrtTestTutorial({ onReady, onExit, childId, assessmentTi
       const frame = requestAnimationFrame(() => {
         if (signal.aborted) { abort(); return; }
         onset = performance.now();
-        show({ stage: "trial", item, visible: true, feedback: null, responseFeedback: null });
+        show({ stage: "trial", item, visible: true, feedback: null });
         respondRef.current = settle;
         hideTimer = setTimeout(() => show({ visible: false }), settings.stimulusDurationMs);
         responseTimer = setTimeout(() => settle(), settings.responseWindowMs);
@@ -146,6 +163,8 @@ export default function SrtTestTutorial({ onReady, onExit, childId, assessmentTi
 
     const run = async () => {
       setView(initialView());
+      setClickEffect(null);
+      clearTimeout(effectTimerRef.current);
       await cue("enterPractice");
       if (signal.aborted) return;
       await demonstrate();
@@ -220,7 +239,7 @@ export default function SrtTestTutorial({ onReady, onExit, childId, assessmentTi
       respondRef.current = null;
       if (!finalized) persist("interrupted");
     };
-  }, [session, settings]);
+  }, [session, settings, showClickFeedback]);
 
   const { stage, item, visible, progress } = view;
   const stimulus = item && settings.stimuli[item.targetType];
@@ -230,10 +249,19 @@ export default function SrtTestTutorial({ onReady, onExit, childId, assessmentTi
   const target = item && (
     <button type="button" className="srt-practice-target" data-testid={isDemo ? "srt-practice-example" : "srt-practice-target"}
       data-visible={visible} data-target-type={item.targetType}
-      aria-label={stimulus.label} onClick={(event) => { event.stopPropagation(); respondRef.current?.({ clicked: true, hit: true }); }}
-      style={{ left: `${item.x}%`, top: `${item.y}%`, width: settings.itemSizePx, height: Math.round(settings.itemSizePx * stimulus.height / stimulus.width) }}>
+      aria-label={stimulus.label} onClick={(event) => {
+        event.stopPropagation();
+        const targetRect = event.currentTarget.getBoundingClientRect();
+        const boardRect = event.currentTarget.closest(".srt-practice-board").getBoundingClientRect();
+        const position = boardRect.width && boardRect.height ? {
+          x: (targetRect.left + targetRect.width / 2 - boardRect.left) / boardRect.width * 100,
+          y: (targetRect.top + targetRect.height / 2 - boardRect.top) / boardRect.height * 100,
+        } : undefined;
+        respondRef.current?.({ clicked: true, hit: true, position });
+      }}
+      style={{ left: `${item.x}%`, top: `${item.y}%`, width: Math.round(settings.itemSizePx * 1.42), height: Math.round(settings.itemSizePx * 1.42) }}>
       <img src={stimulus.img} width={stimulus.width} height={stimulus.height} alt="" draggable={false}
-        style={{ visibility: visible ? "visible" : "hidden" }} />
+        style={{ width: settings.itemSizePx, visibility: visible ? "visible" : "hidden" }} />
     </button>
   );
 
@@ -266,13 +294,7 @@ export default function SrtTestTutorial({ onReady, onExit, childId, assessmentTi
           </div>
         )}
         {!isDemo && target}
-        {stage === "trial" && item && view.responseFeedback === false && (
-          <div className="srt-practice-response-feedback is-gentle" aria-hidden="true"
-            style={{ left: `calc(${item.x}% + ${settings.itemSizePx / 2 - 10}px)`,
-              top: `calc(${item.y}% - ${Math.round(settings.itemSizePx * stimulus.height / stimulus.width) / 2 - 10}px)` }}>
-            🍃
-          </div>
-        )}
+        <SrtTargetFeedback position={clickEffect} />
         {(view.narrationEvent || stage === "completion") && (
           <aside className="srt-practice-narrator-slot" aria-label="旁白小雞">
             <SrtNarrator event={view.narrationEvent} speaking={Boolean(view.narrationEvent)} />

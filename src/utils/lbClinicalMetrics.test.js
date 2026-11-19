@@ -2,7 +2,7 @@ import { getLbClinicalMetrics } from "./lbClinicalMetrics";
 import { normalizeGameResult } from "./resultManager";
 import { createRecordWorkbook } from "./clinicianExcelExport";
 
-jest.mock("./resultSync", () => ({ queueGameResult: jest.fn() }));
+jest.mock("./resultSync", () => ({ queueGameResult: jest.fn(), reportResultStorageFailure: jest.fn(), reportResultStorageRecovered: jest.fn() }));
 
 test("LB actual reminder counts survive normalization and both local and uploaded clinical records", () => {
   const raw = { status: "interrupted", protocolVersion: "2.0.0", promptCount: 2, idleHintCount: 1, ruleErrorHintCount: 1,

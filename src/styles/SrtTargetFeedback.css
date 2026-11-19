@@ -1,0 +1,21 @@
+.srt-target-feedback {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 5;
+  border: 2px solid rgba(255, 240, 173, 0.8);
+  background: rgba(255, 245, 199, 0.12);
+  animation: srt-target-feedback-pop 0.22s ease-out forwards;
+}
+
+@keyframes srt-target-feedback-pop {
+  from { transform: translate(-50%, -50%) scale(0.9); opacity: 0.8; }
+  to { transform: translate(-50%, -50%) scale(1.12); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .srt-target-feedback { animation: none; opacity: 0.8; }
+}

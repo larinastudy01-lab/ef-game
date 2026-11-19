@@ -46,16 +46,18 @@ test("dark mode persists when another research page mounts", () => {
 });
 
 test("accuracy charts use a complete percentage scale and preserve invalid observations as gaps", () => {
-  render(<ResearchTrendChart metric="accuracy" data={[{ accuracy: .5 }, { accuracy: null }, { accuracy: 2 }]}/>);
+  const record = { participantId: "p", gameKey: "PM", type: "test", difficulty: "medium", raw: { status: "completed", protocolVersion: "v1" }, trials: [{ isCorrect: true, reactionTime: 400 }] };
+  render(<ResearchTrendChart metric="accuracy" data={[.5, null, 2, .6, .7].map((accuracy) => ({ accuracy, professionalRecord: record, session_completion_status: "completed" }))}/>);
   expect(screen.getByTestId("y-axis")).toHaveAttribute("data-domain", "[0,1]");
-  expect(JSON.parse(screen.getByTestId("chart-data").getAttribute("data-values")).map((item) => item.accuracy)).toEqual([.5, null, null]);
+  expect(JSON.parse(screen.getByTestId("chart-data").getAttribute("data-values")).map((item) => item.accuracy)).toEqual([.5, null, null, .6, .7]);
   expect(screen.getByTestId("chart-line")).toHaveAttribute("data-connected", "false");
 });
 
 test("generated summaries express rate differences as percentage points and disclose missing current values", () => {
   const context = buildResearchTaskContext([1, 2].map((day) => ({ participant_id: "a", task_code: "CBT", assessment_or_training: "assessment", difficulty: 1,
+    professionalRecord: { participantId: "a", gameKey: "CBT", type: "test", difficulty: 1, raw: { status: "completed", protocolVersion: "fixture-v1" }, trials: [{ isCorrect: true, reactionTime: 400 }] },
     session_started_at: `2026-10-0${day}`, accuracy: day === 1 ? .5 : .8, rt_mean: day === 1 ? 400 : null })), "CBT");
   render(<ResearchHandoff context={context} taskLabel="CBT"/>);
   expect(screen.getByRole("region", { name: "資料摘要" })).toHaveTextContent("增加 30.0 個百分點");
-  expect(screen.getByRole("region", { name: "資料摘要" })).toHaveTextContent("最新 — ms");
+  expect(screen.getByRole("region", { name: "資料摘要" })).toHaveTextContent("最新 未記錄");
 });

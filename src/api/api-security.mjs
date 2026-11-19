@@ -1,11 +1,16 @@
 const DEFAULT_CLINICAL_ROLES = ["clinician", "medical", "doctor"];
 
-export function parseAllowedOrigins(value, { nodeEnv = process.env.NODE_ENV } = {}) {
+export function parseAllowedOrigins(value, { nodeEnv = process.env.NODE_ENV, apiPort = 3001 } = {}) {
   const configured = String(value || "").split(",")
     .map((origin) => origin.trim().replace(/\/$/, "")).filter(Boolean);
   if (configured.length > 0) return new Set(configured);
   if (nodeEnv === "production") throw new Error("ALLOWED_ORIGINS must be configured in production");
-  return new Set(["http://localhost:3000", "http://127.0.0.1:3000"]);
+  // CRA rewrites Origin to the proxy target. Permit that local API origin
+  // in development; production still requires its explicit allowlist above.
+  return new Set([
+    "http://localhost:3000", "http://127.0.0.1:3000",
+    `http://localhost:${apiPort}`, `http://127.0.0.1:${apiPort}`,
+  ]);
 }
 
 export function createCorsOptions(allowedOrigins) {

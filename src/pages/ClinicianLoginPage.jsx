@@ -1,7 +1,8 @@
 import bgImg from "../asset/Home_background.webp";
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import { isSessionExpiredError, SESSION_EXPIRED_MESSAGE } from "../lib/authErrors";
 
 const CLINICIAN_ROLES = ["clinician", "medical", "doctor", "醫療人員"];
 
@@ -15,11 +16,15 @@ function isClinicianRole(role) {
 
 function ClinicianLoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const authExpired = Boolean(location.state?.authExpired);
+  const returnTo = /^\/research-tools(?:\?|$)/.test(location.state?.from || "") ? location.state.from : "/clinician-dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(authExpired ? SESSION_EXPIRED_MESSAGE : "");
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
 
   const getProfileRole = useCallback(async (userId) => {
     if (!userId) {
@@ -41,40 +46,54 @@ function ClinicianLoginPage() {
       return;
     }
     if (isClinicianRole(role)) {
-      navigate("/clinician-dashboard", { replace: true });
+      navigate(returnTo, { replace: true });
       return;
     }
 
     // The clinician portal is an independent entry point. If a parent/child
     // session is still active, clear it and keep showing the clinician login
     // form instead of sending the user back to the game menu.
-    await supabase.auth.signOut();
-  }, [navigate]);
+    await supabase.auth.signOut({ scope: "local" });
+  }, [navigate, returnTo]);
 
   useEffect(() => {
     let isMounted = true;
 
     const checkExistingSession = async () => {
       try {
+        if (authExpired) {
+          await supabase.auth.signOut({ scope: "local" });
+          return;
+        }
         const {
           data: { session },
           error: sessionError,
         } = await supabase.auth.getSession();
 
-        if (sessionError || !session?.user || !isMounted) return;
+        if (!isMounted) return;
+        if (sessionError) {
+          if (isSessionExpiredError(sessionError)) {
+            await supabase.auth.signOut({ scope: "local" });
+            if (isMounted) setMessage(SESSION_EXPIRED_MESSAGE);
+          }
+          return;
+        }
+        if (!session?.user) return;
 
         const { role, error: profileError } = await getProfileRole(session.user.id);
 
         if (!isMounted) return;
 
         if (profileError || !role) {
-          await supabase.auth.signOut();
+          await supabase.auth.signOut({ scope: "local" });
           return;
         }
 
         await redirectByRole(role);
       } catch (error) {
         console.error("Failed to validate existing clinician session:", error);
+      } finally {
+        if (isMounted) setIsCheckingSession(false);
       }
     };
 
@@ -83,7 +102,7 @@ function ClinicianLoginPage() {
     return () => {
       isMounted = false;
     };
-  }, [getProfileRole, redirectByRole]);
+  }, [authExpired, getProfileRole, redirectByRole]);
 
   const getLoginErrorMessage = (error) => {
     const rawMessage = error?.message?.toLowerCase() || "";
@@ -106,7 +125,7 @@ function ClinicianLoginPage() {
   const handleClinicianLogin = async (e) => {
     e.preventDefault();
 
-    if (isLoading) return;
+    if (isLoading || isCheckingSession) return;
 
     const normalizedEmail = email.trim().toLowerCase();
     setMessage("");
@@ -132,19 +151,19 @@ function ClinicianLoginPage() {
       const { role, error: profileError } = await getProfileRole(data.user.id);
 
       if (profileError || !role) {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: "local" });
         setMessage("找不到此帳號的權限資料，請聯絡系統管理者建立醫療人員權限。");
         return;
       }
 
       if (!isClinicianRole(role) && normalizeRole(role) !== "admin") {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: "local" });
         setPassword("");
         setMessage("此頁面僅供醫療人員使用。家長帳號請返回首頁，改由家長入口登入。");
         return;
       }
 
-      navigate("/clinician-dashboard", { replace: true });
+      navigate(returnTo, { replace: true });
     } catch (error) {
       console.error("Clinician login failed:", error);
       setMessage("登入流程發生異常，請稍後再試或聯絡系統管理者。");
@@ -533,8 +552,8 @@ function ClinicianLoginPage() {
 
             {message && <div className="error-message">{message}</div>}
 
-            <button type="submit" className="primary-button" disabled={isLoading}>
-              {isLoading ? "驗證中..." : "登入醫療端"}
+            <button type="submit" className="primary-button" disabled={isLoading || isCheckingSession}>
+              {isCheckingSession ? "正在確認登入狀態..." : isLoading ? "驗證中..." : "登入醫療端"}
             </button>
           </form>
 

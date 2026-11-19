@@ -67,7 +67,7 @@ function startAssessment() {
   fireEvent.click(screen.getByRole("button", { name: "進入遊戲" }));
   fireEvent.click(screen.getByRole("button", { name: "跳過動畫" }));
   fireEvent.click(screen.getByRole("button", { name: "完成試玩" }));
-  expect(stage()).toHaveAttribute("data-phase", "memorize");
+  finishAssessmentCountdown();
   return view;
 }
 
@@ -100,9 +100,20 @@ function nextTrainingRound() {
   finishReadyCountdown();
 }
 
-function nextAssessmentRound() {
-  fireEvent.click(screen.getByRole("button", { name: "下一步" }));
-  advance(200);
+function finishAssessmentCountdown() {
+  expect(stage()).toHaveAttribute("data-phase", "readyCountdown");
+  expect(screen.queryByRole("button", { name: "下一步" })).not.toBeInTheDocument();
+  for (let count = 5; count >= 1; count -= 1) {
+    expect(screen.getByRole("timer", { name: "準備倒數" })).toHaveTextContent(String(count));
+    expect(memoryIds()).toEqual([]);
+    expect(options()).toEqual([]);
+    advance(999);
+    expect(stage()).toHaveAttribute("data-phase", "readyCountdown");
+    expect(screen.getByRole("timer", { name: "準備倒數" })).toHaveTextContent(String(count));
+    advance(1);
+  }
+  expect(stage()).toHaveAttribute("data-phase", "memorize");
+  expect(screen.queryByRole("timer")).not.toBeInTheDocument();
 }
 
 const trainingResult = () => saveUnifiedResult.mock.calls[0][0].rawResult;
@@ -160,7 +171,7 @@ test.each(["01", "02"])("formal copy %s holds viewing at five seconds across twe
   startAssessment();
   expect(stage()).toHaveAttribute("data-test-version", version);
   const counts = [2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7];
-  counts.forEach((count) => {
+  counts.forEach((count, index) => {
     expect(stage()).toHaveAttribute("data-memory-count", String(count));
     expect(stage()).toHaveAttribute("data-show-time", "5");
     expect(stage()).toHaveAttribute("data-answer-limit", "15");
@@ -169,13 +180,15 @@ test.each(["01", "02"])("formal copy %s holds viewing at five seconds across twe
     expect(screen.queryByAltText("示範點擊")).not.toBeInTheDocument();
     advance(300);
     submitIds(targets);
-    expect(stage()).toHaveAttribute("data-phase", "feedback");
-    nextAssessmentRound();
+    if (index < counts.length - 1) finishAssessmentCountdown();
   });
+  expect(stage()).toHaveAttribute("data-phase", "result");
+  expect(screen.queryByRole("timer")).not.toBeInTheDocument();
   expect(attempt.complete).toHaveBeenCalledTimes(1);
   const result = attempt.complete.mock.calls[0][0];
   expect(result.trials.map((trial) => trial.memoryCount)).toEqual(counts);
   expect(result.trials.every((trial) => trial.showTime === 5 && trial.answerTimeLimit === 15)).toBe(true);
+  expect(result.trials.every((trial) => trial.reactionTime === 300)).toBe(true);
   expect(result.trials.every((trial) => trial.promptCount === 0)).toBe(true);
   expect(result.testVersion).toBe(version);
   const allowed = version === "01" ? ["car", "clothes", "unclassified"] : ["car", "furniture", "unclassified"];
@@ -190,6 +203,8 @@ test("usage counts only displayed formal pictures, is stable during clicks, and 
   expect(getPMStimulusUsage("child-pm", "test").categoryCounts).toEqual({});
   fireEvent.click(screen.getByRole("button", { name: "完成試玩" }));
   const sum = () => Object.values(getPMStimulusUsage("child-pm", "test").categoryCounts).reduce((a, b) => a + b, 0);
+  expect(sum()).toBe(0);
+  finishAssessmentCountdown();
   expect(sum()).toBe(2);
   const targets = observe(5);
   expect(sum()).toBe(6);
@@ -302,11 +317,47 @@ test("assessment timeout is fifteen seconds even after a late object selection",
   advance(99);
   expect(recordedAssessmentTrials()).toHaveLength(0);
   advance(1);
-  expect(stage()).toHaveAttribute("data-phase", "feedback");
+  expect(stage()).toHaveAttribute("data-phase", "readyCountdown");
   const trial = recordedAssessmentTrials()[0];
   expect(trial).toMatchObject({ isTimeout: true, reactionTime: 15000, selectedIds: targets });
   expect(trial.tapLogs[0]).toMatchObject({ itemId: targets[0], timestamp: 14900 });
   expect(trial.promptCount).toBe(0);
+});
+
+test.each([
+  ["timeout", "two_consecutive_timeouts"],
+  ["wrong answer", "same_memory_two_errors"],
+])("assessment ends automatically after two consecutive %s trials without another countdown", (outcome, stopReason) => {
+  startAssessment();
+  for (let trial = 0; trial < 2; trial += 1) {
+    const targets = observe(5);
+    if (outcome === "timeout") advance(15000);
+    else submitIds(options().filter((button) => !targets.includes(button.dataset.itemId)).map((button) => button.dataset.itemId));
+    if (trial === 0) finishAssessmentCountdown();
+  }
+  expect(stage()).toHaveAttribute("data-phase", "result");
+  expect(screen.queryByRole("timer")).not.toBeInTheDocument();
+  expect(attempt.complete).toHaveBeenCalledTimes(1);
+  expect(attempt.complete.mock.calls[0][0]).toMatchObject({ stopReason });
+  expect(attempt.complete.mock.calls[0][0].trials).toHaveLength(2);
+  expect(saveUnifiedResult).toHaveBeenCalledTimes(1);
+  advance(30000);
+  expect(attempt.complete).toHaveBeenCalledTimes(1);
+});
+
+test("leaving during the next-trial countdown cancels it without generating or recording another trial", () => {
+  const build = jest.spyOn(pmItems, "buildPMQuestion");
+  const view = startAssessment();
+  submitIds(observe(5));
+  expect(stage()).toHaveAttribute("data-phase", "readyCountdown");
+  expect(build).toHaveBeenCalledTimes(1);
+  expect(recordedAssessmentTrials()).toHaveLength(1);
+  const checkpointCount = attempt.checkpoint.mock.calls.length;
+  view.unmount();
+  advance(10000);
+  expect(build).toHaveBeenCalledTimes(1);
+  expect(attempt.checkpoint).toHaveBeenCalledTimes(checkpointCount);
+  expect(attempt.complete).not.toHaveBeenCalled();
 });
 
 test("a selected lookalike is recorded as possible confusion with a missed target and preserves click history", () => {

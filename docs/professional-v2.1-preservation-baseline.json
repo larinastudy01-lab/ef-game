@@ -1,0 +1,7 @@
+{
+  "src/utils/professionalMetrics.js": "fdbdf2303b8d5350031f7c2464ff0dc4b86e13ac293e7cdc700b20dfe78caa2e",
+  "src/config/professionalIndicators.js": "5db760a56a255b5464830160e959be9ba9fd4a9095f0db9b8a020025a96fc269",
+  "src/utils/clinicianExcelExport.js": "2090ff8f948647625e87182fb10daa22039c246398369af0f186d7eadcea2fb5",
+  "src/lib/database.js": "1265e401b4d376fd630b4556bd183e739d83459dbd59adfae08ab82a0650f4c8",
+  "src/components/research/ResearchWorkspaceContext.jsx": "eabdb56c97b7a2f6af963e4ea8c8bdf6f909aab83c6e72dbddc101005823c0f1"
+}

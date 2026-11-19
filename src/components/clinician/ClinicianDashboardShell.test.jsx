@@ -79,5 +79,5 @@ test("overview components render cached-data notice and all metrics", () => {
 
   expect(screen.getByText("目前先保留上一次成功載入的資料。")).toBeInTheDocument();
   expect(screen.getByText("授權病患")).toBeInTheDocument();
-  expect(screen.getByText("需要處理")).toBeInTheDocument();
+  expect(screen.getByText("資料待確認")).toBeInTheDocument();
 });

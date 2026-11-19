@@ -1,11 +1,12 @@
+import { formatDateTime, formatNumber, formatPercentage } from "./professionalFormatters";
+import { compareRecords } from "./professionalMetrics";
 // Presentation only: these helpers never infer a clinical diagnosis or threshold.
 export const isResearchNumber = (value) =>
   (typeof value === "number" || (typeof value === "string" && value.trim() !== "")) && Number.isFinite(Number(value));
 
-export const researchNumber = (value, digits = 3) => isResearchNumber(value) ? Number(value).toFixed(digits) : "—";
-export const researchPercent = (value) => isResearchNumber(value) ? `${(Number(value) * 100).toFixed(1)}%` : "—";
-export const researchDate = (value) => value && Number.isFinite(new Date(value).getTime())
-  ? new Date(value).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" }) : "—";
+export const researchNumber = (value, digits = 3) => formatNumber(value, digits);
+export const researchPercent = (value) => formatPercentage(value, { scale: "ratio" });
+export const researchDate = (value) => formatDateTime(value);
 export const researchMean = (values) => { const valid = values.filter(isResearchNumber).map(Number); return valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : null; };
 
 export const RESEARCH_METRICS = {
@@ -25,8 +26,8 @@ export function buildResearchTaskContext(rows = [], taskCode) {
   const taskRows = orderResearchRows(rows.filter((row) => row.task_code === taskCode));
   const latest = taskRows.at(-1);
   if (!latest) return { rows: [], latest: null, metrics: [] };
-  const comparable = taskRows.filter((row) => row.participant_id === latest.participant_id
-    && row.assessment_or_training === latest.assessment_or_training && String(row.difficulty ?? "") === String(latest.difficulty ?? ""));
+  const comparable = taskRows.filter((row) => row === latest || (row.professionalRecord && latest.professionalRecord
+    && compareRecords(row.professionalRecord, latest.professionalRecord).comparable));
   const cleaned = comparable.map((row) => Object.fromEntries(Object.entries(row).map(([key, value]) => [key,
     RESEARCH_METRICS[key] && (!validMetric(value, key) || (row.session_completion_status && row.session_completion_status !== "completed")) ? null : value])));
   const metrics = ["accuracy", "rt_mean", "rt_variability_ms"].map((metric) => {
@@ -48,7 +49,7 @@ export function buildResearchQualityAlerts(rows = []) {
   const incomplete = rows.filter((row) => row.session_completion_status && row.session_completion_status !== "completed");
   return [
     invalid.length && { id: "invalid-values", severity: "warning", title: "數值範圍待核對", message: `${invalid.length} 筆場次包含超出 0–100% 的比率或負反應時間；趨勢圖會保留缺口。此為資料品質提示。` },
-    missing.length && { id: "missing-values", severity: "info", title: "資料缺漏", message: `${missing.length} 筆場次缺少正確率或反應時間；缺失值顯示「—」，不以 0 取代。` },
+    missing.length && { id: "missing-values", severity: "info", title: "資料缺漏", message: `${missing.length} 筆場次缺少正確率或反應時間；缺失值顯示「未記錄」，不以 0 取代。` },
     incomplete.length && { id: "incomplete-sessions", severity: "info", title: "場次未完成", message: `${incomplete.length} 筆場次尚未完成；個人趨勢比較不採用其指標。` },
   ].filter(Boolean);
 }

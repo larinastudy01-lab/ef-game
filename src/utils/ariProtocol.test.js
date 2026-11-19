@@ -6,7 +6,7 @@ import { normalizeGameResult } from "./resultManager";
 import { createRecordWorkbook } from "./clinicianExcelExport";
 import { achievementDifficultyKey } from "./achievementProtocol";
 
-jest.mock("./resultSync", () => ({ queueGameResult: jest.fn() }));
+jest.mock("./resultSync", () => ({ queueGameResult: jest.fn(), reportResultStorageFailure: jest.fn(), reportResultStorageRecovered: jest.fn() }));
 
 const records = (difficulty) => Array.from({ length: 12 }, (_, index) => ({
   trialIndex: index + 1, mode: "training", difficulty, soundType: index % 2 ? "cat" : "dog",

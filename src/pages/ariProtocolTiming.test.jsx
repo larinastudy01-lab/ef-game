@@ -73,6 +73,62 @@ function finishRemaining(startIndex) {
   }
 }
 
+test("training plays START, STEP and END around the challenge without interactive teaching", () => {
+  renderPage(<TrainingARI />, "/training-ari?difficulty=medium");
+  expect(screen.getByRole("img", { name: "開始角色" })).toHaveAttribute("src", "ARI_icon.webp");
+  expect(screen.getByText("仔細聽聲音，選出相反的動物。")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "進入遊戲" }));
+  expect(document.querySelector("video")).toHaveAttribute("src", "ARI_start.mp4");
+  expect(screen.getByRole("region", { name: "開場影片" })).toBeInTheDocument();
+  expect(audios).toHaveLength(0);
+  fireEvent.ended(document.querySelector("video"));
+  expect(document.querySelector("video")).toHaveAttribute("src", "ARI_step.mp4");
+  expect(screen.getByRole("region", { name: "步驟教學影片" })).toBeInTheDocument();
+  advance(30000);
+  expect(audios).toHaveLength(0);
+  fireEvent.ended(document.querySelector("video"));
+  expect(stage()).toHaveAttribute("data-difficulty", "medium");
+  expect(stage().querySelector(".ari-assessment-status")).toBeInTheDocument();
+  expect(screen.queryByTestId("ari-practice")).not.toBeInTheDocument();
+  expect(screen.queryByTestId("ari-narrator")).not.toBeInTheDocument();
+  expect(animal("貓咪")).toBeDisabled();
+  expect(animal("狗狗")).toBeDisabled();
+  advance(500); play();
+  expect(animal("貓咪")).toBeEnabled();
+  expect(animal("狗狗")).toBeEnabled();
+  finishRemaining(0);
+  expect(document.querySelector("video")).toHaveAttribute("src", "ARI_end.mp4");
+  expect(screen.getByRole("region", { name: "結束影片" })).toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "測驗結果" })).not.toBeInTheDocument();
+  expect(result()).toMatchObject({ completed: true, totalTrials: 12, difficulty: "medium" });
+  fireEvent.ended(document.querySelector("video"));
+  expect(screen.getByRole("region", { name: "測驗結果" })).toBeInTheDocument();
+  expect(screen.getByRole("img", { name: "狐狸角色" })).toHaveAttribute("src", "ARI_icon.webp");
+  expect(screen.getByRole("button", { name: "回到森林" }).querySelector("img")).toHaveAttribute("src", "back.webp");
+  expect(screen.getByRole("button", { name: "詳細結果" })).toBeInTheDocument();
+  expect(screen.queryByTestId("ari-narrator")).not.toBeInTheDocument();
+  expect(saveUnifiedResult).toHaveBeenCalledTimes(1);
+  expect(jest.getTimerCount()).toBe(0);
+
+  const resultActions = screen.getByRole("button", { name: "再玩一次" }).closest(".ari-result-actions");
+  expect([...resultActions.querySelectorAll("button")].map((button) => button.getAttribute("aria-label")))
+    .toEqual(["回到森林", "再玩一次", "詳細結果"]);
+  expect(screen.getByRole("button", { name: "再玩一次" }).querySelector("img")).toHaveAttribute("src", "again.webp");
+  fireEvent.click(screen.getByRole("button", { name: "再玩一次" }));
+  expect(document.querySelector("video")).toHaveAttribute("src", "ARI_start.mp4");
+  expect(screen.queryByRole("region", { name: "測驗結果" })).not.toBeInTheDocument();
+  fireEvent.ended(document.querySelector("video"));
+  expect(document.querySelector("video")).toHaveAttribute("src", "ARI_step.mp4");
+  fireEvent.ended(document.querySelector("video"));
+  advance(500); play();
+  expect(stage()).toHaveAttribute("data-difficulty", "medium");
+  expect(stage()).toHaveAttribute("data-trial", "1");
+  finishRemaining(0);
+  expect(document.querySelector("video")).toHaveAttribute("src", "ARI_end.mp4");
+  expect(saveUnifiedResult).toHaveBeenCalledTimes(2);
+  expect(saveUnifiedResult.mock.calls[1][0].rawResult).toMatchObject({ difficulty: "medium", totalTrials: 12, completed: true });
+});
+
 test.each([
   ["beginner", 10000, true, false], ["easy", 10000, true, false],
   ["medium", 5000, false, false], ["hard", 5000, false, true], ["expert", 3000, false, true],
@@ -100,6 +156,10 @@ test.each([
   expect(result().records[0]).toMatchObject({ timeout: true, answerTimeLimit: limit, allowReplay: replay, interference });
   expect(result().promptCount).toBe(difficulty === "beginner" ? 1 : 0);
   expect(result().records.reduce((sum, row) => sum + row.promptCount, 0)).toBe(result().promptCount);
+  expect(document.querySelector("video")).toHaveAttribute("src", "ARI_end.mp4");
+  fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+  expect(screen.getByRole("img", { name: "狐狸角色" })).toHaveAttribute("src", "ARI_icon.webp");
+  expect(saveUnifiedResult).toHaveBeenCalledTimes(1);
 });
 
 test("beginner points MOUSE at the opposite animal at exactly three seconds and records the actual appearance once", () => {
@@ -161,6 +221,10 @@ test("failed sound never reveals the answer; restricted levels end as an interru
   fireEvent.click(screen.getByRole("button", { name: "結束本次訓練" }));
   expect(result()).toMatchObject({ completed: false, status: "interrupted", finishReason: "audio_error", promptCount: 0 });
   expect(result().technicalEvents).toHaveLength(1);
+  expect(document.querySelector("video")).toHaveAttribute("src", "ARI_end.mp4");
+  fireEvent.click(screen.getByRole("button", { name: "跳過動畫" }));
+  expect(screen.getByRole("region", { name: "測驗結果" })).toBeInTheDocument();
+  expect(saveUnifiedResult).toHaveBeenCalledTimes(1);
 });
 
 test("leaving training cancels animal/replay/noise sounds and later timers", () => {
@@ -215,22 +279,20 @@ test("assessment retains twenty trials and five seconds, without replay, hints o
   expect(attempt.complete.mock.calls[0][0]).toMatchObject({ totalTrials: 20, replayCount: 0, promptCount: 0, protocol: { answerTimeLimit: 5000, allowReplay: false } });
   expect(audios.at(-1).src).toBe(cues.assessmentComplete);
   expect(screen.getByRole("region", { name: "測驗結果" })).toBeInTheDocument();
-  const narrator = screen.getByTestId("ari-narrator");
-  expect(narrator.closest(".ari-result-with-narrator")).toBeInTheDocument();
-  expect(narrator.querySelector(".ari-narrator-open")).toHaveAttribute("src", "chicken.webp");
-  expect(narrator.querySelector(".ari-narrator-closed")).toHaveAttribute("src", "chicken01.webp");
+  const resultAvatar = screen.getByRole("img", { name: "狐狸角色" });
+  expect(resultAvatar).toHaveAttribute("src", "ARI_icon.webp");
+  expect(resultAvatar.closest(".ari-result-icon")).toBeInTheDocument();
+  expect(screen.queryByTestId("ari-narrator")).not.toBeInTheDocument();
   act(() => audios.at(-1).onplaying());
-  expect(narrator).toHaveAttribute("data-speaking", "true");
   const failedCompletion = audios.at(-1);
   await act(async () => failedCompletion.onerror());
-  expect(narrator).toHaveAttribute("data-speaking", "false");
   expect(failedCompletion.pause).toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "重新播放完成語音" }));
   expect(audios.at(-1).src).toBe(cues.assessmentComplete);
   act(() => audios.at(-1).onplaying());
-  expect(narrator).toHaveAttribute("data-speaking", "true");
   await act(async () => audios.at(-1).onended());
-  expect(narrator).toHaveAttribute("data-speaking", "false");
+  expect(resultAvatar).toHaveAttribute("src", "ARI_icon.webp");
+  expect(screen.queryByTestId("ari-narrator")).not.toBeInTheDocument();
   expect(attempt.complete).toHaveBeenCalledTimes(1);
   expect(saveUnifiedResult).toHaveBeenCalledTimes(1);
   expect(jest.getTimerCount()).toBe(0);

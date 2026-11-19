@@ -16,11 +16,14 @@ import beforeTrial from "../asset/voice/SRT_副本/準備好了嗎？看仔細�
 import correct from "../asset/voice/SRT_副本/太棒了！你做對了！.mp3";
 import retry from "../asset/voice/SRT_副本/沒關係，我們再試一次！.mp3";
 import practiceComplete from "../asset/voice/SRT_副本/太棒了！你學會怎麼玩了！.mp3";
+import { SRT_ITEM_SIZE } from "../utils/srtProtocol";
 
-const makeVersion = ({ testVersion, stimulusName, good, bad, goodSize, enterPractice, ruleGo, ruleNoGo, wrongNoGo, assessmentComplete }) => ({
+const makeVersion = ({ testVersion, stimulusName, stimulusScale = 1, good, bad, goodSize, enterPractice, ruleGo, ruleNoGo, wrongNoGo, assessmentComplete }) => ({
   testVersion,
   stimulusSetId: `test${testVersion}`,
   stimulusName,
+  stimulusScale,
+  itemSizePx: Math.round(SRT_ITEM_SIZE * stimulusScale),
   stimuli: {
     normal: { img: good, label: `好${stimulusName}`, width: goodSize[0], height: goodSize[1] },
     rotten: { img: bad, label: `壞${stimulusName}`, width: 1306, height: 1205 },
@@ -40,10 +43,10 @@ const makeVersion = ({ testVersion, stimulusName, good, bad, goodSize, enterPrac
 
 // Assessment copies have their own images and recordings; training keeps acorns.
 export const SRT_ASSESSMENT_VERSIONS = {
-  "01": makeVersion({ testVersion: "01", stimulusName: "葡萄", good: grapeGood, bad: grapeBad,
+  "01": makeVersion({ testVersion: "01", stimulusName: "葡萄", stimulusScale: 1.5, good: grapeGood, bad: grapeBad,
     goodSize: [1306, 1205], enterPractice: enterGrape, ruleGo: grapeGo, ruleNoGo: grapeRules,
     wrongNoGo: grapeWrong, assessmentComplete: grapeComplete }),
-  "02": makeVersion({ testVersion: "02", stimulusName: "蘋果", good: appleGood, bad: appleBad,
+  "02": makeVersion({ testVersion: "02", stimulusName: "蘋果", stimulusScale: 1.5, good: appleGood, bad: appleBad,
     goodSize: [1254, 1254], enterPractice: enterApple, ruleGo: appleGo, ruleNoGo: appleRules,
     wrongNoGo: appleWrong, assessmentComplete: appleComplete }),
 };

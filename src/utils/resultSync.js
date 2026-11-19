@@ -16,7 +16,16 @@ const MIRROR_CONFLICT_PREFIX = "efGameResultMirrorConflict:";
 const fallbackTabId = createBehavioralId();
 let accountId = null;
 let worker = null;
-let storageError = false;
+const storageFailures = new Map();
+
+function storageErrorKind(error) {
+  if (error?.name === "QuotaExceededError" || /quota/i.test(error?.message || "")) return "quota";
+  if (error?.name === "SecurityError") return "denied";
+  return "unknown";
+}
+
+const currentStorageFailures = () => [...storageFailures.entries()].filter(([, failure]) =>
+  !failure.ownerId || failure.ownerId === accountId);
 
 // Display mirrors are shared by legacy result readers. Move them out of those
 // readers' keys on an account boundary, retaining the exact strings for the
@@ -94,9 +103,42 @@ export function areResultMirrorsReady(ownerId = accountId) {
 
 export const getResultSyncAccountId = () => accountId;
 
-export function reportResultStorageFailure() {
-  storageError = true;
+export function reportResultStorageFailure(error, { source = "cache", retry, ownerId = accountId } = {}) {
+  storageFailures.set(source, { error, retry, ownerId });
   notify();
+}
+
+export function reportResultStorageRecovered(source) {
+  storageFailures.delete(source);
+  notify();
+}
+
+export async function retryResultStorage() {
+  if (isTemporaryGameTesting()) return getResultSyncState();
+  const failures = currentStorageFailures().sort(([a], [b]) => Number(b === "mirrors") - Number(a === "mirrors"));
+  for (const [source, failure] of failures) {
+    if (isTemporaryGameTesting()) break;
+    // A newer save or account change may supersede an earlier retry.
+    if (storageFailures.get(source) !== failure || (failure.ownerId && failure.ownerId !== accountId)) continue;
+    if (source.startsWith("cache:") && accountId && !areResultMirrorsReady()) continue;
+    try {
+      if (failure.retry) await failure.retry(failure.syncUpdate);
+      else {
+        // Legacy callers without a retry still need a real read/write check.
+        for (const storage of [localStorage, sessionStorage]) {
+          const key = `efGameStorageProbe:${createBehavioralId()}`;
+          storage.setItem(key, "1");
+          try { if (storage.getItem(key) !== "1") throw new Error("Storage write not acknowledged"); }
+          finally { storage.removeItem(key); }
+        }
+      }
+      if (storageFailures.get(source) === failure) storageFailures.delete(source);
+    } catch (error) {
+      if (storageFailures.get(source) === failure) failure.error = error;
+    }
+  }
+  notify();
+  return getResultSyncState();
 }
 
 export function getResultSyncTabId() {
@@ -130,16 +172,21 @@ export function getResultSyncState() {
   try {
     localStorage.getItem(MIRROR_OWNER_KEY); // Detect denied reads even with an empty outbox.
     const entries = readResultOutbox().filter((entry) => !entry.ownerId || entry.ownerId === accountId);
+    const failures = currentStorageFailures();
+    const [storageErrorSource, failure] = failures.find(([source]) => source.startsWith("outbox:")) || failures[0] || [];
     return {
       pending: entries.filter((entry) => !entry.activeTabId).length,
       active: entries.filter((entry) => entry.activeTabId).length,
       online: navigator.onLine !== false,
       syncing: Boolean(worker),
       signedIn: Boolean(accountId),
-      storageError,
+      storageError: failures.length > 0,
+      storageErrorKind: failure ? storageErrorKind(failure.error) : null,
+      storageErrorSource,
     };
-  } catch {
-    return { pending: 0, active: 0, online: navigator.onLine !== false, syncing: false, storageError: true };
+  } catch (error) {
+    return { pending: 0, active: 0, online: navigator.onLine !== false, syncing: false, storageError: true,
+      storageErrorKind: storageErrorKind(error), storageErrorSource: "read" };
   }
 }
 
@@ -166,10 +213,10 @@ export function queueGameResult(result, options = {}) {
     // Each record has its own key. Pending uploads are never truncated with the
     // display history, and tabs saving different attempts cannot overwrite it.
     localStorage.setItem(`${RESULT_OUTBOX_PREFIX}${result.resultId}`, JSON.stringify(entry));
-    storageError = false;
+    storageFailures.delete(`outbox:${result.resultId}`);
   } catch (error) {
-    storageError = true;
-    notify();
+    reportResultStorageFailure(error, { source: `outbox:${result.resultId}`, ownerId,
+      retry: () => queueGameResult(result, { ownerId, activeTabId: entry.activeTabId }) });
     throw error;
   }
   notify();
@@ -196,7 +243,9 @@ export function unregisterLiveAttempt(resultId) {
 
 export async function recoverInterruptedResults() {
   const tabId = getResultSyncTabId();
-  const locks = navigator.locks?.query ? await navigator.locks.query() : null;
+  let locks = null;
+  try { if (navigator.locks?.query) locks = await navigator.locks.query(); }
+  catch { /* Use the heartbeat fallback when lock inspection is unavailable. */ }
   const activeLocks = new Set([...(locks?.held || []), ...(locks?.pending || [])].map((lock) => lock.name));
   readResultOutbox().forEach((entry) => {
     if (!entry.activeTabId || liveAttempts.has(entry.result.resultId)) return;
@@ -215,6 +264,8 @@ export async function recoverInterruptedResults() {
 function markLocalResultSynced(resultId, syncState, syncStatus = "synced") {
   // Update mirrors only after the database acknowledges the write. Failure to
   // update a display cache must not invalidate a successful cloud upload.
+  const failedCache = storageFailures.get(`cache:${resultId}`);
+  if (failedCache) failedCache.syncUpdate = { syncState, syncStatus };
   [localStorage, sessionStorage].forEach((storage) => {
     for (let index = 0; index < storage.length; index += 1) {
       const key = storage.key(index);
@@ -298,8 +349,11 @@ export function flushResultOutbox() {
     }
   }).catch(() => {
     // Storage or connectivity may disappear while the worker is running.
-  }).finally(() => {
+  }).finally(async () => {
     worker = null;
+    // A verified upload releases its outbox space. Retry failed writes while
+    // that space is available, retaining every unsent source on failure.
+    if (currentStorageFailures().length) await retryResultStorage();
     notify();
   });
   notify();
@@ -313,7 +367,9 @@ function scheduleSync() {
 
 export function startResultSync() {
   const recoverAndSync = () => {
-    void recoverInterruptedResults().catch(() => { storageError = true; }).finally(() => {
+    void retryResultStorage().then(recoverInterruptedResults).then(() => {
+      storageFailures.delete("recovery");
+    }).catch((error) => { reportResultStorageFailure(error, { source: "recovery", retry: recoverInterruptedResults }); }).finally(() => {
       notify(); scheduleSync();
     });
   };
@@ -323,8 +379,9 @@ export function startResultSync() {
   };
   const { data } = supabase.auth.onAuthStateChange((_event, session) => {
     const nextOwnerId = session?.user?.id || null;
-    try { switchResultMirrors(nextOwnerId); } catch { storageError = true; }
     accountId = nextOwnerId;
+    try { switchResultMirrors(nextOwnerId); storageFailures.delete("mirrors"); }
+    catch (error) { reportResultStorageFailure(error, { source: "mirrors", retry: () => switchResultMirrors(accountId) }); }
     notify();
     scheduleSync();
   });

@@ -1,3 +1,4 @@
+import { largestComparableCount, ObservationResults } from "../professional/ObservationResults";
 import { createContext, useContext, useState } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { RESEARCH_METRICS, researchDate, researchNumber, validMetric } from "../../utils/researchPresentation";
@@ -40,9 +41,10 @@ export function ResearchAlerts({ alerts = [] }) {
 
 export function ResearchHandoff({ context, taskLabel }) {
   const mode = { assessment: "測驗", training: "訓練" }[context.latest?.assessment_or_training] || "未記錄類型";
+  const valueText = (definition, value) => value === null || value === undefined ? "未記錄" : `${definition.format(value)}${definition.unit === "ms" ? " ms" : ""}`;
   return <section className="research-handoff" aria-label="資料摘要"><h2>資料摘要 · {taskLabel}</h2>
-    {!context.latest ? <p>尚無此任務的觀察資料。</p> : <><p>{mode} · 難度 {context.latest.difficulty ?? "未記錄"} · 最近紀錄 {researchDate(context.latest.session_started_at || context.latest.started_at)}。僅比較同一參與者、任務、類型與難度；未記錄的條件無法確認一致性。</p>
-      <ul>{context.metrics.map((item) => { const definition = RESEARCH_METRICS[item.metric]; const change = item.absolute_change; return <li key={item.metric}><strong>{definition.label}</strong>：最新 {definition.format(item.latest_value)}{definition.unit === "ms" ? " ms" : ""}；個人基準 {definition.format(item.baseline_value)}{definition.unit === "ms" ? " ms" : ""}（{researchDate(item.baseline_date)}）。{change === null ? "可比較資料不足，暫不判讀變化。" : `較基準${change > 0 ? "增加" : change < 0 ? "減少" : "持平"}${change === 0 ? "" : ` ${researchNumber(Math.abs(change) * (definition.unit === "%" ? 100 : 1), 1)} ${definition.unit === "%" ? "個百分點" : "ms"}`}；共 ${item.observation_count} 筆有效觀察。`}</li>; })}</ul>
+    {!context.latest ? <p>尚無此任務的觀察資料。</p> : <><p>{mode} · 難度 {context.latest.difficulty ?? "未記錄"} · 最近紀錄 {researchDate(context.latest.session_started_at || context.latest.started_at)}。僅比較同一參與者、任務、類型、難度、施測版本與題次條件組成；缺少條件時不計算變化。</p>
+      <ul>{context.metrics.map((item) => { const definition = RESEARCH_METRICS[item.metric]; const change = item.absolute_change; return <li key={item.metric}><strong>{definition.label}</strong>：最新 {valueText(definition, item.latest_value)}；個人基準 {valueText(definition, item.baseline_value)}（{researchDate(item.baseline_date)}）。{change === null ? "可比較資料不足，暫不判讀變化。" : `較基準${change > 0 ? "增加" : change < 0 ? "減少" : "持平"}${change === 0 ? "" : ` ${researchNumber(Math.abs(change) * (definition.unit === "%" ? 100 : 1), 1)} ${definition.unit === "%" ? "個百分點" : "ms"}`}；共 ${item.observation_count} 筆有效觀察。`}</li>; })}</ul>
       <p className="research-caption">依現有觀察資料自動整理；未包含用藥或生理數據。AI 行為預測的時間範圍依研究目標定義，尚未提供未來 24 小時臨床風險預測。</p></>}
   </section>;
 }
@@ -51,6 +53,9 @@ export function ResearchTrendChart({ data = [], metric, rolling, title }) {
   const definition = RESEARCH_METRICS[metric];
   const chartData = data.map((row, index) => ({ ...row, session_number: index + 1, [metric]: validMetric(row[metric], metric) ? Number(row[metric]) : null,
     ...(rolling ? { [rolling]: validMetric(row[rolling], metric) ? Number(row[rolling]) : null } : {}) }));
+  const usable = chartData.filter((row) => row[metric] !== null && (!row.professionalRecord || row.session_completion_status === "completed"));
+  const comparableCount = largestComparableCount(usable.map((row) => row.professionalRecord || {}));
+  if (comparableCount < 3) return <article className="research-trend"><h3>{title || definition.label}</h3><ObservationResults comparableCount={comparableCount} observations={usable.map((row) => ({ record: row.professionalRecord, date: row.session_started_at || row.started_at, mode: row.assessment_or_training, difficulty: row.difficulty, value: `${definition.format(row[metric])}${definition.unit === "ms" ? " ms" : ""}` }))}/></article>;
   const baseline = chartData.find((row) => row[metric] !== null);
   return <article className="research-trend"><h3>{title || definition.label}</h3>
     {baseline ? <><div role="img" aria-label={`${title || definition.label}，單位 ${definition.unit}；以首筆有效觀察作為個人基準。`}><ResponsiveContainer width="100%" height={260}><LineChart data={chartData} margin={{ top: 10, right: 24, bottom: 10, left: 5 }} accessibilityLayer>
@@ -60,6 +65,6 @@ export function ResearchTrendChart({ data = [], metric, rolling, title }) {
       <ReferenceLine y={baseline[metric]} stroke="var(--research-muted)" strokeDasharray="5 5"/>
       <Line type="linear" dataKey={metric} name="觀察值" stroke="var(--research-chart-observed)" strokeWidth={2} connectNulls={false} isAnimationActive={false}/>
       {rolling && <Line type="linear" dataKey={rolling} name="移動平均（3 場）" stroke="var(--research-chart-secondary)" strokeDasharray="6 3" connectNulls={false} isAnimationActive={false}/>}
-    </LineChart></ResponsiveContainer></div><p className="research-caption">X 軸：時間排序場次；Y 軸：{definition.label}（{definition.unit}）。來源：目前選取範圍內同條件的 {chartData.filter((row) => row[metric] !== null).length} 筆有效觀察。虛線：個人基準 {definition.format(baseline[metric])}{definition.unit === "ms" ? " ms" : ""}（{researchDate(baseline.session_started_at)}）。缺失值保留缺口；基準不代表臨床正常範圍。</p></> : <p>尚無有效的{definition.label}觀察資料。</p>}
+    </LineChart></ResponsiveContainer></div><p className="research-caption">描述性資料。X 軸：時間排序場次；Y 軸：{definition.label}（{definition.unit}）。來源：目前選取範圍內同條件的 {chartData.filter((row) => row[metric] !== null).length} 筆有效觀察。虛線：個人基準 {definition.format(baseline[metric])}{definition.unit === "ms" ? " ms" : ""}（{researchDate(baseline.session_started_at)}）。缺失值保留缺口；基準不代表臨床正常範圍。</p></> : <p>尚無有效的{definition.label}觀察資料。</p>}
   </article>;
 }

@@ -1,7 +1,16 @@
-import bgImg from "../asset/home/model_background.webp";
+import { largestComparableCount, ObservationResults } from "../components/professional/ObservationResults";
+import { formatMetric as metricText, formatAccuracy, formatDifficulty, formatReactionTime } from "../utils/professionalFormatters";
+import { ProfessionalNavigation } from "../components/professional/ProfessionalNavigation";
+import { useProfessionalWorkspace } from "../components/professional/ProfessionalWorkspaceContext";
+import { DataStatus, ProfessionalTaskCards, TaskMetricDetail, RecordComparison } from "../components/professional/ProfessionalData";
+import { ProfessionalRecords } from "../components/professional/ProfessionalRecords";
+import { compareRecords, describeRecord, numberOrNull, taskHistory } from "../utils/professionalMetrics";
+import { patientDataStatus } from "../utils/professionalStatus";
+import { buildProfessionalReport } from "../utils/professionalReport";
+
 import assistIcon from "../asset/assist.webp";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { AssistantEmailChoice, AssistantEmailStatus, useAssistantEmail } from "../components/AssistantEmailControls";
 import { dedupeClinicalRecords } from "../utils/resultIdentity";
@@ -49,14 +58,7 @@ const ABILITY_BY_GAME = {
   LB: "排序能力 / 規則理解",
 };
 
-const GAME_THEME_MAP = {
-  SRT: { primary: "#f97316", dark: "#c2410c", soft: "#fff7ed", border: "#fdba74" },
-  PM: { primary: "#7c3aed", dark: "#5b21b6", soft: "#f5f3ff", border: "#c4b5fd" },
-  CBT: { primary: "#0891b2", dark: "#0e7490", soft: "#ecfeff", border: "#67e8f9" },
-  ARI: { primary: "#e11d48", dark: "#be123c", soft: "#fff1f2", border: "#fda4af" },
-  DCCS: { primary: "#16a34a", dark: "#15803d", soft: "#f0fdf4", border: "#86efac" },
-  LB: { primary: "#ca8a04", dark: "#a16207", soft: "#fefce8", border: "#fde047" },
-};
+const GAME_THEME_MAP = Object.fromEntries(Object.keys(GAME_NAME_MAP).map((task) => [task, { primary: "#163B59", dark: "#163B59", soft: "#EAF1F6", border: "#c9d6df" }]));
 
 const CLINICIAN_LOGIN_ROUTE = "/clinician-login";
 const CLINICIAN_ROLES = ["clinician", "medical", "doctor", "醫療人員"];
@@ -69,11 +71,12 @@ function isClinicianRole(role) {
   return CLINICIAN_ROLES.includes(normalizeRole(role));
 }
 
-async function getClinicalApiHeaders() {
+async function getClinicalApiHeaders(expectedOwner) {
   const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
   const accessToken = data?.session?.access_token;
   if (!accessToken) throw new Error("登入狀態已失效，請重新登入。");
+  if (expectedOwner && data.session.user?.id !== expectedOwner) throw new Error("登入帳號已變更，請重新選取個案。");
   return {
     "Content-Type": "application/json",
     Authorization: `Bearer ${accessToken}`,
@@ -217,7 +220,7 @@ function firstNumber(...values) {
     const number = safeNumberValue(value, NaN);
     if (Number.isFinite(number)) return number;
   }
-  return 0;
+  return null;
 }
 
 function toPercent(value, fallback = 0) {
@@ -687,21 +690,31 @@ function buildTrialDataExplanation(trial = {}, record = null, index = 0) {
   const y = firstDefined(trial.positionY, trial.clickY, trial.y, trial.clickedY);
   const targetType = firstDefined(trial.targetType, trial.stimulusType, trial.itemType, "-");
   const scoreValue = firstDefined(trial.scoreValue, trial.trialScore, trial.points, "-");
-  const locationText = Number.isFinite(Number(x)) && Number.isFinite(Number(y))
+  const locationText = x != null && y != null && Number.isFinite(Number(x)) && Number.isFinite(Number(y))
     ? `點擊位置約在畫面水平 ${Number(x).toFixed(1)}%、垂直 ${Number(y).toFixed(1)}%。`
     : "此題沒有完整的點擊座標資料。";
-  return `第 ${index + 1} 題屬於「${record?.gameName || "目前遊戲"}」，系統結果為「${outcome.label}」。目標類型為 ${targetType}，${rt != null ? `反應時間為 ${rt} ms，` : ""}誤點 ${falseClickCount} 次、重複點擊 ${repeatedClickCount} 次，${assisted === true ? "有使用提示" : assisted === false ? "未使用提示" : "提示狀態未記錄"}，本題得分 ${scoreValue}。${locationText} 單一 trial 只能說明當次作答行為，不能單獨推論整體認知能力或做出診斷。`;
+  return `第 ${index + 1} 題屬於「${record?.gameName || "目前遊戲"}」，系統結果為「${outcome.label}」。目標類型為 ${targetType}，${rt != null ? `反應時間為 ${rt} ms，` : ""}誤點 ${falseClickCount} 次、重複點擊 ${repeatedClickCount} 次，${assisted === true ? "有使用提示" : assisted === false ? "未使用提示" : "提示狀態未記錄"}，本題得分 ${metricText(scoreValue)}。${locationText} 單一 trial 只能說明當次作答行為，不能單獨推論整體認知能力或做出診斷。`;
 }
 
 function ClinicianDashboard() {
   const navigate = useNavigate();
-
+  const [searchParams, setSearchParams] = useSearchParams();
+  const workspace = useProfessionalWorkspace();
+  const workspaceRef = useRef(workspace); workspaceRef.current = workspace;
+  const ownerRef = useRef(null); const draftsRef = useRef({});
+  const currentPatientRef = useRef("");
+  const [reminders, setReminders] = useState([]);
+  const [reminderHistoryError, setReminderHistoryError] = useState("");
+  const [noteError, setNoteError] = useState("");
+  const [noteHistoryError, setNoteHistoryError] = useState("");
+  const [noteSaving, setNoteSaving] = useState(false);
   const [clinicianId, setClinicianId] = useState("");
   const [clinicianName, setClinicianName] = useState("");
   const [patients, setPatients] = useState([]);
   const [records, setRecords] = useState([]);
   const [notes, setNotes] = useState([]);
-  const [selectedPatientId, setSelectedPatientId] = useState("");
+  const [selectedPatientId, setSelectedPatientId] = useState(() => workspace?.patientId || "");
+  currentPatientRef.current = selectedPatientId;
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [recordDetailOpen, setRecordDetailOpen] = useState(false);
   const [compareAId, setCompareAId] = useState("");
@@ -712,7 +725,7 @@ function ClinicianDashboard() {
   const [recordGameFilters, setRecordGameFilters] = useState([]);
   const [recordPage, setRecordPage] = useState(1);
   const [trendGameKey, setTrendGameKey] = useState("SRT");
-  const [activePatientTab, setActivePatientTab] = useState("trend");
+  const [activePatientTab, setActivePatientTab] = useState(() => ["records", "tools"].includes(searchParams.get("section")) ? searchParams.get("section") : "trend");
   const [exportingRecordId, setExportingRecordId] = useState("");
   const [selectedRecordIds, setSelectedRecordIds] = useState([]);
   const [exportingCombinedReport, setExportingCombinedReport] = useState(false);
@@ -748,6 +761,43 @@ function ClinicianDashboard() {
   const recordDetailRef = useRef(null);
 
   useEffect(() => {
+    const section = searchParams.get("section");
+    if (["trend", "records", "tools"].includes(section)) setActivePatientTab(section);
+  }, [searchParams]);
+  useEffect(() => {
+    const current = workspaceRef.current;
+    if (clinicianId && selectedPatientId) {
+      current?.selectPatient(clinicianId, selectedPatientId);
+      const draft = current?.owner === clinicianId ? current.drafts[selectedPatientId] || "" : draftsRef.current[selectedPatientId] || "";
+      draftsRef.current[selectedPatientId] = draft; setNoteText(draft);
+    }
+    setNoteError("");
+  }, [selectedPatientId, clinicianId]);
+  useEffect(() => {
+    const warn = (event) => { if (Object.values(draftsRef.current).some(Boolean)) { event.preventDefault(); event.returnValue = ""; } };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, []);
+  const updateNoteDraft = (text) => {
+    setNoteText(text); draftsRef.current[selectedPatientId] = text;
+    workspaceRef.current?.setDraft(clinicianId, selectedPatientId, text);
+  };
+  const guardDraft = () => !noteText.trim() || window.confirm("備註尚未儲存。草稿會保留於目前帳號的本次工作階段；關閉分頁或登出後會清除。要繼續切換嗎？");
+  const selectSection = (section) => {
+    if (!guardDraft()) return;
+    setSearchParams({ section });
+    if (["overview", "patients"].includes(section)) setActivePatientTab("trend");
+  };
+  const clearSensitiveData = () => {
+    fetchRequestIdRef.current += 1;
+    setPatients([]); setRecords([]); setNotes([]); setReminders([]); setSelectedPatientId("");
+    setSelectedRecord(null); setSelectedRecordIds([]); setRecordDetailOpen(false); setNoteText("");
+    setClinicianId(""); setClinicianName(""); setSearchText(""); setLoadError(""); setNoteError(""); setNoteHistoryError(""); setReminderHistoryError("");
+    setAssistantMessages([]); setAssistantQuestion(""); setAssistantOpen(false); setAssistantLoading(false); setNoteSaving(false);
+    draftsRef.current = {}; hasLoadedDashboardRef.current = false;
+  };
+
+  useEffect(() => {
     isMountedRef.current = true;
     fetchClinicianAndPatients();
 
@@ -760,9 +810,13 @@ function ClinicianDashboard() {
     };
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session?.user) {
-        navigate(CLINICIAN_LOGIN_ROUTE, { replace: true });
+      const nextOwner = session?.user?.id || null;
+      if (ownerRef.current && ownerRef.current !== nextOwner) {
+        clearSensitiveData(); ownerRef.current = nextOwner;
+        if (nextOwner) window.setTimeout(fetchClinicianAndPatients, 0);
       }
+      ownerRef.current = nextOwner;
+      if (!nextOwner) navigate(CLINICIAN_LOGIN_ROUTE, { replace: true });
     });
 
     window.addEventListener("focus", scheduleRefresh);
@@ -794,16 +848,24 @@ function ClinicianDashboard() {
         error: userError,
       } = await supabase.auth.getUser();
 
+      if (!isMountedRef.current || requestId !== fetchRequestIdRef.current) return;
       if (userError || !user) {
         navigate(CLINICIAN_LOGIN_ROUTE, { replace: true });
         return;
       }
 
+      if (ownerRef.current && ownerRef.current !== user.id) {
+        clearSensitiveData(); ownerRef.current = user.id;
+        window.setTimeout(fetchClinicianAndPatients, 0); return;
+      }
+      ownerRef.current = user.id;
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("id, full_name, role")
         .eq("id", user.id)
         .single();
+
+      if (!isMountedRef.current || requestId !== fetchRequestIdRef.current) return;
 
       const isClinician = isClinicianRole(profileData?.role);
       if (profileError || !profileData || !isClinician) {
@@ -840,7 +902,7 @@ function ClinicianDashboard() {
           .select("*")
           .in("id", patientIds)
           .order("created_at", { ascending: false }),
-        fetchClinicalRecords(patientIds),
+        fetchClinicalRecords(patientIds, user.id),
         fetchClinicalNotes(patientIds),
       ]);
 
@@ -861,9 +923,10 @@ function ClinicianDashboard() {
       setPatients(safePatients);
       setRecords(safeRecords);
       if (Array.isArray(clinicalNotes)) setNotes(safeNotes);
-      setSelectedPatientId((currentId) => (
-        currentId && allowedPatientIds.has(String(currentId)) ? currentId : safePatients[0]?.id || ""
-      ));
+      setSelectedPatientId((currentId) => {
+        const remembered = workspaceRef.current?.owner === user.id ? workspaceRef.current.patientId : "";
+        return [currentId, remembered].find((id) => id && allowedPatientIds.has(String(id))) || safePatients[0]?.id || "";
+      });
       setLoadError("");
       hasLoadedDashboardRef.current = true;
     } catch (error) {
@@ -877,7 +940,7 @@ function ClinicianDashboard() {
   };
 
 
-  const fetchClinicalRecords = async (patientIds = []) => {
+  const fetchClinicalRecords = async (patientIds = [], ownerId) => {
     if (!patientIds.length) return [];
 
     const settledResults = await Promise.all(
@@ -901,6 +964,8 @@ function ClinicianDashboard() {
     const allRecords = settledResults.flat();
 
     readLocalResultPayloads(patientIds).forEach((item) => {
+      const localOwner = item.syncOwnerId || item.payload?.syncOwnerId || item.payload?.rawResult?.syncOwnerId;
+      if (!ownerId || localOwner !== ownerId) return;
       allRecords.push(
         normalizeRecord(
           item,
@@ -918,19 +983,31 @@ function ClinicianDashboard() {
   const fetchClinicalNotes = async (patientIds = []) => {
     if (!patientIds.length) return [];
 
+    const noteOwner = ownerRef.current;
     const { data, error } = await supabase
       .from("clinician_notes")
       .select("*")
       .in("patient_id", patientIds)
       .order("created_at", { ascending: false });
 
+    if (noteOwner !== ownerRef.current) return null;
     if (error) {
       console.warn(`clinician_notes 讀取失敗，保留既有備註：${error.message}`);
+      setNoteHistoryError("備註歷程讀取失敗，已保留本次草稿。請重新整理重試。");
       return null;
     }
 
+    setNoteHistoryError("");
     return data || [];
   };
+
+  useEffect(() => {
+    if (!clinicianId || !patients.length) { setReminders([]); return undefined; }
+    let active = true;
+    supabase.from("parent_reminders").select("*").in("patient_id", patients.map((p) => p.id)).order("created_at", { ascending: false })
+      .then(({ data, error }) => { if (!active) return; if (error) setReminderHistoryError("提醒歷程讀取失敗，可重新整理重試。"); else { setReminders(data || []); setReminderHistoryError(""); } });
+    return () => { active = false; };
+  }, [clinicianId, patients]);
 
   const normalizeRecord = (item, sourceTable, fallbackType, sourceGameKey = "") => {
     const { result, summary, clinician, parent, child } = getMetricsObjects(item);
@@ -1086,7 +1163,7 @@ function ClinicianDashboard() {
       ""
     );
 
-    return {
+    const normalized = {
       id: `${sourceTable}-${item.id || item.__localKey || `${gameKey}-${date}`}`,
       rawId: item.id || item.__localKey || "local",
       sourceTable: item.__localKey ? `${sourceTable}:${item.__localKey}` : sourceTable,
@@ -1133,6 +1210,10 @@ function ClinicianDashboard() {
       trials,
       metrics: { result, summary, clinician, parent, child },
     };
+    const presentation = describeRecord(normalized);
+    return { ...normalized, accuracy: presentation.accuracy, avgRt: presentation.rtMean,
+      correct: presentation.correct, total: presentation.total,
+      errors: presentation.total === null ? null : presentation.total - presentation.correct };
   };
 
   const normalizeType = (type) => {
@@ -1148,6 +1229,7 @@ function ClinicianDashboard() {
   };
 
   const handleLogout = async () => {
+    if (!guardDraft()) return;
     await supabase.auth.signOut();
     navigate(CLINICIAN_LOGIN_ROUTE, { replace: true });
   };
@@ -1299,12 +1381,12 @@ function ClinicianDashboard() {
   }, [filteredRecords, recordPage, recordPageSize, recordTotalPages]);
 
   const testRecords = useMemo(
-    () => selectedPatientRecords.filter((record) => record.type === "test" && isCompletedResult(record)),
+    () => selectedPatientRecords.filter((record) => record.type === "test" && describeRecord(record).complete),
     [selectedPatientRecords]
   );
 
   const trainingRecords = useMemo(
-    () => selectedPatientRecords.filter((record) => record.type === "training" && isCompletedResult(record)),
+    () => selectedPatientRecords.filter((record) => record.type === "training" && describeRecord(record).complete),
     [selectedPatientRecords]
   );
 
@@ -1314,8 +1396,8 @@ function ClinicianDashboard() {
 
     return {
       patientCount: patients.length,
-      totalTests: records.filter((record) => record.type === "test" && isCompletedResult(record)).length,
-      totalTraining: records.filter((record) => record.type === "training" && isCompletedResult(record)).length,
+      totalTests: records.filter((record) => record.type === "test" && describeRecord(record).complete).length,
+      totalTraining: records.filter((record) => record.type === "training" && describeRecord(record).complete).length,
       needFollowUp,
       newRecords,
     };
@@ -1326,11 +1408,6 @@ function ClinicianDashboard() {
 
     const risk = getRiskLevel(selectedPatientRecords);
     const lastRecord = selectedPatientRecords[0] || null;
-    const completedRecords = selectedPatientRecords.filter(isCompletedResult);
-    const averageAccuracy = average(completedRecords.map((record) => record.accuracy));
-    const averageRt = average(completedRecords.map((record) => record.avgRt).filter((value) => value > 0));
-    const latestGameMap = buildLatestGameMap(selectedPatientRecords);
-    const gameSummaryMap = buildGameSummaryMap(selectedPatientRecords);
     const trendByGame = Object.keys(GAME_NAME_MAP).reduce((result, gameKey) => {
       result[gameKey] = buildGameTrendData(selectedPatientRecords, gameKey);
       return result;
@@ -1339,12 +1416,8 @@ function ClinicianDashboard() {
     return {
       risk,
       lastRecord,
-      averageAccuracy,
-      averageRt,
       testCount: testRecords.length,
       trainingCount: trainingRecords.length,
-      latestGameMap,
-      gameSummaryMap,
       trendByGame,
     };
     // Pure formatting helpers do not carry state; list every data dependency instead.
@@ -1413,9 +1486,11 @@ function ClinicianDashboard() {
     if (recordPage > recordTotalPages) setRecordPage(recordTotalPages);
   }, [recordPage, recordTotalPages]);
 
+  useEffect(() => { setSelectedTrialIndex(null); }, [selectedRecord]);
   useEffect(() => {
-    setSelectedTrialIndex(null);
-  }, [selectedRecord]);
+    setAssistantMessages([{ id: "assistant-context", role: "assistant", content: "可依目前個案的作業資料整理觀察、證據與限制。" }]);
+    setAssistantQuestion(""); setAssistantLoading(false);
+  }, [selectedPatientId]);
 
   useEffect(() => {
     if (!recordDetailOpen || !selectedRecord) return;
@@ -1442,56 +1517,17 @@ function ClinicianDashboard() {
     setAssistantOpen(true);
   }
 
-  function getRiskLevel(patientRecords) {
-    patientRecords = (patientRecords || []).filter(isCompletedResult);
-    if (!patientRecords || patientRecords.length === 0) {
-      return { key: "empty", label: "資料不足", tone: "empty", text: "尚無紀錄，建議安排初次測驗。" };
-    }
-
-    const lastRecord = patientRecords[0];
-    const diff = daysSince(lastRecord.date) ?? 999;
-    const recent = patientRecords.slice(0, 3);
-    const recentAccuracy = average(recent.map((record) => record.accuracy));
-    const hasLowAccuracy = recentAccuracy > 0 && recentAccuracy < 60;
-    const hasLongNoData = diff >= 21;
-    const needFollowUp = diff >= 14;
-    const latestTwo = patientRecords.slice(0, 2);
-    const hasDrop = latestTwo.length >= 2 && Number(latestTwo[0].accuracy) + 10 < Number(latestTwo[1].accuracy);
-
-    if (hasLongNoData || hasLowAccuracy || hasDrop) {
-      return { key: "danger", label: "高度關注", tone: "danger", text: "近期表現下降或長時間未更新，建議優先追蹤。" };
-    }
-
-    if (needFollowUp) {
-      return { key: "warning", label: "需要注意", tone: "warning", text: "已有一段時間無新資料，建議提醒家長補做。" };
-    }
-
-    return { key: "safe", label: "正常追蹤", tone: "safe", text: "近期仍有資料更新，可持續追蹤。" };
-  }
-
-  function average(values) {
-    const cleanValues = values.map(Number).filter((value) => !Number.isNaN(value));
-    if (cleanValues.length === 0) return 0;
-    return Math.round(cleanValues.reduce((sum, value) => sum + value, 0) / cleanValues.length);
-  }
-
-  function buildLatestGameMap(patientRecords) {
-    const map = {};
-    patientRecords.filter(isCompletedResult).forEach((record) => {
-      if (!map[record.gameKey]) map[record.gameKey] = record;
-    });
-    return map;
-  }
+  function getRiskLevel(patientRecords) { return patientDataStatus(patientRecords || [], describeRecord); }
 
   function buildGameTrendData(patientRecords, gameKey) {
     return [...patientRecords]
-      .filter((record) => record.gameKey === gameKey && isCompletedResult(record))
+      .filter((record) => record.gameKey === gameKey && describeRecord(record).complete && !describeRecord(record).integrityError && describeRecord(record).accuracy !== null)
       .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0))
       .map((record, index) => ({
         recordId: record.id,
         label: formatTrendLabel(record.date, index),
-        accuracy: Number(record.accuracy || 0),
-        rt: Number(record.avgRt || 0),
+        accuracy: describeRecord(record).accuracy,
+        rt: describeRecord(record).rtMean,
         type: record.type,
         difficulty: record.difficulty,
         score: record.score,
@@ -1503,28 +1539,6 @@ function ClinicianDashboard() {
         date: record.date,
         record,
       }));
-  }
-
-  function buildGameSummaryMap(patientRecords) {
-    return Object.keys(GAME_NAME_MAP).reduce((result, gameKey) => {
-      const gameRecords = patientRecords
-        .filter((record) => record.gameKey === gameKey && isCompletedResult(record))
-        .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-      const latest = gameRecords[0] || null;
-      const previous = gameRecords[1] || null;
-      const averageAccuracy = average(gameRecords.map((record) => record.accuracy));
-      const change = latest && previous
-        ? Number(latest.accuracy || 0) - Number(previous.accuracy || 0)
-        : null;
-
-      result[gameKey] = {
-        latest,
-        count: gameRecords.length,
-        averageAccuracy,
-        change,
-      };
-      return result;
-    }, {});
   }
 
   function formatTrendLabel(value, index) {
@@ -1545,14 +1559,16 @@ function ClinicianDashboard() {
     const template = REMINDER_TEMPLATES.find((item) => item.key === reminderTemplate) || REMINDER_TEMPLATES[0];
     const message = reminderMessage.trim() || personalizeTemplate(template.text, selectedPatient);
 
-    const { error } = await supabase.from("parent_reminders").insert({
+    const targetOwner = clinicianId;
+    const { data: savedReminder, error } = await supabase.from("parent_reminders").insert({
       patient_id: selectedPatient.id,
       clinician_id: clinicianId,
       reminder_type: reminderTemplate,
       title: template.label,
       message,
       status: "unread",
-    });
+    }).select("*").single();
+    if (ownerRef.current !== targetOwner) return;
 
     if (error) {
       console.error("parent_reminders 新增失敗：", error);
@@ -1560,35 +1576,27 @@ function ClinicianDashboard() {
       return;
     }
 
+    if (savedReminder) setReminders((prev) => [savedReminder, ...prev]);
     setReminderMessage(personalizeTemplate(template.text, selectedPatient));
     alert("已送出提醒給家長端。");
   };
 
   const handleSaveNote = async () => {
-    if (!selectedPatient || !noteText.trim()) return;
-
-    const notePayload = {
-      patient_id: selectedPatient.id,
-      clinician_id: clinicianId,
-      note: noteText.trim(),
-    };
-
-    const { data, error } = await supabase.from("clinician_notes").insert(notePayload).select("*").single();
-
-    if (error) {
-      console.warn("clinician_notes 新增失敗，改以本機暫存顯示：", error);
-      const localNote = {
-        ...notePayload,
-        id: `local-${Date.now()}`,
-        created_at: new Date().toISOString(),
-      };
-      setNotes((prev) => [localNote, ...prev]);
-      setNoteText("");
-      return;
-    }
-
-    setNotes((prev) => [data, ...prev]);
-    setNoteText("");
+    if (!selectedPatient || !noteText.trim() || noteSaving) return;
+    const patientId = selectedPatient.id; const owner = clinicianId; const text = noteText.trim();
+    setNoteSaving(true); setNoteError("");
+    try {
+      const { data, error } = await supabase.from("clinician_notes").insert({ patient_id: patientId, clinician_id: owner, note: text }).select("*").single();
+      if (ownerRef.current !== owner) return;
+      if (error || !data?.id) throw error || new Error("未收到已儲存紀錄");
+      setNotes((prev) => [data, ...prev]);
+      if ((draftsRef.current[patientId] || "").trim() === text) {
+        draftsRef.current[patientId] = ""; workspaceRef.current?.setDraft(owner, patientId, "");
+        if (patientId === currentPatientRef.current) setNoteText("");
+      }
+    } catch (error) {
+      if (ownerRef.current === owner) setNoteError(`儲存失敗，草稿已保留：${error.message || "請稍後重試"}`);
+    } finally { if (ownerRef.current === owner) setNoteSaving(false); }
   };
 
   const generateLocalAssistantAnswer = async (question) => {
@@ -1601,44 +1609,7 @@ function ClinicianDashboard() {
     const sortedRecords = [...selectedPatientRecords].sort((a, b) => new Date(b.date) - new Date(a.date));
     const latest = sortedRecords[0] || null;
 
-    const confidenceText = (recordCount, comparable = true) => {
-      if (!comparable) return "低（紀錄條件不同，僅能描述差異）";
-      if (recordCount >= 5) return "高";
-      if (recordCount >= 2) return "中等";
-      return "低（目前資料筆數不足）";
-    };
-
-    const recordModeLabel = (record) => record?.type === "test" ? "測驗" : record?.type === "training" ? "訓練" : "紀錄";
-    const recordLine = (record) => {
-      if (!record) return "尚無有效紀錄";
-      return `${formatDate(record.date)}｜${record.gameName}｜${recordModeLabel(record)}｜正確率 ${record.accuracy}%｜平均反應時間 ${record.avgRt || "-"} ms｜完成 ${record.total || "-"} 題｜難度 ${record.difficulty || "-"}`;
-    };
-
-    const recommendationForRecord = (record, previousRecord = null) => {
-      if (!record) return ["先完成至少一次有效測驗或訓練，再建立個別化建議。"];
-      const suggestions = [];
-      const accuracy = Number(record.accuracy || 0);
-      const rt = Number(record.avgRt || 0);
-      const sameCondition = Boolean(previousRecord && previousRecord.gameKey === record.gameKey && previousRecord.difficulty === record.difficulty);
-      const accuracyDiff = sameCondition ? accuracy - Number(previousRecord.accuracy || 0) : null;
-      const rtDiff = sameCondition ? rt - Number(previousRecord.avgRt || 0) : null;
-
-      if (accuracy < 60) suggestions.push("下一次先降低一級難度或延長刺激呈現時間，確認規則理解後再逐步增加負荷。");
-      else if (accuracy < 80) suggestions.push("下一次先維持目前難度，不急著升級，優先讓正確率穩定到 80% 左右。");
-      else suggestions.push("若接下來 2 次仍維持高正確率，可考慮小幅提高難度，但一次只調整一項參數。");
-
-      if (accuracyDiff !== null && rtDiff !== null && accuracyDiff < 0 && rtDiff < 0) {
-        suggestions.push("本次作答變快但正確率下降，請提醒『看清楚再作答』，並觀察是否有搶答或速度—準確度取捨。");
-      } else if (rt > 0 && previousRecord && rt > Number(previousRecord.avgRt || 0) * 1.25) {
-        suggestions.push("反應時間較前次明顯延長，建議確認疲勞、注意力、裝置操作或環境干擾。");
-      } else {
-        suggestions.push("持續觀察反應時間是否穩定，以及錯誤是否集中在後半段或特定題型。");
-      }
-
-      suggestions.push("以連續 2 至 3 次同遊戲、同難度資料再判斷趨勢，避免用單次結果直接視為進步或退步。");
-      return suggestions;
-    };
-
+    const recordLine = (record) => { if (!record) return "尚無紀錄"; const d = describeRecord(record); return `${formatDate(record.date)}｜${record.gameName}｜${record.type === "training" ? "訓練" : "測驗"}｜正確 ${d.correct ?? "未記錄"}/${d.total ?? "未記錄"}（${metricText(d.accuracy, "%")}）｜正確有效 RT ${metricText(d.rtMean, " ms")}，n=${d.rtN}｜${d.status.label}`; };
     const asksAboutTrial = Boolean(selectedTrial) && (
       lower.includes("這張") || lower.includes("圖片") || lower.includes("這題") || lower.includes("trial") ||
       lower.includes("欄位") || lower.includes("json") || lower.includes("判定") || lower.includes("點擊") ||
@@ -1664,7 +1635,7 @@ function ClinicianDashboard() {
       try {
         const response = await fetch("/api/clinical-assistant", {
           method: "POST",
-          headers: await getClinicalApiHeaders(),
+          headers: await getClinicalApiHeaders(clinicianId),
           body: JSON.stringify(payload),
         });
         if (response.ok) {
@@ -1678,70 +1649,19 @@ function ClinicianDashboard() {
       return `【單題判定說明】\n${buildTrialDataExplanation(selectedTrial, selectedRecord, selectedTrialIndex || 0)}\n\n【判讀限制】\n單一題目只能說明當次作答行為，不能單獨推論整體能力或作為診斷依據。`;
     }
 
-    if (lower.includes("建議") || lower.includes("怎麼做") || lower.includes("下一步") || lower.includes("訓練方向")) {
-      if (!latest) return `${patientName}目前尚無有效紀錄，建議先完成一次基準測驗。`;
-      const previousSameGame = sortedRecords.find((record, index) => index > 0 && record.gameKey === latest.gameKey) || null;
-      const suggestions = recommendationForRecord(latest, previousSameGame);
-      return `【建議結論】\n目前建議先維持或微調訓練條件，不要只因單次結果立即升降級。\n\n【依據】\n${recordLine(latest)}${previousSameGame ? `\n前一次同遊戲：${recordLine(previousSameGame)}` : "\n目前沒有第二筆同遊戲紀錄可比較。"}\n\n【下一步建議】\n${suggestions.map((item, index) => `${index + 1}. ${item}`).join("\n")}\n\n【判讀信心】\n${confidenceText(previousSameGame ? 2 : 1, Boolean(previousSameGame))}\n\n以上為系統資料輔助整理，仍需結合現場觀察與專業判斷。`;
-    }
-
-    if (lower.includes("最近一次") || lower.includes("最新") || lower.includes("上一次")) {
-      if (!latest) return `${patientName}目前尚無有效測驗或訓練紀錄。`;
-      const sameGamePrevious = sortedRecords.find((record, index) => index > 0 && record.gameKey === latest.gameKey) || null;
-      const trendText = sameGamePrevious
-        ? `與前一次同遊戲相比，正確率${latest.accuracy >= sameGamePrevious.accuracy ? "增加" : "下降"} ${Math.abs(latest.accuracy - sameGamePrevious.accuracy)} 個百分點，平均反應時間${latest.avgRt <= sameGamePrevious.avgRt ? "縮短" : "增加"} ${Math.abs((latest.avgRt || 0) - (sameGamePrevious.avgRt || 0))} ms。`
-        : "目前只有一筆同遊戲紀錄，尚不能判斷趨勢。";
-      return `【最近一次結果】\n${recordLine(latest)}\n\n【初步解讀】\n${trendText}\n\n【資料充分度】\n${confidenceText(sameGamePrevious ? 2 : 1, Boolean(sameGamePrevious))}`;
-    }
-
-    if (lower.includes("家長")) {
-      if (!latest) return `${patientName}目前尚無足夠紀錄可供說明，建議先完成至少一次測驗或訓練。`;
-      return `【給家長的說明】\n${patientName}最近完成「${latest.gameName}」，本次正確率為 ${latest.accuracy}%，平均反應時間為 ${latest.avgRt || "-"} ms。這份結果主要用來觀察一段時間內的變化，單次表現可能受到疲勞、環境、理解狀況或題目難度影響。建議依原定頻率持續完成活動，並由醫療人員綜合多次紀錄判讀，不需要因單次波動過度擔心。`;
-    }
-
     if (lower.includes("比較") || lower.includes("兩次")) {
-      if (!compareA || !compareB || testRecords.length < 2) {
-        return "目前沒有兩筆可比較的測驗資料，請先在「測驗比較」區選擇兩筆不同紀錄。";
-      }
-      const comparable = compareA.gameKey === compareB.gameKey && compareA.difficulty === compareB.difficulty;
-      const accuracyDiff = compareB.accuracy - compareA.accuracy;
-      const rtDiff = (compareB.avgRt || 0) - (compareA.avgRt || 0);
-      const interpretation = accuracyDiff < 0 && rtDiff < 0
-        ? "反應速度變快，但正確率下降，可能出現速度—準確度取捨。"
-        : accuracyDiff > 0 && rtDiff <= 0
-          ? "正確率提高且反應時間未增加，屬於較一致的改善訊號。"
-          : "目前變化方向不一致，建議搭配更多同條件紀錄觀察。";
-      return `【兩次測驗比較】\n前一次：${recordLine(compareA)}\n最近一次：${recordLine(compareB)}\n\n【變化】\n正確率：${accuracyDiff >= 0 ? "+" : ""}${accuracyDiff} 個百分點\n平均反應時間：${rtDiff >= 0 ? "+" : ""}${rtDiff} ms\n完成題數：${(compareB.total || 0) - (compareA.total || 0) >= 0 ? "+" : ""}${(compareB.total || 0) - (compareA.total || 0)} 題\n\n【解讀】\n${interpretation}${!comparable ? " 兩筆紀錄的遊戲或難度不同，因此不宜直接判定能力進步或退步。" : ""}\n\n【判讀信心】\n${confidenceText(2, comparable)}`;
+      if (!compareA || !compareB || compareA.id === compareB.id) return "請先選擇兩筆不同的測驗紀錄。";
+      const ordered = [compareA, compareB].sort((a,b) => new Date(a.date) - new Date(b.date));
+      const comparison = compareRecords(...ordered);
+      return `【觀察摘要】\n${comparison.comparable ? `正確率差 ${metricText(comparison.change, " 個百分點")}` : "暫不判定變化"}\n\n【資料證據】\n${ordered.map(recordLine).join("\n")}\n\n【解讀限制】\n${comparison.comparable ? "施測條件一致，僅能描述這兩次作業表現；兩筆不足以確定穩定趨勢。" : comparison.reasons.join("；")}；尚無臨床風險分級。`;
     }
-
-    const matchedGameKey = Object.keys(GAME_NAME_MAP).find((key) =>
-      lower.includes(key.toLowerCase()) || lower.includes(GAME_NAME_MAP[key]) || lower.includes(ABILITY_BY_GAME[key])
-    );
-
-    if (matchedGameKey) {
-      const gameRecords = sortedRecords.filter((record) => record.gameKey === matchedGameKey);
-      if (!gameRecords.length) return `${patientName}目前沒有「${GAME_NAME_MAP[matchedGameKey]}」的有效紀錄。`;
-      const gameLatest = gameRecords[0];
-      const previous = gameRecords[1];
-      const trend = previous
-        ? `較前一次正確率${gameLatest.accuracy >= previous.accuracy ? "增加" : "下降"} ${Math.abs(gameLatest.accuracy - previous.accuracy)} 個百分點，反應時間${gameLatest.avgRt <= previous.avgRt ? "縮短" : "增加"} ${Math.abs((gameLatest.avgRt || 0) - (previous.avgRt || 0))} ms。`
-        : "目前只有一筆紀錄，尚無法判斷趨勢。";
-      return `【${GAME_NAME_MAP[matchedGameKey]}】\n主要觀察：${ABILITY_BY_GAME[matchedGameKey]}\n最近紀錄：${recordLine(gameLatest)}\n\n【趨勢】\n${trend}\n\n【判讀信心】\n${confidenceText(gameRecords.length, Boolean(previous))}`;
-    }
-
-    if (lower.includes("30") || lower.includes("近期") || lower.includes("摘要") || lower.includes("表現")) {
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - 30);
-      const recentRecords = sortedRecords.filter((record) => new Date(record.date) >= cutoff);
-      if (!recentRecords.length) return `${patientName}近 30 天沒有有效測驗或訓練紀錄。`;
-      const recentAccuracy = Math.round(recentRecords.reduce((sum, record) => sum + Number(record.accuracy || 0), 0) / recentRecords.length);
-      const games = [...new Set(recentRecords.map((record) => record.gameName))].join("、");
-      return `【近 30 天摘要】\n紀錄數：${recentRecords.length} 筆\n涵蓋遊戲：${games}\n跨紀錄平均正確率：約 ${recentAccuracy}%\n最近一筆：${recordLine(recentRecords[0])}\n\n【解讀】\n跨遊戲平均只能作為概覽，各遊戲應分開判讀。建議優先查看同一遊戲、相同難度的連續變化。\n\n【資料充分度】\n${confidenceText(recentRecords.length)}`;
-    }
-
-    return `我已讀取 ${patientName} 目前的紀錄，但這個問題需要更明確的分析方向。你可以直接問：\n1. 最近一次測驗結果\n2. 比較兩次測驗\n3. 我該給什麼訓練建議\n4. 解釋目前選取的單題\n5. 產生給家長的說明`;
+    const matchedGame = Object.keys(GAME_NAME_MAP).find((key) => lower.includes(key.toLowerCase()) || lower.includes(GAME_NAME_MAP[key]));
+    const target = matchedGame ? sortedRecords.find((r) => r.gameKey === matchedGame) : selectedRecord || latest;
+    if (!target) return `${patientName}目前尚無可供分析的紀錄。`;
+    const history = taskHistory(sortedRecords, target.gameKey);
+    const comparison = history.comparison;
+    return `【觀察摘要】\n${recordLine(target)}\n${comparison.comparable ? `最近兩次同條件正式測驗相差 ${metricText(comparison.change, " 個百分點")}。` : "尚無條件完整且一致的前次正式測驗，暫不判定變化。"}\n\n【資料證據】\n${JSON.stringify(describeRecord(target).specific)}\n\n【解讀限制】\n測驗與訓練、不同難度與施測版本分開解讀；目前沒有常模或臨床風險分級。若需訓練調整，請先核對規則理解、施測條件與人工備註，由專業人員決定。`;
   };
-
 
   const sanitizeAssistantRecord = (record) => {
     if (!record) return null;
@@ -1753,15 +1673,16 @@ function ClinicianDashboard() {
       ability: ABILITY_BY_GAME[record.gameKey] || null,
       type: record.type || null,
       date: record.date || null,
-      accuracy: safeNumberValue(record.accuracy, 0),
-      avgRt: safeNumberValue(record.avgRt, 0),
-      total: safeNumberValue(record.total, 0),
-      correct: safeNumberValue(record.correct, 0),
-      wrong: safeNumberValue(record.wrong, 0),
-      timeout: safeNumberValue(record.timeout, 0),
+      accuracy: describeRecord(record).accuracy,
+      avgRt: describeRecord(record).rtMean,
+      total: numberOrNull(record.total),
+      correct: numberOrNull(record.correct),
+      wrong: numberOrNull(record.wrong),
+      timeout: numberOrNull(record.timeout),
       difficulty: firstDefined(record.difficulty, record.difficultyLevel, null),
-      stars: safeNumberValue(record.stars, 0),
-      score: safeNumberValue(record.score, 0),
+      stars: numberOrNull(record.stars),
+      score: numberOrNull(record.score),
+      presentationMetrics: describeRecord(record),
       scoring: record.scoring ? asObject(record.scoring) : null,
       analysis: record.analysis ? asObject(record.analysis) : null,
     };
@@ -1791,10 +1712,9 @@ function ClinicianDashboard() {
             recordCount: sortedGameRecords.length,
             testCount: sortedGameRecords.filter((record) => record.type === "test").length,
             trainingCount: sortedGameRecords.filter((record) => record.type === "training").length,
-            averageAccuracy: average(sortedGameRecords.map((record) => record.accuracy)),
-            averageReactionTime: average(
-              sortedGameRecords.map((record) => record.avgRt).filter((value) => Number(value) > 0)
-            ),
+            conditionMixed: true,
+            averageAccuracy: null,
+            averageReactionTime: null,
             earliestDate: sortedGameRecords[sortedGameRecords.length - 1]?.date || null,
             latestDate: sortedGameRecords[0]?.date || null,
             latestRecord: sanitizeAssistantRecord(sortedGameRecords[0]),
@@ -1830,14 +1750,14 @@ function ClinicianDashboard() {
       `資料筆數：${historicalData.recordCount}`,
       `資料期間：${formatDate(historicalData.earliestDate)} 至 ${formatDate(historicalData.latestDate)}`,
       ...Object.entries(historicalData.gameSummaries || {}).map(([gameKey, summary]) => (
-        `${gameKey}/${summary.gameName}：${summary.recordCount} 筆，測驗 ${summary.testCount}、訓練 ${summary.trainingCount}，平均正確率 ${summary.averageAccuracy}%` +
+        `${gameKey}/${summary.gameName}：${summary.recordCount} 筆，測驗 ${summary.testCount}、訓練 ${summary.trainingCount}；不同條件不合併平均` +
         `${summary.averageReactionTime ? `，平均反應 ${summary.averageReactionTime} ms` : ""}`
       )),
     ];
 
     if (context?.selectedRecord) {
       historyLines.push(
-        `目前選取紀錄：${context.selectedRecord.gameName} ${context.selectedRecord.type}，正確率 ${context.selectedRecord.accuracy}%，平均反應 ${context.selectedRecord.avgRt || "-"} ms`
+        `目前選取紀錄：${context.selectedRecord.gameName} ${context.selectedRecord.type}，正確率 ${metricText(context.selectedRecord.presentationMetrics?.accuracy, "%")}，平均反應 ${metricText(context.selectedRecord.presentationMetrics?.rtMean, " ms")}`
       );
     }
 
@@ -1887,11 +1807,11 @@ function ClinicianDashboard() {
         : null,
       summary: patientSummary
         ? {
-            riskLevel: patientSummary.risk?.label || null,
+            riskLevel: "尚無臨床風險分級",
+            dataQuality: patientSummary.risk?.label || null,
             testCount: safeNumberValue(patientSummary.testCount, 0),
             trainingCount: safeNumberValue(patientSummary.trainingCount, 0),
-            averageAccuracy: safeNumberValue(patientSummary.averageAccuracy, 0),
-            averageReactionTime: safeNumberValue(patientSummary.averageRt, 0),
+            interpretationRule: "不得將跨任務或不同條件的正確率平均解讀為整體能力；所有差值須通過 computedAnalysis 比較條件。",
           }
         : null,
       latestRecord: sanitizeAssistantRecord(sortedRecords[0]),
@@ -1916,108 +1836,10 @@ function ClinicianDashboard() {
   };
 
   const buildComputedAnalysis = () => {
-    const result = {
-      comparison: null,
-      latestTrend: null,
-      recent30Days: null,
-    };
-
-    if (compareA && compareB) {
-      const sameGame = compareA.gameKey === compareB.gameKey;
-      const sameMode = compareA.type === compareB.type;
-      const sameDifficulty =
-        String(firstDefined(compareA.difficulty, "")) ===
-        String(firstDefined(compareB.difficulty, ""));
-
-      result.comparison = {
-        accuracyDifference:
-          safeNumberValue(compareB.accuracy, 0) - safeNumberValue(compareA.accuracy, 0),
-        reactionTimeDifference:
-          safeNumberValue(compareB.avgRt, 0) - safeNumberValue(compareA.avgRt, 0),
-        completedTrialsDifference:
-          safeNumberValue(compareB.total, 0) - safeNumberValue(compareA.total, 0),
-        sameGame,
-        sameMode,
-        sameDifficulty,
-        directlyComparable: sameGame && sameMode && sameDifficulty,
-      };
-    }
-
-    const sortedRecords = [...selectedPatientRecords].sort(
-      (a, b) => new Date(b.date || 0) - new Date(a.date || 0)
-    );
-    const latest = sortedRecords[0];
-
-    if (latest) {
-      const previousSameCondition = sortedRecords.slice(1).find(
-        (record) =>
-          record.gameKey === latest.gameKey &&
-          record.type === latest.type &&
-          String(firstDefined(record.difficulty, "")) ===
-            String(firstDefined(latest.difficulty, ""))
-      );
-
-      const previousSameGame = previousSameCondition || sortedRecords.slice(1).find(
-        (record) => record.gameKey === latest.gameKey && record.type === latest.type
-      );
-
-      if (previousSameGame) {
-        result.latestTrend = {
-          currentRecordId: latest.id || null,
-          previousRecordId: previousSameGame.id || null,
-          accuracyDifference:
-            safeNumberValue(latest.accuracy, 0) - safeNumberValue(previousSameGame.accuracy, 0),
-          reactionTimeDifference:
-            safeNumberValue(latest.avgRt, 0) - safeNumberValue(previousSameGame.avgRt, 0),
-          sameDifficulty:
-            String(firstDefined(latest.difficulty, "")) ===
-            String(firstDefined(previousSameGame.difficulty, "")),
-        };
-      }
-    }
-
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 30);
-    const recent = sortedRecords.filter((record) => {
-      const date = new Date(record.date || 0);
-      return !Number.isNaN(date.getTime()) && date >= cutoff;
-    });
-
-    if (recent.length > 0) {
-      const byGame = recent.reduce((acc, record) => {
-        const key = record.gameKey || "UNKNOWN";
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(record);
-        return acc;
-      }, {});
-
-      result.recent30Days = {
-        recordCount: recent.length,
-        gameCount: Object.keys(byGame).length,
-        byGame: Object.fromEntries(
-          Object.entries(byGame).map(([gameKey, gameRecords]) => [
-            gameKey,
-            {
-              recordCount: gameRecords.length,
-              averageAccuracy: Math.round(
-                gameRecords.reduce(
-                  (sum, record) => sum + safeNumberValue(record.accuracy, 0),
-                  0
-                ) / gameRecords.length
-              ),
-              averageReactionTime: Math.round(
-                gameRecords.reduce(
-                  (sum, record) => sum + safeNumberValue(record.avgRt, 0),
-                  0
-                ) / gameRecords.length
-              ),
-            },
-          ])
-        ),
-      };
-    }
-
-    return result;
+    const comparison = compareRecords(compareA, compareB);
+    return { comparison: { directlyComparable: comparison.comparable, reasons: comparison.reasons, accuracyDifference: comparison.change },
+      taskComparisons: Object.fromEntries(Object.keys(GAME_NAME_MAP).map((task) => { const h = taskHistory(selectedPatientRecords, task); return [task, { currentRecordId: h.latest?.id, previousRecordId: h.previous?.id, comparable: h.comparison.comparable, accuracyDifference: h.comparison.change, reasons: h.comparison.reasons }]; })),
+      classification: "尚無臨床風險分級", instructions: "以觀察摘要、資料證據、解讀限制三段回答。缺值不補零；不使用 80/60 閾值推論能力、風險或自動升降難度。" };
   };
 
   const callClinicalAssistant = async (question) => {
@@ -2034,7 +1856,7 @@ function ClinicianDashboard() {
 
     const response = await fetch("/api/clinical-assistant", {
       method: "POST",
-      headers: await getClinicalApiHeaders(),
+      headers: await getClinicalApiHeaders(clinicianId),
       body: JSON.stringify({
         question: ragQuestion,
         context: assistantContext,
@@ -2122,6 +1944,7 @@ function ClinicianDashboard() {
     const question = String(presetQuestion || assistantQuestion).trim();
     if (!question || assistantLoading) return;
 
+    const requestOwner = ownerRef.current; const requestPatient = currentPatientRef.current;
     const emailChoice = assistantEmail.takeChoice();
 
     const userMessage = { id: `user-${emailChoice.requestId}`, role: "user", content: question };
@@ -2131,6 +1954,7 @@ function ClinicianDashboard() {
 
     try {
       const result = await generateAssistantAnswer(question);
+      if (ownerRef.current !== requestOwner || currentPatientRef.current !== requestPatient) return;
       const answerMessage = {
         id: `assistant-${emailChoice.requestId}`,
         role: "assistant",
@@ -2145,6 +1969,7 @@ function ClinicianDashboard() {
         sources: answerMessage.sources, fallback: answerMessage.fallback,
       });
     } catch (error) {
+      if (ownerRef.current !== requestOwner || currentPatientRef.current !== requestPatient) return;
       console.error("AI 助手回答失敗：", error);
       setAssistantMessages((previous) => [
         ...previous,
@@ -2187,67 +2012,24 @@ function ClinicianDashboard() {
     if (assistantOpen) assistantMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [assistantMessages, assistantOpen]);
 
-  const generateReportText = () => {
-    if (!selectedPatient || !patientSummary) return "尚無可產生的報告內容。";
-
-    const name = selectedPatient.nickname || selectedPatient.full_name || "未命名兒童";
-    const lines = [
-      `個案：${name}`,
-      `年齡：${calculateAge(selectedPatient.birth_date)}｜性別：${formatGender(selectedPatient.gender)}`,
-      `風險分級：${patientSummary.risk.label}`,
-      `資料量：測驗 ${patientSummary.testCount} 筆，訓練 ${patientSummary.trainingCount} 筆`,
-      `平均正確率：${patientSummary.averageAccuracy}%`,
-      `平均反應時間：${patientSummary.averageRt || "-"} ms`,
-      patientSummary.lastRecord
-        ? `最近紀錄：${formatDate(patientSummary.lastRecord.date)}｜${patientSummary.lastRecord.gameName}｜正確率 ${patientSummary.lastRecord.accuracy}%`
-        : "最近紀錄：尚無資料",
-      `建議：${patientSummary.risk.text}`,
-    ];
-
-    return lines.join("\n");
-  };
+  const generateReportText = () => selectedPatient ? buildProfessionalReport({
+    patientName: selectedPatient.nickname || selectedPatient.full_name || "未命名兒童",
+    demographics: `年齡：${calculateAge(selectedPatient.birth_date)}｜性別：${formatGender(selectedPatient.gender)}`,
+    records: selectedPatientRecords, notes: selectedPatientNotes,
+    reminders: reminders.filter((r) => r.patient_id === selectedPatient.id), formatDate,
+  }) : "尚無可產生的報告內容。";
 
   const exportRecordsToExcel = async (records, combined = false) => {
     if (!selectedPatient || records.length === 0) return;
+    const exportOwner = clinicianId;
     try {
       if (combined) setExportingCombinedReport(true);
       else setExportingRecordId(records[0].id);
       const { createRecordWorkbook } = await import("../utils/clinicianExcelExport");
       const selectedRecords = [...records].sort((a, b) => new Date(a.date) - new Date(b.date));
       const patientName = selectedPatient.nickname || selectedPatient.full_name || "未命名兒童";
-      const mean = (values) => {
-        const valid = values.map(Number).filter(Number.isFinite);
-        return valid.length ? Math.round(valid.reduce((sum, value) => sum + value, 0) / valid.length) : 0;
-      };
-      const testCount = selectedRecords.filter((record) => record.type === "test").length;
-      const trainingCount = selectedRecords.filter((record) => record.type === "training").length;
-      const avgAccuracy = mean(selectedRecords.map((record) => record.accuracy));
-      const avgRt = mean(selectedRecords.map((record) => record.avgRt).filter((value) => Number(value) > 0));
-      const gameGroups = Object.entries(selectedRecords.reduce((groups, record) => {
-        (groups[record.gameKey] ||= []).push(record);
-        return groups;
-      }, {}));
-
-      const interpretationLines = gameGroups.map(([gameKey, gameRecords]) => {
-        const ordered = [...gameRecords].sort((a, b) => new Date(a.date) - new Date(b.date));
-        const first = ordered[0];
-        const last = ordered[ordered.length - 1];
-        const accuracyChange = Math.round((last.accuracy || 0) - (first.accuracy || 0));
-        const rtChange = first.avgRt > 0 && last.avgRt > 0 ? Math.round(last.avgRt - first.avgRt) : null;
-        const direction = accuracyChange > 0 ? "提升" : accuracyChange < 0 ? "下降" : "持平";
-        const rtText = rtChange === null ? "反應時間資料不足" : rtChange < 0 ? `平均反應時間縮短 ${Math.abs(rtChange)} ms` : rtChange > 0 ? `平均反應時間增加 ${rtChange} ms` : "平均反應時間持平";
-        return `${GAME_NAME_MAP[gameKey] || gameKey}（${ABILITY_BY_GAME[gameKey] || "相關能力"}）：共 ${ordered.length} 筆，正確率由 ${first.accuracy || 0}% 至 ${last.accuracy || 0}%（${direction} ${Math.abs(accuracyChange)} 個百分點），${rtText}。`;
-      });
-
-      const recommendationLines = [];
-      if (selectedRecords.length < 2) recommendationLines.push("目前僅選取 1 筆紀錄，適合做單次摘要，不足以判斷穩定趨勢。建議後續選取相同遊戲的多次紀錄比較。");
-      if (avgAccuracy < 60) recommendationLines.push("整體平均正確率偏低，建議確認規則理解、注意狀態與操作熟悉度，並從較低難度進行短時間練習。");
-      else if (avgAccuracy < 80) recommendationLines.push("整體表現介於可持續練習區間，可維持目前難度並觀察錯誤型態與跨次穩定度。");
-      else recommendationLines.push("整體平均正確率良好，可在維持正確率的前提下逐步增加難度，避免只以速度提升作為進步依據。");
-      if (avgRt > 0) recommendationLines.push("反應時間應與正確率共同解讀；速度變快但錯誤增加，不宜直接視為能力提升。");
-      if (testCount > 0 && trainingCount > 0) recommendationLines.push("本報告同時納入測驗與訓練資料；測驗較適合階段性比較，訓練資料則用於觀察練習歷程，兩者不宜直接視為完全相同的評量條件。");
-
-
+      const interpretationLines = [buildProfessionalReport({ patientName, records: selectedRecords, notes: selectedPatientNotes, reminders: reminders.filter((r) => r.patient_id === selectedPatient.id), formatDate })];
+      const recommendationLines = ["不同任務、模式、難度與版本須分開解讀；沒有常模分類或自動升降難度建議。"];
       const workbook = createRecordWorkbook({
         patientName,
         age: calculateAge(selectedPatient.birth_date),
@@ -2258,6 +2040,7 @@ function ClinicianDashboard() {
           "本報告僅供追蹤與討論參考，不等同正式診斷。不同遊戲、模式、難度、疲勞與資料筆數皆可能影響結果，需結合其他相關資料綜合判讀。"] : [],
       });
       const buffer = await workbook.xlsx.writeBuffer();
+      if (ownerRef.current !== exportOwner) return;
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = URL.createObjectURL(blob);
       const suffix = combined ? "整合比較報告" : (records[0].gameKey || "GAME") + "_" + (records[0].type === "test" ? "測驗" : records[0].type === "training" ? "訓練" : "紀錄");
@@ -2282,22 +2065,14 @@ function ClinicianDashboard() {
     selectedPatientRecords.filter((record) => selectedRecordIds.includes(record.id)), true
   );
 
-  const renderTypeBadge = (type) => {
-    const label = type === "test" ? "測驗" : type === "training" ? "訓練" : "紀錄";
-    const style = type === "test" ? testBadgeStyle : type === "training" ? trainingBadgeStyle : sessionBadgeStyle;
-    return <span style={{ ...badgeStyle, ...style }}>{label}</span>;
-  };
 
-  const renderRiskBadge = (risk) => {
-    if (!risk) return null;
-    const style = risk.tone === "danger" ? dangerBadgeStyle : risk.tone === "warning" ? warningBadgeStyle : risk.tone === "safe" ? safeBadgeStyle : emptyBadgeStyle;
-    return <span style={{ ...badgeStyle, ...style }}>{risk.label}</span>;
-  };
+
+  const renderRiskBadge = (risk) => risk ? <DataStatus tone={risk.tone}>{risk.label}</DataStatus> : null;
 
   return (
-    <div className="clinician-dashboard-page" style={pageStyle}>
+    <div className="clinician-dashboard-page professional-clinical" style={pageStyle}>
       <style>{responsiveCss}</style>
-      <div style={backgroundOverlayStyle} />
+      <ProfessionalNavigation active={searchParams.get("section") || activePatientTab} onSelect={selectSection} onLeave={guardDraft}/>
 
       <ClinicianDashboardHeader clinicianName={clinicianName} onAddPatient={() => setShowAddPatient(true)} onRefresh={fetchClinicianAndPatients} onLogout={handleLogout} />
 
@@ -2316,10 +2091,10 @@ function ClinicianDashboard() {
         <div style={emptyBoxStyle}>目前無法取得個案資料，請按「再試一次」。</div>
       ) : (
         <div className="clinician-dashboard-layout" style={{ ...layoutStyle, gridTemplateColumns: "310px minmax(0, 1fr)" }}>
-          <aside className="clinician-dashboard-left" style={leftPanelStyle}>
+          <aside className="clinician-dashboard-left clinician-dashboard-left-panel" style={leftPanelStyle}>
             <div style={panelHeaderStyle}>
               <div>
-                <h2 style={panelTitleStyle}>病患清單</h2>
+                <h2 style={panelTitleStyle}>個案清單</h2>
                 <p style={panelDescStyle}>搜尋、篩選並查看所有授權兒童</p>
               </div>
             </div>
@@ -2333,19 +2108,20 @@ function ClinicianDashboard() {
 
             <div style={riskFilterStyle}>
               <button onClick={() => setRiskFilter("all")} style={pillButtonStyle(riskFilter === "all")}>全部</button>
-              <button onClick={() => setRiskFilter("danger")} style={pillButtonStyle(riskFilter === "danger")}>高度關注</button>
-              <button onClick={() => setRiskFilter("warning")} style={pillButtonStyle(riskFilter === "warning")}>需要注意</button>
-              <button onClick={() => setRiskFilter("safe")} style={pillButtonStyle(riskFilter === "safe")}>正常</button>
+              <button onClick={() => setRiskFilter("danger")} style={pillButtonStyle(riskFilter === "danger")}>資料異常</button>
+              <button onClick={() => setRiskFilter("warning")} style={pillButtonStyle(riskFilter === "warning")}>待確認</button>
+              <button onClick={() => setRiskFilter("safe")} style={pillButtonStyle(riskFilter === "safe")}>品質通過</button>
               <button onClick={() => setRiskFilter("empty")} style={pillButtonStyle(riskFilter === "empty")}>資料不足</button>
             </div>
 
-            <div style={patientListStyle}>
+            <div className="clinician-dashboard-patient-list" style={patientListStyle}>
               {filteredPatientCards.map(({ patient, risk, lastRecord }) => {
                 const active = selectedPatient?.id === patient.id;
                 return (
                   <button
                     key={patient.id}
                     onClick={() => {
+                      if (patient.id !== selectedPatientId && !guardDraft()) return;
                       setSelectedPatientId(patient.id);
                       setActivePatientTab("trend");
                       setSelectedRecord(null);
@@ -2365,7 +2141,7 @@ function ClinicianDashboard() {
             </div>
           </aside>
 
-          <main className="clinician-dashboard-center" style={centerPanelStyle}>
+          <main className="clinician-dashboard-center clinician-dashboard-main-panel" style={centerPanelStyle}>
             {selectedPatient && patientSummary && (
               <>
                 <section className="clinician-dashboard-patient-header" style={patientHeaderCardStyle}>
@@ -2381,8 +2157,8 @@ function ClinicianDashboard() {
                   <div className="clinician-dashboard-mini-stats" style={patientMiniStatsStyle}>
                     <MiniStat label="測驗" value={patientSummary.testCount} />
                     <MiniStat label="訓練" value={patientSummary.trainingCount} />
-                    <MiniStat label="平均正確率" value={`${patientSummary.averageAccuracy}%`} />
-                    <MiniStat label="平均反應" value={patientSummary.averageRt ? `${patientSummary.averageRt}ms` : "-"} />
+                    <MiniStat label="最近正式測驗" value={formatDate(testRecords.find((r) => describeRecord(r).complete && describeRecord(r).total > 0)?.date)} />
+                    <MiniStat label="未讀提醒" value={reminders.filter((r) => r.patient_id === selectedPatient.id && r.status === "unread").length} />
                   </div>
                 </section>
 
@@ -2395,7 +2171,7 @@ function ClinicianDashboard() {
                     <button
                       key={tab.key}
                       type="button"
-                      onClick={() => setActivePatientTab(tab.key)}
+                      onClick={() => { setActivePatientTab(tab.key); setSearchParams({ section: tab.key }, { replace: true }); }}
                       style={patientTabButtonStyle(activePatientTab === tab.key)}
                       aria-current={activePatientTab === tab.key ? "page" : undefined}
                     >
@@ -2409,51 +2185,18 @@ function ClinicianDashboard() {
                 <section style={analysisCardStyle}>
                   <div style={sectionHeaderRowStyle}>
                     <div>
-                      <h3 style={smallSectionTitleStyle}>六項能力摘要</h3>
-                      <p style={panelDescStyle}>每張卡片代表一款遊戲；點選卡片可切換下方趨勢圖。</p>
+                      <h3 style={smallSectionTitleStyle}>六項作業表現</h3>
+                      <p style={panelDescStyle}>顯示最近一次有效正式測驗；訓練與未完成紀錄保留在詳細資料。不同作業分開解讀。</p>
                     </div>
                   </div>
 
-                  <div className="clinician-dashboard-game-grid" style={abilitySummaryGridStyle}>
-                    {Object.keys(GAME_NAME_MAP).map((gameKey) => {
-                      const summary = patientSummary.gameSummaryMap[gameKey];
-                      const latest = summary?.latest;
-                      const active = trendGameKey === gameKey;
-                      const change = summary?.change;
-                      return (
-                        <button
-                          type="button"
-                          key={gameKey}
-                          onClick={() => setTrendGameKey(gameKey)}
-                          style={{
-                            ...abilitySummaryCardStyle,
-                            background: active ? GAME_THEME_MAP[gameKey].soft : "rgba(255,255,255,.86)",
-                            borderColor: active ? GAME_THEME_MAP[gameKey].border : "rgba(148,163,184,.28)",
-                            boxShadow: active ? `0 12px 26px ${GAME_THEME_MAP[gameKey].primary}22` : "none",
-                            ...(active ? activeAbilitySummaryCardStyle : {}),
-                          }}
-                        >
-                          <div style={abilityCardHeaderStyle}>
-                            <strong style={gameMiniTitleStyle}>{GAME_NAME_MAP[gameKey]}</strong>
-                            <span style={{ ...gameCodeBadgeStyle, background: GAME_THEME_MAP[gameKey].soft, color: GAME_THEME_MAP[gameKey].dark, border: `1px solid ${GAME_THEME_MAP[gameKey].border}` }}>{gameKey}</span>
-                          </div>
-                          <span style={gameMiniTextStyle}>{ABILITY_BY_GAME[gameKey]}</span>
-                          <span style={{ ...abilityPrimaryValueStyle, color: GAME_THEME_MAP[gameKey].dark }}>{latest ? `${latest.accuracy}%` : "尚無資料"}</span>
-                          <span style={abilityMetaStyle}>平均正確率：{summary?.count ? `${summary.averageAccuracy}%` : "-"}</span>
-                          <span style={abilityMetaStyle}>紀錄數：{summary?.count || 0} 筆</span>
-                          <span style={{ ...abilityChangeStyle, color: change == null ? "#64748b" : change > 0 ? "#15803d" : change < 0 ? "#b91c1c" : "#64748b" }}>
-                            {change == null ? "尚無前次資料" : change > 0 ? `較前次 +${change}%` : change < 0 ? `較前次 ${change}%` : "與前次相同"}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <ProfessionalTaskCards records={selectedPatientRecords} active={trendGameKey} onSelect={setTrendGameKey} onDetail={(record) => openRecordFromTrend({ record })}/>
 
                   <div style={trendSectionStyle}>
                     <div style={trendHeaderStyle}>
                       <div>
                         <h3 style={trendTitleStyle}>{GAME_NAME_MAP[trendGameKey]}趨勢</h3>
-                        <p style={panelDescStyle}>顯示此遊戲全部測驗與訓練紀錄；點選折線圖上的資料點，會切換至「紀錄與比較」並開啟該次完整紀錄。</p>
+                        <p style={panelDescStyle}>顯示此遊戲有效紀錄；僅在施測條件完整且一致的相鄰點之間連線。點選可查看完整紀錄。</p>
                       </div>
                       <div style={trendSwitchStyle}>
                         {Object.keys(GAME_NAME_MAP).map((gameKey) => (
@@ -2507,7 +2250,7 @@ function ClinicianDashboard() {
                           ))}
                         </select>
                       </div>
-                      <CompareResult a={compareA} b={compareB} />
+                      <RecordComparison a={compareA} b={compareB} />
                     </>
                   )}
                 </section>
@@ -2587,7 +2330,7 @@ function ClinicianDashboard() {
                   <div style={combinedExportBarStyle}>
                     <div>
                       <strong style={recordActionTitleStyle}>整合／比較 Excel</strong>
-                      <span style={recordActionHintStyle}>勾選需要的測驗或訓練，可跨遊戲整合；相同遊戲會自動比較前後變化。Excel 包含摘要、逐題紀錄與展開的原始資料。</span>
+                      <span style={recordActionHintStyle}>勾選需要的測驗或訓練，可跨遊戲整合；通過任務、模式、難度、版本與題次條件比對才計算差值。Excel 包含摘要、逐題、原始資料、定義與限制。</span>
                     </div>
                     <div style={combinedExportActionsStyle}>
                       <span style={selectedCountBadgeStyle}>已選 {selectedRecordIds.length} 筆</span>
@@ -2615,6 +2358,7 @@ function ClinicianDashboard() {
 
                   {selectedRecord && (
                     <div ref={recordDetailRef} className="clinician-dashboard-record-accordion" style={recordAccordionWrapStyle}>
+                      <TaskMetricDetail record={selectedRecord}/>
                       <button
                         type="button"
                         onClick={() => setRecordDetailOpen((prev) => !prev)}
@@ -2657,26 +2401,26 @@ function ClinicianDashboard() {
                             <InfoItem label="能力" value={selectedRecord.ability} />
                             <InfoItem label="類型" value={selectedRecord.type === "test" ? "測驗" : selectedRecord.type === "training" ? "訓練" : "紀錄"} />
                             <InfoItem label="建立時間" value={formatDate(selectedRecord.date, true)} />
-                            <InfoItem label="難度" value={selectedRecord.difficulty ?? "-"} />
-                            <InfoItem label="分數" value={selectedRecord.score ?? "-"} />
-                            <InfoItem label="星級" value={selectedRecord.stars > 0 ? `${selectedRecord.stars} 星` : "-"} />
-                            <InfoItem label="正確率" value={`${selectedRecord.accuracy}%`} />
-                            <InfoItem label="完成題數" value={selectedRecord.total ?? "-"} />
-                            <InfoItem label="正確題數" value={selectedRecord.correct ?? "-"} />
-                            <InfoItem label="錯誤題數" value={selectedRecord.wrong ?? selectedRecord.errors ?? "-"} />
-                            <InfoItem label="逾時題數" value={selectedRecord.timeout ?? "-"} />
-                            <InfoItem label="平均反應時間" value={selectedRecord.avgRt ? `${selectedRecord.avgRt} ms` : "-"} />
+                            <InfoItem label="難度" value={formatDifficulty(selectedRecord.difficulty, selectedRecord.gameKey)} />
+                            <InfoItem label="分數" value={metricText(selectedRecord.score)} />
+                            <InfoItem label="星級" value={selectedRecord.stars != null ? `${metricText(selectedRecord.stars, "", 0)} 星` : "未記錄"} />
+                            <InfoItem label="正確率" value={formatAccuracy(selectedRecord.correct, selectedRecord.total)} />
+                            <InfoItem label="完成題數" value={selectedRecord.total ?? "資料不足"} />
+                            <InfoItem label="正確題數" value={selectedRecord.correct ?? "資料不足"} />
+                            <InfoItem label="錯誤題數" value={selectedRecord.wrong ?? selectedRecord.errors ?? "未記錄"} />
+                            <InfoItem label="逾時題數" value={selectedRecord.timeout ?? "未記錄"} />
+                            <InfoItem label="正確有效 RT" value={formatReactionTime(selectedRecord.avgRt, { n: describeRecord(selectedRecord).rtN })} />
                             {selectedRecord.gameKey === "DCCS" && <>
                               <InfoItem label="實際 MOUSE 提醒次數" value={selectedRecord.promptCount != null ? `${selectedRecord.promptCount} 次` : "未記錄"} />
                               <InfoItem label="每題作答上限" value={selectedRecord.answerTimeLimitMs != null ? `${selectedRecord.answerTimeLimitMs / 1000} 秒` : "未記錄"} />
                               <InfoItem label="反向規則作答題數" value={selectedRecord.reverseRuleTrials != null ? `${selectedRecord.reverseRuleTrials} 題` : "未記錄"} />
                             </>}
                             {selectedRecord.gameKey === "SRT" && <>
-                              <InfoItem label="反應時間標準差" value={selectedRecord.rtStd != null ? `${selectedRecord.rtStd} ms` : "資料不足"} />
-                              <InfoItem label="反應時間變異係數" value={selectedRecord.rtCV ?? "資料不足"} />
+                              <InfoItem label="反應時間標準差" value={selectedRecord.rtStd != null ? metricText(selectedRecord.rtStd, " ms") : "資料不足"} />
+                              <InfoItem label="反應時間變異係數" value={selectedRecord.rtCV != null ? metricText(selectedRecord.rtCV) : "資料不足"} />
                               <InfoItem label="實際提醒次數" value={selectedRecord.promptCount != null ? `${selectedRecord.promptCount} 次` : "未記錄"} />
-                              <InfoItem label="後段標準差變化" value={selectedRecord.rtStdIncrease != null ? `${selectedRecord.rtStdIncrease} ms` : "資料不足"} />
-                              <InfoItem label="後段變異係數變化" value={selectedRecord.rtCVIncrease ?? "資料不足"} />
+                              <InfoItem label="後段標準差變化" value={selectedRecord.rtStdIncrease != null ? metricText(selectedRecord.rtStdIncrease, " ms") : "資料不足"} />
+                              <InfoItem label="後段變異係數變化" value={selectedRecord.rtCVIncrease != null ? metricText(selectedRecord.rtCVIncrease) : "資料不足"} />
                             </>}
                             {selectedRecord.gameKey === "CBT" && <>
                               <InfoItem label="實際提醒次數" value={selectedRecord.promptCount != null ? `${selectedRecord.promptCount} 次` : "未記錄"} />
@@ -2787,80 +2531,11 @@ function ClinicianDashboard() {
                     </div>
                   )}
 
-                  <div className="clinician-dashboard-table-wrap" style={tableWrapStyle}>
-                    <table className="clinician-dashboard-table" style={tableStyle}>
-                      <thead>
-                        <tr>
-                          <th style={thStyle}>選取</th>
-                          <th style={thStyle}>日期</th>
-                          <th style={thStyle}>類型</th>
-                          <th style={thStyle}>遊戲</th>
-                          <th style={thStyle}>能力</th>
-                          <th style={thStyle}>難度</th>
-                          <th style={thStyle}>分數</th>
-                          <th style={thStyle}>星級</th>
-                          <th style={thStyle}>正確率</th>
-                          <th style={thStyle}>平均反應</th>
-                          <th style={thStyle}>題數</th>
-                          <th style={thStyle}>詳細</th>
-                        </tr>
-                      </thead>
-                      <tbody key={recordFilterSignature}>
-                        {visibleRecords.map((record, recordIndex) => (
-                          <tr
-                            key={`${recordFilterSignature}-${record.id}-${record.gameKey}-${record.type}-${record.date}-${recordIndex}`}
-                            style={trStyle}
-                          >
-                            <td style={tdStyle}>
-                              <input
-                                type="checkbox"
-                                aria-label={`選取 ${record.gameName} ${formatDate(record.date)}`}
-                                checked={selectedRecordIds.includes(record.id)}
-                                onChange={() => setSelectedRecordIds((previous) => previous.includes(record.id) ? previous.filter((id) => id !== record.id) : [...previous, record.id])}
-                                style={checkboxInputStyle}
-                              />
-                            </td>
-                            <td style={tdStyle}>{formatDate(record.date, true)}</td>
-                            <td style={tdStyle}>{renderTypeBadge(record.type)}</td>
-                            <td style={tdStyle}>{record.gameName}</td>
-                            <td style={tdStyle}>{record.ability}</td>
-                            <td style={tdStyle}>{record.difficulty}</td>
-                            <td style={tdStyle}>{record.score || "-"}</td>
-                            <td style={tdStyle}>{record.stars > 0 ? `${record.stars} 星` : "-"}</td>
-                            <td style={tdStyle}>{record.accuracy}%</td>
-                            <td style={tdStyle}>{record.avgRt || "-"} ms</td>
-                            <td style={tdStyle}>{record.correct}/{record.total || "-"}</td>
-                            <td style={tdStyle}>
-                              <div style={tableActionGroupStyle}>
-                                <button
-                                  onClick={() => {
-                                    const isSameRecord = selectedRecord?.id === record.id;
-                                    setSelectedRecord(record);
-                                    setRecordDetailOpen(isSameRecord ? !recordDetailOpen : true);
-                                  }}
-                                  style={{
-                                    ...tableButtonStyle,
-                                    ...(selectedRecord?.id === record.id && recordDetailOpen ? activeTableButtonStyle : {}),
-                                  }}
-                                >
-                                  {selectedRecord?.id === record.id && recordDetailOpen ? "收合" : "查看"}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => exportRecordToExcel(record)}
-                                  disabled={exportingRecordId === record.id}
-                                  style={{ ...tableExportButtonStyle, opacity: exportingRecordId === record.id ? 0.6 : 1 }}
-                                >
-                                  {exportingRecordId === record.id ? "產生中" : "Excel"}
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {filteredRecords.length === 0 && <div style={emptyTableStyle}>目前沒有符合條件的資料</div>}
-                  </div>
+                  <ProfessionalRecords key={recordFilterSignature} records={visibleRecords} selectedIds={selectedRecordIds}
+                    onToggle={(id) => setSelectedRecordIds((prev) => prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id])}
+                    onOpen={(record) => { setSelectedRecord(record); setRecordDetailOpen(true); }} onExport={exportRecordToExcel}
+                    exportingId={exportingRecordId} formatDate={formatDate}/>
+                  {filteredRecords.length === 0 && <div style={emptyTableStyle}>目前沒有符合條件的資料</div>}
 
                   {filteredRecords.length > 0 && (
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginTop: 14 }}>
@@ -2915,7 +2590,7 @@ function ClinicianDashboard() {
                     <div style={toolSectionHeaderStyle}>
                       <div>
                         <h3 style={smallSectionTitleStyle}>個案追蹤工具</h3>
-                        <p style={panelDescStyle}>建立家長提醒、紀錄醫療備註，並整理個案報告摘要。所有工具改為置於頁面下方，方便在同一區域完成追蹤工作。</p>
+                        <p style={panelDescStyle}>建立家長提醒、紀錄醫療備註，並整理個案報告摘要。提醒依建立類型呈現；備註屬人工觀察，與客觀測驗指標分開記錄。</p>
                       </div>
                     </div>
 
@@ -2929,32 +2604,42 @@ function ClinicianDashboard() {
                           ))}
                         </select>
                         <textarea
+                          aria-label="提醒內容"
+                          maxLength={5000}
                           value={reminderMessage}
                           onChange={(event) => setReminderMessage(event.target.value)}
                           style={textareaStyle}
                           rows={5}
                         />
                         <button onClick={handleCreateReminder} style={primaryButtonStyle}>建立提醒</button>
+                        {reminderHistoryError && <p role="alert">{reminderHistoryError}</p>}
+                        <h4>已建立提醒</h4><ul className="professional-reminder-list">{reminders.filter((r) => r.patient_id === selectedPatient.id).map((r) => <li key={r.id}><strong>{r.title || REMINDER_TEMPLATES.find((t) => t.key === r.reminder_type)?.label || "其他提醒"}</strong><p>{r.message}</p><small>{formatDate(r.created_at)}｜{{ unread: "未讀", read: "已讀", done: "已完成" }[r.status] || "狀態未記錄"}</small></li>)}</ul>
                       </section>
 
                       <section style={noteCardStyle}>
                         <h3 style={smallSectionTitleStyle}>醫療備註</h3>
                         <textarea
+                          aria-label="醫療備註草稿"
+                          maxLength={10000}
                           value={noteText}
-                          onChange={(event) => setNoteText(event.target.value)}
+                          onChange={(event) => updateNoteDraft(event.target.value)}
                           placeholder="輸入本次觀察、建議訓練方向或回診重點..."
                           style={textareaStyle}
                           rows={5}
                         />
-                        <button onClick={handleSaveNote} style={primaryButtonStyle}>儲存備註</button>
+                        <button onClick={handleSaveNote} disabled={noteSaving || !noteText.trim()} style={primaryButtonStyle}>{noteSaving ? "儲存中…" : "儲存備註"}</button>
+                        {noteText.trim() && <p className="professional-draft-notice">尚未儲存的草稿；切換個案可保留於本次工作階段。</p>}
+                        {noteError && <p role="alert">{noteError}</p>}
+                        {noteHistoryError && <p role="alert">{noteHistoryError}</p>}
+                        <p style={panelDescStyle}>建立者與時間依雲端紀錄顯示；目前資料表未提供修改時間或對應測驗欄位。</p>
                         <div style={noteListStyle}>
-                          {selectedPatientNotes.slice(0, 4).map((note) => (
+                          {!selectedPatientNotes.length && !noteHistoryError && <p>尚無已儲存的醫療備註。</p>}
+                          {selectedPatientNotes.map((note) => (
                             <div key={note.id} style={noteItemStyle}>
-                              <span style={noteDateStyle}>{formatDate(note.created_at)}</span>
+                              <span style={noteDateStyle}>{formatDate(note.created_at)}｜建立者：{note.clinician_id === clinicianId ? clinicianName : note.clinician_id || "未記錄"}</span>
                               <p style={noteTextStyle}>{note.note}</p>
                             </div>
                           ))}
-                          {selectedPatientNotes.length === 0 && <p style={emptySmallTextStyle}>尚無醫療備註</p>}
                         </div>
                       </section>
 
@@ -3140,7 +2825,7 @@ function MiniStat({ label, value }) {
 }
 
 function InfoItem({ label, value }) {
-  const displayValue = value === null || value === undefined || value === "" ? "-" : value;
+  const displayValue = value === null || value === undefined || value === "" || value === "-" ? "未記錄" : value === "adaptive_span_test" ? "自適應廣度測驗" : value;
   return (
     <div style={infoItemStyle}>
       <span style={infoLabelStyle}>{label}</span>
@@ -3150,6 +2835,10 @@ function InfoItem({ label, value }) {
 }
 
 function TrendChart({ data, theme, gameName, selectedRecordId, onSelectRecord }) {
+  const valid = (data || []).filter((item) => { const d = describeRecord(item.record); return d.complete && !d.integrityError && d.total > 0; });
+  const comparableCount = largestComparableCount(valid.map((item) => item.record));
+  if (comparableCount < 3) return <ObservationResults observations={valid.map((item) => ({ ...item, value: formatAccuracy(item.record.correct, item.record.total) }))} comparableCount={comparableCount} onOpen={onSelectRecord}/>;
+  data = valid;
   const baseWidth = 720;
   const width = Math.max(baseWidth, (data?.length || 0) * 92);
   const height = 270;
@@ -3168,13 +2857,13 @@ function TrendChart({ data, theme, gameName, selectedRecordId, onSelectRecord })
     return { x, y, item };
   });
 
-  const polyline = points.map((point) => `${point.x},${point.y}`).join(" ");
+  const segments = points.slice(1).map((point, i) => ({ a: points[i], b: point })).filter(({a,b}) => compareRecords(a.item.record, b.item.record).comparable);
 
   return (
     <div style={trendOuterStyle}>
       <div style={trendLegendStyle}>
         <span style={{ ...trendLegendDotStyle, background: safeTheme.primary }} />
-        <span>{gameName}正確率</span>
+        <span>{gameName}正確率・描述性資料</span>
         <span style={{ ...trendTypeTagStyle, borderColor: safeTheme.border, color: safeTheme.dark }}>實心：測驗</span>
         <span style={{ ...trendTypeTagStyle, borderColor: safeTheme.border, color: safeTheme.dark, background: safeTheme.soft }}>空心：訓練</span>
         <span style={trendClickHintStyle}>點選資料點查看該次完整紀錄</span>
@@ -3191,16 +2880,16 @@ function TrendChart({ data, theme, gameName, selectedRecordId, onSelectRecord })
             return (
               <g key={value}>
                 <line x1={paddingX} y1={y} x2={width - paddingX} y2={y} stroke="#dbe4ee" strokeWidth="1" />
-                <text x={paddingX - 10} y={y + 4} fontSize="11" textAnchor="end" fill="#64748b">{value}%</text>
+                <text x={paddingX - 10} y={y + 4} fontSize="13" textAnchor="end" fill="#64748b">{value}%</text>
               </g>
             );
           })}
-          <polyline points={polyline} fill="none" stroke={safeTheme.primary} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+          {segments.map(({a,b}, i) => <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={safeTheme.primary} strokeWidth="2"/>)}
           {points.map((point, index) => {
             const isTraining = point.item.type === "training";
             const selected = selectedRecordId === point.item.recordId;
             const typeText = isTraining ? "訓練" : point.item.type === "test" ? "測驗" : "紀錄";
-            const accessibleText = `${formatTrendRecordDate(point.item.date)} ${typeText}，正確率 ${point.item.accuracy}%，平均反應 ${point.item.rt || 0} 毫秒`;
+            const accessibleText = `${formatTrendRecordDate(point.item.date)} ${typeText}，正確率 ${metricText(point.item.accuracy, "%")}，有效反應 ${formatReactionTime(point.item.rt)}`;
 
             return (
               <g
@@ -3217,7 +2906,7 @@ function TrendChart({ data, theme, gameName, selectedRecordId, onSelectRecord })
                 }}
                 style={{ cursor: "pointer", outline: "none" }}
               >
-                <title>{`${accessibleText}\n難度：${point.item.difficulty ?? "-"}\n分數：${point.item.score ?? "-"}\n點擊查看完整紀錄`}</title>
+                <title>{`${accessibleText}\n難度：${formatDifficulty(point.item.difficulty)}\n分數：${point.item.score ?? "-"}\n點擊查看完整紀錄`}</title>
                 {selected && (
                   <circle cx={point.x} cy={point.y} r="13" fill="none" stroke={safeTheme.primary} strokeWidth="3" opacity="0.35" />
                 )}
@@ -3229,9 +2918,9 @@ function TrendChart({ data, theme, gameName, selectedRecordId, onSelectRecord })
                   stroke={selected ? "#0f172a" : safeTheme.dark}
                   strokeWidth={selected ? "4" : "3"}
                 />
-                <text x={point.x} y={point.y - 15} fontSize="12" fontWeight="800" textAnchor="middle" fill={safeTheme.dark}>{point.item.accuracy}%</text>
-                <text transform={`translate(${point.x - 2} ${height - 50}) rotate(-32)`} fontSize="10" textAnchor="end" fill="#64748b">{point.item.label}</text>
-                <text x={point.x} y={height - 20} fontSize="10" fontWeight="700" textAnchor="middle" fill={isTraining ? "#7c3aed" : "#1f5f8b"}>{typeText}</text>
+                <text x={point.x} y={point.y - 15} fontSize="12" fontWeight="800" textAnchor="middle" fill={safeTheme.dark}>{metricText(point.item.accuracy, "%", 0)}</text>
+                <text transform={`translate(${point.x - 2} ${height - 50}) rotate(-32)`} fontSize="13" textAnchor="end" fill="#64748b">{point.item.label}</text>
+                <text x={point.x} y={height - 20} fontSize="13" fontWeight="700" textAnchor="middle" fill={isTraining ? "#7c3aed" : "#1f5f8b"}>{typeText}</text>
               </g>
             );
           })}
@@ -3244,49 +2933,6 @@ function TrendChart({ data, theme, gameName, selectedRecordId, onSelectRecord })
   );
 }
 
-function CompareResult({ a, b }) {
-  if (!a || !b) return null;
-
-  const sameGame = a.gameKey === b.gameKey;
-  const sameType = a.type === b.type;
-  const sameDifficulty = String(a.difficulty ?? "") === String(b.difficulty ?? "");
-  const comparable = sameGame && sameType && sameDifficulty;
-  const limitations = [
-    !sameGame ? "遊戲不同" : null,
-    !sameType ? "模式不同" : null,
-    !sameDifficulty ? "難度不同" : null,
-  ].filter(Boolean);
-
-  const rows = [
-    { label: "正確率", a: `${a.accuracy}%`, b: `${b.accuracy}%`, diff: `${Number(b.accuracy || 0) - Number(a.accuracy || 0)}%` },
-    { label: "平均反應時間", a: `${a.avgRt || "-"} ms`, b: `${b.avgRt || "-"} ms`, diff: `${Number(b.avgRt || 0) - Number(a.avgRt || 0)} ms` },
-    { label: "錯誤次數", a: a.errors, b: b.errors, diff: Number(b.errors || 0) - Number(a.errors || 0) },
-    { label: "星級", a: `${a.stars || 0} 星`, b: `${b.stars || 0} 星`, diff: `${Number(b.stars || 0) - Number(a.stars || 0)} 星` },
-  ];
-
-  return (
-    <div>
-      <div style={comparisonValidityStyle(comparable)}>
-        <strong>{comparable ? "可直接描述本次與前次差異" : "比較條件不完全一致"}</strong>
-        <span>
-          {comparable
-            ? "兩筆紀錄的遊戲、模式與難度一致；仍不應僅依兩筆資料判定長期趨勢。"
-            : `限制：${limitations.join("、")}。數值可並列查看，但不宜直接視為能力進步或退步。`}
-        </span>
-      </div>
-
-      <div className="clinician-dashboard-compare-result" style={compareResultStyle}>
-      {rows.map((row) => (
-        <div key={row.label} style={compareMetricStyle}>
-          <span style={compareMetricLabelStyle}>{row.label}</span>
-          <strong style={compareMetricValueStyle}>{row.a} → {row.b}</strong>
-          <span style={compareMetricDiffStyle}>變化：{row.diff}</span>
-        </div>
-      ))}
-      </div>
-    </div>
-  );
-}
 
 const responsiveCss = `
   .clinician-dashboard-page,
@@ -3580,22 +3226,14 @@ const responsiveCss = `
 const pageStyle = {
   minHeight: "100vh",
   position: "relative",
-  background: "#f6efd9",
+  background: "#F6F7F4",
   padding: "24px",
-  fontFamily: "Arial, sans-serif",
+  fontFamily: "Noto Sans TC, Microsoft JhengHei, sans-serif",
   boxSizing: "border-box",
   overflowX: "hidden",
 };
 
-const backgroundOverlayStyle = {
-  position: "fixed",
-  inset: 0,
-  backgroundImage: `linear-gradient(135deg, rgba(248, 250, 252, 0.76), rgba(255, 247, 216, 0.74)), url(${bgImg})`,
-  backgroundSize: "cover",
-  backgroundPosition: "center",
-  zIndex: 0,
-  pointerEvents: "none",
-};
+
 
 const researchNavStyle = {
   position: "relative",
@@ -3739,7 +3377,7 @@ const patientTabButtonStyle = (active) => ({ border: active ? "1px solid #60a5fa
 const patientTabLabelStyle = { display: "block", fontSize: "14px", fontWeight: 900 };
 const patientTabDescStyle = { display: "block", marginTop: "4px", fontSize: "11px", lineHeight: 1.4, color: "#64748b", fontWeight: 700 };
 
-const comparisonValidityStyle = (valid) => ({ display: "grid", gap: "4px", marginBottom: "12px", padding: "11px 13px", borderRadius: "13px", border: valid ? "1px solid #86efac" : "1px solid #fde68a", background: valid ? "#f0fdf4" : "#fffbeb", color: valid ? "#166534" : "#92400e", fontSize: "13px", lineHeight: 1.5 });
+
 
 const analysisCardStyle = { background: "rgba(255, 253, 244, 0.96)", borderRadius: "24px", padding: "20px", boxShadow: "0 14px 30px rgba(51, 65, 85, 0.10)",
   border: "1px solid rgba(148, 163, 184, 0.22)", borderTop: "4px solid rgba(247, 210, 94, 0.70)" };
@@ -3751,17 +3389,17 @@ const trendLegendDotStyle = { width: "10px", height: "10px", borderRadius: "999p
 const trendTypeTagStyle = { display: "inline-flex", alignItems: "center", padding: "4px 8px", border: "1px solid", borderRadius: "999px", background: "#ffffff", fontSize: "11px", fontWeight: 800 };
 const trendSvgStyle = { width: "100%", height: "190px", background: "rgba(255, 255, 255, 0.82)", borderRadius: "18px", border: "1px solid rgba(148, 163, 184, 0.24)" };
 
-const gameMiniTitleStyle = { display: "block", color: "#1f5f8b", fontSize: "14px" };
-const gameMiniTextStyle = { display: "block", color: "#64748b", fontSize: "12px", marginTop: "5px", minHeight: "30px" };
+
+
 const sectionHeaderRowStyle = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", flexWrap: "wrap" };
-const abilitySummaryGridStyle = { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "12px", marginTop: "16px" };
-const abilitySummaryCardStyle = { textAlign: "left", border: "1px solid rgba(148, 163, 184, 0.28)", background: "rgba(255,255,255,.82)", borderRadius: "18px", padding: "14px", cursor: "pointer", transition: ".18s ease", color: "inherit" };
-const activeAbilitySummaryCardStyle = { border: "1px solid rgba(31,95,139,.58)", background: "linear-gradient(145deg,#edf7ff,#fffdf5)", boxShadow: "0 10px 22px rgba(31,95,139,.13)", transform: "translateY(-1px)" };
-const abilityCardHeaderStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" };
-const gameCodeBadgeStyle = { display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: "42px", padding: "4px 7px", borderRadius: "999px", background: "#e0f2fe", color: "#0369a1", fontSize: "11px", fontWeight: 900 };
-const abilityPrimaryValueStyle = { display: "block", marginTop: "10px", color: "#1f5f8b", fontSize: "24px", fontWeight: 900 };
-const abilityMetaStyle = { display: "block", marginTop: "5px", color: "#64748b", fontSize: "12px", fontWeight: 700 };
-const abilityChangeStyle = { display: "block", marginTop: "8px", fontSize: "12px", fontWeight: 900 };
+
+
+
+
+
+
+
+
 const trendSectionStyle = { marginTop: "20px", paddingTop: "18px", borderTop: "1px solid rgba(148,163,184,.24)" };
 const trendHeaderStyle = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "14px", flexWrap: "wrap" };
 const trendTitleStyle = { margin: 0, color: "#1f5f8b", fontSize: "18px", fontWeight: 900 };
@@ -3771,11 +3409,11 @@ const compareCardStyle = { background: "rgba(255, 253, 244, 0.96)", borderRadius
   border: "1px solid rgba(148, 163, 184, 0.22)", borderTop: "4px solid rgba(247, 210, 94, 0.70)" };
 const compareSelectRowStyle = { display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "12px", alignItems: "center", marginBottom: "14px" };
 const compareArrowStyle = { color: "#7c5b2a", fontWeight: "800" };
-const compareResultStyle = { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px" };
-const compareMetricStyle = { background: "rgba(255, 255, 255, 0.78)", border: "1px solid rgba(148, 163, 184, 0.24)", borderRadius: "16px", padding: "13px" };
-const compareMetricLabelStyle = { display: "block", color: "#64748b", fontSize: "12px" };
-const compareMetricValueStyle = { display: "block", color: "#1f5f8b", fontSize: "15px", marginTop: "6px" };
-const compareMetricDiffStyle = { display: "block", color: "#1f5f8b", fontSize: "12px", marginTop: "6px", fontWeight: "900" };
+
+
+
+
+
 
 const recordsCardStyle = { background: "rgba(255, 253, 244, 0.96)", borderRadius: "28px", padding: "20px", boxShadow: "0 18px 38px rgba(51, 65, 85, 0.11)",
   border: "1px solid rgba(148, 163, 184, 0.22)", borderTop: "4px solid rgba(247, 210, 94, 0.70)" };
@@ -3790,19 +3428,19 @@ const filterFooterStyle = { width: "100%", display: "flex", alignItems: "center"
 const filterHintStyle = { fontSize: "12px", color: "#64748b", fontWeight: 700 };
 const clearFilterButtonStyle = { border: "1px solid rgba(43,108,176,.28)", background: "#eef7ff", color: "#1f5f8b", borderRadius: "10px", padding: "7px 10px", fontSize: "12px", fontWeight: 900, cursor: "pointer" };
 const pageSizeBadgeStyle = { display: "inline-flex", alignItems: "center", minHeight: "34px", padding: "0 11px", borderRadius: "10px", background: "#f1f5f9", color: "#51647a", fontSize: "13px", fontWeight: 800, border: "1px solid rgba(148,163,184,.28)" };
-const tableWrapStyle = { overflowX: "auto", border: "1px solid rgba(148, 163, 184, 0.26)", borderRadius: "18px" };
-const tableStyle = { width: "100%", borderCollapse: "collapse", minWidth: "1120px", fontSize: "14px", background: "rgba(255, 255, 255, 0.66)" };
-const thStyle = { background: "#f8fafc", color: "#475569", textAlign: "left", padding: "13px 12px", borderBottom: "1px solid #e2e8f0", whiteSpace: "nowrap" };
-const trStyle = { borderBottom: "1px solid #eef2f7" };
-const tdStyle = { padding: "13px 12px", color: "#334155", verticalAlign: "middle", whiteSpace: "nowrap" };
-const tableButtonStyle = { border: "1px solid rgba(3, 105, 161, 0.16)", background: "#e0f2fe", color: "#0369a1", borderRadius: "10px", padding: "8px 12px", fontWeight: "800", cursor: "pointer" };
-const activeTableButtonStyle = { background: "linear-gradient(180deg, #2b6cb0, #1f5f8b)", color: "white", border: "1px solid rgba(31, 95, 139, 0.32)" };
+
+
+
+
+
+
+
 const recordActionBarStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "14px", padding: "12px 14px", marginBottom: "14px", borderRadius: "14px", background: "linear-gradient(135deg,#f8fafc,#eef7ff)", border: "1px solid rgba(43,108,176,.20)", flexWrap: "wrap" };
 const recordActionTitleStyle = { display: "block", color: "#1f5f8b", fontSize: "14px", fontWeight: 900 };
 const recordActionHintStyle = { display: "block", marginTop: "3px", color: "#64748b", fontSize: "12px", fontWeight: 700 };
 const excelButtonStyle = { border: "none", borderRadius: "11px", background: "linear-gradient(180deg,#2b6cb0,#1f5f8b)", color: "#fff", padding: "10px 14px", fontSize: "13px", fontWeight: 900, cursor: "pointer" };
-const tableActionGroupStyle = { display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" };
-const tableExportButtonStyle = { border: "1px solid rgba(22,163,74,.30)", borderRadius: "9px", background: "#f0fdf4", color: "#15803d", padding: "7px 9px", fontSize: "12px", fontWeight: 900, cursor: "pointer" };
+
+
 
 const recordAccordionWrapStyle = { marginBottom: "16px", border: "1px solid rgba(43, 108, 176, 0.24)", borderRadius: "20px", overflow: "hidden", background: "rgba(240, 248, 255, 0.72)", boxShadow: "0 10px 24px rgba(37, 99, 235, 0.08)" };
 const recordAccordionHeaderStyle = { width: "100%", border: "none", background: "linear-gradient(135deg, rgba(224, 242, 254, 0.96), rgba(255, 247, 214, 0.92))", padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", textAlign: "left", cursor: "pointer" };
@@ -3832,17 +3470,16 @@ const noteDateStyle = { color: "#64748b", fontSize: "12px" };
 const noteTextStyle = { margin: "6px 0 0", color: "#334155", fontSize: "14px", lineHeight: 1.6 };
 const reportBoxStyle = { whiteSpace: "pre-wrap", background: "rgba(255, 255, 255, 0.86)", border: "1px solid rgba(148, 163, 184, 0.28)", borderRadius: "16px", padding: "12px", color: "#334155", fontSize: "13px", lineHeight: 1.6, maxHeight: "220px", overflow: "auto" };
 
-const badgeStyle = { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "5px 9px", borderRadius: "999px", fontSize: "12px", fontWeight: "800", whiteSpace: "nowrap" };
-const testBadgeStyle = { background: "#dbeafe", color: "#1d4ed8" };
-const trainingBadgeStyle = { background: "#dcfce7", color: "#15803d" };
-const sessionBadgeStyle = { background: "#f1f5f9", color: "#475569" };
-const safeBadgeStyle = { background: "#dcfce7", color: "#166534" };
-const warningBadgeStyle = { background: "#fef3c7", color: "#92400e" };
-const dangerBadgeStyle = { background: "#fee2e2", color: "#b91c1c" };
-const emptyBadgeStyle = { background: "#f1f5f9", color: "#7c5b2a" };
+
+
+
+
+
+
+
+
 
 const emptyBoxStyle = { position: "relative", zIndex: 1, background: "rgba(255, 253, 238, 0.94)", border: "4px solid rgba(255, 230, 139, 0.72)", borderRadius: "30px", padding: "34px", color: "#7c5b2a", textAlign: "center", boxShadow: "0 14px 34px rgba(91, 63, 26, 0.14)" };
-const emptySmallTextStyle = { color: "#7c5b2a", margin: 0, fontSize: "14px" };
 const emptySmallBoxStyle = { background: "#fffaf0", border: "1px dashed #cbd5e1", borderRadius: "16px", padding: "18px", color: "#7c5b2a", textAlign: "center", fontSize: "14px" };
 
 const assistantButtonStyle = {

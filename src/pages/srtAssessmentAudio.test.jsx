@@ -13,6 +13,7 @@ jest.mock("../components/SrtTestTutorial", () => ({
 }));
 
 let audios;
+let clickAudios;
 const advance = async (ms) => { await act(async () => { jest.advanceTimersByTime(ms); }); };
 const finishAudio = async () => { await act(async () => { fireEvent.ended(audios.at(-1)); }); };
 function enterIntro() {
@@ -31,12 +32,13 @@ beforeEach(() => {
   useTestAttempt.mockReturnValue({ begin: jest.fn(), checkpoint: jest.fn(), complete: (raw) => raw });
   jest.spyOn(Math, "random").mockReturnValue(0.99);
   audios = [];
+  clickAudios = [];
   jest.spyOn(window, "Audio").mockImplementation((src) => {
     const audio = document.createElement("audio");
     audio.src = src;
     audio.play = jest.fn().mockResolvedValue(undefined);
     audio.pause = jest.fn();
-    audios.push(audio);
+    (src === "Click.mp3" ? clickAudios : audios).push(audio);
     return audio;
   });
 });
@@ -47,7 +49,7 @@ afterEach(async () => {
   jest.useRealTimers();
 });
 
-test("all rules and start speech finish before the eight-minute clock; assessed responses are silent", async () => {
+test("rules finish before timing starts; responses use training click feedback without extra speech", async () => {
   enterIntro();
   const intro = screen.getByRole("region", { name: "測驗準備" });
   const chicken = within(intro).getByRole("img", { name: "小雞陪你記住規則" });
@@ -79,13 +81,30 @@ test("all rules and start speech finish before the eight-minute clock; assessed 
   const startedAt = performance.now();
   expect(audios.every((audio) => audio.pause.mock.calls.length === 1)).toBe(true);
   await advance(3020);
-  fireEvent.click(screen.getByTestId("srt-stimulus"));
+  fireEvent.click(screen.getByRole("button", { name: "好葡萄" }));
+  expect(screen.queryByTestId("srt-stimulus")).not.toBeInTheDocument();
+  expect(document.querySelector(".srt-target-feedback")).toBeInTheDocument();
+  expect(clickAudios).toHaveLength(1);
+  expect(clickAudios[0].play).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByTestId("srt-game-area"));
   // Miss the next normal acorns and incorrectly click the rotten one.
   await advance(9000);
   expect(screen.getByTestId("srt-stimulus")).toHaveAttribute("alt", "壞葡萄");
-  fireEvent.click(screen.getByTestId("srt-stimulus"));
+  // Wait for the new stimulus's animation frame to open its response window.
+  await advance(16);
+  expect(screen.getByTestId("srt-stimulus")).toHaveStyle({ width: "177px" });
+  fireEvent.click(screen.getByRole("button", { name: "壞葡萄" }));
+  expect(document.querySelector(".srt-target-feedback")).toHaveAttribute("class", "srt-target-feedback");
+  expect(clickAudios).toHaveLength(1);
+  expect(clickAudios[0].play).toHaveBeenCalledTimes(2);
+  expect(useTestAttempt().checkpoint.mock.calls.at(-1)[0].trials.at(-1)).toMatchObject({
+    targetType: "rotten", action: "clickedRotten", isCorrect: false, itemSizePx: 177,
+  });
   expect(audios).toHaveLength(3);
+  await advance(219);
+  expect(document.querySelector(".srt-target-feedback")).toBeInTheDocument();
+  await advance(1);
+  expect(document.querySelector(".srt-target-feedback")).not.toBeInTheDocument();
   await advance(480000 - (performance.now() - startedAt) - 1);
   expect(saveUnifiedResult).not.toHaveBeenCalled();
   expect(audios).toHaveLength(3);

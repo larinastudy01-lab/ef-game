@@ -4,6 +4,8 @@ import { gameLocalStorage as localStorage } from "../temporaryGameTesting/runtim
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "../styles/GamePage_ARI.css";
+import AriPageStyles from "../components/AriPageStyles";
+import "../styles/ARITraining.css";
 
 import { analyzePerformance } from "../ai/performanceAnalyzer";
 import { analyzeErrors } from "../ai/errorAnalyzer";
@@ -17,11 +19,11 @@ import backgroundImg from "../asset/ARI/ARI_background.webp";
 import introVideo from "../asset/optimized/mp4/ARI_start.mp4";
 import stepVideo from "../asset/optimized/mp4/ARI_step.mp4";
 import endingVideo from "../asset/optimized/mp4/ARI_end.mp4";
-import startAvatar from "../asset/avatar/fox.webp";
+import startAvatar from "../asset/ARI_icon.webp";
 import homeStartBtn from "../asset/home/start.webp";
 import homeNextBtn from "../asset/home/next.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
-import homeBackBtn from "../asset/return.webp";
+import homeBackBtn from "../asset/home/back.webp";
 import homeAgainBtn from "../asset/home/again.webp";
 import homeResultBtn from "../asset/home/result.webp";
 import mouseGuideImg from "../asset/mouse.webp";
@@ -882,7 +884,6 @@ export default function TrainingPage_ARI() {
   }
 
   function handleEndingVideoEnd() { setPhase("result"); }
-  function handleReplay() { resetTestState(); setPhase("introVideo"); }
 
   const resultStars = Math.max(
     1,
@@ -897,12 +898,12 @@ export default function TrainingPage_ARI() {
   if (phase === "start") {
     return (
       <div className="ari-page ari-page--soft" style={{ "--ari-bg": `url(${asset.background})` }}>
-        <style>{ariInlineCss}</style>
+        <AriPageStyles />
         <main className="ari-center-shell ari-start-shell">
           <section className="ari-soft-panel ari-start-panel game-start-card-artwork ari-opening-card-artwork" aria-label="開始畫面">
             <div className="ari-game-title">貓狗合唱團</div>
             <div className="ari-start-content">
-              <div className="ari-dialog-bubble ari-opening-bubble">{difficulty.label}：貓叫要點狗狗，狗叫要點貓咪喔！每題有 {difficulty.answerTimeLimit / 1000} 秒作答時間。</div>
+              <div className="ari-dialog-bubble ari-opening-bubble">仔細聽聲音，選出相反的動物。</div>
               <div className="ari-round-icon ari-start-avatar"><img src={asset.startAvatar} alt="開始角色" draggable="false" /></div>
             </div>
             <div className="ari-guided-action ari-guided-start">
@@ -921,25 +922,24 @@ export default function TrainingPage_ARI() {
     const isIntro = phase === "introVideo";
     const isTeaching = phase === "teaching";
     const videoSrc = isIntro ? asset.introVideo : isTeaching ? asset.stepVideo : asset.endingVideo;
-    const onEnded = isIntro ? handleIntroEnd : isTeaching ? undefined : handleEndingVideoEnd;
     const onAction = isIntro ? handleIntroEnd : isTeaching ? startTest : handleEndingVideoEnd;
     const actionImage = isTeaching ? asset.homeNextBtn : asset.homeSkipBtn;
     const actionButtonClass = isTeaching ? "ari-btn-next" : "ari-btn-skip";
     const actionLabel = isTeaching ? "下一步" : "跳過動畫";
     return (
       <div className="ari-page ari-page--soft" style={{ "--ari-bg": `url(${asset.background})` }}>
-        <style>{ariInlineCss}</style>
+        <AriPageStyles />
         <main className="ari-center-shell test-video-layout">
-          <section className="ari-soft-panel ari-video-panel game-start-card-artwork ari-video-card-artwork test-video-card" aria-label="遊戲影片">
-            <div className="ari-video-frame test-video-frame">
-              <video className="ari-video test-video" src={videoSrc} autoPlay muted playsInline controls preload="metadata" onEnded={onEnded}>你的瀏覽器不支援影片播放。</video>
+          <section className="ari-soft-panel ari-video-panel game-start-card-artwork ari-video-card-artwork test-video-card" aria-label={isIntro ? "開場影片" : isTeaching ? "步驟教學影片" : "結束影片"}>
+            <div className="ari-video-frame test-step-video-frame test-video-frame">
+              <video key={phase} className="ari-video test-step-video test-video" src={videoSrc} autoPlay muted playsInline controls preload="metadata" onEnded={onAction}>你的瀏覽器不支援影片播放。</video>
             </div>
-            {isIntro ? <div className="test-video-actions"><div className="ari-guided-action ari-guided-next">
+            {isIntro ? <div className="ari-step-actions test-video-actions"><div className="ari-guided-action ari-guided-next">
               <button type="button" className={`ari-forest-button ari-image-button ${actionButtonClass}`} onClick={onAction} aria-label={actionLabel}>
                 <img loading="lazy" src={actionImage} alt={actionLabel} draggable="false" />
               </button>
               <img loading="lazy" className="ari-mouse-guide ari-mouse-on-button" src={asset.mouseGuideImg} alt="" aria-hidden="true" draggable="false" />
-            </div></div> : <div className="test-video-actions">
+            </div></div> : <div className="ari-step-actions test-video-actions">
               <div className="ari-guided-action ari-guided-skip">
                 <button type="button" className="ari-forest-button ari-image-button ari-btn-skip" onClick={onAction} aria-label="跳過動畫">
                   <img loading="lazy" src={asset.homeSkipBtn} alt="跳過動畫" draggable="false" />
@@ -961,7 +961,7 @@ export default function TrainingPage_ARI() {
   if (phase === "result") {
     return (
       <div className="ari-page ari-page--soft" style={{ "--ari-bg": `url(${asset.background})` }}>
-        <style>{ariInlineCss}</style>
+        <AriPageStyles />
         <main className="ari-center-shell ari-result-shell">
           <section className="ari-soft-panel ari-result-panel game-result-card-artwork" aria-label="測驗結果">
             <div className="ari-cute-stars" aria-label={`${resultStars} 顆星`}>
@@ -971,14 +971,16 @@ export default function TrainingPage_ARI() {
               <div className="ari-dialog-bubble">{pendingResult?.completed ? "關卡完成！你很認真聽聲音並找到相反的動物。" : "聲音沒有成功播放，這次先休息一下，等等再試一次。"}</div>
               <div className="ari-round-icon ari-result-icon"><img src={asset.startAvatar} alt="狐狸角色" draggable="false" /></div>
             </div>
-            <div className="ari-result-actions">
+            <div className="ari-result-actions ari-training-result-actions">
               <div className="ari-guided-action ari-guided-result-main">
                 <button type="button" className="ari-forest-button ari-image-button ari-btn-home" onClick={() => navigate(FOREST_ROUTE)} aria-label="回到森林">
                   <img loading="lazy" src={asset.homeBackBtn} alt="回到森林" draggable="false" />
                 </button>
                 <img loading="lazy" className="ari-mouse-guide ari-mouse-on-button" src={asset.mouseGuideImg} alt="" aria-hidden="true" draggable="false" />
               </div>
-              <button type="button" className="ari-forest-button ari-image-button" onClick={handleReplay} aria-label="再玩一次"><img loading="lazy" src={asset.homeAgainBtn} alt="再玩一次" draggable="false" /></button>
+              <button type="button" className="ari-forest-button ari-image-button ari-btn-replay" onClick={handleStart} aria-label="再玩一次">
+                <img loading="lazy" src={asset.homeAgainBtn} alt="再玩一次" draggable="false" />
+              </button>
               <button type="button" className="ari-forest-button ari-image-button ari-btn-detail" onClick={goResultPage} aria-label="詳細結果">
                 <img loading="lazy" src={asset.homeResultBtn} alt="詳細結果" draggable="false" />
               </button>
@@ -993,20 +995,20 @@ export default function TrainingPage_ARI() {
   const rightTarget = leftTarget === "cat" ? "dog" : "cat";
 
   return (
-    <div className="ari-page ari-page--soft" style={{ "--ari-bg": `url(${asset.background})` }}>
-      <style>{ariInlineCss}</style>
+    <div className="ari-page ari-page--soft ari-page--training" style={{ "--ari-bg": `url(${asset.background})` }}>
+      <AriPageStyles />
       <div className="ari-container">
         <div className="ari-stage" onPointerDownCapture={handleStagePointerDown} data-testid="ari-training-stage" data-difficulty={difficultyKey} data-can-answer={canAnswer} data-trial={trialIndex + 1}>
-          <div className="ari-listen-status" aria-live="polite">
+          <div className={audioError ? "ari-listen-status" : "ari-assessment-status"} aria-live="polite">
             {audioError ? "聲音沒有成功播放" : isPreparingSound ? "請準備聽聲音" : canAnswer ? "請選擇相反的動物" : "請稍候"}
             {canAnswer && <span className="ari-answer-countdown" role="timer" aria-label="作答剩餘時間">{difficulty.label} · 剩餘 {remainingSeconds} 秒</span>}
           </div>
           <div className="ari-animal-choice-row" aria-label="選擇動物">
-            <button type="button" className={`ari-animal-choice ${canAnswer ? "is-clickable" : ""} ${hintType === "neutral" ? "is-neutral-hint" : ""} ${hintType === "direct" && leftTarget === currentTrial?.correctTarget ? "is-direct-hint" : ""} ${feedbackTarget === leftTarget ? "is-feedback" : ""}`} onClick={() => handleAnswer(leftTarget, "left")} data-answer-zone="true" aria-disabled={!canAnswer}>
+            <button type="button" className={`ari-animal-choice ${canAnswer ? "is-clickable" : ""} ${hintType === "direct" && leftTarget === currentTrial?.correctTarget ? "is-direct-hint" : ""} ${feedbackTarget === leftTarget ? "is-feedback" : ""}`} onClick={() => handleAnswer(leftTarget, "left")} data-answer-zone="true" aria-disabled={!canAnswer} disabled={!canAnswer}>
               <img loading="lazy" src={leftTarget === "cat" ? asset.cat : asset.dog} alt={leftTarget === "cat" ? "貓咪" : "狗狗"} draggable="false" />
               {hintType === "direct" && leftTarget === currentTrial?.correctTarget && <img className="ari-answer-mouse" src={asset.mouseGuideImg} alt="MOUSE 提示正確動物" draggable="false" />}
             </button>
-            <button type="button" className={`ari-animal-choice ${canAnswer ? "is-clickable" : ""} ${hintType === "neutral" ? "is-neutral-hint" : ""} ${hintType === "direct" && rightTarget === currentTrial?.correctTarget ? "is-direct-hint" : ""} ${feedbackTarget === rightTarget ? "is-feedback" : ""}`} onClick={() => handleAnswer(rightTarget, "right")} data-answer-zone="true" aria-disabled={!canAnswer}>
+            <button type="button" className={`ari-animal-choice ${canAnswer ? "is-clickable" : ""} ${hintType === "direct" && rightTarget === currentTrial?.correctTarget ? "is-direct-hint" : ""} ${feedbackTarget === rightTarget ? "is-feedback" : ""}`} onClick={() => handleAnswer(rightTarget, "right")} data-answer-zone="true" aria-disabled={!canAnswer} disabled={!canAnswer}>
               <img loading="lazy" src={rightTarget === "cat" ? asset.cat : asset.dog} alt={rightTarget === "cat" ? "貓咪" : "狗狗"} draggable="false" />
               {hintType === "direct" && rightTarget === currentTrial?.correctTarget && <img className="ari-answer-mouse" src={asset.mouseGuideImg} alt="MOUSE 提示正確動物" draggable="false" />}
             </button>
@@ -1014,502 +1016,9 @@ export default function TrainingPage_ARI() {
           {difficulty.allowReplay && <button type="button" className="ari-replay-voice" data-replay-control="true" onClick={replayCurrentSound} disabled={(!canAnswer && !audioError) || isReplaying} aria-label="重播動物聲音">
             <img src={replayIcon} alt="" draggable="false" />
           </button>}
-          {audioError && <button type="button" className="ari-audio-abort" onClick={() => finishTraining(trialRecordsRef.current, { reason: "audio_error" })}>結束本次訓練</button>}
+          {audioError && <button type="button" className="ari-retry-audio" onClick={() => finishTraining(trialRecordsRef.current, { reason: "audio_error" })}>結束本次訓練</button>}
         </div>
       </div>
     </div>
   );
 }
-
-const ariInlineCss = `
-.ari-stage .ari-animal-choice { position: relative; overflow: visible; }
-.ari-animal-choice img.ari-answer-mouse { position: absolute; width: 30%; height: auto; right: -8%; bottom: -6%; z-index: 10; pointer-events: none; object-fit: contain; animation: ariMouseTap 1s ease-in-out infinite; }
-.ari-answer-countdown { display: block; font-size: .75em; margin-top: 5px; }
-.ari-replay-voice { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); width: clamp(64px, 8vw, 100px); border: 0; background: transparent; padding: 0; cursor: pointer; z-index: 5; }
-.ari-replay-voice img { width: 100%; height: auto; display: block; }
-.ari-replay-voice:disabled { opacity: .45; cursor: default; }
-.ari-audio-abort { position: absolute; bottom: 130px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 12px; z-index: 6; }
-.ari-page,
-.ari-page *,
-.ari-forest-button,
-.ari-image-button,
-.ari-arrow-button {
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-}
-
-.ari-page--soft {
-  min-height: 100vh;
-  font-family: "jf-openhuninn", "Fredoka", "Nunito", "Noto Sans TC", sans-serif;
-  text-align: center;
-  overflow: hidden;
-  background-image: linear-gradient(rgba(255,255,255,.3), rgba(255,255,255,.3)), var(--ari-bg);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-
-.ari-center-shell { width: min(90vw, 1220px); min-height: 100vh; margin: 0 auto; display: flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 28px 0; }
-.ari-start-shell, .ari-result-shell { width: min(78vw, 960px); }
-.ari-soft-panel { width: 100%; background: linear-gradient(180deg, rgba(255,238,174,.98), rgba(255,229,151,.98)); border: 7px solid #ff8426; border-radius: 72px; box-sizing: border-box; box-shadow: 0 18px 34px rgba(108,67,25,.12); }
-.ari-start-panel { min-height: 500px; padding: 52px 72px 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 44px; }
-.ari-game-title { display: inline-flex; align-items: center; justify-content: center; padding: 12px 34px; border-radius: 999px; border: 4px solid #ff8a37; background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,246,213,.98)); color: #3b2414; font-size: clamp(30px,3.8vw,48px); font-weight: 950; line-height: 1.08; letter-spacing: 1px; box-shadow: 0 8px 0 rgba(231,124,32,.2), 0 14px 26px rgba(108,67,25,.12); margin: 0; }
-.ari-start-content { width: min(100%,760px); display: grid; grid-template-columns: minmax(300px,1fr) 170px; align-items: center; justify-content: center; gap: 64px; }
-.ari-dialog-bubble { min-height: 138px; border: 5px solid #f0782e; border-radius: 28px; background: linear-gradient(180deg,#fff 0%,#fff9e9 100%); color: #1e1711; display: flex; align-items: center; justify-content: center; padding: 18px 30px; font-size: clamp(26px,3vw,38px); line-height: 1.32; font-weight: 900; box-sizing: border-box; box-shadow: 0 8px 0 rgba(240,125,45,.12), inset 0 0 0 6px rgba(255,226,150,.28); }
-.ari-round-icon { width: 170px; height: 170px; border-radius: 999px; background: linear-gradient(180deg,#4e82d5,#2f68c2); border: 3px solid #173466; display: flex; align-items: center; justify-content: center; overflow: hidden; box-sizing: border-box; padding: 10px; box-shadow: 0 10px 20px rgba(44,83,139,.18); }
-.ari-round-icon img { width: 100%; height: 100%; max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 50%; display: block; }
-.ari-forest-button { min-width: 184px; min-height: 72px; padding: 12px 34px; border-radius: 14px; color: #fff; font-family: inherit; font-size: clamp(23px,2.5vw,32px); font-weight: 900; line-height: 1.15; cursor: pointer; transition: transform .14s ease, filter .14s ease; border: 2px solid #74513a; background: linear-gradient(180deg,#b28a68,#8e664f); box-shadow: 0 4px 0 rgba(84,56,38,.34),0 10px 18px rgba(84,56,38,.14); }
-.ari-forest-button:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.04); }
-.ari-image-button { display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; background: transparent; box-shadow: none; min-width: 0; min-height: 0; }
-.ari-image-button img { width: clamp(126px, 13vw, 190px); height: auto; display: block; object-fit: contain; }
-.ari-guided-action { position: relative; display: inline-flex; align-items: center; justify-content: center; }
-.ari-mouse-guide { position: absolute; width: clamp(54px, 6vw, 86px); height: auto; pointer-events: none; filter: drop-shadow(0 10px 10px rgba(74,54,25,.18)); animation: ariMouseTap 1s ease-in-out infinite; }
-.ari-mouse-on-button { right: -34px; bottom: -24px; }
-.ari-video-panel { min-height: 78vh; padding: 48px 72px 34px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; }
-.ari-video-frame { width: 100%; height: min(60vh,560px); min-height: 360px; border: 2px solid rgba(97,123,74,.55); border-radius: 22px; background: rgba(255,255,255,.38); overflow: hidden; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
-.ari-video { width: 100%; height: 100%; object-fit: cover; display: block; }
-.ari-result-panel { min-height: 520px; padding: 48px 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; }
-.ari-cute-stars { font-size: clamp(48px, 7vw, 86px); letter-spacing: 10px; line-height: 1; color: rgba(114,83,46,.25); }
-.ari-cute-star.is-on { color: #ffc531; text-shadow: 0 8px 0 rgba(160,98,24,.18), 0 12px 18px rgba(115,73,14,.18); }
-.ari-result-actions { display: flex; align-items: center; justify-content: center; gap: 22px; flex-wrap: wrap; }
-
-.ari-page--soft::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 52% 9%, rgba(255,255,255,.22), transparent 28%),
-    linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,239,188,.1));
-  z-index: 0;
-}
-
-.ari-center-shell {
-  position: relative;
-  z-index: 1;
-}
-
-.ari-start-shell,
-.ari-result-shell {
-  width: min(72vw, 860px);
-}
-
-.ari-soft-panel {
-  position: relative;
-  border-color: rgba(246,165,31,.96);
-  border-radius: 58px;
-  background:
-    radial-gradient(circle at 18% 8%, rgba(255,255,255,.88) 0 9%, transparent 29%),
-    radial-gradient(circle at 84% 18%, rgba(255,238,160,.58) 0 13%, transparent 34%),
-    linear-gradient(145deg, rgba(255,252,222,.99) 0%, rgba(255,229,139,.98) 48%, rgba(239,178,83,.96) 100%);
-  box-shadow:
-    0 22px 0 rgba(151,87,28,.18),
-    0 36px 62px rgba(66,44,15,.28),
-    0 12px 26px rgba(255,223,128,.22),
-    inset 0 12px 18px rgba(255,255,255,.72),
-    inset 0 2px 0 rgba(255,255,255,.92),
-    inset 0 -18px 24px rgba(139,77,22,.2),
-    inset 0 -42px 72px rgba(119,75,21,.12);
-}
-
-.ari-soft-panel::before {
-  content: "";
-  position: absolute;
-  inset: 18px;
-  border-radius: 42px;
-  border: 2px dashed rgba(255,245,205,.58);
-  pointer-events: none;
-  box-shadow:
-    inset 0 2px 5px rgba(255,255,255,.5),
-    inset 0 -3px 8px rgba(139,88,23,.12);
-}
-
-.ari-soft-panel::after {
-  content: "";
-  position: absolute;
-  left: 30px;
-  right: 30px;
-  bottom: 18px;
-  height: 42px;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 4% 40%, #8bc947 0 13px, transparent 14px),
-    radial-gradient(circle at 8% 15%, #a4da58 0 9px, transparent 10px),
-    radial-gradient(circle at 92% 42%, #8bc947 0 13px, transparent 14px),
-    radial-gradient(circle at 88% 18%, #a4da58 0 9px, transparent 10px);
-  filter:
-    drop-shadow(0 4px 2px rgba(60,105,27,.22))
-    drop-shadow(0 10px 10px rgba(88,57,19,.16));
-  opacity: .92;
-}
-
-.ari-start-panel {
-  min-height: 560px;
-  padding: 58px 70px 74px;
-  gap: 34px;
-}
-
-.ari-game-title,
-.ari-start-content,
-.ari-guided-action,
-.ari-result-actions {
-  position: relative;
-  z-index: 2;
-}
-
-.ari-game-title {
-  min-width: min(100%, 420px);
-  padding: 14px 42px 16px;
-  border-radius: 20px;
-  border-color: #e9a33c;
-  background: linear-gradient(180deg, rgba(255,226,129,.96), rgba(255,244,194,.98));
-  color: #7a3f16;
-  font-size: clamp(34px, 4vw, 52px);
-  letter-spacing: 2px;
-  text-shadow: 0 3px 0 rgba(255,255,255,.85);
-  box-shadow:
-    0 8px 0 rgba(210,130,37,.24),
-    0 14px 24px rgba(91,57,18,.12),
-    inset 0 0 0 5px rgba(255,255,255,.34);
-}
-
-.ari-start-content {
-  width: min(100%, 690px);
-  grid-template-columns: minmax(300px, 1fr) 158px;
-  gap: 44px;
-}
-
-.ari-dialog-bubble {
-  border: 4px solid #f0c77b;
-  color: #6d3717;
-  position: relative;
-  box-shadow: 0 8px 0 rgba(225,169,84,.12), inset 0 0 0 5px rgba(255,235,174,.35);
-}
-
-.ari-dialog-bubble::before {
-  content: "";
-  position: absolute;
-  inset: 13px;
-  border-radius: 20px;
-  border: 2px dashed rgba(229,189,119,.55);
-  pointer-events: none;
-}
-
-.ari-dialog-bubble::after {
-  content: "";
-  position: absolute;
-  right: -30px;
-  top: 50%;
-  width: 38px;
-  height: 38px;
-  background: linear-gradient(135deg, #fff 0%, #fff9e9 80%);
-  border-top: 4px solid #f0c77b;
-  border-right: 4px solid #f0c77b;
-  transform: translateY(-50%) rotate(45deg);
-  border-radius: 4px;
-}
-
-.ari-round-icon {
-  position: relative;
-  width: 158px;
-  height: 158px;
-  background: linear-gradient(180deg, #82d9ff, #48aee8);
-  border: 5px solid rgba(255,255,255,.92);
-  outline: 3px solid rgba(72,157,207,.65);
-  padding: 14px;
-  box-shadow: 0 10px 0 rgba(42,112,165,.2), 0 18px 24px rgba(53,91,123,.18);
-}
-
-.ari-forest-button {
-  position: relative;
-  z-index: 2;
-  min-width: 220px;
-  min-height: 76px;
-  border-radius: 24px;
-  font-size: clamp(25px, 2.8vw, 38px);
-  font-weight: 950;
-  letter-spacing: 1px;
-  transition: transform .2s cubic-bezier(.18,1.25,.38,1), filter .2s ease, opacity .14s ease;
-}
-
-.ari-image-button {
-  width: clamp(188px, 18vw, 254px);
-  padding: 0;
-  border: none;
-  outline: none;
-  border-radius: 18px;
-  background: transparent;
-  box-shadow: none;
-  line-height: 0;
-  overflow: visible;
-  transform-origin: 50% 58%;
-  will-change: transform, filter;
-}
-
-.ari-image-button.ari-btn-start,
-.ari-image-button.ari-btn-home,
-.ari-image-button.ari-btn-replay,
-.ari-image-button.ari-btn-detail,
-.ari-image-button.ari-btn-skip,
-.ari-image-button.ari-btn-next {
-  min-width: 0;
-  min-height: 0;
-  border: none;
-  outline: none;
-  background: transparent;
-  box-shadow: none;
-}
-
-.ari-image-button img {
-  width: 100%;
-  pointer-events: none;
-  user-select: none;
-  -webkit-user-drag: none;
-  filter:
-    drop-shadow(0 10px 8px rgba(74,48,16,.26))
-    drop-shadow(0 0 14px rgba(255,238,150,.22));
-  transition: filter .2s ease;
-}
-
-.ari-image-button:hover:not(:disabled) {
-  transform: translateY(-3px) scale(1.045);
-  filter: brightness(1.06) saturate(1.05);
-  animation: ariButtonBreathe 1.15s ease-in-out infinite, ariButtonWobble .62s cubic-bezier(.34,1.56,.64,1) both;
-}
-
-.ari-image-button:hover:not(:disabled) img {
-  filter:
-    drop-shadow(0 14px 10px rgba(74,48,16,.3))
-    drop-shadow(0 0 18px rgba(255,238,150,.38));
-}
-
-.ari-image-button:active:not(:disabled) {
-  transform: translateY(2px) scale(.965);
-  animation: none;
-}
-
-.ari-btn-skip.ari-image-button,
-.ari-btn-next.ari-image-button {
-  width: clamp(198px, 19vw, 266px);
-}
-
-.ari-video-frame {
-  border: 4px solid #6fb6ec;
-  border-radius: 24px;
-  background: linear-gradient(180deg, #2fb5ff, #3189e5);
-  box-shadow:
-    0 8px 0 rgba(55,121,177,.18),
-    inset 0 0 0 4px rgba(255,255,255,.28);
-}
-
-.ari-result-panel {
-  min-height: 500px;
-  padding: 92px 56px 60px;
-  gap: 44px;
-}
-
-.ari-cute-stars {
-  position: absolute;
-  top: -78px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 24px;
-  z-index: 3;
-  letter-spacing: 0;
-}
-
-.ari-cute-star {
-  font-size: clamp(82px, 8vw, 116px);
-  line-height: .9;
-  color: #c2cfc9;
-  opacity: .6;
-  -webkit-text-stroke: 7px rgba(255,255,255,.96);
-  text-shadow: 0 5px 0 rgba(85,111,84,.2), 0 10px 16px rgba(72,58,32,.16);
-  display: inline-block;
-  transform: rotate(-8deg);
-}
-
-.ari-cute-star:nth-child(2) { transform: translateY(-12px) rotate(2deg) scale(1.15); }
-.ari-cute-star:nth-child(3) { transform: rotate(7deg); }
-
-.ari-cute-star.is-on {
-  color: #ffd53d;
-  opacity: 1;
-  -webkit-text-stroke: 7px rgba(255,255,255,.98);
-  text-shadow:
-    0 4px 0 #e39d19,
-    0 8px 16px rgba(121,74,6,.3),
-    0 0 18px rgba(255,249,171,.95);
-}
-
-.ari-result-actions .ari-image-button {
-  width: clamp(168px, 16vw, 232px);
-}
-
-@keyframes ariButtonWobble {
-  0% { rotate: 0deg; }
-  24% { rotate: -2.2deg; }
-  52% { rotate: 1.6deg; }
-  78% { rotate: -.8deg; }
-  100% { rotate: 0deg; }
-}
-
-@keyframes ariButtonBreathe {
-  0%, 100% { scale: 1; }
-  50% { scale: 1.015; }
-}
-
-.ari-container { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; box-sizing: border-box; padding: clamp(12px, 2vw, 28px); }
-.ari-stage { position: relative; width: min(96vw, 1180px); height: min(82vh, 720px); border-radius: 42px; background: rgba(255,255,255,.38); border: 6px solid rgba(255,132,38,.65); box-shadow: inset 0 0 0 8px rgba(255,255,255,.25), 0 22px 44px rgba(108,67,25,.16); overflow: hidden; }
-.ari-fixation-bee { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); width: clamp(92px, 11vw, 150px); height: auto; object-fit: contain; filter: drop-shadow(0 12px 12px rgba(74,54,25,.18)); animation: ariFloat 1.05s ease-in-out infinite; }
-.ari-food-pair { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; align-items: center; pointer-events: none; }
-.ari-food-zone { display: flex; align-items: center; justify-content: center; }
-.ari-item { filter: drop-shadow(0 14px 14px rgba(74,54,25,.16)); transition: transform .2s ease, filter .2s ease; }
-.ari-item--glow { transform: scale(1.08); filter: drop-shadow(0 0 24px rgba(255,199,62,.9)) drop-shadow(0 14px 14px rgba(74,54,25,.16)); animation: ariGlow 0.8s ease-in-out infinite alternate; }
-.ari-fly { position: absolute; top: 44%; transform: translate(-50%, -50%); filter: drop-shadow(0 10px 14px rgba(74,54,25,.18)); }
-.ari-fly--left { left: 42%; }
-.ari-fly--right { left: 58%; }
-.ari-fly.is-hit { animation: ariFlyHit .35s ease-out both; }
-.ari-fly.is-attention-hint { animation: ariAttentionPulse .42s ease-in-out 0s 3 both; }
-.ari-arrow-actions { position: absolute; left: 50%; bottom: clamp(22px, 5vh, 58px); transform: translateX(-50%); display: flex; align-items: center; justify-content: center; gap: clamp(72px, 14vw, 180px); }
-.ari-arrow-actions.is-neutral-hint .ari-arrow-button.is-clickable { animation: ariNeutralHint .38s ease-in-out 0s 3 both; }
-.ari-arrow-button { width: clamp(110px, 13vw, 170px); height: clamp(90px, 10vw, 142px); border: none; background: transparent; padding: 0; cursor: pointer; opacity: .45; transition: transform .14s ease, opacity .14s ease, filter .14s ease; }
-.ari-arrow-button img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
-.ari-arrow-button.is-clickable { opacity: 1; }
-.ari-arrow-button.is-clickable:hover { transform: translateY(-4px) scale(1.03); }
-.ari-arrow-button.is-soft-correct { filter: drop-shadow(0 0 14px rgba(87, 203, 105, .72)); }
-.ari-arrow-button.is-soft-wrong { filter: drop-shadow(0 0 10px rgba(221, 90, 70, .55)); }
-
-@keyframes ariMouseTap { 0%, 100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-6px,-6px) scale(.96); } }
-@keyframes ariFloat { 0%, 100% { transform: translate(-50%, -50%) translateY(0); } 50% { transform: translate(-50%, -50%) translateY(-10px); } }
-@keyframes ariGlow { from { filter: drop-shadow(0 0 12px rgba(255,199,62,.65)) drop-shadow(0 14px 14px rgba(74,54,25,.16)); } to { filter: drop-shadow(0 0 28px rgba(255,199,62,.95)) drop-shadow(0 14px 14px rgba(74,54,25,.16)); } }
-@keyframes ariFlyHit { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(.2) rotate(16deg); opacity: .15; } }
-@keyframes ariAttentionPulse { 0%, 100% { transform: translate(-50%, -50%) scale(1); filter: drop-shadow(0 10px 14px rgba(74,54,25,.18)); } 50% { transform: translate(-50%, -50%) scale(1.16); filter: drop-shadow(0 0 18px rgba(255,216,61,.78)); } }
-@keyframes ariNeutralHint { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
-
-@media (max-width: 780px) {
-  .ari-start-content, .ari-result-content { grid-template-columns: 1fr; gap: 28px; }
-  .ari-start-panel, .ari-result-panel, .ari-video-panel { padding: 28px 22px; border-radius: 40px; }
-  .ari-round-icon { width: 132px; height: 132px; margin: 0 auto; }
-  .ari-arrow-actions { gap: clamp(36px, 10vw, 96px); }
-  .ari-fly--left { left: 40%; }
-  .ari-fly--right { left: 60%; }
-}
-
-
-/* 貓狗反向選擇：保留原本卡片與場景，只替換遊戲核心 */
-.ari-animal-choice-row {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: center;
-  justify-items: center;
-  padding: clamp(70px, 10vh, 110px) clamp(70px, 8vw, 130px) clamp(150px, 20vh, 190px);
-  gap: clamp(70px, 12vw, 190px);
-}
-
-.ari-animal-choice {
-  width: clamp(220px, 25vw, 330px);
-  height: clamp(220px, 25vw, 330px);
-  border: 6px solid rgba(255,255,255,.92);
-  outline: 4px solid #f3a33b;
-  border-radius: 38px;
-  background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,245,205,.94));
-  box-shadow: 0 12px 0 rgba(205,125,35,.20), 0 20px 28px rgba(87,58,24,.16), inset 0 0 0 8px rgba(255,224,134,.26);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 22px;
-  cursor: default;
-  opacity: .78;
-  transition: transform .15s ease, filter .15s ease, opacity .15s ease, box-shadow .15s ease;
-}
-
-.ari-animal-choice img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  pointer-events: none;
-  filter: drop-shadow(0 12px 12px rgba(74,54,25,.16));
-}
-
-.ari-animal-choice.is-clickable {
-  cursor: pointer;
-  opacity: 1;
-  animation: ariAnimalReady 1s ease-in-out infinite alternate;
-}
-
-.ari-animal-choice.is-clickable:hover,
-.ari-animal-choice.is-clickable:focus-visible {
-  transform: translateY(-7px) scale(1.035);
-  filter: brightness(1.04);
-  outline-color: #74b947;
-}
-
-.ari-animal-choice.is-clickable:active {
-  transform: translateY(2px) scale(.98);
-}
-
-.ari-listen-status {
-  position: absolute;
-  z-index: 3;
-  top: 48px;
-  left: 50%;
-  transform: translateX(-50%);
-  min-width: 280px;
-  padding: 12px 26px;
-  border: 4px solid #f0c77b;
-  border-radius: 999px;
-  background: rgba(255,255,255,.94);
-  color: #6d3717;
-  font-size: clamp(22px, 2.6vw, 34px);
-  font-weight: 900;
-  box-shadow: 0 7px 0 rgba(225,169,84,.14);
-}
-
-.ari-retry-audio {
-  position: absolute;
-  z-index: 4;
-  left: 50%;
-  bottom: 72px;
-  transform: translateX(-50%);
-  border: 4px solid rgba(255,255,255,.9);
-  border-radius: 22px;
-  padding: 13px 28px;
-  background: linear-gradient(180deg,#ffba62,#e87731);
-  color: #fff;
-  font-family: inherit;
-  font-size: clamp(20px,2.2vw,28px);
-  font-weight: 900;
-  box-shadow: 0 7px 0 #b95324;
-  cursor: pointer;
-}
-
-.ari-animal-choice.is-neutral-hint { animation: ariNeutralHint .38s ease-in-out 0s 3 both; }
-.ari-animal-choice.is-direct-hint { box-shadow: 0 0 0 10px rgba(112,190,72,.28), 0 0 32px rgba(112,190,72,.75); transform: scale(1.06); }
-.ari-animal-choice.is-feedback { filter: drop-shadow(0 0 20px rgba(93,190,76,.8)); }
-@keyframes ariNeutralHint { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-7px); } 75% { transform: translateX(7px); } }
-
-@keyframes ariAnimalReady {
-  from { box-shadow: 0 12px 0 rgba(205,125,35,.20), 0 20px 28px rgba(87,58,24,.16), inset 0 0 0 8px rgba(255,224,134,.26); }
-  to { box-shadow: 0 12px 0 rgba(205,125,35,.20), 0 20px 38px rgba(117,180,61,.34), inset 0 0 0 8px rgba(255,224,134,.26); }
-}
-
-@media (max-width: 780px) {
-  .ari-animal-choice-row {
-    padding: 92px 28px 135px;
-    gap: 24px;
-  }
-  .ari-animal-choice {
-    width: min(38vw, 240px);
-    height: min(38vw, 240px);
-    border-radius: 28px;
-    padding: 14px;
-  }
-  .ari-listen-status { top: 34px; min-width: 230px; }
-}
-`;

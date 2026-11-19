@@ -3,11 +3,11 @@ import { analyzeDccsTraining } from "../ai/dccsTrainingAnalyzer";
 import { getDccsClinicalMetrics } from "./dccsClinicalMetrics";
 import { normalizeGameResult } from "./resultManager";
 
-test("wind changes at the exact onset and end, and has no effect on other levels", () => {
+test("wind starts after calm time and stays active until the trial resets it", () => {
   expect(getDccsWindState(5999)).toEqual({ active: false, nextChangeMs: 1 });
-  expect(getDccsWindState(6000)).toEqual({ active: true, nextChangeMs: 6000 });
-  expect(getDccsWindState(11999)).toEqual({ active: true, nextChangeMs: 1 });
-  expect(getDccsWindState(12000)).toEqual({ active: false, nextChangeMs: 6000 });
+  expect(getDccsWindState(6000)).toEqual({ active: true, nextChangeMs: null });
+  expect(getDccsWindState(12000)).toEqual({ active: true, nextChangeMs: null });
+  expect(getDccsWindState(0)).toEqual({ active: false, nextChangeMs: 6000 });
   expect(getDccsWindState(6000, DCCS_TRAINING_CONFIG.hard).active).toBe(false);
 });
 

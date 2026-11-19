@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import bgImg from "../asset/SRT/SRT_background.webp";
+import startAvatar from "../asset/SRT/SRT_icon.webp";
 import tutorialVideo from "../asset/optimized/mp4/SRT_step.mp4";
 import homeStartBtn from "../asset/home/start.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
@@ -16,10 +17,12 @@ import SrtResultPage from "./ResultPage_SRT";
 import SrtTestTutorial from "../components/SrtTestTutorial";
 import SrtRuleIllustration from "../components/SrtRuleIllustration";
 import SrtNarrator from "../components/SrtNarrator";
+import SrtTargetFeedback from "../components/SrtTargetFeedback";
+import useSrtClickSound from "../utils/useSrtClickSound";
 import { calculateSrtScore } from "../utils/srtScoring";
 import { saveUnifiedResult } from "../utils/resultManager";
 import { useTestAttempt } from "../utils/useTestAttempt";
-import { SRT_TEST_PROTOCOL_VERSION, SRT_ITEM_SIZE, SRT_TEST_INTERVALS, SRT_TEST_VISIBLE_TIME, SRT_TEST_TYPE_BLOCK, pickSrtInterval } from "../utils/srtProtocol";
+import { SRT_TEST_PROTOCOL_VERSION, SRT_TEST_INTERVALS, SRT_TEST_VISIBLE_TIME, SRT_TEST_TYPE_BLOCK, pickSrtInterval } from "../utils/srtProtocol";
 import { SRT_ASSESSMENT_INTRO_CUES } from "../config/srtAudioConfig";
 import { getSrtAssessmentVersion, SRT_ASSESSMENT_VERSIONS } from "../config/srtAssessmentConfig";
 import { getNextSrtTestVersion, markSrtTestVersionUsed } from "../utils/srtAssessmentVersion";
@@ -36,11 +39,12 @@ import "../styles/TestStepVideo.css";
 const TEST_DURATION_MS = 480000; // 8 分鐘正式測驗
 const MAX_TRIALS = Math.ceil(TEST_DURATION_MS / Math.min(...SRT_TEST_INTERVALS)) + 1;
 const ITEM_VISIBLE_TIME = SRT_TEST_VISIBLE_TIME;
-const ITEM_SIZE = SRT_ITEM_SIZE;
 const TEST_PAGE_ROUTE = "/test-map";
 
-const TestPage_SRT = () => {
+// Keep this export hoisted for lazy loading during Fast Refresh.
+export default function TestPage_SRT() {
   const navigate = useNavigate();
+  const playClickSound = useSrtClickSound();
   const { search } = useLocation();
   const testingVersion = getGameTestingVersion(search, Object.keys(SRT_ASSESSMENT_VERSIONS));
   const testAttempt = useTestAttempt({ gameId: "SRT", route: "/test-srt" });
@@ -175,7 +179,7 @@ const TestPage_SRT = () => {
       stimulusIntervalMs: targetItem?.stimulusIntervalMs ?? null,
       nextStimulusIntervalMs: targetItem?.nextStimulusIntervalMs ?? null,
       visibleTimeMs: ITEM_VISIBLE_TIME,
-      itemSizePx: ITEM_SIZE,
+      itemSizePx: itemSize,
     }];
     trialRecordsRef.current = nextRecords;
     testAttempt.checkpoint({ trials: nextRecords, behaviorRecords: behaviorRecordsRef.current, promptEvents: promptEventsRef.current });
@@ -294,6 +298,7 @@ const TestPage_SRT = () => {
 
   const [assessment, setAssessment] = useState(() =>
     getSrtAssessmentVersion(testingVersion || getNextSrtTestVersion(getCurrentChildId())));
+  const itemSize = assessment.itemSizePx;
   const assessmentMetadata = {
     testVersion: assessment.testVersion,
     stimulusSetId: assessment.stimulusSetId,
@@ -505,7 +510,7 @@ const TestPage_SRT = () => {
         intervalDefinition: "stimulus_onset_to_onset",
         stimulusIntervalsMs: SRT_TEST_INTERVALS,
         visibleTimeMs: ITEM_VISIBLE_TIME,
-        itemSizePx: ITEM_SIZE,
+        itemSizePx: itemSize,
         goldenPurpose: "not_used_in_assessment",
         normalRate: 0.75,
         rottenRate: 0.25,
@@ -814,6 +819,7 @@ const TestPage_SRT = () => {
     }
 
     const reactionTime = Math.round(performance.now() - spawnTimeRef.current);
+    playClickSound();
     const isNoGo = targetItem.shouldClick === false || targetItem.targetType === "rotten";
     const wasPrompted = promptedTrialRef.current;
     const assistType = promptTypeRef.current;
@@ -855,7 +861,7 @@ const TestPage_SRT = () => {
 
     lastActionTimeRef.current = Date.now();
 
-    setEffect({ x: targetItem.x, y: targetItem.y, type: isNoGo ? "penalty" : "correct" });
+    setEffect({ x: targetItem.x, y: targetItem.y });
     setItem(null);
     currentItemRef.current = null;
     spawnTimeRef.current = null;
@@ -950,6 +956,7 @@ const TestPage_SRT = () => {
       data-test-version={assessment.testVersion}
       data-stimulus-set={assessment.stimulusSetId}
       style={{
+        "--srt-stimulus-scale": assessment.stimulusScale,
         backgroundImage: `
           linear-gradient(rgba(255,255,255,0.22), rgba(255,255,255,0.22)),
           url(${bgImg})
@@ -961,11 +968,11 @@ const TestPage_SRT = () => {
       {phase === "start" && (
         <main className="srt-center-shell srt-start-shell">
           <section className="srt-soft-panel srt-start-panel game-start-card-artwork srt-opening-card-artwork" aria-label="開始畫面">
-            <div className="srt-game-title">一起收集{assessment.stimulusName}</div>
+            <div className="srt-game-title">幫小飛鼠弟弟接{assessment.stimulusName}</div>
             <div className="srt-start-content">
               <div className="srt-dialog-bubble srt-opening-bubble">一起來收集{assessment.stimulusName}吧！</div>
               <div className="srt-round-icon srt-start-avatar">
-                <img src={assessment.stimuli.normal.img} width={assessment.stimuli.normal.width} height={assessment.stimuli.normal.height} alt="本次收集的水果" />
+                <img src={startAvatar} width="1024" height="1024" alt="SRT 遊戲圖示" />
               </div>
             </div>
             <div className="srt-guided-action srt-guided-start">
@@ -1014,7 +1021,7 @@ const TestPage_SRT = () => {
       {phase === "tutorial" && (
         <SrtTestTutorial onReady={startTest} onExit={() => navigate(TEST_PAGE_ROUTE)}
           childId={getCurrentChildId()} getPosition={getRandomPosition}
-          config={{ ...assessmentMetadata, stimuli: assessment.stimuli, audio: assessment.audio }}
+          config={{ ...assessmentMetadata, stimuli: assessment.stimuli, audio: assessment.audio, itemSizePx: itemSize }}
           assessmentTiming={{ responseWindowMs: ITEM_VISIBLE_TIME, stimulusIntervalsMs: SRT_TEST_INTERVALS }} />
       )}
 
@@ -1050,20 +1057,29 @@ const TestPage_SRT = () => {
         <main className="srt-play-page" data-mode="assessment">
           <div data-testid="srt-game-area" className={`srt-test-game-area ${idleFlashId ? "srt-idle-flash" : ""}`} onClick={handleGameAreaClick}>
             {item && (
-              <img loading="lazy"
-                src={item.img}
-                width={item.intrinsicWidth}
-                height={item.intrinsicHeight}
-                alt={item.label}
-                draggable={false}
-                className="srt-test-item"
-                data-testid="srt-stimulus"
-                style={{ left: `${item.x}%`, top: `${item.y}%`, width: `${ITEM_SIZE}px` }}
+              <button
+                type="button"
+                className="srt-item-hitbox"
+                data-testid="srt-target"
+                data-trial-index={item.trialIndex}
+                aria-label={item.label}
+                style={{ left: `${item.x}%`, top: `${item.y}%`, width: `${Math.round(itemSize * 1.42)}px`, height: `${Math.round(itemSize * 1.42)}px` }}
                 onClick={(event) => handleItemClick(event, item)}
-              />
+              >
+                <img
+                  src={item.img}
+                  width={item.intrinsicWidth}
+                  height={item.intrinsicHeight}
+                  alt={item.label}
+                  draggable={false}
+                  className="srt-test-item"
+                  data-testid="srt-stimulus"
+                  style={{ width: `${itemSize}px` }}
+                />
+              </button>
             )}
 
-            {effect && <div className={`srt-test-effect ${effect.type === "penalty" ? "is-penalty" : ""}`} style={{ left: `${effect.x}%`, top: `${effect.y}%` }} />}
+            <SrtTargetFeedback position={effect} />
           </div>
         </main>
       )}
@@ -1124,9 +1140,7 @@ const TestPage_SRT = () => {
       )}
     </div>
   );
-};
-
-export default TestPage_SRT;
+}
 
 const testPageCss = `
 .srt-test-page {
@@ -1784,12 +1798,31 @@ const testPageCss = `
   100% { opacity: 0; }
 }
 
-.srt-test-item {
+.srt-item-hitbox {
   position: absolute;
+  transform: translate(-50%, -50%);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.srt-test-item {
+  display: block;
   height: auto;
+  max-height: 100%;
   object-fit: contain;
   cursor: pointer;
-  transform: translate(-50%, -50%);
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
@@ -1798,20 +1831,20 @@ const testPageCss = `
   z-index: 2;
   filter: drop-shadow(0 11px 12px rgba(79, 57, 20, 0.24));
   animation: srt-test-item-pop 0.18s ease-out;
-  transition: transform 0.15s ease, filter 0.15s ease;
+  transition: transform 0.1s ease-out;
 }
 
-.srt-test-item:hover {
-  transform: translate(-50%, -50%) scale(1.04);
+.srt-item-hitbox:hover .srt-test-item {
+  transform: scale(1.025);
 }
 
-.srt-test-item:active {
-  transform: translate(-50%, -50%) scale(0.94);
+.srt-item-hitbox:active .srt-test-item {
+  transform: scale(0.97);
 }
 
 @keyframes srt-test-item-pop {
-  from { transform: translate(-50%, -50%) scale(0.72); opacity: 0; }
-  to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  from { transform: scale(0.72); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 .srt-test-effect {
@@ -1825,11 +1858,6 @@ const testPageCss = `
   border: 2px solid rgba(255, 240, 173, 0.8);
   background: rgba(255, 245, 199, 0.12);
   animation: srt-test-effect-pop 0.22s ease-out forwards;
-}
-
-.srt-test-effect.is-penalty {
-  border-color: rgba(232, 157, 141, 0.8);
-  background: rgba(232, 157, 141, 0.12);
 }
 
 @keyframes srt-test-effect-pop {
@@ -1966,45 +1994,6 @@ const testPageCss = `
   filter:
     drop-shadow(0 4px 2px rgba(60, 105, 27, 0.22))
     drop-shadow(0 10px 10px rgba(88, 57, 19, 0.16));
-}
-
-.srt-test-item {
-  filter:
-    drop-shadow(0 14px 13px rgba(54, 38, 15, 0.34))
-    drop-shadow(0 5px 2px rgba(118, 76, 23, 0.18))
-    drop-shadow(0 0 15px rgba(255, 219, 75, 0.62))
-    drop-shadow(0 0 32px rgba(255, 184, 28, 0.34));
-  animation: srt-test-item-pop 0.28s cubic-bezier(0.19, 1.34, 0.32, 1);
-  transition:
-    transform 0.1s ease-out,
-    filter 0.1s ease-out;
-  will-change: transform, filter;
-}
-
-.srt-test-item:hover {
-  transform: translate(-50%, -50%) scale(1.025);
-}
-
-.srt-test-item:active {
-  transform: translate(-50%, -50%) scale(0.97);
-}
-
-@keyframes srt-test-item-pop {
-  0% {
-    transform: translate(-50%, -50%) scale(0.42) rotate(-7deg);
-    opacity: 0;
-    filter:
-      drop-shadow(0 4px 5px rgba(54, 38, 15, 0.18))
-      drop-shadow(0 0 4px rgba(255, 224, 88, 0.12));
-  }
-  68% {
-    transform: translate(-50%, -50%) scale(1.12) rotate(2deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1) rotate(0deg);
-    opacity: 1;
-  }
 }
 
 .srt-image-button {
@@ -2291,9 +2280,6 @@ const testPageCss = `
     height: 76px;
   }
 
-  .srt-test-item {
-    width: ${ITEM_SIZE}px !important;
-  }
 }
 @media (max-width: 720px) {
   .srt-image-button,

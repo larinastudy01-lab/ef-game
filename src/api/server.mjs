@@ -18,9 +18,11 @@ dotenv.config({ path: ".env.rag" });
 const { default: clinicalAssistantHandler } = await import("./clinical-assistant.mjs");
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+// CRA also reads PORT from .env. Keep the API separate while retaining
+// hosting providers' conventional PORT fallback.
+const PORT = process.env.CLINICAL_API_PORT || process.env.PORT || 3001;
 const REQUEST_LIMIT = process.env.CLINICAL_API_REQUEST_LIMIT || "256kb";
-const allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
+const allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS, { apiPort: PORT });
 const authClient = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
   ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -79,6 +81,11 @@ app.use((error, req, res, next) => {
   return next(error);
 });
 
-app.listen(PORT, () => {
-  console.log(`Clinical assistant server running on http://localhost:${PORT}`);
+const server = app.listen(PORT, (error) => {
+  if (error) {
+    console.error(`Clinical assistant server failed to start (${error.code || "unknown"}) on port ${PORT}.`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log(`Clinical assistant server running on http://localhost:${server.address().port}`);
 });

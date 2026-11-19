@@ -54,7 +54,7 @@
 }
 
 .srt-intro-rule .srt-rule-illustration {
-  --srt-rule-size: clamp(78px, 8vw, 96px);
+  --srt-rule-size: calc(clamp(78px, 8vw, 96px) * var(--srt-stimulus-scale, 1));
 }
 
 .srt-intro-rule-go[aria-current="step"] {

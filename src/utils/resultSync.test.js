@@ -1,10 +1,11 @@
 import {
   areResultMirrorsReady, flushResultOutbox, getResultSyncState, queueGameResult, readResultOutbox,
   recoverInterruptedResults, registerLiveAttempt, RESULT_OUTBOX_PREFIX,
-  startResultSync, unregisterLiveAttempt,
+  reportResultStorageFailure, retryResultStorage, startResultSync, unregisterLiveAttempt,
 } from "./resultSync";
 import { getPatientById, saveGameResultToCloud } from "../lib/database";
 import { supabase } from "../lib/supabaseClient";
+import * as testingRuntime from "../temporaryGameTesting/runtime";
 
 jest.mock("../lib/database", () => ({ getPatientById: jest.fn(), saveGameResultToCloud: jest.fn() }));
 jest.mock("../lib/supabaseClient", () => ({
@@ -43,11 +44,109 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  jest.restoreAllMocks();
+  await retryResultStorage();
   await flushResultOutbox();
   stop();
   jest.clearAllTimers();
   jest.restoreAllMocks();
   jest.useRealTimers();
+});
+
+test("a failed durable write retries the original result and clears only its own warning", async () => {
+  online(false);
+  const original = result("retry-quota");
+  const fault = jest.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new DOMException("Full", "QuotaExceededError"); });
+  expect(() => queueGameResult(original)).toThrow("Full");
+  expect(getResultSyncState()).toMatchObject({ storageError: true, storageErrorKind: "quota" });
+  await retryResultStorage();
+  expect(getResultSyncState().storageError).toBe(true);
+  fault.mockRestore();
+  await retryResultStorage();
+  expect(getResultSyncState()).toMatchObject({ storageError: false, pending: 1 });
+  expect(readResultOutbox()[0]).toMatchObject({ ownerId: "owner-a", result: original });
+});
+
+test("a verified upload frees space and automatically retries an unsaved result", async () => {
+  const oldKey = `${RESULT_OUTBOX_PREFIX}free-space-first`;
+  const newKey = `${RESULT_OUTBOX_PREFIX}retry-after-upload`;
+  queueGameResult(result("free-space-first"));
+  const write = Storage.prototype.setItem;
+  jest.spyOn(Storage.prototype, "setItem").mockImplementation(function (key, value) {
+    if (key === newKey && localStorage.getItem(oldKey)) throw new DOMException("Full", "QuotaExceededError");
+    return write.call(this, key, value);
+  });
+  expect(() => queueGameResult(result("retry-after-upload"))).toThrow("Full");
+  await flushResultOutbox();
+  expect(localStorage.getItem(oldKey)).toBeNull();
+  expect(readResultOutbox()[0].result.resultId).toBe("retry-after-upload");
+  expect(getResultSyncState().storageError).toBe(false);
+  await flushResultOutbox();
+  expect(readResultOutbox()).toHaveLength(0);
+  expect(saveGameResultToCloud).toHaveBeenCalledTimes(2);
+});
+
+test("temporary game testing cannot execute real pending storage retries", async () => {
+  const retry = jest.fn();
+  reportResultStorageFailure(new Error("cache unavailable"), { source: "cache:temporary-isolation", retry });
+  const testing = jest.spyOn(testingRuntime, "isTemporaryGameTesting").mockReturnValue(true);
+  await retryResultStorage();
+  expect(retry).not.toHaveBeenCalled();
+  testing.mockRestore();
+  await retryResultStorage();
+  expect(retry).toHaveBeenCalledTimes(1);
+});
+
+test("a successful outbox write cannot hide an outstanding cache failure", async () => {
+  online(false);
+  const retry = jest.fn(() => { throw new DOMException("Full", "QuotaExceededError"); });
+  reportResultStorageFailure(new DOMException("Full", "QuotaExceededError"), { source: "cache:old", retry });
+  queueGameResult(result("new-result"));
+  expect(getResultSyncState()).toMatchObject({ storageError: true, storageErrorSource: "cache:old" });
+  await retryResultStorage();
+  expect(getResultSyncState().storageError).toBe(true);
+  retry.mockImplementation(() => {});
+  await retryResultStorage();
+  expect(getResultSyncState().storageError).toBe(false);
+});
+
+test("a delayed cache retry receives the verified cloud acknowledgement", async () => {
+  const record = result("cache-after-upload");
+  queueGameResult(record);
+  const retry = jest.fn();
+  reportResultStorageFailure(new Error("cache unavailable"), { source: `cache:${record.resultId}`, retry });
+  await flushResultOutbox();
+  await retryResultStorage();
+  expect(retry).toHaveBeenCalledWith({ syncStatus: "synced", syncState: acknowledged(record).syncState });
+  expect(getResultSyncState()).toMatchObject({ storageError: false, pending: 0 });
+});
+
+test("denied lock inspection falls back to heartbeats without reporting a storage failure", async () => {
+  online(false);
+  queueGameResult(result("stale-lock", "in_progress"), { activeTabId: "old-tab" });
+  const key = `${RESULT_OUTBOX_PREFIX}stale-lock`;
+  const entry = JSON.parse(localStorage.getItem(key));
+  localStorage.setItem(key, JSON.stringify({ ...entry, updatedAt: new Date(Date.now() - 120000).toISOString() }));
+  Object.defineProperty(navigator, "locks", { configurable: true, value: {
+    query: jest.fn().mockRejectedValue(new DOMException("Unavailable", "SecurityError")),
+  } });
+  await recoverInterruptedResults();
+  expect(getResultSyncState().storageError).toBe(false);
+  expect(readResultOutbox()[0].result.session.status).toBe("interrupted");
+});
+
+test("cache retries wait for their original account and cannot write into another account", async () => {
+  online(false);
+  const retry = jest.fn();
+  reportResultStorageFailure(new Error("cache unavailable"), { source: "cache:owner-a", retry });
+  authChanged("SIGNED_IN", { user: { id: "owner-b" } });
+  await retryResultStorage();
+  expect(retry).not.toHaveBeenCalled();
+  expect(getResultSyncState().storageError).toBe(false);
+  authChanged("SIGNED_IN", { user: { id: "owner-a" } });
+  await retryResultStorage();
+  expect(retry).toHaveBeenCalledTimes(1);
+  expect(getResultSyncState().storageError).toBe(false);
 });
 
 test("offline records persist; the online event automatically uploads the same ID", async () => {
@@ -308,6 +407,7 @@ test("failed account archival blocks result rendering and retains raw pending da
   authChanged("SIGNED_IN", { user: { id: "owner-a" } });
   expect(areResultMirrorsReady("owner-a")).toBe(true);
   expect(readResultOutbox()[0].ownerId).toBe("owner-a");
+  expect(getResultSyncState().storageError).toBe(false);
 });
 
 test("denied storage reads are reported even after the outbox has drained", async () => {

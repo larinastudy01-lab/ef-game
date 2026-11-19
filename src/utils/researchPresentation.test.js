@@ -1,11 +1,16 @@
 import { buildResearchQualityAlerts, buildResearchTaskContext, researchMean, researchNumber, researchPercent } from "./researchPresentation";
 
-const row = (session, overrides = {}) => ({ participant_id: "anonymous-a", task_code: "CBT", assessment_or_training: "assessment", difficulty: 1,
-  session_started_at: `2026-10-${String(session).padStart(2, "0")}T00:00:00Z`, session_completion_status: "completed", accuracy: .5, rt_mean: 500, rt_variability_ms: 20, ...overrides });
+const row = (session, overrides = {}) => {
+  const result = { participant_id: "anonymous-a", task_code: "CBT", assessment_or_training: "assessment", difficulty: 1,
+    session_started_at: `2026-10-${String(session).padStart(2, "0")}T00:00:00Z`, session_completion_status: "completed", accuracy: .5, rt_mean: 500, rt_variability_ms: 20, ...overrides };
+  result.professionalRecord = { participantId: result.participant_id, gameKey: result.task_code, type: result.assessment_or_training, difficulty: result.difficulty,
+    raw: { status: "completed", protocolVersion: "fixture-v1" }, trials: [{ isCorrect: true, reactionTime: 500 }] };
+  return result;
+};
 
 test("missing and nonnumeric values are never presented as zero", () => {
   [null, undefined, "", " ", false, [], NaN, Infinity].forEach((value) => {
-    expect(researchNumber(value)).toBe("—"); expect(researchPercent(value)).toBe("—");
+    expect(researchNumber(value)).toBe("未記錄"); expect(researchPercent(value)).toBe("未記錄");
   });
   expect(researchNumber(0)).toBe("0.000");
   expect(researchPercent(.8)).toBe("80.0%");
@@ -32,4 +37,9 @@ test("invalid and unfinished observations remain gaps and never generate clinica
   expect(context.rows.every((item) => item.accuracy === null && item.rt_mean === null)).toBe(true);
   expect(buildResearchQualityAlerts(rows).some((item) => item.severity === "critical")).toBe(false);
   expect(buildResearchQualityAlerts(rows).map((item) => item.id)).toEqual(["invalid-values", "incomplete-sessions"]);
+});
+
+test("legacy observations without recorded protocol conditions never produce change estimates", () => {
+  const first = row(1); const second = row(2); delete first.professionalRecord; delete second.professionalRecord;
+  expect(buildResearchTaskContext([first, second], "CBT").metrics[0].absolute_change).toBeNull();
 });

@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import { pipeline, env } from "@huggingface/transformers";
 import { PDFParse } from "pdf-parse";
+import { withDocumentRollback, writeChunkBatches } from "./rag/ingest.mjs";
 
 /* =========================================================
  * 1. 載入環境變數
@@ -44,6 +45,8 @@ const {
    * 0 代表不限數量。
    */
   IMPORT_LIMIT = "239",
+  IMPORT_BATCH_SIZE = "16",
+  IMPORT_EMBEDDING_CONCURRENCY = "4",
 } = process.env;
 
 /* =========================================================
@@ -677,6 +680,7 @@ async function selectNextUnimportedPerCategory(
  * ======================================================= */
 
 async function insertDocument({
+  documentId,
   filePath,
   fileName,
   fileHash,
@@ -691,6 +695,7 @@ async function insertDocument({
   const { data, error } = await supabase
     .from("clinical_knowledge_documents")
     .insert({
+      id: documentId,
       title,
       authors: null,
       publication_year: null,
@@ -733,7 +738,7 @@ async function insertDocument({
   return data.id;
 }
 
-async function insertChunk({
+async function createChunkRow({
   documentId,
   documentTitle,
   chunkIndex,
@@ -754,30 +759,22 @@ async function insertChunk({
     "passage"
   );
 
-  const { error } = await supabase
-    .from("clinical_knowledge_chunks")
-    .insert({
-      document_id: documentId,
-      chunk_index: chunkIndex,
-      content,
+  return {
+    document_id: documentId,
+    chunk_index: chunkIndex,
+    content,
 
-      page_number: null,
-      section_title: null,
+    page_number: null,
+    section_title: null,
 
-      category: metadata.category,
-      game_key: metadata.gameKey,
-      ability: metadata.ability,
-      population: metadata.population,
+    category: metadata.category,
+    game_key: metadata.gameKey,
+    ability: metadata.ability,
+    population: metadata.population,
 
-      token_count: null,
-      embedding,
-    });
-
-  if (error) {
-    throw new Error(
-      `第 ${chunkIndex + 1} 段寫入失敗：${error.message}`
-    );
-  }
+    token_count: null,
+    embedding,
+  };
 }
 
 async function deleteDocument(documentId) {
@@ -896,33 +893,37 @@ async function importPdf(filePath) {
     `共切成：${chunks.length} 段`
   );
 
-  let documentId = null;
+  const documentId = crypto.randomUUID();
 
   try {
-    documentId = await insertDocument({
-      filePath,
-      fileName,
-      fileHash,
-      metadata,
-    });
-
-    for (
-      let index = 0;
-      index < chunks.length;
-      index += 1
-    ) {
-      await insertChunk({
+    await withDocumentRollback({
+      documentId,
+      createDocument: () => insertDocument({
         documentId,
-        documentTitle,
-        chunkIndex: index,
-        content: chunks[index],
+        filePath,
+        fileName,
+        fileHash,
         metadata,
-      });
-
-      console.log(
-        `已匯入 ${index + 1}/${chunks.length}`
-      );
-    }
+      }),
+      writeChunks: () => writeChunkBatches({
+        chunks,
+        batchSize: Number(IMPORT_BATCH_SIZE),
+        embeddingConcurrency: Number(IMPORT_EMBEDDING_CONCURRENCY),
+        createRow: (content, index) => createChunkRow({
+          documentId,
+          documentTitle,
+          chunkIndex: index,
+          content,
+          metadata,
+        }),
+        insertRows: async rows => {
+          const { error } = await supabase.from("clinical_knowledge_chunks").insert(rows);
+          if (error) throw new Error(`段落批次寫入失敗：${error.message}`);
+        },
+        onProgress: (count, total) => console.log(`已匯入 ${count}/${total}`),
+      }),
+      deleteDocument,
+    });
 
     console.log(`完成：${fileName}`);
 
@@ -932,10 +933,6 @@ async function importPdf(filePath) {
       chunkCount: chunks.length,
     };
   } catch (error) {
-    if (documentId) {
-      await deleteDocument(documentId);
-    }
-
     throw new Error(
       `${fileName} 匯入失敗：${error.message}`
     );
@@ -1130,7 +1127,7 @@ async function main() {
     "\n========================================"
   );
 
-  console.log("全部處理完成");
+  console.log(summary.failed > 0 ? "匯入因錯誤中止" : "全部處理完成");
 
   console.log(
     "========================================"
@@ -1163,6 +1160,9 @@ async function main() {
   console.log(
     `其他失敗：${summary.failed} 份`
   );
+  if (summary.failed + summary.parseFailed + summary.insufficientText + summary.noChunks > 0) {
+    process.exitCode = 1;
+  }
 }
 
 main().catch((error) => {

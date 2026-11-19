@@ -95,10 +95,10 @@ test.each([["01", /褲子|襪子/], ["02", /拖鞋|圍巾/]])("DCCS QA copy %s o
   expect(localStorage.getItem("dccsTestLastVersion_temporary-game-tester")).toBe("02");
 });
 
-test.each([["01", "葡萄", "Grape_good.webp"], ["02", "蘋果", "Apple_good.webp"]])(
-  "SRT copy %s retains its fruit and narration from opening through formal assessment", async (version, name, image) => {
+test.each([["01", "葡萄"], ["02", "蘋果"]])(
+  "SRT copy %s uses the SRT opening icon and matching fruit narration", async (version, name) => {
     open(TestPageSRT, "srt", version);
-    expect(screen.getByAltText("本次收集的水果")).toHaveAttribute("src", image);
+    expect(screen.getByAltText("SRT 遊戲圖示")).toHaveAttribute("src", "SRT_icon.webp");
     fireEvent.click(screen.getByRole("button", { name: "進入遊戲" }));
     fireEvent.click(screen.getByRole("button", { name: "跳過動畫" }));
     fireEvent.click(screen.getByRole("button", { name: "通過試玩" }));
@@ -151,6 +151,10 @@ test.each([["01", true], ["01", false], ["02", true], ["02", false]])(
     finishAudio();
   }
   fireEvent.click(screen.getByRole("button", { name: "開始正式評測" }));
+  for (const count of [5, 4, 3, 2, 1]) {
+    expect(screen.getByRole("timer", { name: "準備倒數" })).toHaveTextContent(String(count));
+    advance(1000);
+  }
   expect(mockAttempt.begin).toHaveBeenCalledTimes(1);
   expect(document.querySelector(".cbt-page")).toHaveAttribute("data-test-version", version);
   expect(targets()[lit()].querySelector("img")).toHaveAttribute("src", assessment.shinyImage);
@@ -173,7 +177,10 @@ test.each([["01", true], ["01", false], ["02", true], ["02", false]])(
   expect(targets()[sequence[0]].querySelector("img")).toHaveAttribute("src", assessment.stepImage);
   expect(targets()[second].querySelector("img")).toHaveAttribute("src", assessment.stepImage);
   advance(700);
-  fireEvent.click(screen.getByRole("button", { name: "進入下一題" }));
+  for (const count of [5, 4, 3, 2, 1]) {
+    expect(screen.getByRole("timer", { name: "準備倒數" })).toHaveTextContent(String(count));
+    advance(1000);
+  }
   expect(board()).toHaveAttribute("data-phase", "show");
   expect(board().querySelector(".is-stepped")).toBeNull();
 });

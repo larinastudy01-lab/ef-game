@@ -1,4 +1,6 @@
 import ExcelJS from "exceljs";
+import { INDICATOR_DEFINITIONS } from "../config/professionalIndicators";
+import { compareRecords, describeRecord, recordConditions } from "./professionalMetrics";
 
 // Keep JSON paths intact, including array positions and keys containing dots.
 export function flattenJson(value, path = "$", rows = []) {
@@ -60,6 +62,29 @@ export function createRecordWorkbook({ patientName, age, gender, records, format
   });
   addSheet("逐題紀錄", ["紀錄 ID", "題目索引", "題號", "結果", "反應時間 (ms)", "難度", "實際提醒次數", "PM 可能混淆錯選數", "PM 相近外形錯選數", "PM 同類物品錯選數", "PM 其他錯選數", "每題作答上限 (秒)", "風中相反規則"], trialRows);
   addSheet("原始資料", ["紀錄 ID", "來源", "題目索引", "欄位路徑", "資料型別", "分段", "值"], rawRows);
+  addSheet("分析摘要", ["紀錄 ID", "任務", "完成狀態確認", "資料狀態", "正確題數", "有效題數", "正確率 (%)", "正確有效 RT 平均 (ms)", "RT 標準差 (ms)", "有效 RT 題數", "待確認題次", "任務指標 JSON"], records.map((r) => {
+    const d = describeRecord(r);
+    return [r.id, d.task, d.complete ? "已完成" : "待確認", d.status.label, d.correct, d.total, d.accuracy, d.rtMean, d.rtSd, d.rtN, d.unknownTrials, JSON.stringify(d.specific)];
+  }));
+  addSheet("比較條件", ["紀錄 ID", "任務", "模式", "難度", "施測版本", "計分版本", "題本版本", "作答上限 (ms)", "條件組成"], records.map((r) => {
+    const c = recordConditions(r); return [r.id, c.task, c.mode, c.difficulty, c.protocol, c.scoring, c.form, c.timeLimit, c.composition];
+  }));
+  const comparisons = [];
+  records.forEach((latest, index) => records.slice(0, index).forEach((previous) => {
+    const ordered = [previous, latest].sort((a,b) => new Date(a.date) - new Date(b.date));
+    const c = compareRecords(...ordered);
+    comparisons.push([ordered[0].id, ordered[1].id, c.comparable ? "條件一致" : "暫不判定變化", c.change, c.reasons.join("；")]);
+  }));
+  addSheet("跨次比較", ["前次紀錄 ID", "後次紀錄 ID", "比較狀態", "正確率差 (百分點)", "限制原因"], comparisons);
+  addSheet("指標定義", ["任務", "指標", "說明", "公式", "資料來源", "有效題規則", "適用模式", "限制", "定義類型", "文獻", "驗證狀態"], INDICATOR_DEFINITIONS.filter((d) => records.some((r) => r.gameKey === d.task)).map((d) => [d.task, d.name, d.description, d.formula, d.source, d.validTrialRules, d.applicableMode, d.limitations, d.kind, d.reference?.url, d.validationStatus]));
+  addSheet("方法與限制", ["項目", "說明"], [
+    ["原始資料", "紀錄摘要保留既有儲存欄位；分析摘要為獨立顯示層重算。原始資料及逐題 JSON 路徑完整保留。"],
+    ["缺值", "空白代表未記錄／無法計算，不代表 0；無有效 RT 時不補值。"],
+    ["比較", "任務、模式、難度、施測版本、條件組成須完整且一致；計分、題本與時間上限有差異時也不判定變化。"],
+    ["百分點", "正確率 50% 至 67% 的差為增加 17 個百分點。"],
+    ["效度", "尚無臨床風險分級；無常模、百分等級、整體能力總分或自動難度調整。"],
+    ["來源異常", "重複來源鍵保留於原始資料，暫不納入顯示層指標；不去重、不重編題號、不改寫來源。"],
+  ]);
   if (notes.length) addSheet("比較與判讀", ["序號", "內容"], notes.map((note, index) => [index + 1, note]));
   return workbook;
 }

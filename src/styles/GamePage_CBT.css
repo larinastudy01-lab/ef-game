@@ -285,6 +285,23 @@ video.cbt-video {
   animation: cbt-countdown-pop 0.35s ease-out;
 }
 
+.cbt-ready-countdown-card {
+  width: min(88vw, 760px);
+  max-height: calc(100dvh - 28px);
+  padding: clamp(28px, 4vw, 44px);
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.cbt-ready-countdown {
+  color: #f3a536;
+  font-size: clamp(58px, 8vw, 94px);
+  font-weight: 900;
+  line-height: 1;
+  margin: 8px 0 18px;
+  text-shadow: 0 4px 0 rgba(255, 255, 255, 0.75);
+}
+
 @keyframes cbt-countdown-pop {
   from {
     transform: scale(0.75);
@@ -338,29 +355,6 @@ video.cbt-video {
   cursor: pointer;
   padding: 0;
   transform: translate(-50%, -50%);
-}
-
-/* Correct-answer feedback stays on the lake and shows only the next-step icon. */
-body .game-start-card-artwork.cbt-feedback-card-artwork.cbt-icon-only-feedback {
-  width: 100% !important;
-  min-height: 455px !important;
-  padding: 0 !important;
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  overflow: visible !important;
-}
-
-.cbt-icon-only-feedback > :not(.cbt-feedback-actions):not(.cbt-guided-action),
-.cbt-icon-only-feedback .cbt-feedback-actions > :not(.cbt-guided-action) {
-  display: none !important;
-}
-
-.cbt-icon-only-feedback .cbt-feedback-actions {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
 }
 
 .cbt-block:disabled,

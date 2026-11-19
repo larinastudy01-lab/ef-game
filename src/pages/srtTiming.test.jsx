@@ -56,7 +56,7 @@ test.each(["01", "02"].flatMap((version) => ["ended", "跳過動畫", "下一步
   if (version === "02") localStorage.setItem("srtTestLastVersion_child-srt", "01");
   render(<MemoryRouter><TestPageSRT /></MemoryRouter>);
   localStorage.setItem("srtTestResult_child-srt", JSON.stringify({ score: 42 }));
-  expect(screen.getByAltText("本次收集的水果").getAttribute("src")).toBe(version === "01" ? "Grape_good.webp" : "Apple_good.webp");
+  expect(screen.getByAltText("SRT 遊戲圖示")).toHaveAttribute("src", "SRT_icon.webp");
   fireEvent.click(screen.getByRole("button", { name: "進入遊戲" }));
   expect(screen.getByRole("region", { name: "步驟教學影片" })).toBeInTheDocument();
   const video = screen.getByLabelText("SRT 步驟教學影片");
@@ -166,6 +166,7 @@ test("entry level clears its prompt on click and records assistance without timi
   startTraining("easy-1"); // An existing link uses the new entry level.
   advance(4020);
   fireEvent.click(screen.getByRole("button", { name: "普通橡實" }));
+  expect(document.querySelector(".srt-target-feedback")).toBeInTheDocument();
   expect(screen.queryByAltText("點擊橡實提示")).not.toBeInTheDocument();
   expect(acorn()).toBeNull();
   advance(1020);
@@ -217,14 +218,23 @@ test.each([[0.01, 1000], [0.25, 1500], [0.45, 2000], [0.65, 2500]])(
   }
 );
 
-test.each([[0, 1000], [0.99, 3000]])("assessment random %s uses %sms onsets, independent of hit time", (random, interval) => {
+test.each(["01", "02"].flatMap((version) => [[version, 0, 1000], [version, 0.99, 3000]]))("assessment %s random %s uses %sms onsets, independent of hit time", (version, random, interval) => {
   Math.random.mockReturnValue(random);
+  if (version === "02") localStorage.setItem("srtTestLastVersion_child-srt", "01");
   startTest();
   advance(interval + 20);
-  expect(acorn()).toHaveStyle({ width: "118px" });
+  expect(acorn()).toHaveStyle({ width: "177px" });
+  const target = screen.getByRole("button", { name: version === "01" ? "好葡萄" : "好蘋果" });
+  expect(target).toContainElement(acorn());
+  expect(target).toHaveStyle({ width: "251px", height: "251px" });
   expect(screen.queryByAltText("金色橡實")).not.toBeInTheDocument();
   advance(200);
-  fireEvent.click(acorn());
+  // The padded area around the image accepts the same response as the fruit.
+  fireEvent.click(target);
+  expect(useTestAttempt().checkpoint.mock.calls.at(-1)[0]).toMatchObject({
+    trials: [expect.objectContaining({ action: "hit", itemSizePx: 177, falseClickCount: 0 })],
+    behaviorRecords: [],
+  });
   advance(interval - 240);
   expect(acorn()).toBeNull();
   advance(80);
@@ -256,6 +266,7 @@ test("formal starts alternate 01 → 02 → 01 across visits, while training lea
     for (let index = 0; index < 4; index += 1) {
       advance(3020);
       expect(acorn()).toHaveAttribute("src", index === 3 ? bad : good);
+      expect(acorn()).toHaveStyle({ width: "177px" });
       fireEvent.click(acorn());
     }
     expect(attempt.checkpoint.mock.calls.at(-1)[0].trials.every((trial) => trial.testVersion === version)).toBe(true);

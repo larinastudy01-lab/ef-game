@@ -5,10 +5,11 @@ const createLevel = (key, label, index, { backward = false, colorSwitch = false,
   const numbers = Array.from({ length: 10 }, (_, number) => number + 1);
   if (backward) numbers.reverse();
   const explicitSequence = numbers.map((number) => ({
+    // Preserve existing keys; the first-color artwork is the original yellow sign.
     number, color: colorSwitch ? (number % 2 ? "red" : "blue") : "cream",
   }));
   const iconHint = explicitSequence.slice(0, 4).map(({ number, color }) =>
-    `${colorSwitch ? (color === "red" ? "紅" : "藍") : ""}${number}`).join(" → ") + " → …";
+    `${colorSwitch ? (color === "red" ? "黃" : "藍") : ""}${number}`).join(" → ") + " → …";
   return {
     id: String(index), difficulty: key, difficultyLevel: index, difficultyLabel: label,
     chapter: label, title: `${backward ? "倒序" : "正序"}${colorSwitch ? "與顏色交替" : "門牌"}`,

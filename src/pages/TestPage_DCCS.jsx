@@ -1488,7 +1488,7 @@ function TestPage_DCCS() {
 
             <div className="Dcss-start-content">
               <div className="Dcss-dialog-bubble Dcss-opening-bubble">
-                幫孔雀小姐把衣服放進正確的籃子。
+                按照規則，幫孔雀小姐整理衣服！
               </div>
 
               <div className="Dcss-round-icon Dcss-start-icon">

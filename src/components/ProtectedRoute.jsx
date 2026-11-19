@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import { isSessionExpiredError } from "../lib/authErrors";
 
 const ACCESS_STATE = {
   checking: "checking",
   allowed: "allowed",
   denied: "denied",
 };
+const NO_ROLE_RESTRICTIONS = [];
 
 function normalizeRole(role) {
   return String(role || "").trim().toLowerCase();
@@ -18,14 +20,19 @@ export function isAllowedRole(role, allowedRoles) {
   return allowedRoles.some((allowedRole) => normalizeRole(allowedRole) === normalizedRole);
 }
 
-function ProtectedRoute({ children, allowedRoles = [], redirectTo = "/login" }) {
+function ProtectedRoute({ children, allowedRoles = NO_ROLE_RESTRICTIONS, redirectTo = "/login" }) {
   const location = useLocation();
   const [accessState, setAccessState] = useState(ACCESS_STATE.checking);
+  const [authExpired, setAuthExpired] = useState(false);
 
   useEffect(() => {
     let active = true;
+    let revision = 0;
+    let authTimer;
 
     const validateUser = async (knownUser) => {
+      const request = ++revision;
+      const current = () => active && request === revision;
       try {
         let user = knownUser;
         if (!user) {
@@ -35,12 +42,12 @@ function ProtectedRoute({ children, allowedRoles = [], redirectTo = "/login" }) 
         }
 
         if (!user) {
-          if (active) setAccessState(ACCESS_STATE.denied);
+          if (current()) { setAuthExpired(true); setAccessState(ACCESS_STATE.denied); }
           return;
         }
 
         if (allowedRoles.length === 0) {
-          if (active) setAccessState(ACCESS_STATE.allowed);
+          if (current()) { setAuthExpired(false); setAccessState(ACCESS_STATE.allowed); }
           return;
         }
 
@@ -51,7 +58,8 @@ function ProtectedRoute({ children, allowedRoles = [], redirectTo = "/login" }) 
           .maybeSingle();
 
         if (profileError) throw profileError;
-        if (active) {
+        if (current()) {
+          setAuthExpired(false);
           setAccessState(
             isAllowedRole(profile?.role, allowedRoles)
               ? ACCESS_STATE.allowed
@@ -61,7 +69,7 @@ function ProtectedRoute({ children, allowedRoles = [], redirectTo = "/login" }) 
       } catch (error) {
         // Fail closed: a profile/network error must never reveal a protected page.
         console.warn("Protected route validation failed:", error);
-        if (active) setAccessState(ACCESS_STATE.denied);
+        if (current()) { setAuthExpired(isSessionExpiredError(error)); setAccessState(ACCESS_STATE.denied); }
       }
     };
 
@@ -70,6 +78,9 @@ function ProtectedRoute({ children, allowedRoles = [], redirectTo = "/login" }) 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
       if (event === "SIGNED_OUT") {
+        ++revision;
+        window.clearTimeout(authTimer);
+        setAuthExpired(true);
         setAccessState(ACCESS_STATE.denied);
         return;
       }
@@ -79,11 +90,18 @@ function ProtectedRoute({ children, allowedRoles = [], redirectTo = "/login" }) 
       if (!session?.user) return;
 
       setAccessState(ACCESS_STATE.checking);
-      validateUser(session.user);
+      const scheduled = ++revision;
+      window.clearTimeout(authTimer);
+      // Return from the auth callback before requesting authenticated data.
+      authTimer = window.setTimeout(() => {
+        if (active && scheduled === revision) void validateUser(session.user);
+      }, 0);
     });
 
     return () => {
       active = false;
+      ++revision;
+      window.clearTimeout(authTimer);
       authListener.subscription.unsubscribe();
     };
   }, [allowedRoles]);
@@ -93,7 +111,7 @@ function ProtectedRoute({ children, allowedRoles = [], redirectTo = "/login" }) 
   }
 
   if (accessState === ACCESS_STATE.denied) {
-    return <Navigate to={redirectTo} replace state={{ from: location.pathname }} />;
+    return <Navigate to={redirectTo} replace state={{ from: location.pathname + location.search, authExpired }} />;
   }
 
   // This guard improves navigation UX only. Supabase RLS remains the authority

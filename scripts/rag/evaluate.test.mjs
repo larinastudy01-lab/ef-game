@@ -1,10 +1,26 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createClinicalAssistantHandler, prepareKnowledgeDocuments } from "../../src/api/clinical-assistant.mjs";
+import { createClinicalAssistantHandler, prepareKnowledgeDocuments, resolveRagFilters } from "../../src/api/clinical-assistant.mjs";
 import { knowledge, RAG_SCENARIOS } from "./scenarios.mjs";
 import { evaluateResponse, runScenario, summarize, toCsv } from "./evaluate.mjs";
 
 const find = (id) => RAG_SCENARIOS.find((scenario) => scenario.id === id);
+
+test("dashboard Chinese ability labels resolve to the knowledge importer's exact keys", () => {
+  const expected = {
+    SRT: "reaction_time_processing_speed", PM: "visual_working_memory",
+    CBT: "sequence_spatial_working_memory", ARI: "selective_attention_response_inhibition",
+    DCCS: "cognitive_flexibility_task_switching", LB: "rule_sequence_planning",
+  };
+  for (const [gameKey, ability] of Object.entries(expected)) {
+    const record = { gameKey, ability: "畫面顯示的中文能力標籤" };
+    for (const context of [{ selectedRecord: record }, { latestRecord: record }, { comparison: { first: record } }]) {
+      assert.deepEqual(resolveRagFilters(context), { gameKey, ability });
+    }
+  }
+  assert.deepEqual(resolveRagFilters({ selectedRecord: { gameKey: "COMMON", ability: "一般文獻" } }), { gameKey: "COMMON", ability: null });
+  assert.deepEqual(resolveRagFilters({}), { gameKey: null, ability: null });
+});
 
 test("suite contains 50 unique, ordered scenarios covering all six tasks", () => {
   assert.equal(RAG_SCENARIOS.length, 50);
@@ -91,6 +107,30 @@ for (const status of [401, 429, 503]) {
     assert.doesNotMatch(result.error, /SYNTHETIC_SECRET/);
   });
 }
+
+for (const code of ["credit_balance_exhausted", "insufficient_quota"]) {
+  test(`quota error ${code} explains that API credit must be restored`, async (context) => {
+    context.mock.method(console, "error", () => {});
+    const result = await runScenario(find("RAG-31"), {
+      mode: "model",
+      createResponse: async () => { throw Object.assign(new Error("SYNTHETIC_SECRET"), { status: 429, code }); },
+    });
+    assert.equal(result.statusCode, 429);
+    assert.match(result.error, /額度不足/);
+    assert.doesNotMatch(result.error, /SYNTHETIC_SECRET|請求過多/);
+  });
+}
+
+test("rate limiting continues to suggest retrying instead of billing changes", async (context) => {
+  context.mock.method(console, "error", () => {});
+  const result = await runScenario(find("RAG-31"), {
+    mode: "model",
+    createResponse: async () => { throw Object.assign(new Error("SYNTHETIC_SECRET"), { status: 429, code: "rate_limit_exceeded" }); },
+  });
+  assert.equal(result.statusCode, 429);
+  assert.match(result.error, /請求過多/);
+  assert.doesNotMatch(result.error, /SYNTHETIC_SECRET|額度不足/);
+});
 
 test("missing configuration returns the existing safe API error without calling dependencies", async (context) => {
   context.mock.method(console, "error", () => {});

@@ -16,7 +16,7 @@ import { getNextPMStimulus, recordPMStimulusExposure } from "../utils/pmStimulus
 import { PM_PROTOCOL_VERSION, PM_DIFFICULTY_ORDER, PM_TRAINING_CONFIG,
   PM_ANSWER_TIME_SECONDS, normalizePMDifficulty, getPMShowTime } from "../utils/pmProtocol";
 
-import rabbitAvatar from "../asset/avatar/rabbit.webp";
+import rabbitAvatar from "../asset/PM_icon.webp";
 
 import clickSfx from "../asset/Click.mp3";
 import bgImage from "../asset/PM/PM_background.webp";
@@ -26,7 +26,7 @@ import endingVideo from "../asset/optimized/mp4/PM_end.mp4";
 import mouseGuideImg from "../asset/mouse.webp";
 import homeResultBtn from "../asset/home/result.webp";
 import homeAgainBtn from "../asset/home/again.webp";
-import homeBackBtn from "../asset/return.webp";
+import homeBackBtn from "../asset/home/back.webp";
 import homeSkipBtn from "../asset/home/skip.webp";
 import homeStartBtn from "../asset/home/start.webp";
 import homeNextBtn from "../asset/home/next.webp";
@@ -1039,11 +1039,11 @@ export default function TrainingPage_PM() {
         <div className={["introVideo", "stepVideo", "endingVideo"].includes(phase) ? "test-video-layout" : undefined} style={styles.container}>
           {phase === "rules" && (
             <div className="game-start-card-artwork pm-opening-card-artwork" style={styles.startPanel}>
-              <div style={styles.gameTitle}>圖片記憶任務・{currentConfig.shortLabel}</div>
+              <div style={styles.gameTitle}>兔妹妹的遺失物</div>
 
               <div style={styles.startContent}>
                 <div style={styles.dialogBubble}>
-                  幫兔子妹妹記住湖邊的小物品。
+                  幫兔妹妹找回小物品！
                 </div>
                 <div style={styles.roundIcon}>
                   <img width={512} height={512} loading="lazy" src={rabbitAvatar} alt="兔子妹妹" style={styles.roundIconImage} />

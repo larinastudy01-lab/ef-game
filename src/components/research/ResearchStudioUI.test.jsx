@@ -17,10 +17,10 @@ test("table sorting and searching operate on display copies and retain missing o
   render(<ResearchDataTable title="數值" rows={rows} columns={[{ key: "name", label: "任務" }, { key: "value", label: "數值", numeric: true }]}/>);
   act(() => fireEvent.click(screen.getByRole("button", { name: "數值" })));
   const table = screen.getByRole("region", { name: "數值表格" });
-  expect(within(table).getAllByRole("row").slice(1).map((row) => row.textContent)).toEqual(["ARI3", "CBT20", "PM—"]);
+  expect(within(table).getAllByRole("row").slice(1).map((row) => row.textContent)).toEqual(["ARI3", "CBT20", "PM未記錄"]);
   expect(screen.getByRole("columnheader", { name: "數值" })).toHaveAttribute("aria-sort", "ascending");
   act(() => fireEvent.change(screen.getByRole("searchbox", { name: "數值搜尋" }), { target: { value: "PM" } }));
-  expect(within(table).getAllByRole("row")).toHaveLength(2); expect(table).toHaveTextContent("PM—"); expect(JSON.stringify(rows)).toBe(original);
+  expect(within(table).getAllByRole("row")).toHaveLength(2); expect(table).toHaveTextContent("PM未記錄"); expect(JSON.stringify(rows)).toBe(original);
 });
 
 test("drawer traps keyboard focus, closes with Escape and restores the invoking control", () => {
@@ -45,5 +45,5 @@ test("record details expose the existing trial-level fields without adding value
   act(() => fireEvent.click(screen.getByRole("button", { name: /詳情/ })));
   const dialog = screen.getByRole("dialog", { name: "研究事件詳情" }); expect(dialog).toHaveTextContent("timeout");
   expect(within(dialog).getByRole("region", { name: "題次紀錄表格" })).toHaveTextContent("已排除");
-  expect(within(dialog).getByRole("region", { name: "題次紀錄表格" })).toHaveTextContent("—");
+  expect(within(dialog).getByRole("region", { name: "題次紀錄表格" })).toHaveTextContent("未記錄");
 });

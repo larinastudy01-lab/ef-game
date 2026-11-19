@@ -55,3 +55,19 @@ test("DCCS exports actual mouse counts, time limits and reverse-rule trials", as
   expect(restored.getWorksheet("逐題紀錄").getCell("M2").value).toBe(true);
   expect(restored.getWorksheet("原始資料").getColumn(4).values).toContain('$["windEvents"][0]["timestamp"]');
 });
+
+test("professional export includes definitions and refuses to calculate changes across versions", async () => {
+  const records = [1,2].map((version) => ({ id: `r${version}`, patientId: "p", gameKey: "SRT", type: "test", difficulty: "normal", date: `2026-11-0${version}`,
+    raw: { status: "completed", protocolVersion: `v${version}`, sourceEvidence: [0, false, null] },
+    trials: [{ isCorrect: true, targetType: "normal", action: "hit", reactionTime: 400 }] }));
+  const before = JSON.stringify(records);
+  const workbook = createRecordWorkbook({ patientName: "fixture", age: "未記錄", gender: "未記錄", records, formatDate: (v) => v });
+  const restored = new ExcelJS.Workbook(); await restored.xlsx.load(await workbook.xlsx.writeBuffer());
+  ["分析摘要", "比較條件", "跨次比較", "指標定義", "方法與限制", "逐題紀錄", "原始資料"].forEach((name) => expect(restored.getWorksheet(name)).toBeDefined());
+  const comparison = restored.getWorksheet("跨次比較");
+  expect(comparison.getCell("C2").value).toBe("暫不判定變化");
+  expect(comparison.getCell("D2").value).toBe("");
+  expect(comparison.getCell("E2").value).toContain("施測版本不同");
+  expect(restored.getWorksheet("指標定義").rowCount).toBeGreaterThan(1);
+  expect(JSON.stringify(records)).toBe(before);
+});

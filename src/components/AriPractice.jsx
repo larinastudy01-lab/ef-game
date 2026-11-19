@@ -180,7 +180,7 @@ export default function AriPractice({ assessment, onComplete, onReviewStep }) {
     feedback === "wrong" ? "哎呀！要點另一隻動物！" : canAnswer ? "換你選囉" : "仔細聽一聽";
 
   return (
-    <main className="ari-practice" data-testid="ari-practice" data-state={state} data-can-answer={canAnswer} data-test-version={assessment.testVersion} data-stimulus-set={assessment.stimulusSetId} aria-label="動物聲音試玩">
+    <main className={`ari-practice${solo ? "" : " ari-practice--with-animals"}`} data-testid="ari-practice" data-state={state} data-can-answer={canAnswer} data-test-version={assessment.testVersion} data-stimulus-set={assessment.stimulusSetId} aria-label="動物聲音試玩">
       <h1 className="ari-practice-sr-only">請選擇相反的動物</h1>
       <p className="ari-practice-sr-only" role="status">{message}</p>
       <div className="ari-practice-scene" data-narrator-layout={solo ? "center" : narratorEvent ? "beside" : "animals"}>

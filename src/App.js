@@ -1,3 +1,4 @@
+import { ProfessionalWorkspaceProvider } from "./components/professional/ProfessionalWorkspaceContext";
 import React, {
   lazy,
   startTransition,
@@ -559,7 +560,7 @@ function App() {
       basename={process.env.PUBLIC_URL || undefined}
       future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
-      <AppContent />
+      <ProfessionalWorkspaceProvider><AppContent /></ProfessionalWorkspaceProvider>
     </Router>
   );
 }

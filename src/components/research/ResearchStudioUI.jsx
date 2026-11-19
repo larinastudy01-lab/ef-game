@@ -1,7 +1,9 @@
+import { researchTaskLabel } from "../../utils/professionalLabels";
+import { STATUS_COLORS } from "../../utils/professionalStatus";
 import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { researchDate, researchNumber, researchPercent } from "../../utils/researchPresentation";
 import { assignParticipantLabels, participantLabel, RESEARCH_EVENT_LABELS } from "../../utils/researchStudioPresentation";
-import { researchTaskLabel } from "../../config/researchTasks";
+
 
 const IdentityContext = createContext({});
 export function ResearchIdentityProvider({ participants, children }) {
@@ -26,18 +28,18 @@ const ICONS = {
   check: "M5 12l4 4L20 5", warning: "M12 3L2 21h20z M12 9v5 M12 17v1", calendar: "M4 5h16v16H4z M7 2v6 M17 2v6 M4 10h16",
 };
 export function ResearchIcon({ name, size = 20 }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={ICONS[name] || ICONS.info}/></svg>; }
-export function StatusIndicator({ tone = "info", children }) { return <span className={`studio-status studio-status-${tone}`}><ResearchIcon name={tone === "success" ? "check" : tone === "warning" || tone === "error" ? "warning" : "info"} size={14}/>{children}</span>; }
+export function StatusIndicator({ tone = "info", children }) { return <span className={`studio-status studio-status-${tone}`} style={STATUS_COLORS[tone] || STATUS_COLORS.neutral}><ResearchIcon name={tone === "success" ? "check" : tone === "warning" || tone === "error" ? "warning" : "info"} size={14}/>{children}</span>; }
 export function PageHeader({ eyebrow, title, description, actions }) { return <header className="studio-page-header"><div>{eyebrow && <span className="studio-eyebrow">{eyebrow}</span>}<h2>{title}</h2>{description && <p>{description}</p>}</div>{actions && <div className="studio-actions">{actions}</div>}</header>; }
 export function SectionHeader({ title, description, actions }) { return <div className="studio-section-header"><div><h2>{title}</h2>{description && <p>{description}</p>}</div>{actions && <div className="studio-actions">{actions}</div>}</div>; }
-export function MetricCard({ label, value, detail, icon = "statistics", tone = "blue" }) { return <article className={`studio-metric studio-metric-${tone}`}><div><span>{label}</span><ResearchIcon name={icon}/></div><strong>{value ?? "—"}</strong>{detail && <small>{detail}</small>}</article>; }
-export function ResearchNotice({ children, tone = "info" }) { return <div className={`studio-notice studio-notice-${tone}`}><ResearchIcon name={tone === "warning" || tone === "error" ? "warning" : "info"} size={18}/><div>{children}</div></div>; }
+export function MetricCard({ label, value, detail, icon = "statistics", tone = "blue" }) { return <article className={`studio-metric studio-metric-${tone}`}><div><span>{label}</span><ResearchIcon name={icon}/></div><strong>{value ?? "未記錄"}</strong>{detail && <small>{detail}</small>}</article>; }
+export function ResearchNotice({ children, tone = "info" }) { return <div className={`studio-notice studio-notice-${tone}`} style={STATUS_COLORS[tone] || STATUS_COLORS.neutral}><ResearchIcon name={tone === "warning" || tone === "error" ? "warning" : "info"} size={18}/><div>{children}</div></div>; }
 export function EmptyState({ title = "尚無可用資料", description, action }) { return <div className="studio-empty"><span><ResearchIcon name="statistics" size={28}/></span><h3>{title}</h3>{description && <p>{description}</p>}{action}</div>; }
 export function LoadingState({ label = "正在載入研究資料…" }) { return <div className="studio-loading" role="status"><span>{label}</span><div className="studio-skeleton-grid" aria-hidden="true">{[1, 2, 3, 4].map((item) => <div key={item}/>)}</div><div className="studio-skeleton-chart" aria-hidden="true"/></div>; }
 export function ModelStatusCard({ count, required = 20, result, error, demo = false }) {
-  const status = error ? "發生錯誤" : demo ? "模擬預覽" : result ? "可使用 · 研究模型" : "資料不足";
-  return <section className="studio-card studio-model-status"><SectionHeader title="模型狀態與資料準備度" actions={<StatusIndicator tone={error ? "error" : demo || !result ? "warning" : "success"}>{status}</StatusIndicator>}/>
-    <div className="studio-model-status-grid"><div><strong>{result?.model_name || "觀察模型尚未建置"}</strong><p>{result?.target_definition || "以前 30% 題次預測同任務後 70% 題次的正確率"}</p><small>模型版本：{result?.model_version || "尚未提供"}</small></div><div><label htmlFor="research-model-readiness">真實資料準備度 · 人數條件</label><div className="studio-readiness"><strong>{count}</strong><span>/ {required} 位參與者</span></div><progress id="research-model-readiness" aria-label="模型資料準備進度" value={Math.min(count, required)} max={required}/><small>{count < required ? `尚缺 ${required - count} 位具有預測目標的參與者` : "已達人數門檻；實際可訓練性仍依原本模型流程判定"}。這不是模型準確率。</small></div></div>
-    {demo && <ResearchNotice tone="warning">目前顯示模擬模型；上方進度仍描述真實資料，兩者分開呈現。</ResearchNotice>}{error && <ResearchNotice tone="error">模型分析失敗：{error}</ResearchNotice>}
+  return <section className="studio-card studio-model-status"><SectionHeader title="模型狀態" actions={<StatusIndicator tone={error ? "error" : "info"}>{demo ? "模擬預覽" : result ? "研究模型已擬合" : "尚未建立正式模型"}</StatusIndicator>}/>
+    <div className="studio-model-status-grid"><div><strong>{result?.model_name || "尚未建立正式模型"}</strong><p>可用資料：已授權的任務場次、題次行為與完成狀態；描述性分析不需模型。</p><small>模型版本：{result?.model_version || "不適用（尚未建立）"}</small></div><div><label htmlFor="research-model-readiness">真實資料準備度 · 預測目標有效人數</label><div className="studio-readiness"><strong>{count}</strong><span>/ {required} 位參與者</span></div><progress id="research-model-readiness" aria-label="模型資料準備進度" value={Math.min(count, required)} max={required}/><small>{count < required ? `尚缺 ${required - count} 位具有預測目標的參與者` : "已達人數門檻；實際可訓練性仍依原本模型流程判定"}。這不是模型準確率。</small></div></div>
+    <details><summary>模型資料需求與方法</summary><p>目前專案設定之資料門檻，尚待方法驗證：{required} 位具有同任務前 30% 與後 70% 題次預測目標的參與者。人數條件不是統計充分性或效度證明，尚須檢查資料尺度、分組、獨立性及模型假設。</p><p>模型版本與驗證表現僅在既有流程成功擬合後顯示。分類門檻為研究設定，不代表臨床正常範圍。</p></details>
+    {error && <ResearchNotice tone="error">模型分析失敗：{error}</ResearchNotice>}
   </section>;
 }
 export function ChartContainer({ title, description, count, countLabel = "筆觀察", unit, source, children, empty = false }) { const id = useId(); return <section className="studio-card studio-chart" aria-labelledby={id}><SectionHeader title={<span id={id}>{title}</span>} description={description}/><div className="studio-chart-meta"><span>{count != null ? `${count} ${countLabel}` : "依可用觀察資料"}</span>{unit && <span>單位：{unit}</span>}{source && <span>{source}</span>}</div>{empty ? <EmptyState description="目前範圍沒有可繪製的數值；不會自動補值。"/> : children}</section>; }
@@ -56,7 +58,7 @@ export function ResearchDataTable({ title, columns, rows, getKey, pageSize = 15,
   const pages = Math.max(1, Math.ceil(visible.length / pageSize)); const currentPage = Math.min(page, pages - 1);
   return <div className="studio-data-table"><div className="studio-table-tools">{searchable && <label>搜尋<span className="studio-sr-only">{title}</span><input type="search" aria-label={`${title}搜尋`} placeholder="搜尋資料…" value={query} onChange={(event) => { setQuery(event.target.value); setPage(0); }}/></label>}<span>{visible.length} / {rows.length} 筆</span></div>
     <div className="studio-table-scroll" tabIndex={0} role="region" aria-label={`${title}表格`}><table><caption className="studio-sr-only">{title}</caption><thead><tr>{columns.map((column) => <th key={column.key} scope="col" className={column.numeric ? "numeric" : ""} aria-sort={sort.key === column.key ? sort.direction === 1 ? "ascending" : "descending" : "none"}><button type="button" onClick={() => { setSort((current) => ({ key: column.key, direction: current.key === column.key ? -current.direction : 1 })); setPage(0); }}>{column.label}<span aria-hidden="true">{sort.key === column.key ? sort.direction === 1 ? " ↑" : " ↓" : " ↕"}</span></button></th>)}</tr></thead><tbody>
-      {visible.slice(currentPage * pageSize, (currentPage + 1) * pageSize).map(({ row, index }) => <tr key={getKey ? getKey(row, index) : index}>{columns.map((column) => <td key={column.key} className={column.numeric ? "numeric" : ""}>{column.render ? column.render(row) : row[column.key] ?? "—"}</td>)}</tr>)}
+      {visible.slice(currentPage * pageSize, (currentPage + 1) * pageSize).map(({ row, index }) => <tr key={getKey ? getKey(row, index) : index}>{columns.map((column) => <td key={column.key} className={column.numeric ? "numeric" : ""}>{column.render ? column.render(row) : row[column.key] ?? "未記錄"}</td>)}</tr>)}
       {!visible.length && <tr><td colSpan={columns.length}><EmptyState title="沒有符合條件的資料" description={query ? "請調整搜尋文字。" : "調整分析範圍後再試。"}/></td></tr>}
     </tbody></table></div><div className="studio-pagination"><span>第 {currentPage + 1} / {pages} 頁</span><div><button type="button" aria-label={`${title}上一頁`} disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>上一頁</button><button type="button" aria-label={`${title}下一頁`} disabled={currentPage + 1 >= pages} onClick={() => setPage(currentPage + 1)}>下一頁</button></div></div></div>;
 }
@@ -76,11 +78,11 @@ export function ResearchDrawer({ title, onClose, children }) {
 
 export function TrialDetails({ input }) {
   if (!input) return <EmptyState title="未提供題次資料"/>;
-  const columns = [ { key: "trial_index", label: "題次", numeric: true }, { key: "is_correct", label: "作答", render: (row) => row.is_correct == null ? "—" : row.is_correct ? "正確" : "錯誤" },
+  const columns = [ { key: "trial_index", label: "題次", numeric: true }, { key: "is_correct", label: "作答", render: (row) => row.is_correct == null ? "未記錄" : row.is_correct ? "正確" : "錯誤" },
     ...[["stimulus", "刺激內容"], ["expected_response", "預期作答"], ["actual_response", "實際作答"]].map(([key, label]) => ({ key, label,
-      render: (row) => row[key] == null ? "—" : typeof row[key] === "object" ? JSON.stringify(row[key]) : String(row[key]) })),
+      render: (row) => row[key] == null ? "未記錄" : typeof row[key] === "object" ? JSON.stringify(row[key]) : String(row[key]) })),
     { key: "reaction_time_ms", label: "RT（ms）", numeric: true, render: (row) => researchNumber(row.reaction_time_ms, 1) }, { key: "valid_trial", label: "分析狀態", render: (row) => row.valid_trial === false ? "已排除" : row.valid_trial === true ? "可用" : "未標記" },
-    { key: "exclusion_reasons", label: "排除原因", render: (row) => (row.exclusion_reasons || []).join("、") || "—" },
+    { key: "exclusion_reasons", label: "排除原因", render: (row) => (row.exclusion_reasons || []).join("、") || "不適用（來源未列排除原因）" },
     { key: "details", label: "原始與衍生資料", render: (row) => { const raw = input.rawTrials?.find((item) => item.trial_index === row.trial_index); return <details><summary>檢視資料</summary><pre>{JSON.stringify({ acquisition: raw || null, derivation: row }, null, 2)}</pre></details>; } } ];
   return <ResearchDataTable title="題次紀錄" columns={columns} rows={input.trials || []}/>;
 }

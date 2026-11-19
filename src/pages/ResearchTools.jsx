@@ -31,10 +31,13 @@ export default function ResearchTools() {
 function Workspace({ activeTool, visited }) {
   const data = useResearchWorkspace();
   return <ResearchLayout tools={TOOLS} activeTool={activeTool}>
-    {data.loading ? <LoadingState label="正在載入共用研究資料…"/> : data.error ? <ResearchNotice tone="error"><div role="alert"><h2>資料尚未就緒</h2><p>{data.error}</p><button type="button" onClick={data.refresh}>重試載入</button></div></ResearchNotice>
+    {data.loading ? <LoadingState label="正在載入共用研究資料…"/> : data.error ? <ResearchNotice tone="error"><div role="alert"><h2>資料尚未就緒</h2><p>{data.error}</p>
+      {data.errorDetails && <details><summary>查看錯誤資訊</summary><p>載入步驟：{data.errorDetails.stage}</p><p>錯誤代碼：{data.errorDetails.code}</p><p>{data.errorDetails.message}</p></details>}
+      <button type="button" onClick={data.refresh}>重試載入</button></div></ResearchNotice>
       : TOOLS.map(({ id, Component }) => <section key={id} id={`research-panel-${id}`} role="tabpanel" aria-labelledby={`research-tool-${id}`} hidden={activeTool !== id} className="research-tools-panel">
         {(visited.has(id) || activeTool === id) && <Suspense fallback={<LoadingState label="正在載入分析工具…"/>}><Component/></Suspense>}
       </section>)}
-    {!data.loading && !data.error && !data.inputs.length && <EmptyState title="尚無研究場次" description="資料來源未提供目前可分析的任務紀錄。"/>}
+    {!data.loading && !data.error && !data.inputs.length && <EmptyState title={data.readIssues?.length ? "目前沒有可分析的研究場次" : "尚無研究場次"}
+      description={data.readIssues?.length ? "已讀取到歷史紀錄，但題次來源需要確認。請由資料品質查看待檢查紀錄。" : "資料來源未提供目前可分析的任務紀錄。"}/>}
   </ResearchLayout>;
 }

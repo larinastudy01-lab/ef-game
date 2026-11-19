@@ -1,14 +1,14 @@
 /* Research Studio: presentation tokens, scoped away from game and clinical pages. */
 [data-research-theme].studio-root {
-  --studio-navy: #153f63; --research-blue: #256d93; --research-blue-soft: #eaf2f7;
-  --research-canvas: #f7f9fc; --research-card: #fff; --research-border: #e1e8ef;
-  --research-ink: #203247; --research-muted: #64748b;
-  --studio-success: #3f927e; --studio-success-text: #256c5b; --studio-success-bg: #edf6f2;
-  --studio-warning: #e7a849; --research-warning: #855a17; --research-warning-bg: #fff7e9;
-  --studio-error: #c76a6a; --research-critical: #a84343; --research-critical-bg: #fff1f1;
+  --studio-navy: #163B59; --research-blue: #163B59; --research-blue-soft: #EAF1F6;
+  --research-canvas: #F6F7F4; --research-card: #fff; --research-border: #e1e8ef;
+  --research-ink: #253746; --research-muted: #617080;
+  --studio-success: #246B49; --studio-success-text: #246B49; --studio-success-bg: #E2F1E8;
+  --studio-warning: #98640C; --research-warning: #98640C; --research-warning-bg: #FFF1D7;
+  --studio-error: #AC3633; --research-critical: #AC3633; --research-critical-bg: #F9E2E1;
   --research-chart-observed: #256d93; --research-chart-secondary: #7a67a6;
   --studio-shadow: 0 2px 10px #153f6305; --studio-radius: 12px;
-  font-size: 14px; font-family: "Noto Sans TC","Microsoft JhengHei",sans-serif;
+  font-size: 15px; font-family: "Noto Sans TC","Microsoft JhengHei",sans-serif;
 }
 [data-research-theme="dark"].studio-root {
   --studio-navy: #0f2942; --research-blue: #91c9ed; --research-blue-soft: #213b51;
@@ -30,7 +30,7 @@
 [data-research-theme].studio-root h3 { font-size: 16px; color: var(--research-ink); }
 [data-research-theme].studio-root small { font-size: 12px; }
 [data-research-theme].studio-root { padding: 0; margin: 0; min-height: 100vh; color: var(--research-ink); background: var(--research-canvas); line-height: 1.65; }
-.studio-layout { --sidebar-width: 240px; min-height: 100vh; }
+.studio-layout { --sidebar-width: 248px; min-height: 100vh; }
 .studio-layout.is-collapsed { --sidebar-width: 80px; }
 .studio-desktop-sidebar { position: fixed; inset: 0 auto 0 0; z-index: 40; width: var(--sidebar-width); transition: width 180ms; }
 .studio-sidebar { display: flex; flex-direction: column; height: 100%; padding: 24px 16px; background: var(--studio-navy); color: #f4f8fc; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #66849d var(--studio-navy); }

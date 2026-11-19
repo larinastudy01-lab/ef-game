@@ -29,6 +29,7 @@ import { CBT_TRAINING_CONFIG, CBT_DIFFICULTY_ORDER, normalizeCBTDifficulty,
   createFixedCBTBlocks, createVariableCBTBlocks } from "../utils/cbtProtocol";
 import { CBTEnvironment } from "../components/CBTPhaseCue";
 import CBTAssessmentStage from "../components/CBTAssessmentStage";
+import CBTReadyCountdown from "../components/CBTReadyCountdown";
 import "../styles/TestStepVideo.css";
 
 const GAP_SPEED = 260;
@@ -2359,12 +2360,12 @@ export default function TrainingPage_CBT() {
       <style>{cbtTrainingTouchCss}</style>
 
       {phase === "ready" && (
-        <main className="cbt-start-shell game-start-card-artwork cbt-opening-card-artwork" aria-label="記住跳石橋的密碼幫助鹿先生開始畫面">
-          <h1 className="cbt-start-title">記住跳石橋的密碼幫助鹿先生</h1>
+        <main className="cbt-start-shell game-start-card-artwork cbt-opening-card-artwork" aria-label="鹿先生的小橋開始畫面">
+          <h1 className="cbt-start-title">鹿先生的小橋</h1>
 
           <div className="cbt-start-content">
             <div className="cbt-dialog-bubble">
-              先看完亮燈，聽到提示後再照順序點。
+              記住亮燈順序，再跟著點一點！
             </div>
             <div className="cbt-round-avatar">
               <img src={startAvatar} alt="引導遊戲的小鹿" width="1200" height="1200" decoding="async" draggable="false" />
@@ -2393,9 +2394,11 @@ export default function TrainingPage_CBT() {
         <VideoOnlyPage
           videoSrc={stepVideo}
           stepEndLayout
-          onDone={startTraining}
+          onDone={() => setPhase("readyCountdown")}
         />
       )}
+
+      {phase === "readyCountdown" && <CBTReadyCountdown onComplete={startTraining} />}
 
       {(phase === "show" || phase === "answerCue" || phase === "answer") && (
         <div className="cbt-card cbt-card--wide cbt-test-card cbt-play-card-minimal">
@@ -2425,16 +2428,7 @@ export default function TrainingPage_CBT() {
       )}
 
       {phase === "feedback" && (
-        <div className="cbt-card cbt-card--small game-start-card-artwork cbt-feedback-card-artwork cbt-icon-only-feedback">
-          <GuidedImageButton
-            imgSrc={homeNextBtn}
-            imgAlt="下一題"
-            ariaLabel="進入下一題"
-            onClick={goNextRound}
-            showMouse
-            variant="next"
-          />
-        </div>
+        <CBTReadyCountdown onComplete={goNextRound} />
       )}
 
       {phase === "finish" && (

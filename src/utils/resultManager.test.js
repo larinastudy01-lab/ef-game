@@ -3,7 +3,7 @@ import { queueGameResult, reportResultStorageFailure } from "./resultSync";
 import { awardTrainingCoins } from "./economyManager";
 import { completeActiveRecommendation } from "../analytics/recommendation/onlineRecommendation";
 
-jest.mock("./resultSync", () => ({ queueGameResult: jest.fn(), reportResultStorageFailure: jest.fn() }));
+jest.mock("./resultSync", () => ({ queueGameResult: jest.fn(), reportResultStorageFailure: jest.fn(), reportResultStorageRecovered: jest.fn() }));
 jest.mock("./economyManager", () => ({ awardTrainingCoins: jest.fn(() => ({ awarded: false })) }));
 jest.mock("../analytics/recommendation/onlineRecommendation", () => ({ completeActiveRecommendation: jest.fn().mockResolvedValue(null) }));
 
@@ -93,6 +93,28 @@ test("same raw object without timestamps can be retried without duplicating", ()
   const raw = { score: 0 };
   expect(save(raw).resultId).toBe(save(raw).resultId);
   expect(JSON.parse(localStorage.getItem(ALL_RESULTS_KEY))).toHaveLength(1);
+});
+
+test("retrying a failed display cache restores history without repeating rewards or queuing", () => {
+  const write = Storage.prototype.setItem;
+  const fault = jest.spyOn(Storage.prototype, "setItem").mockImplementation(function (key, value) {
+    if (key.startsWith("result:")) throw new DOMException("Full", "QuotaExceededError");
+    return write.call(this, key, value);
+  });
+  const warning = jest.spyOn(console, "warn").mockImplementation(() => {});
+  try {
+    const saved = save({ finishedAt: "2026-11-01T00:00:00Z", score: 80 });
+    const [, { retry }] = reportResultStorageFailure.mock.calls[0];
+    fault.mockRestore();
+    const newer = save({ finishedAt: "2026-11-02T00:00:00Z", score: 90 });
+    retry({ syncStatus: "synced", syncState: { researchHierarchy: "verified" } });
+    const history = JSON.parse(localStorage.getItem(ALL_RESULTS_KEY));
+    expect(history.map((item) => item.resultId)).toEqual(expect.arrayContaining([saved.resultId, newer.resultId]));
+    expect(history.find((item) => item.resultId === saved.resultId).syncStatus).toBe("synced");
+    expect(JSON.parse(localStorage.getItem("result:DCCS:training")).resultId).toBe(newer.resultId);
+    expect(queueGameResult).toHaveBeenCalledTimes(2);
+    expect(awardTrainingCoins).toHaveBeenCalledTimes(2);
+  } finally { fault.mockRestore(); warning.mockRestore(); }
 });
 
 test("display quota failure reports storage risk after durable queuing instead of hiding it", () => {

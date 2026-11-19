@@ -48,6 +48,15 @@ test("allows a verified clinical profile", async () => {
   assert.deepEqual(req.auth, { userId: "user-1", role: "doctor" });
 });
 
+test("development accepts CRA's rewritten proxy Origin without expanding production origins", () => {
+  const origins = parseAllowedOrigins("", { nodeEnv: "development", apiPort: 3101 });
+  assert.ok(origins.has("http://localhost:3000"));
+  assert.ok(origins.has("http://localhost:3101"));
+  assert.ok(origins.has("http://127.0.0.1:3101"));
+  assert.ok(!origins.has("https://untrusted.example"));
+  assert.deepEqual([...parseAllowedOrigins("https://production.example", { nodeEnv: "production", apiPort: 3101 })], ["https://production.example"]);
+});
+
 test("rejects an authenticated non-clinical profile", async () => {
   const query = {
     select() { return this; }, eq() { return this; },

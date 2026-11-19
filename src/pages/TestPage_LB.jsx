@@ -838,9 +838,9 @@ function TestPageLB() {
         <LBResetStyle />
         <main className="lb-center-shell lb-start-shell">
           <section className="lb-soft-panel lb-start-panel game-start-card-artwork lb-opening-card-artwork" aria-label="LB 測驗開始">
-            <h1 className="lb-game-title">幫助迷路的綿羊奶奶</h1>
+            <h1 className="lb-game-title">綿羊奶奶回家</h1>
             <div className="lb-start-content">
-              <div className="lb-dialog-bubble">幫綿羊奶奶照順序找到門牌，一起走回家。</div>
+              <div className="lb-dialog-bubble">按照順序找門牌，送奶奶回家！</div>
               <div className="lb-round-icon lb-start-avatar">
                 <img width={1024} height={1024} loading="lazy" src={lbIconImg} alt="LB 遊戲圖示" />
               </div>

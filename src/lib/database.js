@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import { isSessionExpiredError } from "./authErrors";
 import { buildBehavioralHierarchy } from "../analytics/trials/buildBehavioralHierarchy";
 import {
   syncGameResult, normalizedStoredResult, prepareBehavioralHierarchy,
@@ -372,9 +373,9 @@ export const getAssignedPatientsForClinician = async () => {
   return data || [];
 };
 
-export const getResearchFeatureInputsFromCloud = async () => {
+export const getResearchFeatureInputsFromCloud = async ({ includeDiagnostics = false } = {}) => {
   const user = await getCurrentUser();
-  if (!user) return [];
+  if (!user) return includeDiagnostics ? { inputs: [], issues: [] } : [];
   const profile = await getMyProfile();
   const role = String(profile?.role || "").toLowerCase();
   if (!["clinician", "medical", "doctor"].includes(role)) {
@@ -439,43 +440,74 @@ export const getResearchFeatureInputsFromCloud = async () => {
     supabase.from("research_participants").select("id, patient_id"),
   ]);
 
+  if (isSessionExpiredError(error)) throw error;
+  if (isSessionExpiredError(resultError)) throw resultError;
   if (error && resultError) {
-    throw new Error(`研究資料與遊戲結果皆無法讀取：${error.message}; ${resultError.message}`);
+    throw Object.assign(new Error(`研究資料與遊戲結果皆無法讀取：${error.message}; ${resultError.message}`), { code: resultError.code || error.code });
   }
 
   const participantByPatient = new Map(
     (participantRows || []).map((row) => [String(row.patient_id), row.id])
   );
   const inputs = [...behavioralInputs];
+  const issues = [];
+  const quarantinedInputs = new Set();
   (resultRows || []).forEach((row) => {
-    const normalized = normalizedStoredResult(row);
-    const index = inputs.findIndex((input) => input.sourceResultId === row.id
-      || input.sessionId === normalized.behavioral?.sessionId);
-    const existing = index >= 0 ? inputs[index] : null;
-    const hierarchy = buildBehavioralHierarchy({ ...normalized, behavioral: {
-      ...normalized.behavioral,
-      ...(existing ? { sessionId: existing.sessionId, taskSessionId: existing.taskSession.id } : {}),
-    } });
-    const complete = existing && existing.rawTrials.length === hierarchy.trials.length
-      && existing.trials.length === hierarchy.trials.length;
-    // LB/PM are re-derived IN MEMORY from preserved source data with the new
-    // processing version. Other complete task datasets remain unchanged.
-    if (complete && !["LB", "PM"].includes(hierarchy.taskSession.taskCode)) {
-      // Same counts alone are not proof: also compare the acquired contents.
-      researchInputFromHierarchy(hierarchy, existing.participantId, existing.rawTrials);
-      return;
+    let existing = inputs.find((input) => input.sourceResultId === row.id);
+    try {
+      const normalized = normalizedStoredResult(row);
+      // Read-only presentation metadata. Do not infer missing versions or change
+      // acquisition/feature rows; only carry recorded task settings to the UI.
+      const raw = normalized.rawResult || {};
+      const presentationMetadata = Object.fromEntries(["protocolVersion", "taskVersion", "testVersion", "formVersion", "scoringVersion", "stimulusSetId", "stimulusAnimals", "stimulusAnimalLabels", "taskRule", "totalSteps", "completedSteps", "stopReason", "finishReason"]
+        .filter((key) => raw[key] !== undefined).map((key) => [key, raw[key]]));
+      if (raw.protocol && typeof raw.protocol === "object") presentationMetadata.protocol = Object.fromEntries(
+        ["version", "testVersion", "stimulusSetId", "taskVersion", "totalTrials", "answerTimeLimit", "answerTimeLimitMs", "preSoundDelay", "allowReplay", "visibleTimeMs", "intervalDefinition", "stimulusIntervalsMs", "targetToNonTargetRatio", "normalRate", "rottenRate", "stoneCount"]
+          .filter((key) => raw.protocol[key] !== undefined).map((key) => [key, raw.protocol[key]]));
+      if (Array.isArray(raw.stageRecords)) presentationMetadata.stageRecords = raw.stageRecords.filter((stage) => stage && typeof stage === "object").map((stage) => Object.fromEntries(
+        ["stageId", "stageTitle", "completedSteps", "totalSteps"].filter((key) => stage[key] !== undefined).map((key) => [key, stage[key]])));
+      const index = inputs.findIndex((input) => input.sourceResultId === row.id
+        || input.sessionId === normalized.behavioral?.sessionId);
+      existing = index >= 0 ? inputs[index] : null;
+      const hierarchy = buildBehavioralHierarchy({ ...normalized, behavioral: {
+        ...normalized.behavioral,
+        ...(existing ? { sessionId: existing.sessionId, taskSessionId: existing.taskSession.id } : {}),
+      } });
+      const complete = existing && existing.rawTrials.length === hierarchy.trials.length
+        && existing.trials.length === hierarchy.trials.length;
+      // LB/PM are re-derived IN MEMORY from preserved source data with the new
+      // processing version. Other complete task datasets remain unchanged.
+      if (complete && !["LB", "PM"].includes(hierarchy.taskSession.taskCode)) {
+        // Same counts alone are not proof: also compare the acquired contents.
+        researchInputFromHierarchy(hierarchy, existing.participantId, existing.rawTrials);
+        existing.presentationMetadata = presentationMetadata;
+        return;
+      }
+      const participantId = existing?.participantId || participantByPatient.get(String(row.patient_id)) || "patient-" + row.patient_id;
+      const restored = researchInputFromHierarchy(hierarchy, participantId, existing?.rawTrials || []);
+      restored.sourceResultId = row.id;
+      restored.presentationMetadata = presentationMetadata;
+      restored.researchReadStatus = "reconstructed_from_main_payload";
+      if (existing) inputs[index] = restored;
+      else inputs.push(restored);
+    } catch (readError) {
+      // A legacy planned-step key can represent several distinct operations.
+      // Keep that acquisition out of analysis without changing its raw source,
+      // renumbering it, or making every other participant's data unavailable.
+      if (!String(readError?.message || "").startsWith("Behavioral integrity: ")) throw readError;
+      if (existing) quarantinedInputs.add(existing);
+      const duplicate = readError.message.includes("duplicate source key");
+      issues.push({ resultId: row.id, gameId: row.game_id, mode: row.mode,
+        code: duplicate ? "DUPLICATE_SOURCE_KEY" : "BEHAVIORAL_INTEGRITY",
+        message: duplicate ? "同一題次來源鍵對應多筆操作，需確認歷史題次定義。" : "原始資料與研究階層尚未通過一致性校驗。" });
     }
-    const participantId = existing?.participantId || participantByPatient.get(String(row.patient_id)) || "patient-" + row.patient_id;
-    const restored = researchInputFromHierarchy(hierarchy, participantId, existing?.rawTrials || []);
-    restored.researchReadStatus = "reconstructed_from_main_payload";
-    if (existing) inputs[index] = restored;
-    else inputs.push(restored);
   });
-  if (resultError && inputs.some((input) => input.taskSession.total_trials !== input.rawTrials.length
+  const readableInputs = inputs.filter((input) => !quarantinedInputs.has(input));
+  if (resultError && readableInputs.some((input) => input.taskSession.total_trials !== input.rawTrials.length
     || input.trials.length !== input.rawTrials.length)) {
     throw new Error("Research hierarchy is incomplete and its main-result source cannot be read.");
   }
-  return inputs;
+  return includeDiagnostics ? { inputs: readableInputs, issues } : readableInputs;
 };
 
 export const getResearchExperimentHistory = async (limit = 100) => {

@@ -70,18 +70,33 @@ function answer(sequence) {
   advance(650);
 }
 
+function finishCountdown() {
+  expect(board()).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "進入下一題" })).not.toBeInTheDocument();
+  for (const count of [5, 4, 3, 2, 1]) {
+    expect(screen.getByRole("timer", { name: "準備倒數" })).toHaveTextContent(String(count));
+    advance(1000);
+  }
+  expect(screen.queryByRole("timer")).not.toBeInTheDocument();
+}
+
 function startTraining(difficulty) {
   renderPage(<TrainingPageCBT />, `/training-cbt?difficulty=${difficulty}`);
+  expect(screen.getByRole("heading", { name: "鹿先生的小橋" })).toBeInTheDocument();
+  expect(screen.getByText("記住亮燈順序，再跟著點一點！")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "開始練習" }));
   fireEvent.click(screen.getByRole("button", { name: "跳過動畫" }));
   expect(screen.queryByText(/先看完亮燈.*再.*點石頭/)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "跳過動畫" }));
   expect(screen.queryByTestId("cbt-practice")).not.toBeInTheDocument();
+  finishCountdown();
   expect(board()).toHaveAttribute("data-phase", "show");
 }
 
 function startAssessment() {
   renderPage(<TestPageCBT />, "/test-cbt");
+  expect(screen.getByRole("heading", { name: "鹿先生的小橋" })).toBeInTheDocument();
+  expect(screen.getByText("記住亮燈順序，再跟著點一點！")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "開始遊戲" }));
   expect(document.querySelector("video")).toHaveAttribute("src", "CBT_step.mp4");
   expect(screen.queryByText(/看完再點/)).toBeNull();
@@ -90,6 +105,8 @@ function startAssessment() {
   expect(attempt.begin).not.toHaveBeenCalled();
   expect(attempt.checkpoint).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "開始正式評測" }));
+  expect(attempt.begin).not.toHaveBeenCalled();
+  finishCountdown();
   expect(board()).toHaveAttribute("data-phase", "show");
   expect(screen.queryByText("準備")).toBeNull();
 }
@@ -114,7 +131,7 @@ function passPractice() {
 }
 
 function nextTrainingRound() {
-  fireEvent.click(screen.getByRole("button", { name: "進入下一題" }));
+  finishCountdown();
 }
 
 function finishAfterTwoTrainingTimeouts(showMilliseconds) {
@@ -139,7 +156,7 @@ test("assessment keeps all nine stone positions fixed and reaches at most seven 
     const sequence = playSequence(800);
     lengths.push(sequence.length);
     answer(sequence);
-    if (question < 11) fireEvent.click(screen.getByRole("button", { name: "進入下一題" }));
+    if (question < 11) finishCountdown();
   }
   expect(lengths).toEqual([2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7]);
   advance(2000);
@@ -281,7 +298,7 @@ test("entry training reveals the correct second target after an error and lets t
   expect(screen.getByTestId("cbt-answer-hint")).toBeInTheDocument();
   fireEvent.click(stones()[sequence[1]]);
   advance(260);
-  expect(screen.getByRole("button", { name: "進入下一題" })).toBeInTheDocument();
+  expect(screen.getByRole("timer", { name: "準備倒數" })).toHaveTextContent("5");
 });
 
 test("training ends an unanswered trial at fifteen seconds even during a walking animation", () => {
@@ -292,9 +309,9 @@ test("training ends an unanswered trial at fifteen seconds even during a walking
   advance(99);
   expect(board()).toHaveAttribute("data-phase", "answer");
   advance(1);
-  expect(screen.getByRole("button", { name: "進入下一題" })).toBeInTheDocument();
+  expect(screen.getByRole("timer", { name: "準備倒數" })).toHaveTextContent("5");
   advance(260);
-  expect(screen.getByRole("button", { name: "進入下一題" })).toBeInTheDocument();
+  expect(screen.getByRole("timer", { name: "準備倒數" })).toHaveTextContent("5");
 });
 
 test("training timeout records the full fifteen seconds after an accepted early step", () => {

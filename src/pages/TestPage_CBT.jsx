@@ -30,6 +30,7 @@ import { getRecommendedDifficulty } from "../ai/aiDifficultyEngine";
 import { detectCBTErrorPattern } from "../ai/cbtTrainingAnalyzer";
 import { CBT_PROTOCOL_VERSION, CBT_ANSWER_TIME_SECONDS, CBT_MAX_SEQUENCE_LENGTH, CBT_MAX_STONES, createFixedCBTBlocks } from "../utils/cbtProtocol";
 import CBTAssessmentStage from "../components/CBTAssessmentStage";
+import CBTReadyCountdown from "../components/CBTReadyCountdown";
 import CBTPractice from "../components/CBTPractice";
 import { CBT_ASSESSMENT_LAYOUT, createCBTAssessmentBlocks } from "../utils/cbtAssessmentLayout";
 import { CBT_ASSESSMENT_VERSIONS } from "../config/cbtAssessmentConfig";
@@ -1921,11 +1922,11 @@ export default function TestPage_CBT() {
       <style>{cbtSrtLikeCss}</style>
 
       {phase === "story" && (
-        <main className="cbt-start-shell game-start-card-artwork cbt-opening-card-artwork" aria-label="記住跳石橋的密碼幫助鹿先生測驗開始畫面">
-          <h1 className="cbt-start-title">記住跳石橋的密碼幫助鹿先生</h1>
+        <main className="cbt-start-shell game-start-card-artwork cbt-opening-card-artwork" aria-label="鹿先生的小橋測驗開始畫面">
+          <h1 className="cbt-start-title">鹿先生的小橋</h1>
 
           <div className="cbt-start-content">
-            <div className="cbt-dialog-bubble">幫小鹿記住{assessment?.stimulusName || "石頭"}亮起的路線。</div>
+            <div className="cbt-dialog-bubble">記住亮燈順序，再跟著點一點！</div>
             <div className="cbt-round-avatar">
               <img src={startAvatar} alt="引導遊戲的小鹿" width="1200" height="1200" decoding="async" draggable="false" />
             </div>
@@ -1949,9 +1950,10 @@ export default function TestPage_CBT() {
       )}
 
       {phase === "practice" && (
-        <CBTPractice Board={CBTBoard} blocks={practiceBlocks} onComplete={startFormalTest} assessment={assessment} />
+        <CBTPractice Board={CBTBoard} blocks={practiceBlocks} onComplete={() => setPhase("readyCountdown")} assessment={assessment} />
       )}
 
+      {phase === "readyCountdown" && <CBTReadyCountdown onComplete={startFormalTest} />}
 
       {(phase === "show" || phase === "answerCue" || phase === "answer") && (
         <div className="cbt-card cbt-card--wide cbt-test-card">
@@ -1984,15 +1986,7 @@ export default function TestPage_CBT() {
       )}
 
       {phase === "next" && (
-        <div className="cbt-card cbt-card--small game-start-card-artwork cbt-feedback-card-artwork cbt-icon-only-feedback">
-          <GuidedImageButton
-            imgSrc={homeNextBtn}
-            imgAlt="下一題"
-            ariaLabel="進入下一題"
-            onClick={() => startQuestion(questionIndex + 1)}
-            variant="next"
-          />
-        </div>
+        <CBTReadyCountdown onComplete={() => startQuestion(questionIndex + 1)} />
       )}
 
       {phase === "result" && (

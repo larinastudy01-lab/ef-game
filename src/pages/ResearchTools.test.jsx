@@ -18,7 +18,7 @@ jest.mock("recharts", () => {
 });
 
 const inputs = ["a", "b"].flatMap((participantId) => ["CBT", "ARI", "PM"].flatMap((task_code) => [1, 2].map((day) => ({
-  participantId, sessionId: `${participantId}-${day}`, taskSession: { id: `${participantId}-${task_code}-${day}`, task_code, difficulty: 1, completion_status: "completed" },
+  participantId, sessionId: `${participantId}-${day}`, taskSession: { id: `${participantId}-${task_code}-${day}`, task_code, difficulty: 1, raw_data: { protocolVersion: "fixture-v1" }, completion_status: "completed" },
   sessionMetadata: { assessment_or_training: "assessment", session_started_at: `2026-10-0${day}T00:00:00Z` },
   trials: [1, 2, 3, 4].map((trial_index) => ({ trial_index, is_correct: trial_index <= day, reaction_time_ms: 500 + trial_index, valid_trial: true })),
 }))));
@@ -41,14 +41,14 @@ test("five tools share a single main, dataset, theme, and current task catalog",
   expect(screen.getAllByRole("tab")).toHaveLength(5);
   expect(screen.getAllByRole("button", { name: "暗色模式" })).toHaveLength(1);
   const options = within(screen.getByRole("region", { name: "共用分析範圍" })).getByRole("combobox", { name: "任務" }).textContent;
-  expect(options).toContain("貓狗反向（ARI）"); expect(options).not.toMatch(/DPT|SSG|SSS|點探測/);
+  expect(options).toContain("動物聲音辨識（ARI）"); expect(options).not.toMatch(/DPT|SSG|SSS|點探測/);
   expect(screen.getByText(/已排除 3 筆非現行任務紀錄/)).toBeInTheDocument();
   await act(async () => fireEvent.click(screen.getByRole("button", { name: "暗色模式" })));
   await choose("任務", "ARI");
   for (const name of ["研究統計", "AI 行為分析", "自適應建議", "縱向追蹤", "研究總覽"]) await tab(name);
   expect(screen.getByRole("main")).toHaveAttribute("data-research-theme", "dark");
   expect(screen.getByRole("combobox", { name: "任務" })).toHaveValue("ARI");
-  expect(screen.getByRole("region", { name: "資料摘要" })).toHaveTextContent("貓狗反向（ARI）");
+  expect(screen.getByRole("region", { name: "資料摘要" })).toHaveTextContent("動物聲音辨識（ARI）");
   expect(container.textContent).not.toMatch(/DPT|SSG|SSS|點探測|removed-policy/);
   expect(getMyProfile).toHaveBeenCalledTimes(1); expect(getResearchFeatureInputsFromCloud).toHaveBeenCalledTimes(1);
   expect(loadRecommendationHistory).toHaveBeenCalledTimes(1); expect(getResearchExperimentHistory).toHaveBeenCalledTimes(1);
@@ -79,7 +79,7 @@ test("sidebar uses the game logo and provides six game guides when expanded or c
   expect(screen.queryByRole("button", { name: "開啟既有設定" })).not.toBeInTheDocument();
   const guide = screen.getByRole("region", { name: "遊戲規則與收集資料" });
   expect(guide.querySelectorAll(":scope > details")).toHaveLength(6);
-  expect(guide).toHaveTextContent("石頭記憶CBT");
+  expect(guide).toHaveTextContent("跳石橋CBT");
   expect(guide).toHaveTextContent("Corsi Block Tapping");
   expect(guide).toHaveTextContent("代碼來源");
   expect(guide).toHaveTextContent("主要測驗規則");
@@ -122,4 +122,30 @@ test("an unavailable primary source exposes a retry instead of an empty analysis
   await act(async () => fireEvent.click(screen.getByRole("button", { name: "重新整理資料" })));
   expect(screen.queryByRole("alert")).not.toBeInTheDocument(); expect(screen.getByRole("tabpanel")).toBeInTheDocument();
   expect(getResearchFeatureInputsFromCloud).toHaveBeenCalledTimes(2);
+});
+
+test("quarantined historical results leave healthy research usable and appear in quality details", async () => {
+  getResearchFeatureInputsFromCloud.mockResolvedValueOnce({ inputs, issues: [{
+    resultId: "legacy-lb-operations", gameId: "LB", mode: "training", code: "DUPLICATE_SOURCE_KEY",
+    message: "同一題次來源鍵對應多筆操作，需確認歷史題次定義。",
+  }] });
+  await renderWorkspace();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByRole("tabpanel")).toBeInTheDocument();
+  expect(screen.getByText(/有 1 筆歷史紀錄未通過題次來源校驗/)).toBeInTheDocument();
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "開啟資料品質詳情" })));
+  const quality = screen.getByRole("dialog", { name: "資料品質詳情" });
+  expect(quality).toHaveTextContent("legacy-lb-operations");
+  expect(quality).toHaveTextContent("同一題次來源鍵對應多筆操作");
+  expect(quality).toHaveTextContent("訓練");
+});
+
+test("a dataset consisting entirely of quarantined records is not reported as missing history", async () => {
+  getResearchFeatureInputsFromCloud.mockResolvedValueOnce({ inputs: [], issues: [{
+    resultId: "legacy-only", gameId: "LB", mode: "training", code: "DUPLICATE_SOURCE_KEY", message: "同一題次來源鍵對應多筆操作。",
+  }] });
+  await renderWorkspace();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByText("目前沒有可分析的研究場次")).toBeInTheDocument();
+  expect(screen.getByText(/已讀取到歷史紀錄，但題次來源需要確認/)).toBeInTheDocument();
 });

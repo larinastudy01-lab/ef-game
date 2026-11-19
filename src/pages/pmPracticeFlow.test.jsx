@@ -192,7 +192,7 @@ test("every practice narration has a chicken; only the scene without question pi
   expect(screen.getByRole("button", { name: "進入正式評測" })).toBeEnabled();
 });
 
-test("STEP goes straight to practice; one start click after passing begins the formal assessment directly", () => {
+test("STEP goes straight to practice; one start click after passing begins the formal five-second countdown", () => {
   render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><TestPagePM /></MemoryRouter>);
   fireEvent.click(screen.getByRole("button", { name: "進入遊戲" }));
   fireEvent.ended(document.querySelector("video"));
@@ -202,9 +202,13 @@ test("STEP goes straight to practice; one start click after passing begins the f
   expect(attempt.checkpoint).not.toHaveBeenCalled();
   endAudio();
   fireEvent.click(screen.getByRole("button", { name: "進入正式評測" }));
-  expect(screen.getByTestId("pm-stage")).toHaveAttribute("data-phase", "memorize");
+  expect(screen.getByTestId("pm-stage")).toHaveAttribute("data-phase", "readyCountdown");
+  expect(screen.getByRole("timer", { name: "準備倒數" })).toHaveTextContent("5");
   expect(attempt.begin).toHaveBeenCalledTimes(1);
   expect(screen.getByTestId("pm-stage")).toHaveAttribute("data-memory-count", "2");
   expect(screen.queryByTestId("pm-practice")).not.toBeInTheDocument();
   expect(recordings.every((audio) => audio.onended === null)).toBe(true);
+  for (let second = 0; second < 5; second += 1) advance(1000);
+  expect(screen.getByTestId("pm-stage")).toHaveAttribute("data-phase", "memorize");
+  expect(attempt.begin).toHaveBeenCalledTimes(1);
 });

@@ -1,11 +1,12 @@
-export const DCCS_TRAINING_PROTOCOL_VERSION = "dccs-training-5-levels-v1";
+export const DCCS_TRAINING_PROTOCOL_VERSION = "dccs-training-5-levels-v2";
 export const DCCS_DIFFICULTY_ORDER = Object.freeze(["beginner", "easy", "medium", "hard", "expert"]);
 
 const level = (id, label, ruleSequence, totalTrials, hints, extra = {}) => Object.freeze({
   id, label, title: label, ruleSequence: Object.freeze(ruleSequence), totalTrials,
   hintPolicy: hints ? "idle" : "none", hintDelayMs: hints ? 3000 : null,
   answerTimeLimitMs: hints ? 15000 : 10000,
-  showSwitchGuide: ruleSequence.includes("type"), showBagGuide: ruleSequence.includes("dualRule"),
+  showSwitchGuide: ruleSequence.includes("type"),
+  showBagGuide: ruleSequence.includes("bagColor") || ruleSequence.includes("dualRule"),
   feedbackMode: hints ? "guided" : "resultOnly", interferenceRate: 0.5, bagInterferenceRate: 0.5,
   category: id === "beginner" ? "singleRule" : id === "expert" ? "interference" : "switch",
   focus: id === "beginner" ? "colorRule" : id === "expert" ? "inhibition" : "ruleSwitch",
@@ -21,20 +22,20 @@ export const DCCS_TRAINING_CONFIG = Object.freeze({
     switchPoint: 4, description: "先按照衣服顏色，再按照衣服種類分類。",
     childGoal: "練習顏色與種類切換", parentGoal: "觀察顏色轉換至種類的表現",
   }),
-  medium: level("medium", "中等", ["color", "type", "dualRule"], 12, true, {
+  medium: level("medium", "中等", ["color", "type", "bagColor"], 12, true, {
     firstSwitchPoint: 4, secondSwitchPoint: 8,
-    description: "先看顏色，再看種類，最後依裝袋線索分類。",
+    description: "先看顏色，再看種類，最後只看透明袋裡衣服的顏色分類。",
     childGoal: "練習裝袋規則", parentGoal: "觀察多階段規則切換與提示需求",
   }),
-  hard: level("hard", "難", ["color", "type", "dualRule"], 12, false, {
+  hard: level("hard", "難", ["color", "type", "bagColor"], 12, false, {
     firstSwitchPoint: 4, secondSwitchPoint: 8,
-    description: "先看顏色，再看種類，最後依裝袋線索分類，每題 10 秒。",
+    description: "先看顏色，再看種類，最後只看透明袋裡衣服的顏色分類，每題 10 秒。",
     childGoal: "獨立完成分類", parentGoal: "觀察無提示下的規則切換",
   }),
-  expert: level("expert", "專業", ["color", "type", "dualRule"], 15, false, {
+  expert: level("expert", "專業", ["color", "type", "bagColor"], 15, false, {
     firstSwitchPoint: 5, secondSwitchPoint: 10, windEnabled: true,
-    windCalmMs: 6000, windDurationMs: 6000,
-    description: "風來時選相反的分類箱，風停後恢復原本規則，每題 10 秒。",
+    windCalmMs: 6000, windEndPolicy: "trial_end",
+    description: "最後階段只出裝袋題；風來時當題選相反分類箱，該題結束就停風，每題 10 秒。",
     childGoal: "跟著風切換正反規則", parentGoal: "觀察反向規則的切換與恢復",
   }),
 });
@@ -73,7 +74,10 @@ export function getDccsTrainingCorrectPosition(trial, windActive = false) {
 
 export function getDccsWindState(elapsedMs, config = DCCS_TRAINING_CONFIG.expert) {
   if (!config.windEnabled) return { active: false, nextChangeMs: null };
-  const offset = Math.max(0, elapsedMs) % (config.windCalmMs + config.windDurationMs);
-  const active = offset >= config.windCalmMs;
-  return { active, nextChangeMs: (active ? config.windCalmMs + config.windDurationMs : config.windCalmMs) - offset };
+  // The caller resets elapsed time when the affected trial ends. Wind has no
+  // timed expiry and cannot carry over to another trial.
+  const remainingMs = config.windCalmMs - Math.max(0, elapsedMs);
+  return remainingMs > 0
+    ? { active: false, nextChangeMs: remainingMs }
+    : { active: true, nextChangeMs: null };
 }

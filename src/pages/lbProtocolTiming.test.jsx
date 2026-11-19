@@ -20,7 +20,7 @@ const advance = (ms) => act(() => jest.advanceTimersByTime(ms));
 const nextTimer = () => act(() => jest.advanceTimersToNextTimer());
 const mouse = () => screen.queryByAltText("MOUSE 提示正確答案");
 const result = () => saveUnifiedResult.mock.calls[0][0].rawResult;
-const plate = (number, color) => screen.getByRole("button", { name: `${color === "red" ? "紅色" : color === "blue" ? "藍色" : "門牌"}${number}`, exact: true });
+const plate = (number, color) => screen.getByRole("button", { name: `${color === "red" ? "黃色" : color === "blue" ? "藍色" : "門牌"}${number}`, exact: true });
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -31,6 +31,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  jest.restoreAllMocks();
   jest.useRealTimers();
 });
 
@@ -54,6 +55,43 @@ function start(difficulty, finishStepVideo = false) {
   nextTimer(); // first enabled frame
 }
 
+const trainingPositions = () => Object.fromEntries(
+  screen.getAllByRole("button", { name: /^(門牌|黃色|藍色)\d+$/ }).map((button) => [
+    button.getAttribute("aria-label"),
+    [button.style.getPropertyValue("--door-x"), button.style.getPropertyValue("--door-y")].join(","),
+  ])
+);
+
+test.each([["beginner", 10], ["easy", 20]])("%s keeps shuffled positions through answers and hints, then reshuffles on replay", (difficulty, count) => {
+  const random = jest.spyOn(Math, "random").mockReturnValue(0);
+  start(difficulty);
+  const initialPositions = trainingPositions();
+  expect(Object.keys(initialPositions)).toHaveLength(count);
+  expect(new Set(Object.values(initialPositions)).size).toBe(count);
+
+  fireEvent.click(plate(2, difficulty === "easy" ? "blue" : "cream"));
+  advance(3000);
+  expect(mouse()).toBeInTheDocument();
+  expect(trainingPositions()).toEqual(initialPositions);
+
+  fireEvent.click(plate(1, difficulty === "easy" ? "red" : "cream"));
+  advance(420);
+  nextTimer();
+  expect(trainingPositions()).toEqual(initialPositions);
+
+  advance(20000);
+  fireEvent.click(screen.getByRole("button", { name: "跳過動畫" }));
+  random.mockReturnValue(.73);
+  fireEvent.click(screen.getByRole("button", { name: "再玩一次" }));
+  fireEvent.click(screen.getByRole("button", { name: "跳過動畫" }));
+  fireEvent.click(screen.getByRole("button", { name: "跳過步驟說明" }));
+  nextTimer();
+  const replayPositions = trainingPositions();
+  expect(Object.keys(replayPositions).sort()).toEqual(Object.keys(initialPositions).sort());
+  expect(new Set(Object.values(replayPositions)).size).toBe(count);
+  expect(replayPositions).not.toEqual(initialPositions);
+});
+
 test.each([
   ["beginner", false, false, 20],
   ["easy", false, true, 15],
@@ -64,23 +102,55 @@ test.each([
   start(difficulty, true);
   expect(screen.getByTestId("lb-training-stage")).toHaveAttribute("data-difficulty", difficulty);
   const numbers = Array.from({ length: 10 }, (_, index) => backward ? 10 - index : index + 1);
+  const targets = numbers.map((number) => plate(number, colored ? number % 2 ? "red" : "blue" : "cream"));
   numbers.forEach((number, index) => {
     advance(100);
     expect(mouse()).toBeNull();
-    fireEvent.click(plate(number, colored ? number % 2 ? "red" : "blue" : "cream"));
+    fireEvent.click(targets[index]);
     advance(420);
     if (index < 9) nextTimer();
   });
   expect(screen.getByTestId("lb-training-stage")).toHaveAttribute("data-phase", "reviewing");
   expect(screen.queryByRole("timer")).not.toBeInTheDocument();
   expect(screen.queryByText(/路線完成/)).not.toBeInTheDocument();
-  advance(5820);
+  const finish = screen.getByRole("button", { name: "完成作答" });
+  expect(finish).toBeDisabled();
+  fireEvent.click(finish);
+  targets.forEach((target, index) => {
+    expect(target).toHaveClass("lb-training-visited");
+    targets.slice(index + 1).forEach((upcoming) => expect(upcoming).not.toHaveClass("lb-training-visited"));
+    const walker = screen.getByAltText("綿羊奶奶走路");
+    expect(walker).toHaveClass("is-jumping");
+    expect(walker.style.getPropertyValue("--person-x")).toBe(target.style.getPropertyValue("--door-x"));
+    expect(walker.style.getPropertyValue("--person-y")).toBe(target.style.getPropertyValue("--door-y"));
+    expect(saveUnifiedResult).not.toHaveBeenCalled();
+    advance(700);
+  });
+  expect(screen.getByAltText("綿羊奶奶走路")).toHaveClass("is-entering-home");
+  advance(999);
+  expect(saveUnifiedResult).not.toHaveBeenCalled();
+  advance(1);
   expect(saveUnifiedResult).toHaveBeenCalledTimes(1);
   expect(result()).toMatchObject({ difficulty, completed: true, completedSteps: 10, promptCount: 0, finishReason: "completed", trainingLevel: ["beginner", "easy", "medium", "hard", "expert"].indexOf(difficulty) + 1 });
   expect(result().logs.map((log) => log.expectedNumber)).toEqual(numbers);
   expect(result().logs.every((log) => log.isCorrect && log.answerTimeLimit === seconds)).toBe(true);
   advance(30000);
   expect(saveUnifiedResult).toHaveBeenCalledTimes(1);
+});
+
+test("leaving during route review cancels the walk and prevents a late completion save", () => {
+  start("beginner");
+  for (let number = 1; number <= 10; number += 1) {
+    fireEvent.click(plate(number));
+    advance(420);
+    if (number < 10) nextTimer();
+  }
+  expect(screen.getByAltText("綿羊奶奶走路")).toBeInTheDocument();
+  advance(700);
+  cleanup();
+  advance(20000);
+  expect(saveUnifiedResult).not.toHaveBeenCalled();
+  expect(jest.getTimerCount()).toBe(0);
 });
 
 test("beginner waits exactly three seconds, counts one visible reminder, and times out at twenty seconds despite wrong clicks", () => {
