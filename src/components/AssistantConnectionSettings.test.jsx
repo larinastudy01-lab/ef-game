@@ -18,3 +18,13 @@ test("invalid destinations are rejected without changing API routing", () => {
   expect(screen.getByRole("alert")).toHaveTextContent("網址不正確");
   expect(clinicalApiUrl("/api/clinical-assistant")).toBe("/api/clinical-assistant");
 });
+
+test("an unconfigured Pages website opens the settings and explains how to connect", () => {
+  const location = jest.spyOn(window, "location", "get").mockReturnValue(new URL("https://larinastudy01-lab.github.io/ef-game/clinician-dashboard"));
+  try {
+    render(<AssistantConnectionSettings />);
+    expect(screen.getByRole("group")).toHaveAttribute("open");
+    expect(screen.getByText("AI 連線設定（尚未連線）")).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent(/Start-Local-AI.cmd/);
+  } finally { location.mockRestore(); }
+});

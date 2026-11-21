@@ -16,6 +16,10 @@ export function readClinicalApiBase() {
   return normalizeClinicalApiBase(stored ?? process.env.REACT_APP_CLINICAL_API_BASE_URL ?? "");
 }
 
+export function needsClinicalApiSetup() {
+  return typeof window !== "undefined" && window.location.hostname.endsWith(".github.io") && !readClinicalApiBase();
+}
+
 export function saveClinicalApiBase(value) {
   const normalized = normalizeClinicalApiBase(value);
   if (normalized) window.sessionStorage.setItem(CLINICAL_API_STORAGE_KEY, normalized);
@@ -34,6 +38,9 @@ export function clinicalApiUrl(path) {
   // or clinical records until the user explicitly saves that destination.
   if (suggestion !== null && normalizeClinicalApiBase(suggestion) !== base) {
     throw new Error("請先在 AI 連線設定中確認這次的服務網址。");
+  }
+  if (needsClinicalApiSetup()) {
+    throw new Error("尚未連線至本機 AI。請先展開「AI 連線設定」，貼上 Start-Local-AI.cmd 顯示的 HTTPS API 網址，再按「確認並使用此服務」。");
   }
   return `${base}${path}`;
 }

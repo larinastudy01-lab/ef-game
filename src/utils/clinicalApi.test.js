@@ -28,3 +28,13 @@ test("reset restores a deployment's configured default endpoint", () => {
     else process.env.REACT_APP_CLINICAL_API_BASE_URL = previous;
   }
 });
+
+test("GitHub Pages never receives clinical requests when the local API is not configured", () => {
+  const location = jest.spyOn(window, "location", "get").mockReturnValue(new URL("https://larinastudy01-lab.github.io/ef-game/clinician-dashboard"));
+  try {
+    expect(() => clinicalApiUrl("/api/clinical-assistant")).toThrow(/尚未連線至本機 AI/);
+    expect(() => clinicalApiUrl("/api/assistant-email")).toThrow(/Start-Local-AI.cmd/);
+    sessionStorage.setItem(CLINICAL_API_STORAGE_KEY, "https://confirmed.trycloudflare.com");
+    expect(clinicalApiUrl("/api/clinical-assistant")).toBe("https://confirmed.trycloudflare.com/api/clinical-assistant");
+  } finally { location.mockRestore(); }
+});

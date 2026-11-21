@@ -18,7 +18,7 @@ function ClinicianLoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const authExpired = Boolean(location.state?.authExpired);
-  const returnTo = /^\/research-tools(?:\?|$)/.test(location.state?.from || "") ? location.state.from : "/clinician-dashboard";
+  const returnTo = /^\/(?:research-tools|clinician-dashboard)(?:\?|$)/.test(location.state?.from || "") ? location.state.from : "/clinician-dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
