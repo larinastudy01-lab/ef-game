@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import homeBackground from "../asset/home/model_background.webp";
 import ReturnButton from "../asset/return.webp";
@@ -8,6 +8,8 @@ import resetIcon from "../asset/home/remove.webp";
 import { getResultsByPatientFromCloud } from "../lib/database";
 import { supabase } from "../lib/supabaseClient";
 import { AssistantEmailChoice, AssistantEmailStatus, useAssistantEmail } from "../components/AssistantEmailControls";
+import { AssistantConnectionSettings } from "../components/AssistantConnectionSettings";
+import { askParentAssistant, buildParentResultSnapshot } from "../utils/parentAssistant";
 import { resetTestRecords } from "../utils/resetTestRecords";
 import "../styles/ResultPage_PA.css";
 
@@ -597,59 +599,6 @@ const getAssistantQuestions = ({ result, gameInfo, warningInfo, childName }) => 
   },
 ];
 
-const normalizeChatText = (text = "") =>
-  String(text)
-    .trim()
-    .toLowerCase();
-
-const buildAssistantReply = ({ message, result, gameInfo, warningInfo, childName, assistantQuestions, selectedTermInfo }) => {
-  const normalizedMessage = normalizeChatText(message);
-  const dominantError = getDominantErrorKey(result.errorTypes);
-  const dominantErrorLabel = dominantError === "none" ? "沒有明顯集中錯誤" : errorLabelMap[dominantError] || dominantError;
-  const dominantErrorCount = dominantError === "none" ? 0 : Number(result.errorTypes[dominantError]) || 0;
-  const accuracyText = `${Math.round(result.accuracy)}%`;
-  const reactionText = result.avgReactionTime > 0 ? `${(result.avgReactionTime / 1000).toFixed(2)} 秒` : "尚無資料";
-  const difficultyText = difficultyTextMap[result.recommendedDifficulty] || result.recommendedDifficulty || "普通";
-
-  const matchedPreset = assistantQuestions.find((item) => normalizedMessage.includes(normalizeChatText(item.question)));
-  if (matchedPreset) return matchedPreset.answer;
-
-  if (!normalizedMessage) return "你可以直接輸入想問的問題，例如：孩子今天穩定嗎、錯誤代表什麼、下次怎麼練。";
-
-  if (/(正確|準確|accuracy|答對|分數|幾分)/i.test(normalizedMessage)) {
-    return `${childName} 這次正確率約 ${accuracyText}。${warningInfo.text} 如果想讓表現更穩，可以先維持「${difficultyText}」難度，觀察下一次是否也穩定。`;
-  }
-
-  if (/(反應|速度|時間|慢|快|reaction|rt)/i.test(normalizedMessage)) {
-    return `${childName} 這次平均反應時間是 ${reactionText}。反應慢不一定代表不好，也可能是孩子比較謹慎；建議搭配正確率與錯誤型態一起看。`;
-  }
-
-  if (/(錯|錯誤|亂點|點錯|沒點|未及時|timeout|miss|卡)/i.test(normalizedMessage)) {
-    if (dominantError === "none") return `${childName} 這次沒有明顯集中在某一種錯誤，可以繼續觀察正確率、反應時間與疲勞程度。`;
-    return `本次最明顯的是「${dominantErrorLabel}」，共 ${dominantErrorCount} 次。${TERM_DICTIONARY[dominantError]?.text || "建議下次持續觀察。"} 下次可以採用「${getSupportSuggestion(result)}」。`;
-  }
-
-  if (/(難度|調整|太難|太簡單|level|下一次|下次|怎麼練|訓練|建議)/i.test(normalizedMessage)) {
-    return `下次建議使用「${difficultyText}」難度，時間約 ${getRecommendedTrainingMinutes(result)} 分鐘。重點可以放在「${gameInfo.ability}」，並搭配「${getSupportSuggestion(result)}」。${getMainAdvice(result)}`;
-  }
-
-  if (/(累|疲勞|休息|不想玩|坐不住|情緒)/i.test(normalizedMessage)) {
-    return result.fatigueLevel === "high"
-      ? `${childName} 這次有比較明顯的疲勞訊號，建議先休息，下次縮短到 ${getRecommendedTrainingMinutes(result)} 分鐘左右。`
-      : `${childName} 目前沒有明顯高疲勞訊號，但仍可以觀察孩子是否揉眼睛、坐不住、反應變慢或不想繼續。`;
-  }
-
-  if (/(能力|認知|工作記憶|彈性|抑制|注意)/i.test(normalizedMessage)) {
-    return `這個任務主要觀察「${gameInfo.ability}」。以這次結果來看，建議下次觀察：${getObservationText(result)}`;
-  }
-
-  if (/(意思|代表|說明|看不懂|什麼是|名詞)/i.test(normalizedMessage)) {
-    return `${selectedTermInfo.title}：${selectedTermInfo.text}`;
-  }
-
-  return `我先用這次結果回答：${childName} 目前狀態是「${warningInfo.status}」，正確率約 ${accuracyText}，平均反應時間 ${reactionText}，主要觀察重點是「${getObservationText(result)}」。你也可以再問我「錯誤代表什麼」、「下次怎麼練」或「要不要調整難度」。`;
-};
-
 const ResultPage_PA = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -796,6 +745,8 @@ const ResultPage_PA = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
+  const [assistantLoading, setAssistantLoading] = useState(false);
+  const assistantRequest = useRef({ version: 0, controller: null });
   const assistantEmail = useAssistantEmail(currentChildId);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [applyMessage, setApplyMessage] = useState("");
@@ -871,14 +822,20 @@ const ResultPage_PA = () => {
   );
 
   useEffect(() => {
+    const pending = assistantRequest.current;
+    pending.version += 1;
+    pending.controller?.abort();
+    pending.controller = null;
+    setAssistantLoading(false);
     setChatMessages([
       {
         id: "welcome",
         role: "assistant",
-        text: `你好，我是 AI 小助手。你可以直接像聊天一樣問我 ${childName} 的結果、錯誤原因或下次訓練建議。`,
+        text: `你好，我是 AI 小助手。你可以詢問 ${childName} 的結果與觀察方向，我會參考孩子的紀錄與相關文獻，以白話說明並附上來源。這些說明不能取代專業評估。`,
       },
     ]);
-  }, [childName, gameId]);
+    return () => { pending.version += 1; pending.controller?.abort(); pending.controller = null; };
+  }, [childName, currentChildId, gameId]);
 
   const stopAssistantVoice = useCallback(() => {
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
@@ -906,35 +863,44 @@ const ResultPage_PA = () => {
     return () => stopAssistantVoice();
   }, [isChatOpen, selectedQuestion, stopAssistantVoice]);
 
-  const addChatQuestion = useCallback(
-    (questionText) => {
+  const addChatQuestion = async (questionText) => {
       const trimmedQuestion = String(questionText || "").trim();
-      if (!trimmedQuestion) return;
-
+      if (!trimmedQuestion || assistantRequest.current.controller) return;
+      if (!currentChildId) {
+        setChatMessages(messages => [...messages, { id: `error-${Date.now()}`, role: "assistant", error: true, text: "請先選擇孩子，再使用家長 AI 小助手。" }]);
+        return;
+      }
       const emailChoice = assistantEmail.takeChoice();
       const messageId = `assistant-${emailChoice.requestId}`;
-
-      const replyText = buildAssistantReply({
-        message: trimmedQuestion,
-        result,
-        gameInfo,
-        warningInfo,
-        childName,
-        assistantQuestions,
-        selectedTermInfo,
-      });
-
-      setChatMessages((messages) => [
-        ...messages,
-        { id: `user-${emailChoice.requestId}`, role: "user", text: trimmedQuestion },
-        { id: messageId, role: "assistant", text: replyText },
-      ]);
-      assistantEmail.deliver(emailChoice, { messageId, question: trimmedQuestion, answer: replyText });
+      const pending = assistantRequest.current;
+      const version = ++pending.version;
+      const controller = new AbortController();
+      pending.controller = controller;
+      const timer = setTimeout(() => controller.abort(), 190000);
+      setChatMessages(messages => [...messages, { id: `user-${emailChoice.requestId}`, role: "user", text: trimmedQuestion }]);
+      setAssistantLoading(true);
       setSelectedQuestion(assistantQuestions.find((item) => item.question === trimmedQuestion)?.id || selectedQuestion);
       setChatInput("");
-    },
-    [assistantQuestions, assistantEmail, childName, gameInfo, result, selectedQuestion, selectedTermInfo, warningInfo],
-  );
+      try {
+        const raw = state.resultData || preferredHistoryRecord?.result || getStoredResult(gameId) || latestStored?.result || {};
+        const reply = await askParentAssistant({
+          patientId: currentChildId, question: trimmedQuestion, gameKey: gameId,
+          resultId: raw.resultId || raw.id || null,
+          currentResult: buildParentResultSnapshot(raw, gameId, currentChildId),
+          conversationHistory: chatMessages.filter(message => message.id !== "welcome" && !message.error).slice(-6).map(message => ({ role: message.role, content: message.text })),
+        }, { signal: controller.signal, expectedUserId: emailChoice.userId });
+        if (pending.version !== version) return;
+        setChatMessages(messages => [...messages, { id: messageId, role: "assistant", text: reply.answer, sources: reply.sources, ragUsed: reply.ragUsed, responseMode: reply.responseMode }]);
+        assistantEmail.deliver(emailChoice, { messageId, question: trimmedQuestion, answer: reply.answer, sources: reply.sources, fallback: Boolean(reply.fallback) });
+      } catch (error) {
+        if (pending.version !== version) return;
+        const text = error.name === "AbortError" ? "回答逾時，請確認本機 AI 已啟動後再試。" : error instanceof TypeError ? "無法連線至家長 AI，請確認啟動視窗的 HTTPS 網址及 AI 連線設定。" : error.message;
+        setChatMessages(messages => [...messages, { id: messageId, role: "assistant", error: true, text }]);
+      } finally {
+        clearTimeout(timer);
+        if (pending.version === version) { pending.controller = null; setAssistantLoading(false); }
+      }
+  };
 
   const handleChatSubmit = (event) => {
     event.preventDefault();
@@ -1451,13 +1417,23 @@ const ResultPage_PA = () => {
           </div>
 
           <div className="chat-body">
+            <AssistantConnectionSettings disabled={assistantLoading} />
             <div className="chat-message-list">
               {chatMessages.map((message) => (
                 <div key={message.id} className={`chat-message ${message.role}`}>
-                  <p>{message.text}</p>
+                  <p role={message.error ? "alert" : undefined}>{message.text}</p>
+                  {message.ragUsed && <small>{message.responseMode === "retrieval" ? "文獻原文摘錄（本次未由 AI 生成回答）" : "已參考研究文獻"}</small>}
+                  {message.sources?.length > 0 && <details>
+                    <summary>參考文獻（{message.sources.length}）</summary>
+                    <ol>{message.sources.map((source, index) => <li key={source.id || index}>
+                      {source.url ? <a href={source.url} target="_blank" rel="noreferrer">{source.title}</a> : source.title}
+                      {[source.author, source.year, source.page ? `第 ${source.page} 頁` : ""].filter(Boolean).length > 0 && <small> — {[source.author, source.year, source.page ? `第 ${source.page} 頁` : ""].filter(Boolean).join("・")}</small>}
+                    </li>)}</ol>
+                  </details>}
                   <AssistantEmailStatus delivery={assistantEmail.deliveries[message.id]} onRetry={() => assistantEmail.retry(message.id)} />
                 </div>
               ))}
+              {assistantLoading && <p role="status">正在檢索文獻並產生回答…</p>}
             </div>
 
             <div className="quick-question-list" aria-label="常見問題">
@@ -1467,6 +1443,7 @@ const ResultPage_PA = () => {
                   type="button"
                   className={selectedQuestion === item.id ? "active" : ""}
                   onClick={() => addChatQuestion(item.question)}
+                  disabled={assistantLoading}
                 >
                   {item.question}
                 </button>
@@ -1488,7 +1465,7 @@ const ResultPage_PA = () => {
             </div>
           </div>
 
-          <AssistantEmailChoice controller={assistantEmail} />
+          <AssistantEmailChoice controller={assistantEmail} disabled={assistantLoading} />
           <form className="chat-input-row" onSubmit={handleChatSubmit}>
             <input
               type="text"
@@ -1497,8 +1474,9 @@ const ResultPage_PA = () => {
               placeholder="輸入問題，例如：下次怎麼練？"
               aria-label="輸入想問 AI 小助手的問題"
               maxLength={8000}
+              disabled={assistantLoading}
             />
-            <button type="submit">送出</button>
+            <button type="submit" disabled={assistantLoading}>{assistantLoading ? "分析中…" : "送出"}</button>
             <button type="button" className="voice-control-button" onClick={isSpeaking ? stopAssistantVoice : speakAssistantAnswer}>
               {isSpeaking ? "停止" : "朗讀"}
             </button>

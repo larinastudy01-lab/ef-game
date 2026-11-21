@@ -1275,15 +1275,16 @@ export function createClinicalAssistantHandler({
   createResponse = createModelResponse,
   isConfigured = () => getModelSettings().configured,
   modelSettings = () => getModelSettings(),
+  instructions = SYSTEM_INSTRUCTIONS,
 } = {}) {
-  const dependencies = { retrieveKnowledge, createResponse, isConfigured, modelSettings };
+  const dependencies = { retrieveKnowledge, createResponse, isConfigured, modelSettings, instructions };
   return (req, res) => handler(req, res, dependencies);
 }
 
 async function handler(
   req,
   res,
-  { retrieveKnowledge, createResponse, isConfigured, modelSettings }
+  { retrieveKnowledge, createResponse, isConfigured, modelSettings, instructions }
 ) {
   if (req.method === "OPTIONS") {
     return res
@@ -1435,7 +1436,7 @@ async function handler(
             "gpt-5-mini",
 
           instructions:
-            SYSTEM_INSTRUCTIONS,
+            instructions,
 
           input: buildInput({
             question,

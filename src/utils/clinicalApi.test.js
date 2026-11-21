@@ -1,4 +1,4 @@
-import { CLINICAL_API_STORAGE_KEY, clinicalApiUrl, normalizeClinicalApiBase, saveClinicalApiBase } from "./clinicalApi";
+import { CLINICAL_API_STORAGE_KEY, captureClinicalApiSuggestion, clinicalApiUrl, normalizeClinicalApiBase, readClinicalApiSuggestion, saveClinicalApiBase } from "./clinicalApi";
 beforeEach(() => { sessionStorage.clear(); window.history.replaceState({}, "", "/"); });
 test("default API stays same-origin; only HTTPS or local HTTP origins are accepted", () => {
   expect(clinicalApiUrl("/api/clinical-assistant")).toBe("/api/clinical-assistant");
@@ -37,4 +37,14 @@ test("GitHub Pages never receives clinical requests when the local API is not co
     sessionStorage.setItem(CLINICAL_API_STORAGE_KEY, "https://confirmed.trycloudflare.com");
     expect(clinicalApiUrl("/api/clinical-assistant")).toBe("https://confirmed.trycloudflare.com/api/clinical-assistant");
   } finally { location.mockRestore(); }
+});
+
+test("a suggested service survives family login and game navigation but still requires confirmation", () => {
+  captureClinicalApiSuggestion("?aiEndpoint=https%3A%2F%2Ffamily.trycloudflare.com");
+  window.history.replaceState({}, "", "/child-select");
+  expect(readClinicalApiSuggestion()).toBe("https://family.trycloudflare.com");
+  expect(() => clinicalApiUrl("/api/parent-assistant")).toThrow(/確認/);
+  saveClinicalApiBase("https://family.trycloudflare.com");
+  expect(readClinicalApiSuggestion()).toBeNull();
+  expect(clinicalApiUrl("/api/parent-assistant")).toBe("https://family.trycloudflare.com/api/parent-assistant");
 });

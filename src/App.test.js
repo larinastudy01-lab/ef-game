@@ -1,7 +1,10 @@
+/* Native-root tests use React.act with DOM events rather than RTL's deprecated act wrapper. */
+/* eslint-disable testing-library/no-dom-import, testing-library/no-unnecessary-act */
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { fireEvent, screen } from "@testing-library/dom";
 import App from "./App";
+import { clinicalApiUrl, readClinicalApiSuggestion } from "./utils/clinicalApi";
 
 jest.mock("./components/ResultSyncStatus", () => () => null);
 
@@ -29,6 +32,19 @@ test("renders the home route", async () => {
 
   act(() => root.unmount());
   container.remove();
+});
+
+test("the app retains the suggested AI service after a family entry link navigates away", async () => {
+  sessionStorage.clear();
+  window.history.replaceState({}, "", "/?aiEndpoint=https%3A%2F%2Ffamily.trycloudflare.com");
+  const container = document.createElement("div"); document.body.appendChild(container);
+  const root = createRoot(container);
+  await act(async () => { root.render(<App />); });
+  expect(await screen.findByText("首頁")).toBeInTheDocument();
+  await act(async () => { window.history.pushState(null, "", "/"); window.dispatchEvent(new PopStateEvent("popstate")); });
+  expect(readClinicalApiSuggestion()).toBe("https://family.trycloudflare.com");
+  expect(() => clinicalApiUrl("/api/parent-assistant")).toThrow(/確認/);
+  act(() => root.unmount()); container.remove(); sessionStorage.clear();
 });
 
 test("typing ... opens the QA menu and non-game navigation stays inside it", async () => {

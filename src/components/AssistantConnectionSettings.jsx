@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { needsClinicalApiSetup, readClinicalApiBase, saveClinicalApiBase } from "../utils/clinicalApi";
+import { needsClinicalApiSetup, readClinicalApiBase, readClinicalApiSuggestion, saveClinicalApiBase } from "../utils/clinicalApi";
 
 export function AssistantConnectionSettings({ disabled = false }) {
-  const suggestion = new URLSearchParams(window.location.search).get("aiEndpoint");
+  const suggestion = readClinicalApiSuggestion();
   const [draft, setDraft] = useState(() => suggestion ?? readClinicalApiBase());
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");

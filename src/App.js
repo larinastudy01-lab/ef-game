@@ -1,4 +1,5 @@
 import { ProfessionalWorkspaceProvider } from "./components/professional/ProfessionalWorkspaceContext";
+import { captureClinicalApiSuggestion } from "./utils/clinicalApi";
 import React, {
   lazy,
   startTransition,
@@ -155,6 +156,8 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const isGameTesting = useTemporaryGameTesting();
+
+  useEffect(() => { captureClinicalApiSuggestion(location.search); }, [location.search]);
 
   useEffect(() => {
     document.title = "蒐秘密";

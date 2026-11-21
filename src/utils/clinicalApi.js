@@ -1,4 +1,19 @@
 export const CLINICAL_API_STORAGE_KEY = "efGame.clinicalApiBaseUrl";
+export const CLINICAL_API_SUGGESTION_KEY = "efGame.suggestedClinicalApiBaseUrl";
+
+export function captureClinicalApiSuggestion(search) {
+  const candidate = new URLSearchParams(search).get("aiEndpoint");
+  if (candidate === null) return;
+  try {
+    const base = normalizeClinicalApiBase(candidate);
+    if (base) window.sessionStorage.setItem(CLINICAL_API_SUGGESTION_KEY, base);
+  } catch { /* Invalid links cannot alter the confirmed service. */ }
+}
+
+export function readClinicalApiSuggestion() {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("aiEndpoint") ?? window.sessionStorage.getItem(CLINICAL_API_SUGGESTION_KEY);
+}
 
 export function normalizeClinicalApiBase(value) {
   const text = String(value || "").trim();
@@ -24,6 +39,7 @@ export function saveClinicalApiBase(value) {
   const normalized = normalizeClinicalApiBase(value);
   if (normalized) window.sessionStorage.setItem(CLINICAL_API_STORAGE_KEY, normalized);
   else window.sessionStorage.removeItem(CLINICAL_API_STORAGE_KEY);
+  window.sessionStorage.removeItem(CLINICAL_API_SUGGESTION_KEY);
   const url = new URL(window.location.href);
   url.searchParams.delete("aiEndpoint");
   window.history.replaceState(window.history.state, "", url);
@@ -33,7 +49,7 @@ export function saveClinicalApiBase(value) {
 export function clinicalApiUrl(path) {
   if (!path.startsWith("/api/")) throw new Error("不支援的服務路徑。");
   const base = readClinicalApiBase();
-  const suggestion = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("aiEndpoint") : null;
+  const suggestion = readClinicalApiSuggestion();
   // A shared URL may suggest an endpoint, but cannot redirect login tokens
   // or clinical records until the user explicitly saves that destination.
   if (suggestion !== null && normalizeClinicalApiBase(suggestion) !== base) {

@@ -79,6 +79,7 @@ if (-not (Adopt-Listener 'frontend' 3000 $frontFile)) { Start-Managed 'frontend'
 $null = Wait-Http 'http://127.0.0.1:3000/' 180
 $endpoint = ''
 $shareUrl = ''
+$parentShareUrl = ''
 if (-not $LocalOnly) {
     $cloudflared = Join-Path $projectRoot '.local/tools/cloudflared.exe'
     Start-Managed 'tunnel' $cloudflared @('tunnel','--no-autoupdate','--protocol','http2','--url',"http://127.0.0.1:$($config.apiPort)") $cloudflared
@@ -90,8 +91,9 @@ if (-not $LocalOnly) {
     } while ((Get-Date) -lt $deadline)
     if (-not $endpoint) { throw 'The HTTPS tunnel did not start. Local AI is available; check tunnel.stderr.log.' }
     if ($config.siteUrl) { $shareUrl = $config.siteUrl.TrimEnd('/') + '/clinician-dashboard?aiEndpoint=' + [Uri]::EscapeDataString($endpoint) }
+    if ($config.siteUrl) { $parentShareUrl = $config.siteUrl.TrimEnd('/') + '/login?aiEndpoint=' + [Uri]::EscapeDataString($endpoint) }
 }
-$connection = @{ startedAt = (Get-Date).ToUniversalTime().ToString('o'); localUrl = 'http://localhost:3000/clinician-dashboard'; endpoint = $endpoint; githubUrl = $shareUrl }
+$connection = @{ startedAt = (Get-Date).ToUniversalTime().ToString('o'); localUrl = 'http://localhost:3000/clinician-dashboard'; endpoint = $endpoint; githubUrl = $shareUrl; parentGithubUrl = $parentShareUrl }
 $connection | ConvertTo-Json | Set-Content -LiteralPath 'artifacts/local-ai/connection.json' -Encoding UTF8
 Write-Host ''
 Write-Host 'Local AI is ready. No OpenAI credits are used.' -ForegroundColor Green
@@ -99,6 +101,7 @@ Write-Host "Local website: $($connection.localUrl)"
 if ($endpoint) {
     Write-Host "HTTPS API: $endpoint"
     Write-Host "GitHub website link: $shareUrl"
+    Write-Host "Parent website link: $parentShareUrl"
     Write-Host 'Open AI connection settings and confirm this service URL in the browser tab.'
     Write-Host 'The GitHub website must include the updated frontend. The temporary URL changes after restarting the tunnel.'
 }

@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import { getModelSettings } from "./model-provider.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { ASSISTANT_EMAIL_ROLES, createAssistantEmailHandler } from "./assistant-email.mjs";
+import { PARENT_ASSISTANT_ROLES, createParentAssistantHandler } from "./parent-assistant.mjs";
 import {
   createClinicalAuthMiddleware,
   createCorsOptions,
@@ -30,6 +31,8 @@ const authClient = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE
     })
   : null;
 const requireClinicalUser = createClinicalAuthMiddleware({ supabase: authClient });
+const requireParentUser = createClinicalAuthMiddleware({ supabase: authClient, allowedRoles: PARENT_ASSISTANT_ROLES });
+const parentAssistantHandler = createParentAssistantHandler({ supabase: authClient });
 const rateLimit = createRateLimiter({
   windowMs: readPositiveInteger(process.env.CLINICAL_API_RATE_WINDOW_MS, 60_000),
   max: readPositiveInteger(process.env.CLINICAL_API_RATE_MAX, 20),
@@ -75,6 +78,8 @@ app.options("/api/clinical-assistant", clinicalCors);
 app.options("/clinical-assistant", clinicalCors);
 app.post("/api/clinical-assistant", ...secureClinicalRoute);
 app.post("/clinical-assistant", ...secureClinicalRoute);
+app.options("/api/parent-assistant", clinicalCors);
+app.post("/api/parent-assistant", clinicalCors, requireParentUser, rateLimit, parentAssistantHandler);
 app.options("/api/assistant-email", clinicalCors);
 app.post("/api/assistant-email", clinicalCors, requireAssistantUser, emailRateLimit, assistantEmailHandler);
 
