@@ -1,5 +1,7 @@
 import { supabase } from "../lib/supabaseClient";
 
+import { clinicalApiUrl } from "./clinicalApi";
+
 export function createAssistantQuestionId() {
   return window.crypto?.randomUUID?.() || `question-${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
 }
@@ -13,7 +15,7 @@ export async function sendAssistantQuestionEmail({ userId, record }, { fetchImpl
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20_000);
   try {
-    const response = await fetchImpl("/api/assistant-email", {
+    const response = await fetchImpl(clinicalApiUrl("/api/assistant-email"), {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ ...record, sendEmail: true }),

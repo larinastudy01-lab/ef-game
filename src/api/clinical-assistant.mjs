@@ -1,16 +1,9 @@
-import OpenAI from "openai";
+import { createModelResponse, getModelSettings } from "./model-provider.mjs";
 import { createClient } from "@supabase/supabase-js";
 import {
   pipeline,
   env,
 } from "@huggingface/transformers";
-
-let openai = null;
-
-async function createModelResponse(request) {
-  openai ||= new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  return openai.responses.create(request);
-}
 
 env.cacheDir =
   process.env.HUGGINGFACE_CACHE_DIR ||
@@ -1280,16 +1273,17 @@ function getSafeErrorMessage(
 export function createClinicalAssistantHandler({
   retrieveKnowledge = searchKnowledgeBase,
   createResponse = createModelResponse,
-  isConfigured = () => Boolean(process.env.OPENAI_API_KEY),
+  isConfigured = () => getModelSettings().configured,
+  modelSettings = () => getModelSettings(),
 } = {}) {
-  const dependencies = { retrieveKnowledge, createResponse, isConfigured };
+  const dependencies = { retrieveKnowledge, createResponse, isConfigured, modelSettings };
   return (req, res) => handler(req, res, dependencies);
 }
 
 async function handler(
   req,
   res,
-  { retrieveKnowledge, createResponse, isConfigured }
+  { retrieveKnowledge, createResponse, isConfigured, modelSettings }
 ) {
   if (req.method === "OPTIONS") {
     return res
@@ -1315,9 +1309,8 @@ async function handler(
    * Hugging Face Embedding 不需要
    * OPENAI_API_KEY。
    *
-   * 但最後產生臨床回答仍然使用
-   * OpenAI Responses API，
-   * 因此這裡仍需要檢查。
+   * 本機 Ollama 與純檢索不需要 OpenAI 金鑰。
+   * 選用 OpenAI 時才檢查其設定。
    */
   if (
     !isConfigured()
@@ -1431,8 +1424,10 @@ async function handler(
         ragDocuments
       );
 
-    const response =
-      await createResponse(
+    const settings = modelSettings();
+    let response;
+    try {
+      response = await createResponse(
         {
           model:
             process.env
@@ -1458,6 +1453,22 @@ async function handler(
             1_800,
         }
       );
+    } catch (error) {
+      if (!(settings.provider === "retrieval" || settings.retrievalFallback)) throw error;
+      if (!ragDocuments.length) {
+        return res.status(503).json({ error: "目前無法產生 AI 回答，且未找到適合的文獻。請確認本機 AI 已啟動後再試。", sources: [], ragUsed: false, ragStatus: ragError ? "unavailable" : "no_match" });
+      }
+      console.warn("Using retrieval-only response:", { code: error?.code || "MODEL_UNAVAILABLE" });
+      return res.status(200).json({
+        answer: [
+          "【文獻檢索結果】",
+          "本次未由 AI 生成回答。以下為相關文獻的原文摘錄，尚未針對個案資料進行分析。",
+          ...ragDocuments.map((document, index) => `\n[來源 ${index + 1}] ${document.title}\n${document.content.slice(0, 900)}${document.content.length > 900 ? "…" : ""}`),
+        ].join("\n"),
+        sources: buildResponseSources(ragDocuments), ragUsed: true, ragStatus: "success",
+        fallback: true, responseMode: "retrieval", generationStatus: settings.provider === "retrieval" ? "disabled" : "unavailable",
+      });
+    }
 
     const answer = safeString(
       response.output_text,
@@ -1466,7 +1477,7 @@ async function handler(
 
     if (!answer) {
       console.error(
-        "OpenAI response did not contain output_text:",
+        "Model response did not contain output_text:",
         response.id
       );
 
@@ -1509,6 +1520,10 @@ async function handler(
             : undefined,
 
         sources,
+        responseMode: "generated",
+        provider: settings.provider,
+        generationStatus: "success",
+        fallback: false,
       });
   } catch (error) {
     console.error(

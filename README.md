@@ -1000,8 +1000,13 @@ npm run server
 | --- | --- | --- |
 | `REACT_APP_SUPABASE_URL`、`REACT_APP_SUPABASE_ANON_KEY` | `.env`／前端建置環境 | 公開連線參數；資料權限由 RLS 保護 |
 | `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY` | `.env.rag`／伺服器環境 | 後端與匯入腳本使用，不可加 `REACT_APP_` 前綴或放入前端 |
-| `OPENAI_API_KEY` | `.env.rag`／伺服器環境 | 醫療 AI 必填；未設定時不要啟動 AI API |
+| `AI_PROVIDER` | `.env.rag`／伺服器環境 | `ollama` 使用本機模型、`retrieval` 只列文獻摘錄；未設定時沿用 `openai` |
+| `OPENAI_API_KEY` | `.env.rag`／伺服器環境 | 僅 `AI_PROVIDER=openai` 需要；本機模型不消耗 OpenAI 額度 |
 | `OPENAI_MODEL` | 同上 | 程式預設 `gpt-5-mini`，需使用帳號可存取的模型 |
+| `OLLAMA_MODEL`、`OLLAMA_BASE_URL` | 同上 | 預設 `qwen3:4b-instruct-2507-q4_K_M`、`http://127.0.0.1:11434`；模型介接只接受本機位址 |
+| `OLLAMA_CONTEXT_LENGTH`、`OLLAMA_TIMEOUT_MS` | 同上 | 預設 16384 tokens、180000 ms；超出視窗的資料不會被默默截斷 |
+| `AI_RETRIEVAL_FALLBACK` | 同上 | `true` 時模型無法回答改列文獻原文，明確標示未由 AI 整理；無文獻時回傳不可用 |
+| `REACT_APP_CLINICAL_API_BASE_URL` | 前端建置環境 | 選填固定 HTTPS 後端網址；臨時網址可在 AI 連線設定中逐分頁確認 |
 | `ALLOWED_ORIGINS` | `.env`／伺服器環境 | 逗號分隔來源；本機明確設定時也加入 CRA 代理改寫後的 `http://localhost:3001`；正式環境只填部署的 HTTPS origin，不含 `/ef-game` 等路徑 |
 | `PORT`、`CLINICAL_API_PORT` | 本機 `.env`／伺服器環境 | 本機前端 `PORT=3000`、API `CLINICAL_API_PORT=3001`；API 優先讀取 `CLINICAL_API_PORT`，未設定時沿用部署環境的 `PORT`，兩者皆無則用 3001 |
 | `CLINICAL_API_REQUEST_LIMIT` | `.env`／伺服器環境 | 預設 `256kb` |
@@ -1018,6 +1023,33 @@ npm run server
 API 先載入 `.env` 再載入 `.env.rag`，dotenv 不覆蓋既有值；同名值以程序環境、`.env`、`.env.rag` 的順序優先。匯入與搜尋腳本只載入 `.env.rag`。不要在兩份檔案填不同專案的同名設定。
 
 React 設定於啟動／建置時讀取，修改後需重啟或重新建置；正式建置也會讀取 `.env.production`，部署前應核對其公開參數。`.env`、`.env.rag` 已忽略提交；範例檔只能保留 placeholder。
+
+### 13.3 Windows 一鍵啟動本機 AI
+
+完成 Node 依賴及 Supabase 設定後，雙擊根目錄的 `Start-Local-AI.cmd`。首次會下載官方 Ollama 可攜版、cloudflared 與 Qwen3 4B 指令版；程式與模型保留在忽略提交的 `.local/`，不需要系統安裝或 OpenAI 額度。分詞器快取在 `.cache/`。後續啟動會重用已下載的工具與模型。
+
+模型固定為 `qwen3:4b-instruct-2507-q4_K_M`。Ollama 目前的 `qwen3:4b` 別名指向 Thinking 版本；使用固定的指令版可避免長篇推理耗盡輸出上限。
+
+啟動工具會設定 `.env.rag` 的本機模型選項，啟動 Ollama、Node API、前端與臨時 HTTPS 通道，開啟 `http://localhost:3000/clinician-dashboard`。模型與 API 只監聽 loopback；通道只轉送有登入角色驗證及速率限制的 Node API，不公開 Ollama。
+
+需要讓 GitHub Pages 網頁使用本機 AI 時：
+
+1. 先將本次前端更新部署到 Pages。
+2. 使用啟動視窗顯示的 GitHub 網站連結登入，開啟 AI 小助手。
+3. 展開「AI 連線設定」，確認顯示的 HTTPS 服務網址後按「確認並使用此服務」。分享連結只會預填網址，在確認前不會將登入憑證或個案資料送到新服務。
+4. 啟動視窗也會列出純服務網址，可手動貼到該設定。設定只保留於目前瀏覽器分頁，並同時用於臨床問答與問答寄信。
+
+Cloudflare Quick Tunnel 適合開發與專題展示，不保證持續運行，每次重建通道網址會改變。啟動工具會在本專案 API 運行期間暫時避免自動睡眠，螢幕仍可關閉，不會永久修改 Windows 電源設定。電腦需保持開機與連網，仍需避免合蓋或手動睡眠。停用服務請雙擊 `Stop-Local-AI.cmd`。停止工具只處理本專案記錄且已核對命令列的程序。日誌及當次連線資訊在 `artifacts/local-ai/`。
+
+只在本機展示、不開 HTTPS 通道時：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-ai/start.ps1 -LocalOnly
+```
+
+模型第一次載入可能較慢。回答出現「文獻檢索結果」代表只提供原文摘錄，不能當作已完成的 AI 個案分析；來源與適用性仍需人工確認。
+
+官方文件：[Ollama Windows](https://docs.ollama.com/windows)、[Qwen3 4B 指令版](https://ollama.com/library/qwen3:4b-instruct-2507-q4_K_M)、[Cloudflare Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/)。
 
 <a id="database-setup"></a>
 ## 14. 資料庫建立與升級
@@ -1066,9 +1098,9 @@ API 最終篩選門檻 0.45、最多使用 6 份文件、單份文字上限 4000
 
 [GitHub Actions](.github/workflows/deploy-pages.yml) 在推送 `main` 或手動觸發時，使用 Node 20、`npm ci --legacy-peer-deps --no-audit --no-fund`，設定 `PUBLIC_URL=/ef-game`，建置並檢查 `build/`，複製 `index.html` 為 `404.html` 後發布 GitHub Pages。Repository Pages 需啟用 GitHub Actions。此流程不部署 Node API、schema 或知識庫，亦不依賴 `site/`。
 
-**醫療端目前固定請求同 origin 的 `/api/clinical-assistant`，沒有可設定的外部 API base URL。** 完整上線需在能反向代理的 HTTPS 網域提供前端，將 `/api/clinical-assistant` 與問答寄信的 `/api/assistant-email` 轉送至 Node API，其他前端路由 fallback 到 `index.html`。部署在網域根目錄時也要調整 `PUBLIC_URL`。Node 使用 `npm run server`，另設 production 環境、後端金鑰與允許來源。
+醫療端預設請求同 origin 的 `/api/clinical-assistant` 與 `/api/assistant-email`。外部 Node API 可透過建置變數 `REACT_APP_CLINICAL_API_BASE_URL` 設定固定網址，或使用 AI 連線設定確認本機展示工具產生的臨時 HTTPS 網址。也可在同一 HTTPS 網域反向代理這兩個路徑至 Node API，其他前端路由 fallback 到 `index.html`。部署在網域根目錄時需調整 `PUBLIC_URL`。Node 使用 `npm run server`，另設 production 環境、後端金鑰與允許來源。
 
-純 GitHub Pages 不會執行開發 proxy；若保留 Pages，完整 AI 連線仍需程式及部署架構調整，現況只能使用可用的前端備援。設定 CORS 本身不會改變請求目的地。
+純 GitHub Pages 不會執行開發 proxy 或 Ollama。保留 Pages 時必須另外啟動 Node API 與模型，並提供可連線的 HTTPS API 位址。設定 CORS 本身不會改變請求目的地。
 
 發布後驗證首頁、直接開啟深層網址、影音、登入、兒童切換、結果保存、醫療授權與 RAG 引用。前端建置僅注入公開 Supabase 參數，不注入服務金鑰。
 

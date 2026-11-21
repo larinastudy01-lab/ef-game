@@ -2,6 +2,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import { getModelSettings } from "./model-provider.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { ASSISTANT_EMAIL_ROLES, createAssistantEmailHandler } from "./assistant-email.mjs";
 import {
@@ -48,6 +49,10 @@ app.use(express.json({ limit: REQUEST_LIMIT }));
 app.get("/", (req, res) => {
   res.send("Clinical Assistant API is running.");
 });
+app.get("/healthz", (req, res) => {
+  const settings = getModelSettings();
+  res.json({ status: "ok", provider: settings.provider, model: settings.model });
+});
 
 const handleClinicalAssistant = async (req, res) => {
   try {
@@ -81,7 +86,7 @@ app.use((error, req, res, next) => {
   return next(error);
 });
 
-const server = app.listen(PORT, (error) => {
+const server = app.listen(PORT, process.env.CLINICAL_API_HOST || undefined, (error) => {
   if (error) {
     console.error(`Clinical assistant server failed to start (${error.code || "unknown"}) on port ${PORT}.`);
     process.exitCode = 1;

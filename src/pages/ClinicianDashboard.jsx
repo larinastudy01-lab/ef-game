@@ -13,6 +13,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { AssistantEmailChoice, AssistantEmailStatus, useAssistantEmail } from "../components/AssistantEmailControls";
+import { AssistantConnectionSettings } from "../components/AssistantConnectionSettings";
+import { clinicalApiUrl } from "../utils/clinicalApi";
 import { dedupeClinicalRecords } from "../utils/resultIdentity";
 import { getResultCompletionStatus, isCompletedResult } from "../utils/resultCompletion";
 import { getSrtClinicalMetrics } from "../utils/srtClinicalMetrics";
@@ -1633,7 +1635,7 @@ function ClinicianDashboard() {
       };
 
       try {
-        const response = await fetch("/api/clinical-assistant", {
+        const response = await fetch(clinicalApiUrl("/api/clinical-assistant"), {
           method: "POST",
           headers: await getClinicalApiHeaders(clinicianId),
           body: JSON.stringify(payload),
@@ -1854,7 +1856,7 @@ function ClinicianDashboard() {
     const assistantContext = buildAssistantContext();
     const ragQuestion = buildRagEnhancedQuestion(question, assistantContext);
 
-    const response = await fetch("/api/clinical-assistant", {
+    const response = await fetch(clinicalApiUrl("/api/clinical-assistant"), {
       method: "POST",
       headers: await getClinicalApiHeaders(clinicianId),
       body: JSON.stringify({
@@ -1900,6 +1902,8 @@ function ClinicianDashboard() {
       answer,
       sources,
       ragUsed: Boolean(data?.ragUsed ?? data?.rag_used ?? sources.length > 0),
+      fallback: Boolean(data?.fallback),
+      responseMode: data?.responseMode || "generated",
     };
   };
 
@@ -1962,6 +1966,7 @@ function ClinicianDashboard() {
         sources: result?.sources || [],
         ragUsed: Boolean(result?.ragUsed),
         fallback: Boolean(result?.fallback),
+        responseMode: result?.responseMode,
       };
       setAssistantMessages((previous) => [...previous, answerMessage]);
       assistantEmail.deliver(emailChoice, {
@@ -2703,6 +2708,7 @@ function ClinicianDashboard() {
               </div>
             )}
 
+            <AssistantConnectionSettings disabled={assistantLoading} />
             <AssistantEmailChoice controller={assistantEmail} disabled={assistantLoading} />
             <div style={assistantQuickRowStyle}>
               {selectedTrial && <button onClick={() => sendAssistantQuestion("請解釋這張圖片與此 trial 紀錄")} style={assistantChipStyle}>解釋目前圖片</button>}
@@ -2768,7 +2774,7 @@ function ClinicianDashboard() {
                       </div>
                     )}
                     {message.role === "assistant" && message.fallback && (
-                      <div style={assistantFallbackStyle}>目前使用系統內建資料整理，未引用外部專業知識庫。</div>
+                      <div style={assistantFallbackStyle}>{message.responseMode === "retrieval" ? "本次顯示文獻原文摘錄，尚未由 AI 整理或分析個案。" : "目前使用系統內建資料整理，未引用外部專業知識庫。"}</div>
                     )}
                   </div>
                 </div>
